@@ -54,7 +54,7 @@ namespace BitSorter.Sim
     }
 
     /// <summary>Builds one scope's <see cref="RtlNetlist"/>: what <see cref="Expr.ToRtl"/> calls back, node by node.</summary>
-    internal sealed class RtlBuilder
+    internal sealed partial class RtlBuilder
     {
         private readonly Design _design;
         private readonly int _scope;
@@ -69,6 +69,9 @@ namespace BitSorter.Sim
         private readonly Dictionary<int, int> _netOfSignal = new Dictionary<int, int>();
         private readonly Dictionary<Expr, int> _made = new Dictionary<Expr, int>();
         private int _unnamed;
+
+        // While a process is opened, what each signal written so far on the path being followed holds: what a read sees.
+        private Dictionary<int, int> _overlay;
 
         public RtlBuilder(Design design, int scope)
         {
@@ -163,6 +166,9 @@ namespace BitSorter.Sim
         /// <summary>The net of an expression's value, each node made once: two places using one value share its cell.</summary>
         public int Of(Expr e)
         {
+            // On a process's path a node's value depends on what the path has written, so it is made again each time.
+            if (_overlay != null)
+                return e.ToRtl(this);
             if (_made.TryGetValue(e, out int net))
                 return net;
             net = e.ToRtl(this);
@@ -196,6 +202,14 @@ namespace BitSorter.Sim
         /// <summary>The net of signal <paramref name="signal"/>, made the first time it is asked for.</summary>
         public int Read(int signal, int width)
         {
+            if (_overlay != null)
+            {
+                if (_overlay.TryGetValue(signal, out int written))
+                    return written;
+                if (_unbound != null && _unbound.Contains(signal))
+                    Unbound(signal);
+                _readHere?.Add(signal);
+            }
             if (_netOfSignal.TryGetValue(signal, out int net))
                 return net;
             net = NewNet(_design.Signals[signal].Width, NameOf(signal), signal);
@@ -304,9 +318,14 @@ namespace BitSorter.Sim
             cell.OutputNames = outputNames.ToArray();
         }
 
-        /// <summary>A process as a box: every signal it reads in, every one it writes out.</summary>
+        /// <summary>A process opened into cells; one that is no hardware, a box -- every signal it reads in, every one it writes out.</summary>
         private void Process(ProcessInfo process)
         {
+            int cellsBefore = _cells.Count, netsBefore = _nets.Count;
+            if (OpenProcess(process, out string why))
+                return;
+            Rollback(cellsBefore, netsBefore);
+
             var reads = new SortedSet<int>();
             process.CollectAllReads(reads);
             var inputs = new List<int>();
@@ -338,6 +357,21 @@ namespace BitSorter.Sim
             RtlCell cell = NewCellDriving(RtlKind.Process, name, inputs.ToArray(), outputs.ToArray());
             cell.InputNames = inputNames.ToArray();
             cell.OutputNames = outputNames.ToArray();
+            cell.Why = why;
+        }
+
+        /// <summary>Nothing of a run that gave up is kept: the cells and nets made since the counts given go.</summary>
+        private void Rollback(int cellsBefore, int netsBefore)
+        {
+            for (int c = _cells.Count - 1; c >= cellsBefore; c--)
+                foreach (int output in _cells[c].OutputList)
+                    if (output < netsBefore)
+                        _nets[output].Driver = -1;
+            _cells.RemoveRange(cellsBefore, _cells.Count - cellsBefore);
+            for (int n = _nets.Count - 1; n >= netsBefore; n--)
+                if (_nets[n].Signal >= 0)
+                    _netOfSignal.Remove(_nets[n].Signal);
+            _nets.RemoveRange(netsBefore, _nets.Count - netsBefore);
         }
 
         /// <summary>The scope a process is in, by its name: its scope's path, a dot, and where it is written.</summary>
@@ -361,6 +395,19 @@ namespace BitSorter.Sim
         // What Expr.ToRtl calls, a cell a node
         // -----------------------------------------------------------------
 
+        /// <summary>Whether a net is a constant's, and its value: what a cell of constants is folded into, and a branch decided by.</summary>
+        internal bool TryConstant(int net, out LogicVec value)
+        {
+            int driver = net >= 0 ? _nets[net].Driver : -1;
+            if (driver >= 0 && _cells[driver].Kind == RtlKind.Constant)
+            {
+                value = _cells[driver].Value;
+                return true;
+            }
+            value = default;
+            return false;
+        }
+
         public int Constant(LogicVec value)
         {
             RtlCell cell = NewCell(RtlKind.Constant, "", Array.Empty<int>(), value.Width);
@@ -370,6 +417,8 @@ namespace BitSorter.Sim
 
         public int Unary(UnaryOp op, int a, int width)
         {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(Expr.Apply(op, va));
             RtlCell cell = NewCell(RtlKind.Unary, "", new[] { a }, width);
             cell.Unary = op;
             return cell.Output;
@@ -377,18 +426,31 @@ namespace BitSorter.Sim
 
         public int Binary(BinaryOp op, int a, int b, int width)
         {
+            if (TryConstant(a, out LogicVec va) && TryConstant(b, out LogicVec vb))
+                return Constant(Expr.Apply(op, va, vb));
             RtlCell cell = NewCell(RtlKind.Binary, "", new[] { a, b }, width);
             cell.Binary = op;
             return cell.Output;
         }
 
-        public int Mux(int condition, int whenTrue, int whenFalse, int width) =>
-            NewCell(RtlKind.Mux, "", new[] { condition, whenTrue, whenFalse }, width).Output;
+        public int Mux(int condition, int whenTrue, int whenFalse, int width)
+        {
+            if (TryConstant(condition, out LogicVec c) && TryConstant(whenTrue, out LogicVec t) && TryConstant(whenFalse, out LogicVec f))
+                return Constant(LogicVec.Conditional(c, t, f));
+            return NewCell(RtlKind.Mux, "", new[] { condition, whenTrue, whenFalse }, width).Output;
+        }
 
-        public int Concat(int high, int low, int width) => NewCell(RtlKind.Concat, "", new[] { high, low }, width).Output;
+        public int Concat(int high, int low, int width)
+        {
+            if (TryConstant(high, out LogicVec h) && TryConstant(low, out LogicVec l))
+                return Constant(LogicVec.Concat(h, l));
+            return NewCell(RtlKind.Concat, "", new[] { high, low }, width).Output;
+        }
 
         public int Replicate(int a, int count, int width)
         {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(LogicVec.Replicate(va, count));
             RtlCell cell = NewCell(RtlKind.Replicate, "", new[] { a }, width);
             cell.Count = count;
             return cell.Output;
@@ -396,16 +458,83 @@ namespace BitSorter.Sim
 
         public int Slice(int a, int lowest, int width)
         {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(va.Slice(lowest, width));
+
+            // Through what keeps bits where they are, to the net the bits came from: a slice of a slice, of a concatenation's
+            // part, of a sign changed or a value widened. Only inside the value: outside it a slice gives x.
+            int whole = _nets[a].Width;
+            if (lowest >= 0 && lowest + width <= whole)
+            {
+                if (lowest == 0 && width == whole && IsUnsigned(a))
+                    return a;
+                RtlCell driver = DriverOf(a);
+                switch (driver?.Kind)
+                {
+                    case RtlKind.Slice:
+                        return Slice(driver.InputList[0], driver.Lowest + lowest, width);
+                    case RtlKind.Signedness:
+                        return Slice(driver.InputList[0], lowest, width);
+                    case RtlKind.Resize when lowest + width <= _nets[driver.InputList[0]].Width:
+                        return Slice(driver.InputList[0], lowest, width);
+                    case RtlKind.Concat:
+                    {
+                        int high = driver.InputList[0], low = driver.InputList[1];
+                        int lowWidth = _nets[low].Width;
+                        if (lowest + width <= lowWidth)
+                            return Slice(low, lowest, width);
+                        if (lowest >= lowWidth && lowest + width - lowWidth <= _nets[high].Width)
+                            return Slice(high, lowest - lowWidth, width);
+                        if (lowest + width - lowWidth <= _nets[high].Width)
+                            return Concat(Slice(high, 0, lowest + width - lowWidth), Slice(low, lowest, lowWidth - lowest), width);
+                        break;
+                    }
+                }
+            }
+
             RtlCell cell = NewCell(RtlKind.Slice, "", new[] { a }, width);
             cell.Lowest = lowest;
             cell.Width = width;
             return cell.Output;
         }
 
-        public int BitOf(int a, int index) => NewCell(RtlKind.Bit, "", new[] { a, index }, 1).Output;
+        public int BitOf(int a, int index)
+        {
+            if (TryConstant(index, out LogicVec vi))
+            {
+                if (TryConstant(a, out LogicVec va))
+                    return Constant(va.Bit(vi));
+
+                // A place the code fixes -- a loop's counter, unrolled -- is the bit itself, as LogicVec.Bit reads it.
+                int width = _nets[a].Width;
+                if (!vi.IsKnown || (vi.IsSigned && vi[vi.Width - 1] == Logic4.One)
+                    || !vi.TryGetUInt64(out ulong at) || at >= (ulong)width)
+                    return Constant(LogicVec.AllX(1));
+                return Slice(a, (int)at, 1);
+            }
+            return NewCell(RtlKind.Bit, "", new[] { a, index }, 1).Output;
+        }
 
         public int PartOf(int a, int offset, int step, int width)
         {
+            if (TryConstant(offset, out LogicVec vo))
+            {
+                LogicVec unknown = LogicVec.AllX(width);
+                if (TryConstant(a, out LogicVec va))
+                    return Constant(Expr.TryOffset(vo, out long at) ? Expr.PartAt(va, at, step, width, unknown) : unknown);
+
+                // A place the code fixes is a slice, as Expr.PartAt takes one.
+                int whole = _nets[a].Width;
+                if (!Expr.TryOffset(vo, out long place))
+                    return Constant(unknown);
+                long reach = (whole + (long)width) / step + 1;
+                if (place > reach || place < -reach)
+                    return Constant(unknown);
+                long lowest = place * step;
+                if (lowest >= whole || lowest + width <= 0)
+                    return Constant(unknown);
+                return Slice(a, (int)lowest, width);
+            }
             RtlCell cell = NewCell(RtlKind.Part, "", new[] { a, offset }, width);
             cell.Step = step;
             cell.Width = width;
@@ -414,6 +543,8 @@ namespace BitSorter.Sim
 
         public int Resize(int a, int width, bool signExtend)
         {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(va.Extend(width, signExtend));
             RtlCell cell = NewCell(RtlKind.Resize, "", new[] { a }, width);
             cell.Width = width;
             cell.Signed = signExtend;
@@ -422,12 +553,24 @@ namespace BitSorter.Sim
 
         public int Signedness(int a, bool signed, int width)
         {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(signed ? va.AsSigned() : va.AsUnsigned());
+            if (!signed && IsUnsigned(a))
+                return a;
+            RtlCell driver = DriverOf(a);
+            if (driver?.Kind == RtlKind.Signedness)
+                return Signedness(driver.InputList[0], signed, width);
             RtlCell cell = NewCell(RtlKind.Signedness, "", new[] { a }, width);
             cell.Signed = signed;
             return cell.Output;
         }
 
-        public int TwoState(int a, int width) => NewCell(RtlKind.TwoState, "", new[] { a }, width).Output;
+        public int TwoState(int a, int width)
+        {
+            if (TryConstant(a, out LogicVec va))
+                return Constant(va.ToTwoState());
+            return NewCell(RtlKind.TwoState, "", new[] { a }, width).Output;
+        }
 
         public int Word(int first, int depth, int width, int offset)
         {
@@ -441,6 +584,9 @@ namespace BitSorter.Sim
         /// <summary>An expression that is no hardware: a box reading every signal it reads, which the evaluator works out as the engine does.</summary>
         public int Opaque(Expr e)
         {
+            // Inside a process the box would be worked out from what the signals hold at the end, not on the path followed.
+            if (_overlay != null)
+                throw new NotHardware("It works with a string, a real or $random: behaviour, not a circuit.");
             var reads = new SortedSet<int>();
             e.CollectReads(reads);
             var inputs = new List<int>();
@@ -454,6 +600,36 @@ namespace BitSorter.Sim
         // -----------------------------------------------------------------
         // Nets and cells
         // -----------------------------------------------------------------
+
+        private RtlCell DriverOf(int net) => net >= 0 && _nets[net].Driver >= 0 ? _cells[_nets[net].Driver] : null;
+
+        /// <summary>
+        /// Whether a net's value is always plain bits: a signal's as the signal is declared -- every net of one holds its value
+        /// as the signal holds it -- and a slice's, a concatenation's and the rest the operators give unsigned.
+        /// </summary>
+        private bool IsUnsigned(int net)
+        {
+            if (_nets[net].Signal >= 0)
+                return !_design.Signals[_nets[net].Signal].Signed;
+            RtlCell driver = DriverOf(net);
+            switch (driver?.Kind)
+            {
+                case RtlKind.Slice:
+                case RtlKind.Concat:
+                case RtlKind.Replicate:
+                case RtlKind.Bit:
+                case RtlKind.Part:
+                case RtlKind.Truth:
+                case RtlKind.Match:
+                    return true;
+                case RtlKind.Constant:
+                    return !driver.Value.IsSigned;
+                case RtlKind.Signedness:
+                    return !driver.Signed;
+                default:
+                    return false;
+            }
+        }
 
         private int NewNet(int width, string name, int signal)
         {

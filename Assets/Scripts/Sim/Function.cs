@@ -340,6 +340,8 @@ namespace BitSorter.Sim
             }
 
             internal override int Height => 1 + MaxHeight(_arguments);
+
+            internal override int ToRtl(RtlBuilder b) => b.Call(_function, _arguments, this, _width, _signed);
         }
     }
 }

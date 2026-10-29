@@ -21,37 +21,76 @@ namespace BitSorter.Board.Tests
         private const int Vectors = 12;
 
         /// <summary>
-        /// Runs <paramref name="design"/> through random vectors and holds every scope's netlist to the engine before each next
-        /// one: every net a join drives -- a signal the scope's own logic gives a value -- reads what the engine has. Returns how
-        /// many such comparisons there were, so a test can say it compared something.
+        /// Runs <paramref name="design"/> through random vectors and holds every scope's netlist to the engine: every net a join
+        /// drives -- a signal the scope's own logic gives a value -- reads what the engine has, after the data settles and again
+        /// after the clock's edge; and every register clocked then holds what its D was worked out to be just before (Part
+        /// 15h-2). A clock -- a one-bit input named as one -- moves half a vector after the data, so the two never race. Returns
+        /// how many comparisons there were, so a test can say it compared something.
         /// </summary>
         internal static int HoldToTheEngine(Design design, int seed, string what)
         {
             var random = new Random(seed);
-            string top = design.Scopes[0].Path;
             var inputs = new List<SignalId>();
+            var clocks = new List<SignalId>();
             for (int i = 0; i < design.Signals.Count; i++)
             {
                 SignalInfo info = design.Signals[i];
                 if (info.Scope == 0 && info.Port == PortDirection.Input)
-                    inputs.Add(design.SignalAt(i));
+                    (IsClock(info.Name) && info.Width == 1 ? clocks : inputs).Add(design.SignalAt(i));
             }
 
             var stimulus = new BitSorter.Sim.Stimulus();
+            foreach (SignalId clock in clocks)
+                stimulus.Set(0, clock, Logic4.Zero);
             for (int v = 0; v < Vectors; v++)
+            {
                 foreach (SignalId input in inputs)
                     stimulus.Set(v * Gap, input, Random(random, design[input].Width));
+                foreach (SignalId clock in clocks)
+                    stimulus.Set(v * Gap + Gap / 2, clock, v % 2 == 0 ? Logic4.One : Logic4.Zero);
+            }
 
             var sim = new Simulator(design, stimulus, null);
             List<RtlNetlist> netlists = Netlists(design);
             foreach (RtlNetlist netlist in netlists)
                 HoldItsShape(design, netlist, what);
-            int compared = 0;
+            int compared = 0, clocked = 0;
             for (int v = 0; v < Vectors; v++)
             {
-                sim.RunTo(v * Gap + Gap - 1);
+                // Before the clock: the logic settled on the data, and each register's D worked out.
+                sim.RunTo(v * Gap + Gap / 2 - 1);
                 compared += Compare(design, sim, netlists, $"{what} at vector {v}");
+                LogicVec[] before = Values(design, sim);
+                var expected = new List<(RtlNetlist Netlist, RtlCell Register, LogicVec D)>();
+                foreach (RtlNetlist netlist in netlists)
+                {
+                    LogicVec[] values = RtlEvaluator.Evaluate(netlist, before);
+                    foreach (RtlCell cell in netlist.Cells)
+                        if (cell.Kind == RtlKind.Register)
+                            expected.Add((netlist, cell, values[cell.Inputs[0]]));
+                }
+
+                // After it: the logic again, and every register its clock's edge reached holds its D.
+                sim.RunTo(v * Gap + Gap - 1);
+                compared += Compare(design, sim, netlists, $"{what} after the clock at vector {v}");
+                LogicVec[] after = Values(design, sim);
+                foreach ((RtlNetlist netlist, RtlCell register, LogicVec d) in expected)
+                {
+                    if (!Clocked(netlist, register, before, after))
+                        continue;
+                    RtlNet q = netlist.Nets[register.Output];
+                    Assert.AreEqual(d.Format(Radix.Binary), after[q.Signal].Format(Radix.Binary),
+                        $"{what}: {netlist.Scope}.{q.Name} after the clock at vector {v}: its D before");
+                    clocked++;
+                    compared++;
+                }
             }
+
+            // Every register on a clock the test moves is reached by its edge now and then.
+            foreach (RtlNetlist netlist in netlists)
+                foreach (RtlCell register in netlist.Cells.Where(c => c.Kind == RtlKind.Register))
+                    if (register.InputNames.Skip(1).Any(IsClock))
+                        Assert.Greater(clocked, 0, $"{what}: {netlist.Scope}.{register.Name} on a clock, and no register clocked");
 
             // A design with nothing to compare must be one with nothing combinational -- processes and instances alone -- but what
             // passes through an opaque box.
@@ -62,6 +101,46 @@ namespace BitSorter.Board.Tests
                     Assert.IsTrue(n.Cells.Where(c => c.Kind == RtlKind.Join).All(c => opaque[c.Output]), $"{what}: joins, and none compared");
                 }
             return compared;
+        }
+
+        /// <summary>A clock as its name says: clk, clock, or one ending or starting so (sys_clk, clk_in).</summary>
+        private static bool IsClock(string name)
+        {
+            string last = name.Substring(name.LastIndexOf('.') + 1).ToLowerInvariant();
+            return last == "clk" || last == "clock" || last.EndsWith("_clk", StringComparison.Ordinal) || last.StartsWith("clk_", StringComparison.Ordinal);
+        }
+
+        private static LogicVec[] Values(Design design, Simulator sim)
+        {
+            var signals = new LogicVec[design.Signals.Count];
+            for (int i = 0; i < signals.Length; i++)
+                signals[i] = sim.Value(design.SignalAt(i));
+            return signals;
+        }
+
+        /// <summary>
+        /// Whether a register's clock moved the way it waits for between <paramref name="before"/> and <paramref name="after"/>,
+        /// and none of its other edges moved at all: only a clock named as one is followed, since what one register's edge gives
+        /// another clocked by it is not settled before that edge.
+        /// </summary>
+        private static bool Clocked(RtlNetlist netlist, RtlCell register, LogicVec[] before, LogicVec[] after)
+        {
+            bool clocked = false;
+            for (int pin = 1; pin < register.Inputs.Count; pin++)
+            {
+                RtlNet net = netlist.Nets[register.Inputs[pin]];
+                if (net.Signal < 0)
+                    return false;
+                Logic4 was = before[net.Signal][0], now = after[net.Signal][0];
+                if (was == now)
+                    continue;
+                if (!IsClock(register.InputNames[pin]))
+                    return false;
+                EdgeKind edge = register.Edges[pin - 1];
+                bool rise = was == Logic4.Zero && now == Logic4.One, fall = was == Logic4.One && now == Logic4.Zero;
+                clocked |= edge == EdgeKind.Posedge ? rise : edge == EdgeKind.Negedge ? fall : rise || fall;
+            }
+            return clocked;
         }
 
         /// <summary>Every scope's netlist that is a module's own: the top's and each instance's.</summary>

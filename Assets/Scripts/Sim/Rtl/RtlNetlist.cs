@@ -66,10 +66,30 @@ namespace BitSorter.Sim
         Instance,
 
         /// <summary>
-        /// A process -- an <c>always</c> or an <c>initial</c> -- as a box: what it reads in, what it writes out. Part 15h-2
-        /// opens every one that describes hardware into muxes and registers.
+        /// A process that is no hardware -- an <c>initial</c>, one with a delay or a wait inside it -- as a box: what it reads
+        /// in, what it writes out, and <see cref="RtlCell.Why"/> it is a box. Every other process is opened into cells (Part
+        /// 15h-2).
         /// </summary>
         Process,
+
+        /// <summary>Whether a value is true as an <c>if</c> takes it: 1 or 0, an x or a z as 0.</summary>
+        Truth,
+
+        /// <summary>Whether a <c>case</c>'s subject matches a label, 1 or 0, by <see cref="RtlCell.Case"/>: inputs the subject, then the label.</summary>
+        Match,
+
+        /// <summary>
+        /// A write at a place worked out as it runs, <c>y[i] = v</c> -- a demultiplexer: inputs the signal's value before it, the
+        /// part written, and the place; the part put where the place says, clipped to the signal, and nothing written where the
+        /// place is unknown, the result held as <see cref="RtlCell.Signal"/> holds it.
+        /// </summary>
+        Put,
+
+        /// <summary>
+        /// A register, what an <c>always_ff</c> writes: inputs its D -- the value the process would give it -- then each signal
+        /// it waits on, by <see cref="RtlCell.Edges"/>; its output the signal itself.
+        /// </summary>
+        Register,
 
         /// <summary>
         /// An expression that is no hardware -- a call of a function, a string, a real, <c>$random</c> -- as a box: the
@@ -189,6 +209,21 @@ namespace BitSorter.Sim
 
         /// <summary>An instance's or a process's output pins' names, one for each output.</summary>
         public IReadOnlyList<string> OutputNames { get; internal set; } = Array.Empty<string>();
+
+        /// <summary>A <see cref="RtlKind.Match"/>'s way of comparing.</summary>
+        public CaseKind Case { get; internal set; }
+
+        /// <summary>A <see cref="RtlKind.Register"/>'s edges, one for each input after its D.</summary>
+        public IReadOnlyList<EdgeKind> Edges { get; internal set; } = Array.Empty<EdgeKind>();
+
+        /// <summary>
+        /// A <see cref="RtlKind.Register"/>'s clock, by its place in <see cref="Inputs"/>: the one edge its body does not test --
+        /// the others, tested, its asynchronous resets and sets; -1 where no one edge is that.
+        /// </summary>
+        public int Clock { get; internal set; } = -1;
+
+        /// <summary>Why a <see cref="RtlKind.Process"/> is a box and not cells; null for any other cell.</summary>
+        public string Why { get; internal set; }
 
         /// <summary>An opaque cell's expression, which the evaluator works out as the engine does.</summary>
         internal Expr Source { get; set; }

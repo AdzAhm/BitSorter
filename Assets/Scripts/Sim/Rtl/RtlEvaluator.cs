@@ -33,7 +33,7 @@ namespace BitSorter.Sim
             foreach (RtlNet net in nets)
             {
                 RtlCell driver = net.Driver >= 0 ? netlist.Cells[net.Driver] : null;
-                if (driver == null || driver.Kind == RtlKind.Instance || driver.Kind == RtlKind.Process)
+                if (driver == null || IsBox(driver))
                 {
                     values[net.Id] = net.Signal >= 0 ? signals[net.Signal] : LogicVec.AllX(net.Width);
                     known[net.Id] = true;
@@ -66,7 +66,7 @@ namespace BitSorter.Sim
             var ready = new Queue<RtlCell>();
             foreach (RtlCell cell in netlist.Cells)
             {
-                if (cell.Kind == RtlKind.Instance || cell.Kind == RtlKind.Process)
+                if (IsBox(cell))
                     continue;
                 foreach (int input in cell.InputList)
                 {
@@ -94,10 +94,16 @@ namespace BitSorter.Sim
 
             looped = new List<RtlCell>();
             foreach (RtlCell cell in netlist.Cells)
-                if (!done[cell.Id] && cell.Kind != RtlKind.Instance && cell.Kind != RtlKind.Process)
+                if (!done[cell.Id] && !IsBox(cell))
                     looped.Add(cell);
             return order;
         }
+
+        /// <summary>
+        /// Whether a cell's outputs are read off the design rather than worked out: an instance's, a process box's, and a
+        /// register's, which holds what its clock last gave it.
+        /// </summary>
+        internal static bool IsBox(RtlCell cell) => cell.Kind == RtlKind.Instance || cell.Kind == RtlKind.Process || cell.Kind == RtlKind.Register;
 
         private static LogicVec In(RtlCell cell, int pin, LogicVec[] values) => values[cell.InputList[pin]];
 
@@ -150,6 +156,19 @@ namespace BitSorter.Sim
                 }
                 case RtlKind.Opaque:
                     return cell.Source.Evaluate(signals);
+                case RtlKind.Put:
+                {
+                    LogicVec old = In(cell, 0, values), part = In(cell, 1, values);
+                    if (!RtlBuilder.OffsetOf(In(cell, 2, values), out int lowest) || !Simulator.Clip(old.Width, ref lowest, ref part))
+                        return old;
+                    LogicVec spliced = Simulator.Splice(old, lowest, part);
+                    LogicVec typed = cell.Signed ? spliced.AsSigned() : spliced.AsUnsigned();
+                    return cell.TwoStateTarget ? typed.ToTwoState() : typed;
+                }
+                case RtlKind.Truth:
+                    return LogicVec.FromUInt64(LogicVec.Truth(In(cell, 0, values)) == Logic4.One ? 1UL : 0UL, 1);
+                case RtlKind.Match:
+                    return LogicVec.FromUInt64(Matching.CaseMatches(In(cell, 0, values), In(cell, 1, values), cell.Case) ? 1UL : 0UL, 1);
                 default:
                     return LogicVec.AllX(nets[cell.Output].Width);
             }

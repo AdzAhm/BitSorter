@@ -3260,8 +3260,9 @@ of an elaborated design as cells and the nets between them, word-level, the way 
   - **Every driven signal is the output of a `Join`**: its drivers' outputs fitted to their slices, resolved as a wire
     resolves them, and held as the signal holds them -- its width, sign and 2-state type -- exactly as the engine does
     (`Simulator.ResolveOwn`, `Shape`). One driver of the whole signal is a wire, which a drawing collapses.
-  - **A process is a box** for now, what it reads in and what it writes out: Part 15h-2 opens each that describes
-    hardware. **A node that is no hardware** -- a call, a string, a real, `$random` -- is an `Opaque` box.
+  - **A process was a box** in this part, what it reads in and what it writes out; Part 15h-2 opens each that describes
+    hardware (below). **A node that is no hardware** -- a string, a real, `$random` -- is an `Opaque` box, and so was a
+    call of a function until 15h-2 opened those too.
 - **`RtlEvaluator.Evaluate(netlist, signals)`** works out every net from the values of what feeds it: the inputs, and
   what the instances and processes drive, read off the design's signals.
   - Each cell applies the engine's own operator. `Expr.Apply`, `TryOffset`, `PartAt` and `WordAt` are what the engine's
@@ -3289,6 +3290,59 @@ of an elaborated design as cells and the nets between them, word-level, the way 
 - **Found on the way:** the shell's caret was placed on a timer of 50 ms of real time, and a full Play Mode run's driven
   frames now and then came in under it. It is placed every frame the field has the keyboard (a red test, then the fix).
 
+**As built in Part 15h-2: processes as muxes and registers** (`Sim/Rtl/RtlProcess.cs`, `RtlFunction.cs`). Every process
+that describes a circuit is opened into cells, and what is no circuit stays a box that says why.
+
+- **A process runs symbolically** from its wait to its next, every path at once. A path keeps the value each signal has
+  on it, so a blocking write is seen at once, as the language has it.
+  - **A branch** -- decided as the engine decides it, by `LogicVec.Truth` or `Matching.CaseMatches` -- parts the path in
+    two, unless its condition is a constant. Paths meeting again are joined by a mux on the condition that parted them:
+    an `if` is one mux a signal, and a `case` a mux for each label, on its `Match`.
+  - **A loop whose condition folds to a constant is simply run**, so constant bounds unroll, and `break` and `continue`
+    are jumps. Its counter is a constant on each pass, so `y[i]` is written at its place and `a[i]` is the bit itself.
+  - **A write is the old value's bits either side of it and the part between, concatenated**, and a slice reads through
+    concatenations, slices, sign changes and widenings to the net its bits came from. So a signal written a bit at a
+    time keeps nothing of its old value once every bit is written, and a ripple carry written in an `always_comb` reads
+    each carry where the pass before made it. A splice cell would have looped every such signal back into itself.
+  - **A write at a place worked out as it runs**, `y[sel] = d`, is one `Put` cell, a demultiplexer: the part goes where
+    the engine's own `TryOffset` and `Clip` put it, and nothing is written where the place is unknown.
+- **What a process drives:**
+  - An `always_comb`, or an `always` on levels, drives its outputs through joins.
+  - An `always_ff`, or any `always` on edges, is a `Register` a signal. Its D is the value the body gives it: the
+    reset's mux and the enable's, the register's own output fed back. Its pins are the edges it waits on. Its `Clock` is
+    the edge the body never tests; one it does test, `if (!rst_n)`, is an asynchronous reset.
+  - An output left as it was on some path is fed back too, so an `always_comb` that is a latch draws as one.
+- **A function is opened where it is called**, once a call, as a synthesis tool inlines one (`RtlBuilder.Call`). It
+  mirrors `FunctionRunner`:
+  - the arguments are shaped as its inputs hold them;
+  - an automatic function's own signals, or those of a call that comes back in, start afresh;
+  - a write lands only in its own signals, and anything a function cannot do ends the call;
+  - a recursion whose end the arguments fix is run to it, and folds to a constant.
+- **What is no circuit stays a box, with why** (`RtlCell.Why`):
+  - an `initial`; a delay, `#d`, which makes a testbench's clock or timer; a wait inside the body;
+  - a loop past 200,000 steps, or more than 1,024 paths open at once;
+  - a write into a memory, a signal written both blocking and nonblocking, a string, a real, `$random`;
+  - a recursion more than 32 calls deep with no constant end, and a static function reading one of its own signals
+    before writing it, which gives what its last call left;
+  - **a process that reads a signal it does not wait on**: `@(a)` reading `b`, or an `@*` calling a function that reads
+    one, which `@*` does not wait on (IEEE 1800, 9.2.2.2.1). The engine leaves it as it was when that signal changes
+    alone, which no circuit does, so a circuit drawn there would show what the simulation does not do.
+
+  In a continuous assignment, a call that cannot be opened, or one whose function reads the module's signals, stays an
+  `Opaque` box.
+- **Tests** (`RtlProcessTests`, and the register check in `RtlNetlistTests.HoldToTheEngine`):
+  - Every netlist is held to the engine before and after each clock edge. A one-bit input named as a clock moves half a
+    vector after the data, and every register its edge reaches holds the D worked out just before it -- in all eighteen
+    designs with such a register, the sequential exercises among them.
+  - Each construct is held to its shape: an `if`, a `case`, an unrolled loop, a ripple written a bit at a time, functions
+    in an assignment and in a process, recursions with and without a constant end, a static function's memory, a stale
+    sensitivity list, a register with an asynchronous reset and an enable, a demultiplexer and a latch.
+  - Every process of every exercise solution and corpus design opens, but the initial blocks and the three listed: two
+    testbench clocks, and one `@*` whose function reads what it does not wait on.
+- **Left for the drawing (15h-4):** a `case`'s chain of muxes on one subject drawn as one N-input mux; a `Resize` or a
+  `Signedness` that changes nothing on screen drawn as a wire; a memory as a box with its ports. The plan's latch box is
+  not needed: a mux fed back is the latch.
+
 ---
 
 ## 11. The parts
@@ -3312,7 +3366,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"). |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"). |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
