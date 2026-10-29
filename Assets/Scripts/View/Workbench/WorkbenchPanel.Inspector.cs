@@ -155,7 +155,7 @@ namespace BitSorter.View
             _inspectedParts = parts;
             _inspectedWires = wires;
             _refusal = null;
-            ShowInspection(single.Kind == CanvasTargetKind.Nothing ? null : BitSorter.ViewModel.Inspector.Of(_session.Project, _session.Module, single),
+            ShowInspection(single.Kind == CanvasTargetKind.Nothing ? null : BitSorter.ViewModel.Inspector.Of(_session.DrawnProject, _session.Module, single),
                 parts, wires);
         }
 
@@ -179,8 +179,8 @@ namespace BitSorter.View
                 // where it said to click one thing alone with one thing selected (the GATES browser check).
                 SetText(_barSays, none
                     ? InsideText() ?? "Click a part or a wire to see it here and change it; a double-click on one, or Enter, starts typing."
-                    : _session.ShowsDrawingOfCode ? WorkbenchSession.DrawingRefusal
                     : _session.Locked ? WorkbenchSession.LockedRefusal
+                    : _session.ShowsGatesOfCode ? WorkbenchSession.GatesRefusal
                     : "One thing at a time is inspected: click one alone to see it here.");
                 _barSays.style.color = palette.TextDim;
                 SetText(_quickTitle, none ? "Select a part or a wire." : SelectedText(parts, wires).ToLowerInvariant());

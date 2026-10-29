@@ -562,12 +562,113 @@ namespace BitSorter.ViewModel
             Stepped();   // as a step inside: drawn afresh and fitted, not kept in place (the review of #108)
         }
 
-        /// <summary>What an edit on the drawing of code is told: it is the code's, and changes with it.</summary>
+        /// <summary>What an edit the drawing of code takes no part in is told: it is the code's, and changes with it.</summary>
         public const string DrawingRefusal = "This is the drawing of the code: change the code to change it.";
 
-        // The drawing's own refusal first: unlocked, a drawing of code still takes no edit (until 15h-4g), so the lock's
-        // "press the lock" would send the student the wrong way.
-        private EditResult? OnTheDrawing => ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : Unchangeable;
+        /// <summary>What moving or turning a part of the drawing of code is told: it lays itself out, from the code.</summary>
+        public const string ArrangeRefusal = "The drawing of code lays itself out: place, wire and delete on it, and it is drawn again from the code it writes.";
+
+        /// <summary>What an edit of the drawing of code with GATES on is told: the code is written from the boxes.</summary>
+        public const string GatesRefusal = "Press BOXES to edit the drawing: its code is written from the boxes, not from their gates.";
+
+        /// <summary>What the first edit of a module's drawing of code is told, while the question is asked.</summary>
+        public const string RewriteAsked = "First, a question: writing the code again from the drawing.";
+
+        /// <summary>The question the first edit of a module's drawing of code asks (Part 15h-4g).</summary>
+        public const string RewriteQuestion =
+            "Edit the drawing? This module's code is written again from it: the comments inside it go, and its case statements, loops and expressions become the assigns, gates and instances drawn. Ctrl+Z brings the code back.";
+
+        // Moving and turning on a drawing of code: refused, by the lock first.
+        private EditResult? OnTheDrawing => Unchangeable ?? (ShowsDrawingOfCode ? EditResult.Refused(ArrangeRefusal) : (EditResult?)null);
+
+        /// <summary>
+        /// An edit of the circuit shown (Part 15h-4g): on a drawn module, <paramref name="edit"/> made by the document's editor
+        /// as it always was; on the drawing of a written module's code, unlocked, made on the drawing and written into the
+        /// module's code (<see cref="DrawingPrinter"/>) -- one undo step, the drawing made again from it -- once the drawing is
+        /// known to be its code (<see cref="WhyNotWrite"/>) and, the first time for the module, the question asked.
+        /// </summary>
+        private EditResult Edit(Func<BoardEditor, string, EditResult> edit, Func<EditResult, EditResult> after)
+        {
+            if (Unchangeable is EditResult locked)
+                return locked;
+            if (!ShowsDrawingOfCode)
+                return after(edit(Editor, Module));
+
+            RtlDrawing drawing = ShownDrawing;
+            if (ShowsGatesOfCode)
+                return EditResult.Refused(GatesRefusal);
+            if (WhyNotWrite(drawing) is string why)
+                return EditResult.Refused(why);
+            if (!_rewriting.Contains(Module))
+            {
+                _pendingRewrite = () => Edit(edit, after);
+                _pendingProject = Project;
+                RewriteAsks++;
+                return EditResult.Refused(RewriteAsked);
+            }
+
+            var onDrawing = new BoardEditor(drawing.Project);
+            EditResult done = edit(onDrawing, drawing.Module.Name);
+            if (!done.Done || ReferenceEquals(onDrawing.Project, drawing.Project))
+                return done;   // refused, or nothing changed: the code as it is
+            string source = DrawingPrinter.Print(Project, drawing, onDrawing.Project.Find(drawing.Module.Name), out why);
+            if (source == null)
+                return EditResult.Refused(why);
+            EditResult written = Edited(Editor.SetSource(Module, source));
+            return written.Done ? EditResult.Ok() : written;   // its ids were the drawing's, which is drawn again
+        }
+
+        private readonly HashSet<string> _rewriting = new HashSet<string>(StringComparer.Ordinal);
+        private Func<EditResult> _pendingRewrite;
+        private Project _pendingProject;
+
+        /// <summary>Whether an edit of the drawing of code waits on <see cref="RewriteQuestion"/>: the workbench asks it.</summary>
+        public bool AsksToRewrite => _pendingRewrite != null && ReferenceEquals(_pendingProject, Project);
+
+        /// <summary>How many times an edit has asked <see cref="RewriteQuestion"/>: the workbench asks once for each.</summary>
+        public int RewriteAsks { get; private set; }
+
+        /// <summary>
+        /// Whether the drawing of code shown takes an edit now (Part 15h-4g): unlocked, with GATES off -- what the canvas lets a
+        /// wire be drawn on and PARTS offers parts for. The edit itself may still be refused, saying why.
+        /// </summary>
+        public bool EditsDrawingOfCode => ShowsDrawingOfCode && !ShowsGatesOfCode && !_locked;
+
+        /// <summary>
+        /// The question answered (Part 15h-4g): yes, and the edit that asked is made -- and no edit of the module's drawing asks
+        /// again; no, and it is dropped.
+        /// </summary>
+        public EditResult AnswerRewrite(bool yes)
+        {
+            Func<EditResult> pending = AsksToRewrite ? _pendingRewrite : null;
+            _pendingRewrite = null;
+            _pendingProject = null;
+            if (pending == null || !yes)
+                return EditResult.Refused(DrawingRefusal);
+            _rewriting.Add(Module);
+            return pending();
+        }
+
+        /// <summary>
+        /// Why the drawing of code shown cannot be written as its module's code, or null (Part 15h-4g): what the drawing does
+        /// not show, a part no expression is, or -- written again unedited -- a difference from what the code does on random
+        /// values (<see cref="DrawingPrinter.Differs"/>). Worked out once for each text of the module.
+        /// </summary>
+        private string WhyNotWrite(RtlDrawing drawing)
+        {
+            Module module = Project.Find(Module);
+            if (module == null || drawing == null)
+                return DrawingRefusal;
+            if (_written.TryGetValue(Module, out (string Source, string Why) known) && known.Source == module.Source)
+                return known.Why;
+            string why = _drawnNetlist == null || _drawnDesign == null
+                ? DrawingRefusal
+                : DrawingPrinter.Differs(Project, _drawnNetlist, _drawnDesign, drawing);
+            _written[Module] = (module.Source, why);
+            return why;
+        }
+
+        private readonly Dictionary<string, (string Source, string Why)> _written = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
 
         /// <summary>
         /// The document locked against change (Part 15h-4d, asked 2026-10-29; an imported project opens locked): every edit
@@ -597,7 +698,7 @@ namespace BitSorter.ViewModel
         /// Why the circuit shown takes no edit -- the drawing of code's or the lock's reason -- or null: asked before a name
         /// is asked for, so MAKE BLOCK refuses at once rather than after the name (the review of the lock).
         /// </summary>
-        public string WhyNotChange => OnTheDrawing?.Refusal;
+        public string WhyNotChange => Unchangeable?.Refusal ?? (ShowsDrawingOfCode ? DrawingRefusal : null);
 
         /// <summary>Why no code can be added or changed -- the lock -- or null: asked before + CODE asks a name.</summary>
         public string WhyNotChangeCode => Unchangeable?.Refusal;
@@ -825,16 +926,18 @@ namespace BitSorter.ViewModel
         public string WhyNotRemoveModule(string name) => Unchangeable?.Refusal ?? Editor.WhyNotRemoveModule(name);
 
         /// <summary>Places what <paramref name="entry"/> offers at <paramref name="at"/> (<see cref="PartsCatalog.Place"/>): drawn now, and replayed.</summary>
-        public EditResult Place(CatalogEntry entry, Placement at) => OnTheDrawing ?? Edited(PartsCatalog.Place(Editor, Module, entry, at));
+        public EditResult Place(CatalogEntry entry, Placement at) => Edit((editor, module) => PartsCatalog.Place(editor, module, entry, at), r => Edited(r));
 
         /// <summary>
         /// The parts of the module shown made into a block called <paramref name="name"/> (<see cref="BlockMaker.Make"/>, Part
         /// 12b): drawn now, and replayed -- the circuit doing exactly what it did. The result's id is the new instance's.
         /// </summary>
-        public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) => OnTheDrawing ?? Edited(BlockMaker.Make(Editor, Module, parts, name));
+        public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) =>
+            Unchangeable ?? (ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : Edited(BlockMaker.Make(Editor, Module, parts, name)));
 
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
-        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) => OnTheDrawing ?? Edited(Editor.RemoveParts(Module, ExerciseKeeps(parts), wires));
+        public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) =>
+            Edit((editor, module) => editor.RemoveParts(module, ExerciseKeeps(parts), wires), r => Edited(r));
 
         /// <summary>
         /// <paramref name="parts"/> less an exercise's ports, at its top (Part 15d): they are its test's, so a select-all and
@@ -853,20 +956,17 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>Draws a wire between two ends, a pin or a tap each, through <paramref name="route"/>'s bends (<see cref="BoardEditor.Connect"/>; Part 10b): drawn now, and replayed.</summary>
-        public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => OnTheDrawing ?? Edited(Editor.Connect(Module, from, to, route));
+        public EditResult Connect(Endpoint from, Endpoint to, Route route = null) => Edit((editor, module) => editor.Connect(module, from, to, route), r => Edited(r));
 
         /// <summary>What the inspector's fields were changed to (<see cref="Inspector.Apply"/>; Part 10c), as one step: drawn now, and replayed.</summary>
         public EditResult Inspect(Inspection inspection, IReadOnlyDictionary<string, string> typed)
         {
-            if (OnTheDrawing is EditResult refused)
-                return refused;
             Project before = Project;
-            EditResult result = Inspector.Apply(Editor, Module, inspection, typed);
-            return ReferenceEquals(before, Project) ? result : Edited(result);
+            return Edit((editor, module) => Inspector.Apply(editor, module, inspection, typed), r => ReferenceEquals(before, Project) ? r : Edited(r));
         }
 
         /// <summary><paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed.</summary>
-        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => OnTheDrawing ?? Edited(Clipboard.Paste(Editor, Module, clip, parts, wires));
+        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => Edit((editor, module) => Clipboard.Paste(editor, module, clip, parts, wires), r => Edited(r));
 
         /// <summary>
         /// <paramref name="wires"/> put back on the automatic route, their bends forgotten and a tap's place along its wire

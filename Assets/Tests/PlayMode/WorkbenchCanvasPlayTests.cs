@@ -649,6 +649,59 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The drawing of code edited, through the workbench's own controls (Part 15h-4g, asked 2026-10-29): an import, locked,
+        /// unlocked with the padlock; its mux selected and deleted with Delete; the question asked by the pointer and answered;
+        /// the code written again without it, its comment kept; and Ctrl+Z bringing the code back to the character.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnEditOfTheDrawingOfCode_AsksFirst_IsWrittenIntoTheCode_AndCtrlZBringsItBack()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            const string pick =
+                "// A chooser, written for this test.\n" +
+                "module pick (input logic [1:0] a, b, input logic s, output logic [1:0] y);\n" +
+                "    always_comb y = s ? b : a;   // a process, so the importer keeps it written code\n" +
+                "endmodule\n";
+            workbench.Import(new[] { new SourceFile("pick.sv", pick) });
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing");
+            Assert.IsTrue(workbench.Session.Locked, "sanity: an import opens locked");
+            yield return Click(WorkbenchPanel.LockButtonName);
+            Assert.IsFalse(workbench.Session.Locked);
+            string before = workbench.Session.Project.Find("pick").Source;
+
+            MuxPart mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, mux, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id));
+            yield return ClickAt(workbench, new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2));
+            Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(mux.Id), "the mux selected on the drawing");
+            yield return Tap(_keyboard.deleteKey);
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "the first edit asks");
+            Assert.AreEqual(WorkbenchSession.RewriteQuestion, workbench.Ask.Question);
+            Assert.AreEqual(before, workbench.Session.Project.Find("pick").Source, "nothing written before the answer");
+
+            yield return Click(AskMenu.YesItem);
+            workbench.Session.Finish();
+            yield return null;
+            string after = workbench.Session.Project.Find("pick").Source;
+            StringAssert.StartsWith("// A chooser, written for this test.", after, "its comment kept");
+            StringAssert.DoesNotContain("?", after, "the mux gone from the code");
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "drawn again from it");
+            Assert.IsFalse(workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Any());
+            Assert.AreEqual(WorkbenchPanel.RewrittenNotice, workbench.ChipText);
+
+            yield return Chord(_keyboard.zKey);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(before, workbench.Session.Project.Find("pick").Source, "Ctrl+Z: the code as it was");
+            Assert.AreEqual(1, workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Count(), "and its mux drawn again");
+        }
+
+        /// <summary>
         /// Written code shown as the drawing of what it builds (Part 15h-4), through the workbench's own controls: DRAWING over a
         /// written full adder's code, GATES beside it saying BOXES while its gates are drawn, a drag on the drawing refused as it
         /// begins with the chip saying why, and a double-click on one of the half adders its code makes stepping inside it.
@@ -714,11 +767,11 @@ namespace BitSorter.PlayMode.Tests
             var middle = new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2);
             yield return Drag(workbench, middle, new BoardPoint(middle.X + 3, middle.Y));
             Assert.AreEqual(was.Position, workbench.Session.DrawnModule.Layout.PlacementOf(h1.Id).Position, "nothing moved");
-            Assert.AreEqual(WorkbenchSession.DrawingRefusal, workbench.ChipText, "and the chip says why");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, workbench.ChipText, "and the chip says why: an import opens locked");
             yield return ClickAt(workbench, middle);
             Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(h1.Id), "a click selects h1 on the drawing");
-            Assert.AreEqual(WorkbenchSession.DrawingRefusal, workbench.InspectorSays,
-                "and the inspector says why it shows nothing to change, not to select one thing alone");
+            Assert.AreNotEqual("One thing at a time is inspected: click one alone to see it here.", workbench.InspectorSays,
+                "and the inspector shows it, one thing selected (Part 15h-4g)");
 
             // Longer than a double-click lasts, so the click above is not half of the one below.
             for (int frame = 0; frame < 60; frame++)

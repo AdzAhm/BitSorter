@@ -1540,6 +1540,7 @@ namespace BitSorter.View
             TickCode();
             TickDrawingSwitch();
             TickLock();
+            TickRewriteQuestion();
             TickZoomSliders();
             RefreshCode();
 

@@ -108,6 +108,35 @@ namespace BitSorter.View
 
         private bool _drawingSwitchShown, _gatesSwitchShown;
 
+        /// <summary>What the question's yes says (Part 15h-4g).</summary>
+        public const string RewriteYes = "EDIT THE DRAWING";
+
+        /// <summary>What the workbench says once an edit of the drawing is written into the code.</summary>
+        public const string RewrittenNotice = "written into the code: Ctrl+Z brings the code back";
+
+        private int _rewriteAsksSeen;
+
+        /// <summary>
+        /// The question the first edit of a module's drawing of code asks (<see cref="WorkbenchSession.RewriteQuestion"/>), asked
+        /// once each time an edit asks it, by the pointer; yes makes the edit, and CANCEL, Escape or a click off it leaves it.
+        /// </summary>
+        private void TickRewriteQuestion()
+        {
+            if (_session == null || _session.RewriteAsks == _rewriteAsksSeen)
+                return;
+            _rewriteAsksSeen = _session.RewriteAsks;
+            if (!_session.AsksToRewrite || _ask == null)
+                return;
+            Vector2 at = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            _ask.Ask(at, WorkbenchSession.RewriteQuestion, RewriteYes, () =>
+            {
+                BitSorter.Board.EditResult done = _session.AnswerRewrite(true);
+                Said(done);
+                if (done.Done)
+                    Notice(RewrittenNotice);
+            });
+        }
+
         /// <summary>The switch shown over a written module, saying what it turns to, and kept over the code's editor.</summary>
         private void TickDrawingSwitch()
         {

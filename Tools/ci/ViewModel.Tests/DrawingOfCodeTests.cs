@@ -66,8 +66,12 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(model.NetValue(a).TryGetUInt64(out ulong operand) && operand == 0xF, "a read off the run");
         }
 
+        /// <summary>
+        /// A drawing of code lays itself out, so a move or a turn is refused saying so (Part 15h-4g); and the adder's code, with
+        /// its #3 and its parameter, is no code a drawing can write, so an edit is refused saying which -- with no question asked.
+        /// </summary>
         [Test]
-        public void ADrawingOfCode_TakesNoEdit_AndSaysHowToChangeIt()
+        public void ADrawingOfCode_IsNotMovedOrTurned_AndTheAddersIsNotWrittenFrom()
         {
             WorkbenchSession session = InsideTheWrittenAdder();
             session.DrawCode(true);
@@ -75,9 +79,13 @@ namespace BitSorter.ViewModel.Tests
 
             EditResult moved = session.Move(new Dictionary<int, Placement> { [part] = new Placement(3, 3) });
             Assert.IsFalse(moved.Done);
-            Assert.AreEqual(WorkbenchSession.DrawingRefusal, moved.Refusal);
-            Assert.IsFalse(session.Remove(new[] { part }).Done);
+            Assert.AreEqual(WorkbenchSession.ArrangeRefusal, moved.Refusal);
             Assert.IsFalse(session.Turn(new[] { part }, 1).Done);
+
+            EditResult removed = session.Remove(new[] { part });
+            Assert.IsFalse(removed.Done);
+            StringAssert.Contains("delay on the assign", removed.Refusal);
+            Assert.IsFalse(session.AsksToRewrite, "nothing to ask: it cannot be written");
         }
 
         /// <summary>

@@ -292,7 +292,8 @@ namespace BitSorter.ViewModel
             // Asked again only when the pointer, the zoom or the drawing has changed: the view points every frame, and a hit
             // test of every pin each frame was a cost a big design paid standing still (the 15g-3 review).
             CanvasTarget pin = CanvasTarget.Nothing;
-            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0 && !_session.ShowsDrawingOfCode)
+            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0
+                && (!_session.ShowsDrawingOfCode || _session.EditsDrawingOfCode))
             {
                 if (stage.Value.Equals(_pinAskedAt) && zoom == _pinAskedZoom && ReferenceEquals(_hit, _pinAskedOf))
                 {
@@ -349,12 +350,16 @@ namespace BitSorter.ViewModel
             Fresh();
             Refusal = null;
 
-            // The drawing of code takes no edit (Part 15h-4): a drag that would begin one is refused as it begins, saying why,
-            // rather than drawn and then refused where it ends. A click, a box, a double-click and the menu still work on it.
-            // A locked document the same (Part 15h-4d).
-            if ((_session.Locked || _session.ShowsDrawingOfCode) && (command.Gesture == CanvasGesture.BeginMove
-                || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape))
-                return EditResult.Refused(_session.ShowsDrawingOfCode ? WorkbenchSession.DrawingRefusal : WorkbenchSession.LockedRefusal);
+            // A drag that would begin an edit the document refuses is refused as it begins, saying why, rather than drawn and then
+            // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a move or a reshape -- it lays itself out
+            // -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click and the menu still work.
+            bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape;
+            if (drag && _session.Locked)
+                return EditResult.Refused(WorkbenchSession.LockedRefusal);
+            if (drag && _session.ShowsDrawingOfCode && command.Gesture != CanvasGesture.BeginWire)
+                return EditResult.Refused(WorkbenchSession.ArrangeRefusal);
+            if (drag && _session.ShowsDrawingOfCode && !_session.EditsDrawingOfCode)
+                return EditResult.Refused(WorkbenchSession.GatesRefusal);
 
             switch (command.Gesture)
             {
@@ -731,7 +736,7 @@ namespace BitSorter.ViewModel
             {
                 Module module = Module;
                 _draftNets = WireGeometry.WireNets(module);
-                _draftAround = WireGeometry.Obstacles(_session.Project, module, _session.RoutesOf(_session.Project, module), _draftNets);
+                _draftAround = WireGeometry.Obstacles(Drawn, module, _session.RoutesOf(Drawn, module), _draftNets);
             }
 
             return _draftAround;
@@ -902,8 +907,9 @@ namespace BitSorter.ViewModel
             if (_draft.From.IsTap && to.IsTap)
                 return "A wire drawn out of a wire ends on a pin: to join two wires, draw from a pin onto one of them.";
 
-            // Asked of the document itself, on a copy, so the words are the ones the edit would be refused with.
-            var trial = new BoardEditor(_session.Project);
+            // Asked of the document itself, on a copy, so the words are the ones the edit would be refused with -- of the drawing,
+            // on the drawing of code, whose edit is made there and written into the code (Part 15h-4g).
+            var trial = new BoardEditor(Drawn);
             EditResult tried = trial.Connect(_session.Module, _draft.From, to, _draft.RouteTo(tapAt));
             return tried.Done ? null : tried.Refusal;
         }
@@ -993,7 +999,7 @@ namespace BitSorter.ViewModel
             Refusal = null;
             if (_session.ShowsDrawingOfCode)
             {
-                Refusal = WorkbenchSession.DrawingRefusal;   // its parts are the code's, some of them boxes no circuit has
+                Refusal = "The drawing of code is not copied: some of its parts are boxes no circuit has. Copy its code's text.";
                 return null;
             }
             Clip clip = Clipboard.Copy(_session.Project, _session.Module, new List<int>(Selection.Parts));
@@ -1251,8 +1257,8 @@ namespace BitSorter.ViewModel
             if (_handShown && InHand != null)
             {
                 BoardPoint at = _handFree ? _handAt : CanvasSnap.Snap(_handAt);
-                Part part = PartsCatalog.Make(_session.Project, _session.Module, InHand);
-                overlay.Hand = Stage(frame, PartGeometry.Placed(_session.Project, part, new Placement(at)), 0, 0, 0);
+                Part part = PartsCatalog.Make(Drawn, _session.Module, InHand);
+                overlay.Hand = Stage(frame, PartGeometry.Placed(Drawn, part, new Placement(at)), 0, 0, 0);
             }
         }
 

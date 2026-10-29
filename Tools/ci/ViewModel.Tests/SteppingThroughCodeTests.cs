@@ -130,11 +130,11 @@ namespace BitSorter.ViewModel.Tests
 
             EditResult? begun = editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: h1.Placement.Position, target: target));
             Assert.IsTrue(begun.HasValue && !begun.Value.Done);
-            Assert.AreEqual(WorkbenchSession.DrawingRefusal, begun.Value.Refusal);
+            Assert.AreEqual(WorkbenchSession.ArrangeRefusal, begun.Value.Refusal, "it lays itself out (Part 15h-4g)");
             Assert.IsFalse(editor.Moving);
 
             Assert.IsNull(editor.Copy());
-            Assert.AreEqual(WorkbenchSession.DrawingRefusal, editor.Refusal);
+            StringAssert.StartsWith("The drawing of code is not copied", editor.Refusal);
         }
 
         /// <summary>An undo that changes which module an instance is of, while inside it: inside, the module the code now makes it of.</summary>

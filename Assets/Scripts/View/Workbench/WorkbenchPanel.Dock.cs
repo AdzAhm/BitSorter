@@ -220,7 +220,7 @@ namespace BitSorter.View
             if (_session.ShowsWritten)
             {
                 Label note = ShellTheme.Label(CodeNoteName, _session.ShowsDrawingOfCode
-                        ? "This drawing is what the code builds: change the code to change it. CODE shows the text; Alt+Up steps out."
+                        ? "This drawing is what the code builds: what you place, wire or delete on it is written into the code. CODE shows the text; Alt+Up steps out."
                         : "A written block has no parts: its code is what it does. Type it on the right; Alt+Up steps out.",
                     UiType.Caption, palette.TextDim);
                 note.style.whiteSpace = WhiteSpace.Normal;
@@ -241,7 +241,8 @@ namespace BitSorter.View
                     y += PartRowHeight + PartGap;
             }
 
-            foreach (CatalogEntry entry in _session.ShowsWritten ? new CatalogEntry[0] : PartsCatalog.For(_session.Project, _session.Module))
+            // Over the drawing of code, its parts to place on it (Part 15h-4g); over the code itself, none.
+            foreach (CatalogEntry entry in _session.ShowsWritten && !_session.ShowsDrawingOfCode ? new CatalogEntry[0] : PartsCatalog.For(_session.DrawnProject, _session.Module))
             {
                 if (entry.Group != group && group == CatalogGroup.More)
                     PlaceCodeCell();

@@ -1047,8 +1047,20 @@ failure side.
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid
   out in columns by `LayeredLayout`), held beside the project and never in it; its
   values are the run's, a wire no signal holds worked out from the ones that are
-  (`DrawnValues`); it takes no edit -- "change the code to change it"; and a
-  double-click on a block in it, or its row in DESIGN, steps into the instance the
+  (`DrawnValues`). **Unlocked, it takes an edit, written into the code** (Part 15h-4g,
+  asked 2026-10-29): what is placed, wired, deleted, pasted or typed in the inspector on
+  it is made on the drawing and printed as the module's code (`DrawingPrinter`), one
+  undo step, the drawing made again from it -- the ports in their order, every signal's
+  name, every gate's delay, a register's edges and the comments over the module kept,
+  the rest of the code's shape not. The first such edit of a module asks first
+  (`WorkbenchSession.RewriteQuestion`). It is refused, saying which, where the drawing is
+  not the code: what it does not show (`RtlDrawing.Unshown`: an `assign #d`, a
+  `$display`, a starting value off a register), a box no expression is, a parameter, or
+  -- the drawing written again unedited -- any difference from the code on random values
+  (`DrawingPrinter.Differs`, asked once for each text of the module, and of every
+  exercise answer and corpus design by `DrawingPrinterTests`). A move, a turn or a
+  reshape is refused -- it lays itself out until 15h-4f -- and so is any edit with GATES
+  on. A double-click on a block in it, or its row in DESIGN, steps into the instance the
   code makes, its module read again from the code whenever it is drawn again
   (`WorkbenchSession.CodeSteps`). **GATES beside it opens the small ones** --
   every operator and mux of four bits or fewer, and a sum or a difference of 4-bit

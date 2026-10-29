@@ -3492,9 +3492,9 @@ instances inside written code stepped into, and GATES opening its small operator
     knowing a bit slice from another, and nothing caps how many open -- 128 openings drew 2,694 parts in 0.6 s and routed
     in 3.1 on the desktop; bit slices and a cap are 15h-6's to measure. A gate opened has no signal of its own, so it
     never flashes as the design's gates do.
-- **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
-  with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
-  says so where it lists nothing to place.
+- **It took no edit** until 15h-4g: placing, wiring, moving, turning, deleting, pasting, routing and the inspector were
+  each refused with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`),
+  and PARTS said so where it listed nothing to place. Since 15h-4g an edit is written into the code (below).
 - **The Sonnet review** ran the drawing over 83 designs, 599 scopes and 48 odd ones -- memories, generate, inout,
   boxes, 128-bit buses, no ports, unconnected pins -- and nothing threw, and no part stood on another. It found: values
   read by another design's signal numbers after an undo and a redo, which threw; a register's clock and reset on each
@@ -3582,8 +3582,8 @@ projects"). A circuit locked against change, so a look round an imported project
   - Typed code not yet applied is applied as the lock goes on, or the lock refused, as EXPORT does; the desktop
     editor's own keys (a comment, a step of the typing) are off while locked, and the browser's editor is set unlocked
     whenever it is made, since the page's editor outlives a change of style.
-  - On a drawing of code its own refusal comes first: unlocked, the drawing still takes no edit until 15h-4g, and "press
-    the lock" would send the student the wrong way.
+  - On a drawing of code the lock's refusal comes first since 15h-4g, where unlocked the drawing takes an edit; until
+    then its own did, since "press the lock" would have sent the student the wrong way.
 - **It is no edit, and not in the project**: no undo step, the run not made again, nothing of the document changed.
   The save keeps the keys of the locked circuits (`ProgressStore.locked`, absent -- nothing locked -- in every file from
   before it), following a rename and going with a delete.
@@ -3668,6 +3668,50 @@ zoom/unzoom and move it to move through the wave").
   waves zoomed in, the thumb a third of its trough.
   The Sonnet review found the library hole, the editor's keys, typed code at the lock, the browser editor after a
   change of style and the padlock over REVERT; all fixed.
+
+**As built in Part 15h-4g: the drawing and the code follow each other** (asked 2026-10-29: "When I unlock the project
+through the lock I can add and do anything I want; changes I do in code/drawing convert to changes in drawing/code").
+- **The code is what is kept.** An edit of a drawing of code, unlocked -- a part placed, a wire drawn, parts or wires
+  deleted, a paste, the inspector -- is made on the drawing, in an editor of its own over `RtlDrawing.Project`, and the
+  drawing so edited is compiled as any drawn module is and printed (`DrawingPrinter.Print`) as the module's new code:
+  `BoardEditor.SetSource`, one undo step, and the drawing made again from it. An edit that changes nothing writes
+  nothing. Its ids were the drawing's, so the result carries none.
+- **What is kept**: the ports in the code's order (a drawn module lists inputs first; the printed declaration's are put
+  back, for an instance that connects by order), every signal's name (a wire named for a signal names its net; one
+  made up, `$p4_y`, is left to the board; a generate's `slice[3].s` is `slice_3_s`), every gate's delay (on the netlist
+  since this part: `RtlCell.Delay`, a primitive's, or a library cell's when the instance is one gate and nothing else),
+  each register's edges as written with its reset already in d (`RegisterPart.ClockEdge`, `ResetEdge`), a register's
+  starting value (`RtlCell.Initial`), and the comment lines the module's code opens with. What is not: the comments
+  inside, and the code's shape -- a case is the mux it is, a loop the instances it made, an expression its operators.
+  The first edit of each module asks so, once a session (`RewriteQuestion`, the workbench's ask menu by the pointer).
+- **Every part prints**: a box is an expression of its pins (`BoxPart.Code`) -- a slice, a join of pieces at their
+  places (gaps z on a wire, x on a variable), a replicate, a select at a place, a widening (with the sign), a sign, an
+  `if`'s truth (`(|a) === 1'b1`), a case's match (`===`, its label written on the box, no pin for it since this part);
+  a case on a subject of more than three bits a box of the `?:` it is; a widening drawn as a wire a box of its own; an
+  output nothing drives left undriven.
+- **Refused, saying which**, where the drawing is not the code: what the netlist says it leaves out
+  (`RtlNetlist.Unshown`: a delay on an `assign`, a `$display` in an opened process, a tri-state gate's own delay to z,
+  a starting value on a signal no register holds); a box no expression is (a process that is no circuit, a memory's
+  word, a call, a write at a place, a 2-state value, a casez); a signal another scope gives its value; a parameter,
+  since the drawing is of one instance. And **the drawing is checked before it is trusted** (`DrawingPrinter.Differs`):
+  written again unedited, compiled, elaborated as the run elaborates it, and its scope's netlist run against the
+  drawing's on 24 rounds of random values -- inputs and registers the same by name, a register matched through every
+  name a wire of it alone gives it (`assign count = r1_q` is one wire on the drawing), a library cell worked out as its
+  gate -- each output and each register's next value compared, and the registers' edges and the gates' delays. The
+  session asks it once for each text of a module, before the question.
+- **A part placed and not yet wired** is written with its pins on nets of their own that nothing drives; drawn again, a
+  signal of the module's own that nothing drives is an open pin, never a box of its name -- a box would be a second
+  driver for the wire drawn to it next -- and so is an output left empty.
+- **Still refused on the drawing**: a move, a turn, a reshape, a route (`ArrangeRefusal`: it lays itself out, until
+  15h-4f), a copy, MAKE BLOCK, and any edit with GATES on (`GatesRefusal`: the code is written from the boxes). The
+  lock's refusal comes first. A drawn register is named for its signal after a `$`, never its own wire's name.
+- **Tests**: every exercise answer written as code (as WRITE IT writes it) and every corpus design, each written module
+  drawn and written again, does what its code did or is refused for one of those reasons -- 36 written again of 59 on
+  the day -- and an active-low reset, gate and cell delays, a wide case, slices, joins and a signed comparison, the
+  comments and the port order, an edited drawing and a placed gate's open pins (`DrawingPrinterTests`); in the session
+  the question asked once, answered either way, one undo step, refused locked, with GATES on and where the drawing is
+  not the code (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
+  answered, and Ctrl+Z.
 
 ---
 
