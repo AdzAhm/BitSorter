@@ -2022,6 +2022,46 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("63-workbench-drawing-of-code");
         }
 
+        /// <summary>
+        /// Part 15h-4: the written adder's own code, <c>{cout, s} = a + b</c>, with GATES -- the textbook's 4-bit ripple, a half
+        /// adder and three full adders, its carry on top -- every wire inside it valued by its gates at the last vector, 3 + F.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot64_WorkbenchDrawingOfCodeWithGates()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return Frames(2);
+
+            workbench.DrawingSwitch.onClick.Invoke();
+            workbench.Session.Finish();
+            yield return Frames(2);
+            workbench.GatesSwitch.onClick.Invoke();
+            workbench.Session.Finish();
+            yield return Frames(2);
+            workbench.FitView();
+            workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Session.ShowsGatesOfCode, "sanity: the gates");
+            Assert.AreEqual(1, workbench.Session.GatesOpened, "the sum and its carry");
+            yield return Capture("64-workbench-drawing-with-gates");
+        }
+
         /// <summary>The written adder's block made a small ALU for the drawing of code's shot: its ports as they were.</summary>
         private const string DrawnAlu =
             "module add4 #(\n" +

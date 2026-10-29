@@ -648,6 +648,81 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("not proven", y.text);
         }
 
+        /// <summary>
+        /// Written code shown as the drawing of what it builds (Part 15h-4), through the workbench's own controls: DRAWING over a
+        /// written full adder's code, GATES beside it saying BOXES while its gates are drawn, a drag on the drawing refused as it
+        /// begins with the chip saying why, and a double-click on one of the half adders its code makes stepping inside it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheDrawingOfCode_IsTurnedTo_OpenedIntoGates_AndAnInstanceInItSteppedIntoWithADoubleClick()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Import(new[]
+            {
+                new SourceFile("ha.sv",
+                    "module ha (input logic a, b, output logic s, c);\n" +
+                    "    assign s = a ^ b;\n" +
+                    "    assign c = a & b;\n" +
+                    "endmodule\n"),
+                new SourceFile("fa.sv",
+                    "module fa (input logic a, b, cin, output logic s, cout);\n" +
+                    "    logic s1, c1, c2;\n" +
+                    "    ha h1 (.a(a), .b(b), .s(s1), .c(c1));\n" +
+                    "    ha h2 (.a(s1), .b(cin), .s(s), .c(c2));\n" +
+                    "    always_comb cout = c1 | c2;\n" +   // a process, so the importer keeps it written code
+                    "endmodule\n"),
+            });
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual("fa", workbench.Session.Module, "sanity: the full adder the top");
+            Assert.IsTrue(workbench.Session.ShowsCode, "sanity: its code");
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "DRAWING over the code");
+            Assert.IsFalse(workbench.GatesSwitch.gameObject.activeSelf, "GATES only over a drawing");
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode);
+            Assert.IsTrue(workbench.GatesSwitch.gameObject.activeSelf, "GATES beside it");
+            Module drawing = workbench.Session.DrawnModule;
+            Assert.AreEqual(2, drawing.Parts.OfType<BlockPart>().Count(), "h1 and h2");
+
+            yield return Click(WorkbenchPanel.GatesSwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsGatesOfCode);
+            Assert.AreEqual(1, workbench.Session.GatesOpened, "c1 | c2, an OR gate");
+            Assert.AreEqual(WorkbenchPanel.BoxesCaption, workbench.GatesSwitch.GetComponentInChildren<TMP_Text>().text);
+            yield return Click(WorkbenchPanel.GatesSwitchName);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsFalse(workbench.Session.ShowsGatesOfCode);
+            Assert.AreEqual(WorkbenchPanel.GatesCaption, workbench.GatesSwitch.GetComponentInChildren<TMP_Text>().text);
+
+            drawing = workbench.Session.DrawnModule;
+            BlockPart h1 = drawing.Parts.OfType<BlockPart>().Single(b => b.Name == "h1");
+            Placement was = drawing.Layout.PlacementOf(h1.Id);
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, h1, was);
+            var middle = new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2);
+            yield return Drag(workbench, middle, new BoardPoint(middle.X + 3, middle.Y));
+            Assert.AreEqual(was.Position, workbench.Session.DrawnModule.Layout.PlacementOf(h1.Id).Position, "nothing moved");
+            Assert.AreEqual(WorkbenchSession.DrawingRefusal, workbench.ChipText, "and the chip says why");
+            yield return ClickAt(workbench, middle);
+            Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(h1.Id), "a click selects h1 on the drawing");
+
+            // Longer than a double-click lasts, so the click above is not half of the one below.
+            for (int frame = 0; frame < 60; frame++)
+                yield return null;
+            yield return DoubleClick(workbench.ScreenPointOf(middle));
+            workbench.Session.Finish();
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "h1" }, workbench.Session.Path.ToArray(), "inside h1");
+            Assert.AreEqual("ha", workbench.Session.Module);
+        }
+
         /// <summary>The wheel turned over <paramref name="element"/> at <paramref name="at"/>, as UI Toolkit hands it on.</summary>
         private static void Wheel(UnityEngine.UIElements.VisualElement element, Vector2 at, float delta)
         {

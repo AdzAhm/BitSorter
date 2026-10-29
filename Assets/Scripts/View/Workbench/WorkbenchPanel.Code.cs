@@ -20,6 +20,16 @@ namespace BitSorter.View
 
         public const string DrawingCaption = "DRAWING", CodeCaption = "CODE";
 
+        /// <summary>The switch between a drawing of code's boxes and its gates (Part 15h-4), left of the drawing switch over a drawing.</summary>
+        public const string GatesSwitchName = "Workbench gates switch";
+
+        public const string GatesCaption = "GATES", BoxesCaption = "BOXES";
+
+        /// <summary>What GATES says when it opens nothing: every operator past four bits.</summary>
+        public const string NothingOpens = "Nothing here opens into gates: past 4 bits an operator stays a box.";
+
+        private const float GatesWidth = 104f;
+
         private CodeEditorView _codeView;
         private WaveRenameField _codeName;
 
@@ -36,6 +46,12 @@ namespace BitSorter.View
         /// <summary>DRAWING over a written module's code, CODE over its drawing: which the circuit's window shows (Part 15h-4).</summary>
         public UnityEngine.UI.Button DrawingSwitch => _drawingSwitch;
 
+        private UnityEngine.UI.Button _gatesSwitch;
+        private TMPro.TextMeshProUGUI _gatesCaption;
+
+        /// <summary>GATES over a drawing of code's boxes, BOXES over its gates: whether its small operators and muxes are drawn as their gates.</summary>
+        public UnityEngine.UI.Button GatesSwitch => _gatesSwitch;
+
         private void BuildCodeView(SchematicPalette palette)
         {
             _codeView = CodeEditorView.Build(Root, palette);
@@ -50,6 +66,18 @@ namespace BitSorter.View
                 UiTheme.Defocus();
             });
             Show(_drawingSwitch, false);
+            _gatesSwitch = CanvasButton(GatesSwitchName, Root, GatesCaption, out _gatesCaption, UiType.Body, palette);
+            _gatesSwitch.onClick.AddListener(() =>
+            {
+                if (_session != null)
+                {
+                    _session.DrawGates(!_session.ShowsGatesOfCode);
+                    if (_session.ShowsGatesOfCode && _session.GatesOpened == 0)
+                        Notice(NothingOpens);
+                }
+                UiTheme.Defocus();
+            });
+            Show(_gatesSwitch, false);
             PlaceCodeView();
             _codeName = WaveRenameField.Build(_shell, transform, palette, NewCodeBlockNamed, WaveRenameField.CodeNameName,
                 "NAME THE NEW CODE BLOCK", "a module's name, add4");
@@ -72,10 +100,13 @@ namespace BitSorter.View
             {
                 var switchSize = new Vector2(124f, 32f);
                 TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x, 8f), switchSize);
+                if (_gatesSwitch != null)
+                    TopLeft(_gatesSwitch.GetComponent<RectTransform>(),
+                        CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth, 8f), new Vector2(GatesWidth, 32f));
             }
         }
 
-        private bool _drawingSwitchShown;
+        private bool _drawingSwitchShown, _gatesSwitchShown;
 
         /// <summary>The switch shown over a written module, saying what it turns to, and kept over the code's editor.</summary>
         private void TickDrawingSwitch()
@@ -91,10 +122,20 @@ namespace BitSorter.View
                 _drawingSwitchShown = shown;
             }
 
-            // FIT steps left of the switch while it is up, over a drawing of code.
+            // GATES beside it over a drawing of code, never over the code itself.
+            bool gates = shown && _session.ShowsDrawingOfCode;
+            if (gates != _gatesSwitchShown && _gatesSwitch != null)
+            {
+                Show(_gatesSwitch, gates);
+                if (gates)
+                    _gatesSwitch.transform.SetAsLastSibling();
+                _gatesSwitchShown = gates;
+            }
+
+            // FIT steps left of the switches while they are up.
             if (_fit != null)
             {
-                float right = shown ? -(8f + CodeEditorView.SwitchRoom) : -8f;
+                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f)) : -8f;
                 var fit = _fit.GetComponent<RectTransform>();
                 if (!Mathf.Approximately(fit.anchoredPosition.x, right))
                     TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));
@@ -104,6 +145,9 @@ namespace BitSorter.View
             string caption = _session.ShowsDrawingOfCode ? CodeCaption : DrawingCaption;
             if (_drawingCaption.text != caption)
                 _drawingCaption.text = caption;
+            string gatesCaption = _session.ShowsGatesOfCode ? BoxesCaption : GatesCaption;
+            if (gates && _gatesCaption.text != gatesCaption)
+                _gatesCaption.text = gatesCaption;
         }
 
         /// <summary>How much of the circuit's window's foot the strip takes, with its margin; 0 while it is down.</summary>

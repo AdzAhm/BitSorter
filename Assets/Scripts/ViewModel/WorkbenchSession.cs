@@ -494,6 +494,27 @@ namespace BitSorter.ViewModel
 
         private readonly HashSet<string> _drawnCode = new HashSet<string>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Whether the drawing of code shown draws its small operators and muxes as their gates (Part 15h-4, GATES): a sum of
+        /// 4-bit numbers as the textbook's ripple of full adders. Remembered for each module, as the drawing is.
+        /// </summary>
+        public bool ShowsGatesOfCode => ShowsDrawingOfCode && _gatesOfCode.Contains(Module);
+
+        private readonly HashSet<string> _gatesOfCode = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>How many operators and muxes the drawing of code shown draws as their gates: none while GATES is off, or none is small enough.</summary>
+        public int GatesOpened => ShowsGatesOfCode ? ShownDrawing?.Opened ?? 0 : 0;
+
+        /// <summary>Draws the drawing of code shown with its small operators and muxes as their gates, or as their boxes again.</summary>
+        public void DrawGates(bool gates)
+        {
+            if (!ShowsDrawingOfCode)
+                return;
+            if (gates ? !_gatesOfCode.Add(Module) : !_gatesOfCode.Remove(Module))
+                return;
+            Stepped();   // drawn afresh and fitted, as DRAWING is
+        }
+
         /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
         public void DrawCode(bool drawn)
         {
@@ -511,6 +532,7 @@ namespace BitSorter.ViewModel
 
         private IReadOnlyList<Module> _drawnModules;
         private string _drawnPath;
+        private bool _drawnGates;
         private RtlDrawing _drawing;
 
         /// <summary>The drawing of code the circuit's window shows now; null for none (the review of #109: a stale one was stepped through).</summary>
@@ -520,23 +542,29 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The drawing of the written module at <paramref name="path"/>, made once for the document's modules and the instance
-        /// stepped into: its code elaborated as the run elaborates it, its netlist drawn.
+        /// stepped into: its code elaborated as the run elaborates it, its netlist drawn -- with <paramref name="gates"/>, its
+        /// small operators and muxes as their gates, from the same netlist.
         /// </summary>
-        private RtlDrawing DrawingOf(Project project, CompiledProject compiled, string path, string module)
+        private RtlDrawing DrawingOf(Project project, CompiledProject compiled, string path, string module, bool gates)
         {
-            if (ReferenceEquals(_drawnModules, project.Modules) && _drawnPath == path && _drawing?.Module.Name == module)
+            bool same = ReferenceEquals(_drawnModules, project.Modules) && _drawnPath == path && _drawing?.Module.Name == module;
+            if (same && _drawnGates == gates)
                 return _drawing;
-            _drawing = null;
-            _drawnModules = null;
-            Design design = DesignOf(project, compiled);
-            if (design == null)
-                return null;
-            RtlNetlist netlist = RtlExtractor.Of(design, path);
-            if (netlist == null)
-                return null;
-            _drawing = RtlDrawing.Of(project, netlist, module);
-            _drawnNetlist = netlist;
-            _drawnDesign = design;
+            if (!same)
+            {
+                _drawing = null;
+                _drawnModules = null;
+                Design design = DesignOf(project, compiled);
+                if (design == null)
+                    return null;
+                RtlNetlist netlist = RtlExtractor.Of(design, path);
+                if (netlist == null)
+                    return null;
+                _drawnNetlist = netlist;
+                _drawnDesign = design;
+            }
+            _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates);
+            _drawnGates = gates;
             _drawnModules = project.Modules;
             _drawnPath = path;
             return _drawing;
@@ -548,7 +576,7 @@ namespace BitSorter.ViewModel
         /// <summary>The drawing of code laid out, its wires no signal holds valued from the netlist.</summary>
         private SchematicLayout DrawingLayout(Project project, CompiledProject compiled, string path, string module)
         {
-            RtlDrawing drawing = DrawingOf(project, compiled, path, module);
+            RtlDrawing drawing = DrawingOf(project, compiled, path, module, _gatesOfCode.Contains(module));
             if (drawing == null)
                 return null;
             Netlist nets = Netlist.Of(drawing.Project, drawing.Module);
@@ -558,9 +586,11 @@ namespace BitSorter.ViewModel
             for (int i = 0; i < rtlNetOf.Length; i++)
             {
                 Net net = nets.Named(layout.Nets[i].Name);
-                rtlNetOf[i] = net != null && net.Wires.Count > 0 ? drawing.NetOfWire(net.Wires[0]) : -1;
+                int wire = net != null && net.Wires.Count > 0 ? net.Wires[0] : -1;
+                int inner = wire >= 0 ? drawing.InnerOfWire(wire) : -1;
+                rtlNetOf[i] = wire < 0 ? -1 : inner >= 0 ? -2 - inner : drawing.NetOfWire(wire);
             }
-            layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf, _drawnDesign);
+            layout.Drawn = new DrawnValues(_drawnNetlist, rtlNetOf, _drawnDesign, drawing);
             _shownDrawing = drawing;
             return layout;
         }

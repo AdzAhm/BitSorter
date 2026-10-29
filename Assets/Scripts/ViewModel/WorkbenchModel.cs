@@ -512,7 +512,7 @@ namespace BitSorter.ViewModel
         }
 
         private int[] _drawnSignals;
-        private LogicVec[] _drawnInputs, _drawnValues;
+        private LogicVec[] _drawnInputs, _drawnValues, _drawnInner;
         private double _drawnAt = double.NaN;
 
         /// <summary>A wire of a drawing of code no signal holds: the netlist worked out from this run's signals now, once a moment.</summary>
@@ -533,9 +533,11 @@ namespace BitSorter.ViewModel
                     _drawnInputs[drawn.Reads[i]] = signal >= 0 ? ValueAt(signal, 1, Time) : LogicVec.AllX(drawn.ReadWidths[i]);
                 }
                 _drawnValues = RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs);
+                _drawnInner = drawn.Drawing != null && drawn.Drawing.InnerCount > 0 ? drawn.Drawing.Inner(_drawnValues) : null;
                 _drawnAt = Time;
             }
-            return _drawnValues[drawn.RtlNetOf(net)];
+            int at = drawn.RtlNetOf(net);
+            return at >= 0 ? _drawnValues[at] : _drawnInner[-2 - at];   // a wire inside an opening into gates (GATES)
         }
 
         /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>

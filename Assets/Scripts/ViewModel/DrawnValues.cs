@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BitSorter.Board;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 
@@ -11,6 +12,8 @@ namespace BitSorter.ViewModel
     /// A model works the values out at a moment with the engine's own operators (<see cref="RtlEvaluator"/>), the signals
     /// read off its own run by those names -- never by the numbers of the design the netlist was made from, which an edit
     /// replayed under an older run does not share (the review of #108: undo and redo read the wrong signals, and threw).
+    /// A wire inside an operator opened into its gates (the GATES switch) is on no net of the netlist; the drawing works it
+    /// out from them (<see cref="RtlDrawing.Inner"/>).
     /// </summary>
     public sealed class DrawnValues
     {
@@ -20,11 +23,16 @@ namespace BitSorter.ViewModel
         private readonly int[] _widths;
 
         /// <param name="netlist">The netlist drawn.</param>
-        /// <param name="rtlNetOf">For each of the layout's nets, by index, the netlist's net it carries; -1 for none.</param>
+        /// <param name="rtlNetOf">
+        /// For each of the layout's nets, by index, the netlist's net it carries; <c>-2 - k</c> for the k-th wire inside an
+        /// opening into gates; -1 for none.
+        /// </param>
         /// <param name="design">The design the netlist was made from, which its signal numbers are of.</param>
-        public DrawnValues(RtlNetlist netlist, int[] rtlNetOf, Design design)
+        /// <param name="drawing">The drawing, which works out the wires inside its openings into gates; null for none.</param>
+        public DrawnValues(RtlNetlist netlist, int[] rtlNetOf, Design design, RtlDrawing drawing = null)
         {
             Netlist = netlist ?? throw new ArgumentNullException(nameof(netlist));
+            Drawing = drawing;
             _rtlNetOf = rtlNetOf ?? throw new ArgumentNullException(nameof(rtlNetOf));
             if (design == null)
                 throw new ArgumentNullException(nameof(design));
@@ -57,6 +65,9 @@ namespace BitSorter.ViewModel
         /// <summary>The netlist drawn.</summary>
         public RtlNetlist Netlist { get; }
 
+        /// <summary>The drawing, which works out the wires inside its openings into gates; null for none.</summary>
+        public RtlDrawing Drawing { get; }
+
         /// <summary>How many signals the netlist's design has: what an array of its values is as long as.</summary>
         public int SignalCount { get; }
 
@@ -70,9 +81,9 @@ namespace BitSorter.ViewModel
         public IReadOnlyList<int> ReadWidths => _widths;
 
         /// <summary>Whether the layout's net <paramref name="net"/> is one whose value is worked out here.</summary>
-        public bool Has(int net) => net >= 0 && net < _rtlNetOf.Length && _rtlNetOf[net] >= 0;
+        public bool Has(int net) => net >= 0 && net < _rtlNetOf.Length && _rtlNetOf[net] != -1;
 
-        /// <summary>The netlist's net the layout's net <paramref name="net"/> carries.</summary>
+        /// <summary>The netlist's net the layout's net <paramref name="net"/> carries; <c>-2 - k</c> for the k-th wire inside an opening.</summary>
         public int RtlNetOf(int net) => _rtlNetOf[net];
     }
 }

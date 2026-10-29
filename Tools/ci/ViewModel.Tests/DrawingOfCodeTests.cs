@@ -183,6 +183,40 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsEmpty(session.Path);
         }
 
+        /// <summary>
+        /// GATES on the written adder (Part 15h-4): its sum with its carry drawn as the 4-bit ripple of full adders, every wire
+        /// valued at the end of the run -- those inside the ripple by its gates -- the choice kept for the module, and the box
+        /// back without it.
+        /// </summary>
+        [Test]
+        public void GatesOnTheWrittenAdder_DrawItsSumAsTheRipple_EveryWireValued()
+        {
+            WorkbenchSession session = InsideTheWrittenAdder();
+            session.DrawCode(true);
+            session.Finish();
+            Assert.IsFalse(session.ShowsGatesOfCode);
+            Assert.AreEqual(1, session.Run.Model.Layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "sanity: the sum a box");
+
+            session.DrawGates(true);
+            session.Finish();
+            Assert.IsTrue(session.ShowsGatesOfCode);
+            SchematicLayout layout = session.Run.Model.Layout;
+            Assert.AreEqual(0, layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "the sum opened");
+            Assert.AreEqual(7, layout.Parts.Count(p => p.Part is GatePart g && g.Kind == GateKind.Xor), "four bits' ripple");
+
+            WorkbenchModel model = session.Run.Model;
+            model.Seek(model.End);
+            for (int net = 0; net < layout.Nets.Count; net++)
+                Assert.IsTrue(model.NetValue(net).IsKnown, layout.Nets[net].Name + " valued: F + F");
+
+            int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+            Assert.IsTrue(session.StepOut());
+            Assert.IsTrue(session.StepInto(add));
+            Assert.IsTrue(session.ShowsGatesOfCode, "kept for the module");
+            session.DrawGates(false);
+            Assert.AreEqual(1, session.Run.Model.Layout.Parts.Count(p => p.Symbol == PartSymbol.Operator), "the box again");
+        }
+
         [Test]
         public void TheChoiceOfCodeOrDrawing_IsKeptForEachModule()
         {
