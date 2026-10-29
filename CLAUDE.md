@@ -825,7 +825,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures sixty-two states (menu, a built
+  `BitSorter/Capture Reference Shots` captures sixty-three states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -837,7 +837,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, and the full adder with h1 turned a quarter -- every other shot taken with the hints seen) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, and the written adder's block made a small ALU and shown as the drawing of its code -- every other shot taken with the hints seen) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -1006,7 +1006,13 @@ failure side.
   with wires leaving its top has its name under it or beside it. **An operator part**
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
-  15h-4) to place. **A big
+  15h-4) to place. **A written module is shown as its code or as the drawing of it**
+  (Part 15h-4): DRAWING in the circuit window's lower right corner turns it, CODE
+  turns it back, kept for each module (`WorkbenchSession.ShowsDrawingOfCode`). The
+  drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid
+  out in columns by `LayeredLayout`), held beside the project and never in it; its
+  values are the run's, a wire no signal holds worked out from the ones that are
+  (`DrawnValues`); and it takes no edit -- "change the code to change it". **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

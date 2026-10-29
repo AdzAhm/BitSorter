@@ -3428,6 +3428,44 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
   did not, every one between parts under a cell and a half apart; `Avoiding` takes the obstacles in. A mux opened into
   gates gives x for a select of x where the language's mux gives what its inputs agree on.
 
+**As built in Part 15h-4: the drawing of written code in the circuit window** (`Board/RtlDrawing.cs`,
+`Board/Geometry/LayeredLayout.cs`, `ViewModel/DrawnValues.cs`). The first half of the part: a written module shown as what
+its code builds. Stepping into the instances inside written code, and GATES on the drawing, are its second half.
+
+- **`RtlDrawing.Of(project, netlist, name)`** makes a drawn module of a scope's netlist, held beside the project and
+  never in it, and nothing compiles it.
+  - Each cell is the part that is the same thing: a gate, an `OperatorPart`, the board's mux, a register, a block of an
+    instance's module -- one of the gate library's cells the gate it is -- and a constant.
+  - Anything else is a `BoxPart`, a box of a label and pins for showing only: a slice `[3:0]`, a join of bits, a
+    process that is no circuit by its name, with why.
+  - **Glue is the wire it stands on**, as a synthesis tool's RTL view draws it: a join of one driver over its signal, a
+    widening, a change of sign, a 2-state hold, a bit's truth.
+  - **A case is the mux it is**: a chain of muxes on whether one subject of up to three bits matches constant labels
+    is drawn as the board's MUX of as many inputs as the subject has values, the subject on its select, each label's arm
+    on its input, the rest the default. A label's constant is said on its match where it is not, `= 01`.
+  - **Every wire on a signal's net is named for the signal**, so the drawing finds its values by name as any drawing
+    does; and the drawing remembers which netlist net each wire carries.
+- **`LayeredLayout`**: columns by the longest way in from the inputs, a register a column past what gives it its next
+  value and its loop back drawn round, the outputs last. Within a column, parts are ordered by the mean place of what
+  they link to, down and up six times, and each stands level with what feeds it where it fits. The same netlist draws
+  the same every time.
+- **The workbench**: DRAWING, in the circuit window's lower right corner over a written module's code, shows the
+  drawing, and CODE the text again; the choice is kept for each module (`WorkbenchSession.DrawCode`). The session
+  elaborates the code once for the document's modules and the instance stepped into, and lays the drawing out with the
+  routes cached as any document's (`DocumentSchematic.Build` takes a module and its board netlist now, for one the
+  project does not compile).
+- **Its values are the run's.** A wire no signal holds -- an adder's output inside `assign y = a + b + c` -- is worked
+  out at the playhead from the signals the netlist reads, with the engine's own operators (`DrawnValues`, once a
+  moment however many wires ask; the model keeps tracks for what it reads).
+- **It takes no edit**: placing, wiring, moving, turning, deleting, pasting, routing and the inspector are each refused
+  with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`), and PARTS
+  says so where it lists nothing to place.
+- **Tests**: every exercise solution's and corpus design's netlist, each scope, drawn -- every operator, register, gate
+  and instance a part, a port each, every wire on pins its parts have and named for its signal, nothing on anything,
+  every wire routed, the same drawing twice; a case drawn as its mux; in the view-model, the written adder's drawing an
+  adder with its sum valued 15 + 15 where no signal holds it, edits refused, and the choice kept for the module; shot 63,
+  the written adder's block made a small ALU and drawn.
+
 ---
 
 ## 11. The parts
@@ -3451,7 +3489,7 @@ Each part is one pull request into `v5`, ends with every suite green, and leaves
 | 12 | Hierarchy, and written blocks, edited in CodeMirror in a browser -- in six: 12a stepping inside a block **built** (see "As built in Part 12a"); 12b making a block **built** (see "As built in Part 12b"); 12c arrays **built** (see "As built in Part 12c"); 12d code blocks **built** (see "As built in Part 12d"); 12e the code panel **built** (see "As built in Part 12e"); 12f CodeMirror **built** (see "As built in Part 12f") |
 | 13 | Export and import (and a levelized path in the engine, only if a measurement asks for it) -- in six: 13a exporting a project **built** (see "As built in Part 13a"); 13b importing one **built** (see "As built in Part 13b"); 13c CONVERT **built** (see "As built in Part 13c"); 13d files **built** (see "As built in Part 13d"); 13e templates **built** (see "As built in Part 13e"); 13f limits, the security review, the measurement and the browser check **built** (see "As built in Part 13f"; the levelized path is not needed). **Part 13 is built.** |
 | 14 | The course's tools: path delays, static timing, gate-library mode, step tests, lint, tri-state -- in six, **built**: 14a the timing analysis core, 14b the TIMING tab, 14c step tests, 14d gate-library mode, 14e lint and 14f tri-state buses and inout (see "As built in Part 14a" to "14f"); and 14g, its follow-ups: deleting a module, the code editor's keys, the library held in written code and over budget, and inout pins on written blocks (see "As built in Part 14g") |
-| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"); 15h-3 word-level parts and every part turned to any side **built** (see "As built in Part 15h-3"). |
+| 15 | A simulator first, the Exercises and the tutorial -- in six: 15a **built** in two (see "As built in Part 15a"): the student's circuits, and opening on the last thing or a start page, the app's menus for BACK, the 4.x game in Settings, music off; 15b the Exercise model, grading and self-checking testbenches **built** (see "As built in Part 15b"); 15c the 35 exercises **built** (see "As built in Part 15c"); 15d Exercises on the workbench **built** (see "As built in Part 15d"); 15e answering in code **built** (see "As built in Part 15e"); 15f first-time hints, the guided tutorial and the browser check **built** (see "As built in Part 15f"). **Part 15 is built.** Then 15g, what the first playtest asked for: 15g-1 the quick fixes **built** (see "As built in Part 15g-1"); 15g-2 Settings and the credits as pages of the workbench **built** (see "As built in Part 15g-2"); 15g-3 a lead on every pin **built** (see "As built in Part 15g-3"); 15g-4 INPUTS, sequences without code **built** (see "As built in Part 15g-4"); 15g-5 LOGIC **built** (see "As built in Part 15g-5"); 15g-6 STATES, the state diagram, **built** (see "As built in Part 15g-6"); 15g-7 big circuits stay smooth **built** (see "As built in Part 15g-7"). And 15h, a drawing of any code: 15h-1 the netlist of a module's code **built** (see "As built in Part 15h-1"); 15h-2 processes as muxes and registers **built** (see "As built in Part 15h-2"); 15h-3 word-level parts and every part turned to any side **built** (see "As built in Part 15h-3"); 15h-4 the drawing of written code, its first half, **built** (see "As built in Part 15h-4"). |
 | 16 | The old game retired, and a smaller download; 5.0.0 released |
 
 **Agreed after Part 9, 2026-10-19: the language, before Part 10.** A course audit ran every one of the
