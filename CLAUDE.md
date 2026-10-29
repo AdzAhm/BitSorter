@@ -1017,7 +1017,17 @@ failure side.
   WRITE IT, an imported course template and an exercise answered in code open on the
   code, to be typed into (`WorkbenchSession.ShowCodeOf`), and text typed and not yet
   applied is still what EXPORT applies or refuses with the drawing up
-  (`WorkbenchSession.PendingCode`). CODE and
+  (`WorkbenchSession.PendingCode`). **A circuit can be locked** (Part 15h-4d, asked
+  2026-10-29; `WorkbenchSession.Locked`): the padlock in the circuit window's top strip,
+  left of FIT's place -- not the lower corner Ahmad first asked for, which a browser's code
+  box covers just when the code is to be unlocked. An imported project opens locked, but
+  for a course template, imported to be written into; a sample and an exercise never
+  lock. Locked, every edit of the circuit and its code is refused saying how to unlock it
+  -- a testbench converted, and an undo or a redo that would change them, included --
+  and the code's editor is read only in both builds (CodeMirror's `readOnly`, through a
+  compartment); its inputs, gate library and unit are tried as ever. The lock is no edit:
+  no undo step, the run not made again; the save keeps it beside the document
+  (`locked`, absent before it). CODE and
   DRAWING sit at the right of the code's top strip -- in a browser the code is a box
   laid over everything under that strip (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid

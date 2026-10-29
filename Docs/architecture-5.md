@@ -3565,6 +3565,35 @@ instances inside written code stepped into, and GATES opening its small operator
   tall whole at the fit, no further out than that, and its map once zoomed in; the rows of a sum of products, an assign
   and a long piece, each in its room with nothing lost.
 
+**As built in Part 15h-4d, second half: the lock** (asked 2026-10-29: "a small lock icon ... locked by default on imported
+projects"). A circuit locked against change, so a look round an imported project cannot change it by accident.
+- **`WorkbenchSession.Locked`** refuses every edit of the circuit and its code with `LockedRefusal`, "Locked: press the
+  lock at the circuit's corner to change it":
+  - placing, wiring, moving, turning, deleting, pasting, routing, the inspector and MAKE BLOCK, beside the drawing's own
+    refusal, and a drag as it begins (`CanvasEditor`);
+  - the code, a module added, replaced or deleted, and a written testbench converted, which takes code out;
+  - an undo or a redo that would change them (`WhyNotUndo`, `WhyNotRedo`: the step's modules are not the project's;
+    `BoardEditor.UndoTarget` and `RedoTarget` say what a step goes to), so the lock has no hole through Ctrl+Z.
+  - Not its inputs, a test of them, its gate library or its unit: trying values changes no circuit, and their steps
+    still undo.
+  - On a drawing of code its own refusal comes first: unlocked, the drawing still takes no edit until 15h-4g, and "press
+    the lock" would send the student the wrong way.
+- **It is no edit, and not in the project**: no undo step, the run not made again, nothing of the document changed.
+  The save keeps the keys of the locked circuits (`ProgressStore.locked`, absent -- nothing locked -- in every file from
+  before it), following a rename and going with a delete.
+- **Where**: the padlock is a button in the circuit window's top strip, left of FIT's place, drawn by the workbench's
+  painter (`WorkbenchDrawing.Padlock`): shut in the accent, open in the text's colour. Not the lower corner first asked
+  for: in a browser the code is a box over everything under that strip, and the lock would be under it exactly when the
+  code was to be unlocked. Only a circuit has one; a sample and an exercise never lock.
+- **An import opens locked**, but for a course template (`Module.Template`), which is imported to be written into.
+- **The code's editor is read only while locked**, in both builds: TextMesh Pro's field by its own switch, CodeMirror by
+  `EditorState.readOnly` in a compartment (`BitSorterCode.setReadOnly`), kept over a new block's code loaded -- the
+  text still selected, copied and searched, and set by the game.
+- **Tests**: every edit refused and nothing changed, the code refused, the inputs, library and unit still taken, the
+  lock no undo step, an undo across it refused for the circuit and not for an input, a drag refused as it begins
+  (`LockTests`); the save over a restart, a rename and a delete (`ProgressStoreTests`); in Play Mode an import opening
+  locked with its code read only until the padlock is pressed, and CONVERT refused until then.
+
 ---
 
 ## 11. The parts
