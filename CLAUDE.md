@@ -1028,7 +1028,11 @@ failure side.
   code's editor is read only in both builds (CodeMirror's `readOnly`, through a
   compartment); its inputs and unit are tried as ever. The lock is no edit:
   no undo step, the run not made again; the save keeps it beside the document
-  (`locked`, absent before it). **Each window's zoom has a control of its own, never a
+  (`locked`, absent before it). **FILE, BACK TO AS IMPORTED puts an import back as it
+  came in** (asked 2026-10-29), from a copy the save keeps beside it (`imported`, through
+  a rename, gone with a delete): it asks first, is one undo step, and locks it again --
+  not refused by the lock, since it puts the circuit back rather than changing it by
+  hand; unlocked, Ctrl+Z brings the changes back. **Each window's zoom has a control of its own, never a
   zoom of its own** (Part 15h-4d): the circuit's a slider at its window's lower right,
   even in the zoom's ratio (`ZoomSlider`), down over code; the waves' a range bar at
   the legend row's right end (`WaveRangeBar`, `WaveRange`, in the shape Ahmad drew from a

@@ -2861,7 +2861,28 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.IsFalse(workbench.Session.Locked, "the padlock pressed, unlocked");
             Assert.IsFalse(workbench.CodeView.Field.readOnly, "the code takes typing again");
-            Assert.IsTrue(workbench.Session.SetSource(workbench.Session.Project.TopModule.Source + "// a note\n").Done);
+            string original = workbench.Session.Project.TopModule.Source;
+            Assert.IsTrue(workbench.Session.SetSource(original + "// a note\n").Done);
+
+            // FILE, BACK TO AS IMPORTED (Part 15h-4d): asked first, then the code as it came in, locked again.
+            workbench.Session.DrawCode(false);
+            yield return null;
+            workbench.CodeView.Field.text = original + "// typed, not applied\n";   // typed and left: it goes with the put-back
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.BackToImported), "offered on an import");
+            yield return Click(FileMenu.ActionItem + FileAction.BackToImported);
+            Assert.IsTrue(workbench.Ask.IsOpen, "it asks first");
+            yield return Click(AskMenu.YesItem);
+            yield return null;
+            Assert.AreEqual(original, workbench.Session.Project.TopModule.Source, "the code as it came in");
+            Assert.IsTrue(workbench.Session.Locked, "locked again");
+            Assert.IsNull(workbench.Session.PendingCode, "and nothing typed left over it");
+
+            workbench.OpenDocument(WorkbenchSamples.MyCircuitKey);
+            yield return null;
+            yield return Click(WorkbenchPanel.FileButton);
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.BackToImported), "never offered on a circuit that was not imported");
+            workbench.FileMenu.Close();
         }
 
         /// <summary>

@@ -89,6 +89,12 @@ namespace BitSorter.View
         public string[] locked;
 
         /// <summary>
+        /// Each imported circuit as it came in, under its key (Part 15h-4d): what FILE, BACK TO AS IMPORTED puts back. A new
+        /// key, absent -- nothing to go back to -- in every file from before it.
+        /// </summary>
+        public SavedProject[] imported;
+
+        /// <summary>
         /// What was open last on the workbench (Part 15a), which BitSorter opens on again: a circuit's key, a sample's
         /// (<c>sample/</c> and its name), or empty for the start page. Absent, so the start page, in every file from before it.
         /// </summary>
@@ -183,6 +189,7 @@ namespace BitSorter.View
         private readonly List<SavedProject> _projects = new List<SavedProject>();
         private readonly List<string> _recent = new List<string>();
         private readonly List<string> _locked = new List<string>();
+        private readonly List<SavedProject> _imported = new List<SavedProject>();
         private string _lastOpen = "";
         private readonly Dictionary<string, (int Gates, long? Settle)> _exerciseBests = new Dictionary<string, (int Gates, long? Settle)>(StringComparer.Ordinal);
 
@@ -296,6 +303,7 @@ namespace BitSorter.View
             _projects.Clear();
             _recent.Clear();
             _locked.Clear();
+            _imported.Clear();
             _lastOpen = "";
             _exerciseBests.Clear();
             LoadedFormat = 0;
@@ -391,6 +399,10 @@ namespace BitSorter.View
                     foreach (string key in file.locked)
                         if (!string.IsNullOrEmpty(key) && !_locked.Contains(key))
                             _locked.Add(key);
+                if (file.imported != null)
+                    foreach (SavedProject saved in file.imported)
+                        if (saved != null && !string.IsNullOrEmpty(saved.key) && saved.project != null && IndexOfImported(saved.key) < 0)
+                            _imported.Add(saved);
                 _lastOpen = file.lastOpen ?? "";
                 if (file.exerciseBests != null)
                     foreach (ExerciseBestRecord best in file.exerciseBests)
@@ -481,6 +493,7 @@ namespace BitSorter.View
                     projects = _projects.ToArray(),
                     recent = _recent.ToArray(),
                     locked = _locked.ToArray(),
+                    imported = _imported.ToArray(),
                     lastOpen = _lastOpen,
                     exerciseBests = ExerciseBestRecords(),
                 };
@@ -521,6 +534,7 @@ namespace BitSorter.View
             _projects.Clear();
             _recent.Clear();
             _locked.Clear();
+            _imported.Clear();
             _lastOpen = "";
             _exerciseBests.Clear();
             Save();
@@ -707,6 +721,41 @@ namespace BitSorter.View
                 _projects.RemoveAt(index);
             _recent.Remove(key);
             _locked.Remove(key);
+            int imported = IndexOfImported(key);
+            if (imported >= 0)
+                _imported.RemoveAt(imported);
+        }
+
+        /// <summary>Keeps <paramref name="project"/> as the circuit under <paramref name="key"/> came in (Part 15h-4d). Not written until <see cref="Save"/>.</summary>
+        public void SetImported(string key, Project project)
+        {
+            if (string.IsNullOrEmpty(key) || project == null)
+                return;
+            int index = IndexOfImported(key);
+            var saved = new SavedProject { key = key, project = ProjectRecord.From(project) };
+            if (index >= 0)
+                _imported[index] = saved;
+            else
+                _imported.Add(saved);
+        }
+
+        /// <summary>Whether the circuit under <paramref name="key"/> was imported, and so can go back to how it came in.</summary>
+        public bool HasImported(string key) => IndexOfImported(key) >= 0;
+
+        /// <summary>The circuit under <paramref name="key"/> as it came in, if it was imported; what could not be read goes into <paramref name="problems"/>.</summary>
+        public bool TryGetImported(string key, out Project project, List<string> problems)
+        {
+            int index = IndexOfImported(key);
+            project = index < 0 ? null : _imported[index].project.ToProject(problems ?? new List<string>());
+            return project != null;
+        }
+
+        private int IndexOfImported(string key)
+        {
+            for (int i = 0; i < _imported.Count; i++)
+                if (string.Equals(_imported[i].key, key, StringComparison.Ordinal))
+                    return i;
+            return -1;
         }
 
         /// <summary>Whether the document under <paramref name="key"/> is locked against change (Part 15h-4d).</summary>
@@ -739,6 +788,9 @@ namespace BitSorter.View
             int locked = _locked.IndexOf(from);
             if (locked >= 0)
                 _locked[locked] = to;
+            int imported = IndexOfImported(from);
+            if (imported >= 0)
+                _imported[imported] = new SavedProject { key = to, project = _imported[imported].project };
             if (_lastOpen == from)
                 _lastOpen = to;
             return true;

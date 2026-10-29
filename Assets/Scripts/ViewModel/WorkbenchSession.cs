@@ -788,6 +788,22 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult AddWrittenModule(string name) => Unchangeable ?? Editor.AddWrittenModule(name);
 
+        /// <summary>
+        /// The whole project put back as it was imported (FILE, BACK TO AS IMPORTED, Part 15h-4d): one step, drawn and
+        /// replayed, then locked as an import is when <paramref name="locked"/>. Not refused by the lock: it puts the circuit
+        /// back rather than changing it by hand, and the workbench asks first; unlocked, Ctrl+Z brings the changes back.
+        /// </summary>
+        public EditResult PutBack(Project imported, bool locked)
+        {
+            EditResult result = Edited(Editor.ReplaceProject(imported));
+            if (result.Done)
+            {
+                _code = null;   // text typed and not applied goes too: the code as it came in, never broken text left read only (the review)
+                Locked = locked;
+            }
+            return result;
+        }
+
         /// <summary>A module put in whole in place of the one of its name (<see cref="BoardEditor.ReplaceModule"/>, Part 15e), and replayed.</summary>
         public EditResult ReplaceModule(Module module) => Unchangeable ?? Edited(Editor.ReplaceModule(module));
 

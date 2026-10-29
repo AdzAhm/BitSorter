@@ -460,6 +460,13 @@ namespace BitSorter.Board
             return Commit(Project.WithModule(replacement));
         }
 
+        /// <summary>
+        /// The whole project put back as <paramref name="project"/> -- FILE, BACK TO AS IMPORTED (Part 15h-4d) -- one step,
+        /// which Ctrl+Z takes back, checked as every edit is.
+        /// </summary>
+        public EditResult ReplaceProject(Project project) =>
+            project == null ? EditResult.Refused("There is no project to put back.") : Commit(project);
+
         /// <summary>Renames a module, and every block of it, and the top if it was the top.</summary>
         public EditResult RenameModule(string from, string to)
         {

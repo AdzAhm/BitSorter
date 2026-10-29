@@ -3605,6 +3605,24 @@ projects"). A circuit locked against change, so a look round an imported project
   Mode an import opening locked with its code read only until the padlock is pressed, and CONVERT refused until then;
   shot 66, an imported written design's code, locked.
 
+**As built in Part 15h-4d, second half: FILE, BACK TO AS IMPORTED** (asked 2026-10-29: "a button to reset all to the
+original imported project as it was"; nothing did it).
+- **The save keeps each import as it came in** (`ProgressStore.imported`, absent -- nothing to go back to -- in every
+  file from before it), set as the import is adopted, following a rename and gone with a delete.
+- **FILE offers BACK TO AS IMPORTED only on a circuit that has one** (`FileMenu.Open`'s `imported`), never on a
+  sample or an exercise. It asks first, under the FILE chip, then puts the whole project back as one step
+  (`BoardEditor.ReplaceProject`, `WorkbenchSession.PutBack`) and locks it again as an import is, a course template
+  aside. It is not refused by the lock: it puts the circuit back rather than changing it by hand; and the lock it ends
+  under refuses the Ctrl+Z that would bring the changes back until it is unlocked, which its question says (worded
+  apart for a template, which stays unlocked). Text typed and not applied goes with it, and the answer puts back only
+  the circuit it was asked of. Each import is kept twice in the save, the circuit and its copy: accepted, at the sizes
+  imports come in.
+- **Tests**: one step, locked again, unlocked undone; taken locked; typed text dropped (`BackToImportedTests`); the
+  save's copy apart from the circuit's changes, over a rename, a restart and a delete, and none in a file from before
+  it (`ProgressStoreTests`); in Play Mode, an import's code changed and put back through FILE, asked first, locked
+  again, nothing typed left, and the item never offered on MY CIRCUIT. Its Sonnet review found the typed text, the
+  question's wording for a template and the answer's circuit; all fixed.
+
 **As built in Part 15h-4d, second half: the zoom controls** (asked 2026-10-29: "a small zoom slider ... make sure it is
 compatible with everything and not working on its own"; for the waves, Ahmad drew "a line that you can drag its edges to
 zoom/unzoom and move it to move through the wave").

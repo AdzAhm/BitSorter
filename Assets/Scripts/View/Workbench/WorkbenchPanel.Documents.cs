@@ -216,6 +216,48 @@ namespace BitSorter.View
             _ask.Ask(UnderTheFileChip(), "Delete the circuit " + name + "? It cannot be brought back.", "DELETE " + name.ToUpperInvariant(), DeleteCircuit);
         }
 
+        /// <summary>Whether the circuit open came in by an import, and so can go back to how it came in (Part 15h-4d).</summary>
+        private bool CameIn() => _sample == 0 && _exercise == null && Store() is ProgressStore store && store.HasImported(_documentKey);
+
+        /// <summary>FILE, BACK TO AS IMPORTED (Part 15h-4d, asked 2026-10-29): asked first, under the FILE chip.</summary>
+        public void AskBackToImported()
+        {
+            if (!CameIn())
+            {
+                Notice("only a circuit that was imported goes back to how it came in");
+                return;
+            }
+            // A course template is imported to be written into and stays unlocked; anything else is locked again.
+            bool template = Store() is ProgressStore store && store.TryGetImported(_documentKey, out BitSorter.Board.Project kept, null)
+                && FromATemplate(kept) > 0;
+            _askedBack = _documentKey;
+            _ask.Ask(UnderTheFileChip(), template
+                    ? "Put this circuit back as it was imported? Everything written into it since goes; Ctrl+Z brings it back."
+                    : "Put this circuit back as it was imported? What was changed since goes, and it is locked again; press the lock, then Ctrl+Z, to bring the changes back.",
+                "PUT IT BACK", BackToImported);
+        }
+
+        // The circuit BACK TO AS IMPORTED was asked of: the answer puts that one back or nothing, whatever is open by then.
+        private string _askedBack;
+
+        /// <summary>The circuit open put back as it came in -- one step -- and locked again as an import is, but for a course template.</summary>
+        public void BackToImported()
+        {
+            if (_session == null || _documentKey != _askedBack || !CameIn() || !(Store() is ProgressStore store)
+                || !store.TryGetImported(_documentKey, out BitSorter.Board.Project imported, null))
+                return;
+            bool locked = FromATemplate(imported) == 0;
+            BitSorter.Board.EditResult put = _session.PutBack(imported, locked);
+            if (!put.Done)
+            {
+                Notice(put.Refusal);
+                return;
+            }
+            store.SetLocked(_documentKey, locked);
+            store.Save();
+            Notice("put back as it was imported" + (locked ? ", and locked" : ""));
+        }
+
         /// <summary>The circuit open taken out of the save, and MY CIRCUIT opened in its place.</summary>
         public void DeleteCircuit()
         {

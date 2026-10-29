@@ -150,11 +150,27 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(reloaded.IsLocked("doc/half adder"), "unlocked");
             Assert.IsFalse(reloaded.IsLocked("doc/alu"), "and a circuit deleted takes its lock with it");
 
+            // An import kept as it came in follows the circuit through a rename and a restart, and goes with a delete.
+            reloaded.SetProject("doc/mux", BitSorter.Board.Project.New("mux"));
+            reloaded.SetImported("doc/mux", BitSorter.Board.Project.New("mux"));
+            reloaded.SetProject("doc/mux", BitSorter.Board.Project.New("changed"));   // the circuit changed: its copy is not
+            Assert.IsTrue(reloaded.RenameProject("doc/mux", "doc/mux2"));
+            reloaded.Save();
+            var restarted = new ProgressStore(_path);
+            restarted.Load();
+            Assert.IsTrue(restarted.HasImported("doc/mux2"), "as it came in, under its new name, over a restart");
+            Assert.IsTrue(restarted.TryGetImported("doc/mux2", out BitSorter.Board.Project original, null));
+            Assert.AreEqual("mux", original.Top);
+            Assert.IsFalse(restarted.HasImported("doc/mux"));
+            restarted.RemoveProject("doc/mux2");
+            Assert.IsFalse(restarted.HasImported("doc/mux2"), "and gone with the circuit");
+
             // A file from before the lock has no `locked`: nothing in it is locked.
             System.IO.File.WriteAllText(_path, "{\"format\":5,\"projects\":[]}");
             var older = new ProgressStore(_path);
             older.Load();
             Assert.IsFalse(older.IsLocked("doc/half adder"), "a file from before the lock locks nothing");
+            Assert.IsFalse(older.HasImported("doc/half adder"), "and keeps nothing to go back to");
         }
 
         [Test]

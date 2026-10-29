@@ -19,6 +19,9 @@ namespace BitSorter.View
         /// <summary>The circuit open, deleted after asking (Part 15a); never MY CIRCUIT.</summary>
         DeleteCircuit,
 
+        /// <summary>An imported circuit put back as it came in, after asking, and locked again (Part 15h-4d).</summary>
+        BackToImported,
+
         /// <summary>The project as a zip ModelSim opens: its files and a run.do (Part 13a).</summary>
         ExportProject,
 
@@ -55,7 +58,7 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _rename, _delete, _export, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _rename, _delete, _backToImported, _export, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
@@ -64,6 +67,7 @@ namespace BitSorter.View
             menu.Item(ActionItem + FileAction.OpenCircuit, "OPEN A CIRCUIT", () => onChoose?.Invoke(FileAction.OpenCircuit));
             menu._rename = menu.Item(ActionItem + FileAction.RenameCircuit, "RENAME THIS CIRCUIT", () => onChoose?.Invoke(FileAction.RenameCircuit));
             menu._delete = menu.Item(ActionItem + FileAction.DeleteCircuit, "DELETE THIS CIRCUIT", () => onChoose?.Invoke(FileAction.DeleteCircuit));
+            menu._backToImported = menu.Item(ActionItem + FileAction.BackToImported, "BACK TO AS IMPORTED", () => onChoose?.Invoke(FileAction.BackToImported));
             menu._export = menu.Item(ActionItem + FileAction.ExportProject, "EXPORT PROJECT: .SV FILES AND RUN.DO",
                 () => onChoose?.Invoke(FileAction.ExportProject), breakBefore: true);
             menu._submission = menu.Item(ActionItem + FileAction.ExportSubmission, "EXPORT FOR SUBMISSION",
@@ -86,6 +90,7 @@ namespace BitSorter.View
             {
                 FileAction.RenameCircuit => _rename,
                 FileAction.DeleteCircuit => _delete,
+                FileAction.BackToImported => _backToImported,
                 FileAction.ExportProject => _export,
                 FileAction.ExportSubmission => _submission,
                 FileAction.ImportFolder => _importFolder,
@@ -101,11 +106,14 @@ namespace BitSorter.View
         /// <summary>
         /// Puts the menu up at <paramref name="screenPoint"/>: RENAME and DELETE only while <paramref name="ownCircuit"/> is open
         /// -- a circuit of the student's other than MY CIRCUIT -- CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
-        /// FOR SUBMISSION only while <paramref name="hasTemplate"/>. None of those, nor EXPORT PROJECT, while the start page
-        /// hides the circuit they would act on (<paramref name="circuitShown"/> false; the #84 review).
+        /// FOR SUBMISSION only while <paramref name="hasTemplate"/>, and BACK TO AS IMPORTED only while <paramref name="imported"/>.
+        /// None of those, nor EXPORT PROJECT, while the start page hides the circuit they would act on
+        /// (<paramref name="circuitShown"/> false; the #84 review).
         /// </summary>
-        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false, bool circuitShown = true)
+        public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false, bool circuitShown = true,
+            bool imported = false)
         {
+            Offer(_backToImported, imported && circuitShown);
             bool picks = FileImport.Picks;
             ownCircuit &= circuitShown;
             hasTestbench &= circuitShown;

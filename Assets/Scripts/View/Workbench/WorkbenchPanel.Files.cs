@@ -40,7 +40,7 @@ namespace BitSorter.View
             }
 
             _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0,
-                _sample == 0 && Documents.IsOwn(_documentKey), circuitShown: !PageShowing);
+                _sample == 0 && Documents.IsOwn(_documentKey), circuitShown: !PageShowing, imported: CameIn());
         }
 
         /// <summary>How many of <paramref name="project"/>'s modules came from a course template (Part 13e).</summary>
@@ -68,6 +68,9 @@ namespace BitSorter.View
                     break;
                 case FileAction.DeleteCircuit:
                     AskDeleteCircuit();
+                    break;
+                case FileAction.BackToImported:
+                    AskBackToImported();
                     break;
                 case FileAction.ExportProject:
                     ExportProject();
@@ -157,6 +160,7 @@ namespace BitSorter.View
             if (store != null)
             {
                 store.SetProject(key, import.Project);
+                store.SetImported(key, import.Project);   // what FILE, BACK TO AS IMPORTED puts back (Part 15h-4d)
                 // Locked, so a look round it cannot change it by accident (Part 15h-4d, Ahmad, 2026-10-29) -- but for a course
                 // template, which is imported to be written into.
                 store.SetLocked(key, FromATemplate(import.Project) == 0);
