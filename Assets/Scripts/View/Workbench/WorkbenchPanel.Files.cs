@@ -157,6 +157,9 @@ namespace BitSorter.View
             if (store != null)
                 store.SetProject(key, import.Project);
             OpenDocument(key);
+            foreach (Module module in import.Project.Modules)
+                if (module.Template != null)
+                    _session?.ShowCodeOf(module.Name);   // a course template is written into: its code first (the review of #111)
 
             SayInTheTranscript(import);
             Project project = import.Project;
@@ -252,7 +255,9 @@ namespace BitSorter.View
         /// </summary>
         private bool ApplyTypedCode(string outcome)
         {
-            if (!_session.ShowsCode || !(_session.Code is CodeDocument code) || !code.Pending)
+            // The code on screen, or typed and kept while its drawing is up (the review of #111).
+            CodeDocument code = _session.ShowsCode ? _session.Code : _session.PendingCode;
+            if (code == null || !code.Pending)
                 return true;
 
             EditResult applied = code.Apply();

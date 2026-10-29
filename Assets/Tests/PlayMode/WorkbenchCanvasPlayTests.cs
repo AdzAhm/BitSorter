@@ -645,7 +645,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(256, workbench.Logic.Rows);
             UnityEngine.UIElements.Label y = ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.LogicExpressionName + "y");
             Assert.IsNotNull(y, "sanity: y's expression drawn");
-            StringAssert.Contains("not proven", y.text);
+            StringAssert.Contains("not proven", y.text.Replace("\n", " "), "its rows read as one line");
         }
 
         /// <summary>
@@ -2870,8 +2870,7 @@ namespace BitSorter.PlayMode.Tests
 
             // Typed with a fault, and not applied: refused, and nothing saved. Typed on the code editor's clock, in
             // milliseconds (CodeEditorView), or the view would find the pause long over and apply clean code itself.
-            workbench.Session.DrawCode(false);   // a written top opens as its drawing (Part 15h-4d): its code
-            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsCode, "a course template opens on its code, to be written into (the review of #111)");
             CodeDocument code = workbench.Session.Code;
             code.Type(mux.Source.Replace("    // Put your code here\n", "    // Put your code here\n    assign y = s ? b : a\n"), Time.timeAsDouble * 1000.0);
             yield return Click(WorkbenchPanel.FileButton);
@@ -2880,8 +2879,12 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(System.IO.File.Exists(path), "code on screen that does not apply is not handed in as the last that did");
             Assert.AreEqual(mux.Source, workbench.Session.Project.Find("mux2").Source, "and the document keeps the last code that worked");
 
-            // Typed and not applied yet: applied, then handed in.
+            // Typed and not applied yet, then a look at the drawing: applied, then handed in (the review of #111 -- with the
+            // drawing up, the older code went out without a word).
             code.Type(mux.Source.Replace("    // Put your code here\n", "    // Put your code here\n    assign y = s ? b : a;\n"), Time.timeAsDouble * 1000.0);
+            workbench.Session.DrawCode(true);
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing is up, the code out of sight");
             yield return Click(WorkbenchPanel.FileButton);
             Assert.IsTrue(code.Pending, "sanity: still typed and not applied, inside the editor's pause, as the export is chosen");
             yield return Click(FileMenu.ActionItem + FileAction.ExportSubmission);
@@ -2891,7 +2894,8 @@ namespace BitSorter.PlayMode.Tests
             StringAssert.Contains("-submission/mux2.sv", bytes, "under the template's own name");
             StringAssert.Contains("// Homework: a 2-to-1 multiplexer.", bytes, "the template as given");
             StringAssert.Contains("    // Put your code here\n    assign y = s ? b : a;\n", bytes, "with the code on screen between its markers");
-            Assert.IsFalse(workbench.Session.Code.Pending, "applied on the way out");
+            Assert.IsFalse(code.Pending, "applied on the way out");
+            Assert.IsNull(workbench.Session.PendingCode, "and nothing left pending");
         }
 
         /// <summary>

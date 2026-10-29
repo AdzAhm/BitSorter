@@ -1010,8 +1010,11 @@ failure side.
   15h-4) to place. **A written module is shown as the drawing of its code, or as its
   code** (Part 15h-4): **it opens as its drawing** (15h-4d: a double-click on a written
   block showed its code, and Ahmad wanted the drawing first) -- unless CODE was chosen
-  for it, which is kept for each module, or its code cannot be drawn; + CODE and
-  WRITE IT open on the code, to be typed into (`WorkbenchSession.ShowCodeOf`). CODE and
+  for it, which is kept for each module, or its code cannot be drawn; + CODE,
+  WRITE IT, an imported course template and an exercise answered in code open on the
+  code, to be typed into (`WorkbenchSession.ShowCodeOf`), and text typed and not yet
+  applied is still what EXPORT applies or refuses with the drawing up
+  (`WorkbenchSession.PendingCode`). CODE and
   DRAWING sit at the right of the code's top strip -- in a browser the code is a box
   laid over everything under that strip (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid

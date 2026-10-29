@@ -407,6 +407,11 @@ namespace BitSorter.View
         // The height of a row of an expression, and of its assign line under it.
         private const float LogicBodyRow = 24f, LogicCaptionRow = 18f;
 
+        // Each expression's rows for the room it had, measured once: the table is drawn again on every notch of the wheel
+        // and as each output's expression is found, and measuring every product each time was thousands of measurements
+        // (the review of #111).
+        private readonly Dictionary<(string, float, UiType), List<string>> _logicRows = new Dictionary<(string, float, UiType), List<string>>();
+
         /// <summary>
         /// <paramref name="text"/> as one label of as many rows as it needs within <paramref name="width"/>, cut after each
         /// <paramref name="mark"/> (<see cref="TextRows"/>), at <paramref name="x"/>, <paramref name="y"/>. How tall it is.
@@ -416,7 +421,14 @@ namespace BitSorter.View
             // Its own rows, and no wrapping of the label's: the text is measured a little wider in a browser than here, and a
             // label left to wrap broke the rows again, a block taller than its room over the line under it (the 15h-4d
             // browser check). So the rows are made for nine tenths of the room, and drawn as they are.
-            System.Collections.Generic.List<string> rows = TextRows.Of(text, (width - 4f) * 0.9f, t => UiTheme.TextWidth(t, type), mark);
+            var key = (text, width, type);
+            if (!_logicRows.TryGetValue(key, out List<string> rows))
+            {
+                if (_logicRows.Count > 512)
+                    _logicRows.Clear();
+                rows = TextRows.Of(text, (width - 4f) * 0.9f, t => UiTheme.TextWidth(t, type), mark);
+                _logicRows[key] = rows;
+            }
             Label label = ShellTheme.Label(name, string.Join("\n", rows), type, colour);
             label.style.whiteSpace = WhiteSpace.Pre;   // broken at its rows' ends, and nowhere else
             float height = rows.Count * row + 4f;

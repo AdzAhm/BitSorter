@@ -217,7 +217,6 @@ namespace BitSorter.ViewModel
         /// <summary>How long the written adder's testbench holds each pair of inputs.</summary>
         public const long WrittenAdderStep = 8;
 
-        /// <summary>The written adder's text: a parameter for its width, and its sum and carry three units after its operands.</summary>
         // -----------------------------------------------------------------
         // Written as code, as a student's would be (Part 15h-4d, asked 2026-10-29: "a couple more samples")
         // -----------------------------------------------------------------
@@ -527,6 +526,7 @@ namespace BitSorter.ViewModel
             "    end\n" +
             "endmodule\n";
 
+        /// <summary>The written adder's text: a parameter for its width, and its sum and carry three units after its operands.</summary>
         public const string AdderSource =
             "// A four-bit adder, written rather than drawn: its sum and its carry\n" +
             "// three time units after its operands.\n" +

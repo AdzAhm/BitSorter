@@ -129,6 +129,8 @@ namespace BitSorter.View
 
             HideExercises();
             ShowSample(0);
+            if (_session != null && _session.Project.TopModule?.IsWritten == true)
+                _session.ShowCodeOf(_session.Project.Top);   // an answer written in code reopens on its code (the review of #111)
             GameAnalytics.ExerciseStarted(exercise.Id);
             OpenGoal();
             if (_exerciseNote != null)
@@ -238,8 +240,9 @@ namespace BitSorter.View
         {
             if (_session == null || _exercise == null || _session.Project.TopModule?.IsWritten == true)
                 return;
-            _session.ShowCodeOf(_session.Project.Top);   // the answer to type: its code, not its drawing (Part 15h-4d)
             EditResult wrote = _session.ReplaceModule(_exercise.Written(_session.Project));
+            if (wrote.Done)
+                _session.ShowCodeOf(_session.Project.Top);   // the answer to type: its code, not its drawing (Part 15h-4d)
             Said(wrote);
             if (wrote.Done)
                 Notice("written as code: gates only, as the header says. Ctrl+Enter applies what you type, and CHECK grades it as a drawing");

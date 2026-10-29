@@ -421,7 +421,21 @@ namespace BitSorter.ViewModel
             SchematicLayout layout = null;
             _shownDrawing = null;
             if (project.Find(shown)?.IsWritten == true && !_codeChosen.Contains(shown))
-                layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
+            {
+                // Built as the module opens, now that it opens as its drawing: anything that cannot be drawn is shown as its
+                // code, never a project that will not open (the review of #111).
+                try
+                {
+                    layout = DrawingLayout(project, compiled, InstancePathUnder(compiled.DesignPath), shown);
+                }
+                catch (Exception)
+                {
+                    layout = null;
+                    _shownDrawing = null;
+                    _drawing = null;
+                    _drawnModules = null;
+                }
+            }
             layout ??= DocumentSchematic.Build(project, compiled, shown, InstancePathUnder(compiled.DesignPath),
                 m => RoutesOf(project, m));
             _slowest = Math.Max(_slowest, _now() - started);
@@ -497,6 +511,13 @@ namespace BitSorter.ViewModel
 
         // The written modules CODE was chosen for: their text shown rather than their drawing.
         private readonly HashSet<string> _codeChosen = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// The text typed into the written module shown and not yet applied, kept while its drawing is up -- what EXPORT has to
+        /// apply or refuse, as it does with the code on screen (the review of #111: typed, then DRAWING, then EXPORT handed
+        /// over the older code without a word). Null for none.
+        /// </summary>
+        public CodeDocument PendingCode => _code != null && _code.Module == Module && _code.Pending ? _code : null;
 
         /// <summary>
         /// The written module <paramref name="module"/> shown as its code from now on -- what + CODE and WRITE IT ask, since the

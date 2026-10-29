@@ -266,6 +266,17 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(2, workbench.LastGrade.Gates, "its gates counted from the code");
             workbench.ExerciseCard.Close();
 
+            // Left and opened again: an answer written in code comes back on its code, not its drawing (the review of #111).
+            workbench.OpenExercise("balance-the-paths");
+            yield return null;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            session = workbench.Session;
+            Assert.IsTrue(session.Project.TopModule.IsWritten, "sanity: the written answer kept under the exercise's id");
+            Assert.IsTrue(session.ShowsCode, "reopened on its code");
+            if (workbench.ExerciseCard.IsOpen)
+                workbench.ExerciseCard.Close();
+
             yield return Click(WorkbenchPanel.CodeButton);
             Assert.IsTrue(session.Project.TopModule.IsWritten, "DRAW IT asks first");
             yield return Click(AskMenu.YesItem);

@@ -108,17 +108,22 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(model.NetValue(sum).TryGetUInt64(out ulong value) && value == 30UL, "sum of the last F and F");
         }
 
-        /// <summary>Text typed and not yet applied is still there after a look at the drawing (the review of #108).</summary>
+        /// <summary>
+        /// Text typed and not yet applied is still there after a look at the drawing (the review of #108), and is still the
+        /// text EXPORT has to apply or refuse while the drawing is up (the review of #111).
+        /// </summary>
         [Test]
         public void TextNotYetApplied_IsKept_AcrossALookAtTheDrawing()
         {
             WorkbenchSession session = InsideTheWrittenAdder();
             CodeDocument code = session.Code;
+            Assert.IsNull(session.PendingCode, "nothing typed yet");
             string typed = code.Text + "// a note\n";
             code.Type(typed, 100);
             Assert.IsTrue(code.Pending, "sanity: typed, not applied");
             session.DrawCode(true);
             Assert.IsNull(session.Code);
+            Assert.AreSame(code, session.PendingCode, "typed, then DRAWING: still pending for EXPORT");
             session.DrawCode(false);
             Assert.AreSame(code, session.Code);
             Assert.AreEqual(typed, session.Code.Text);
