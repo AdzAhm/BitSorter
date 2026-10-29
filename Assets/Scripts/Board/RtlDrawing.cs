@@ -193,6 +193,12 @@ namespace BitSorter.Board
             private readonly List<(int From, string FromPin, int To, string ToPin, int Inner)> _innerWires =
                 new List<(int, string, int, string, int)>();
 
+            // A number split into its bits once, however many openings read it, so they tap the same bit lines: the splitter
+            // of each net split, and the wire inside each of its bits is. Six openings of an ALU each splitting a and b made a
+            // dozen splitters, every one fanned out to the same gates.
+            private readonly Dictionary<int, int> _splitterOf = new Dictionary<int, int>();
+            private readonly Dictionary<(int Net, int Bit), int> _bitOf = new Dictionary<(int, int), int>();
+
             // Where each net comes from -- a part's pin -- and each place it goes; and a join of one driver, a wire, merged.
             private readonly (int Part, string Pin)[] _source;
             private readonly List<(int Part, string Pin)>[] _loads;
@@ -567,7 +573,17 @@ namespace BitSorter.Board
             /// </summary>
             private bool Open(Part part, List<(string Pin, int Net)> feeds, int output)
             {
-                Project opening = RtlGates.Open(part, "gates", out _);
+                // A sum or a difference of two numbers each widened by a bit with 0s, {cout, s} = a + b: the ripple of their own
+                // width, its carry the top bit, wired from the numbers as they were.
+                Project opening;
+                if (part is OperatorPart carried && (carried.Op == OperatorKind.Add || carried.Op == OperatorKind.Subtract) && !carried.Signed
+                    && feeds.Count == 2 && WidenedByABit(feeds[0].Net, carried.Width, out int a) && WidenedByABit(feeds[1].Net, carried.Width, out int b))
+                {
+                    opening = RtlGates.OpenWithCarry(carried.Op, carried.Width - 1, "gates", out _);
+                    feeds = new List<(string, int)> { (feeds[0].Pin, a), (feeds[1].Pin, b) };
+                }
+                else
+                    opening = RtlGates.Open(part, "gates", out _);
                 Module inside = opening?.TopModule;
                 if (inside == null || output < 0)
                     return false;
@@ -616,10 +632,27 @@ namespace BitSorter.Board
                             if (pin.Direction == PinDirection.In && !into.ContainsKey(new PinRef(p.Id, pin.Name)))
                                 return false;
 
+                // The opening's splitters of its ports, each the drawing's own splitter of that net where it has one.
+                var splits = new Dictionary<int, int>();
+                foreach (Wire wire in inside.Wires)
+                    if (inputs.TryGetValue(wire.From.Pin.Part, out int split) && inside.FindPart(wire.To.Pin.Part) is SplitterPart)
+                        splits[wire.To.Pin.Part] = split;
                 var ids = new Dictionary<int, int>();
+                var reused = new HashSet<int>();
                 foreach (Part p in inside.Parts)
-                    if (!(p is PortPart))
-                        ids[p.Id] = Add(p with { Name = null });
+                {
+                    if (p is PortPart)
+                        continue;
+                    if (splits.TryGetValue(p.Id, out int split) && _splitterOf.TryGetValue(split, out int splitter))
+                    {
+                        ids[p.Id] = splitter;
+                        reused.Add(p.Id);
+                        continue;
+                    }
+                    ids[p.Id] = Add(p with { Name = null });
+                    if (splits.TryGetValue(p.Id, out split))
+                        _splitterOf[split] = ids[p.Id];
+                }
                 var inner = new Dictionary<PinRef, int>();
 
                 // A place a wire inside starts from: the netlist's net of a port, the code's value where it drives the output,
@@ -632,6 +665,20 @@ namespace BitSorter.Board
                     if (inner.TryGetValue(from, out int k))
                         return k;
                     Part p = inside.FindPart(from.Part);
+
+                    // A bit of a number split: the same wire inside whichever opening split it first.
+                    if (splits.TryGetValue(from.Part, out int split))
+                    {
+                        int bit = int.Parse(from.Pin.Substring(1), NumberStyles.None, CultureInfo.InvariantCulture);
+                        if (!_bitOf.TryGetValue((split, bit), out k))
+                        {
+                            k = Inner.Count;
+                            Inner.Add(new InnerNet(p, from.Pin, new[] { split }));
+                            _bitOf[(split, bit)] = k;
+                        }
+                        inner[from] = k;
+                        return k;
+                    }
                     var reads = new List<int>();
                     foreach (Pin pin in p.Pins(null))
                         if (pin.Direction == PinDirection.In)
@@ -648,7 +695,10 @@ namespace BitSorter.Board
                     if (to.Part == y)
                         _source[Root(output)] = (ids[from.Part], from.Pin);
                     else if (inputs.TryGetValue(from.Part, out int net))
-                        _loads[Root(net)].Add((ids[to.Part], to.Pin));
+                    {
+                        if (!reused.Contains(to.Part))   // a splitter shared is wired from its net once
+                            _loads[Root(net)].Add((ids[to.Part], to.Pin));
+                    }
                     else if (from.Equals(last.Value))
                         _loads[Root(output)].Add((ids[to.Part], to.Pin));
                     else
@@ -656,6 +706,14 @@ namespace BitSorter.Board
                 }
                 Opened++;
                 return true;
+            }
+
+            /// <summary>Whether <paramref name="net"/> is a number widened by one bit with 0s into <paramref name="width"/>, and the number.</summary>
+            private bool WidenedByABit(int net, int width, out int narrow)
+            {
+                RtlCell resize = Driver(net);
+                narrow = resize != null && resize.Kind == RtlKind.Resize && !resize.Signed && resize.Inputs.Count == 1 ? resize.Inputs[0] : -1;
+                return narrow >= 0 && WidthOf(narrow) == width - 1;
             }
 
             private int Add(Part part)

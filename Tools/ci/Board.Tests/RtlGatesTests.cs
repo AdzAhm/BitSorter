@@ -82,6 +82,39 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void ASumWithItsCarry_IsTheRippleOfItsNumbers_ItsCarryOnTop([Values(1, 2, 3, 4)] int width)
+        {
+            Project gates = RtlGates.OpenWithCarry(OperatorKind.Add, width, "gates", out string why);
+            Assert.IsNotNull(gates, why);
+            var part = new OperatorPart { Op = OperatorKind.Add, Width = width };
+            Run(gates, part, v => LogicVec.FromUInt64(Number(v["a"]) + Number(v["b"]), width + 1));
+            Assert.AreEqual(2 * width - 1, gates.Find("gates").Parts.OfType<GatePart>().Count(g => g.Kind == GateKind.Xor),
+                "a half adder's XOR, then two a full adder");
+        }
+
+        /// <summary>{borrow, d} = a - b: the difference of the two widened with 0s, its top bit the borrow, on every value.</summary>
+        [Test]
+        public void ADifferenceWithItsBorrow_IsTheLanguagesOfTheTwoWidened([Values(1, 2, 3, 4)] int width)
+        {
+            Project gates = RtlGates.OpenWithCarry(OperatorKind.Subtract, width, "gates", out string why);
+            Assert.IsNotNull(gates, why);
+            var part = new OperatorPart { Op = OperatorKind.Subtract, Width = width };
+            ulong mask = (1UL << (width + 1)) - 1;
+            Run(gates, part, v => LogicVec.FromUInt64((Number(v["a"]) - Number(v["b"])) & mask, width + 1));
+        }
+
+        private static ulong Number(LogicVec value) => value.TryGetUInt64(out ulong number) ? number : throw new ArgumentException("not a number");
+
+        [Test]
+        public void ASumWithItsCarry_PastFourBits_StaysABox()
+        {
+            Assert.IsNull(RtlGates.OpenWithCarry(OperatorKind.Add, 5, "gates", out string why));
+            StringAssert.Contains("5 bits", why);
+            Assert.IsNull(RtlGates.OpenWithCarry(OperatorKind.Multiply, 4, "gates", out why));
+            Assert.IsNotNull(why);
+        }
+
+        [Test]
         public void AnAdderOpened_IsTheTextbooksRipple()
         {
             Module adder = RtlGates.Open(new OperatorPart { Op = OperatorKind.Add, Width = 4 }, "gates", out _).Find("gates");

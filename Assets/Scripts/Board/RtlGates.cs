@@ -87,6 +87,34 @@ namespace BitSorter.Board
             return gates.Project;
         }
 
+        /// <summary>
+        /// A sum or a difference with its carry, <c>{cout, s} = a + b</c> or <c>{borrow, d} = a - b</c> -- two
+        /// <paramref name="width"/>-bit numbers into a bit more -- opened into gates: the ripple of their own width, its carry
+        /// out the answer's top bit (for a difference, its inverse: the borrow), the textbook's adder and its carry. The
+        /// language works on the two widened with 0s, <paramref name="width"/> + 1 bits, which is past
+        /// <see cref="MostBits"/> for 4-bit numbers; their ripple is not. Null, with why, for any other operator or for
+        /// numbers past MostBits.
+        /// </summary>
+        public static Project OpenWithCarry(OperatorKind op, int width, string name, out string why)
+        {
+            if (name == null)
+                throw new ArgumentNullException(nameof(name));
+            if (op != OperatorKind.Add && op != OperatorKind.Subtract)
+            {
+                why = "Only a sum or a difference has a carry.";
+                return null;
+            }
+            if (width < 1 || width > MostBits)
+            {
+                why = $"It works on numbers of {Bits(Math.Max(width, 0))}: past {MostBits} bits {Operators.Called(op)} is too many gates to read, so it stays a box.";
+                return null;
+            }
+            why = null;
+            var gates = new Builder(name, new OperatorPart { Op = op, Width = width });
+            gates.WithCarry(op == OperatorKind.Subtract);
+            return gates.Project;
+        }
+
         private static string Bits(int width) => width == 1 ? "1 bit" : width + " bits";
 
         private static string Capital(string text) => char.ToUpperInvariant(text[0]) + text.Substring(1);
@@ -225,6 +253,31 @@ namespace BitSorter.Board
 
                 carry = c;
                 return result;
+            }
+
+            /// <summary>
+            /// a + b and its carry out on top; or a - b, as a + ~b + 1, and its borrow on top -- the carry out inverted, since
+            /// a + ~b + 1 carries out just when nothing is borrowed.
+            /// </summary>
+            public void WithCarry(bool difference)
+            {
+                Wire[] a = In("a"), b = In("b");
+                Wire[] sums;
+                Wire? carry;
+                if (difference)
+                {
+                    var nb = new Wire[b.Length];
+                    for (int i = 0; i < b.Length; i++)
+                        nb[i] = Not(b[i]);
+                    Stage();
+                    sums = Ripple(a, nb, One, out carry);
+                }
+                else
+                    sums = Ripple(a, b, null, out carry);
+                var y = new Wire[sums.Length + 1];
+                sums.CopyTo(y, 0);
+                y[sums.Length] = difference ? Not(carry.Value) : carry.Value;
+                Out(y);
             }
 
             public void Mux(MuxPart mux)

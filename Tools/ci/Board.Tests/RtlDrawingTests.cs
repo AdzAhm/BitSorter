@@ -80,6 +80,39 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
+        /// The ALU of shot 63 with GATES, each arm a sum, a difference or a bitwise operator with its carry: every operator
+        /// and both muxes drawn as their gates, the sum and the difference as the 4-bit ripple with its carry, on every value.
+        /// </summary>
+        [Test]
+        public void AnAluWithCarries_WithGates_IsItsGates_OnEveryValue()
+        {
+            RtlNetlist netlist = Extract(
+                "module alu (input logic [3:0] a, b, output logic [3:0] s, output logic cout);\n" +
+                "    always_comb\n" +
+                "        case (a[3:2])\n" +
+                "            2'b00:   {cout, s} = a + b;\n" +
+                "            2'b01:   {cout, s} = a - b;\n" +
+                "            2'b10:   {cout, s} = {1'b0, a & b};\n" +
+                "            default: {cout, s} = {1'b0, a | b};\n" +
+                "        endcase\n" +
+                "endmodule\n", "alu", out Design design);
+            RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "alu", gates: true);
+            Hold(drawing, netlist, "alu", gates: true);
+            Assert.IsEmpty(drawing.Module.Parts.OfType<OperatorPart>(), "no operator left a box");
+            Assert.AreEqual(6, drawing.Opened, "+, -, &, | and the two muxes");
+            Assert.AreEqual(7, drawing.Module.Parts.OfType<SplitterPart>().Count(), "a, b and the case's a[3:2] each split once, whatever reads them, and the four arms into the mux");
+
+            int a = Signal(design, "alu.a"), b = Signal(design, "alu.b");
+            for (int value = 0; value < 256; value++)
+            {
+                var signals = design.Signals.Select(s => LogicVec.AllX(s.Width)).ToArray();
+                signals[a] = LogicVec.FromUInt64((ulong)(value & 15), 4);
+                signals[b] = LogicVec.FromUInt64((ulong)(value >> 4), 4);
+                HoldOpenings(drawing, netlist, signals, "alu " + value);
+            }
+        }
+
+        /// <summary>
         /// A small ALU with GATES: its four 4-bit operators and its 4-input mux each drawn as their gates, nothing left a box,
         /// and on every one of the 1,024 values of op, a and b every part of every opening agreeing with its wires.
         /// </summary>
@@ -105,13 +138,32 @@ namespace BitSorter.Board.Tests
             }
         }
 
-        /// <summary>A sum with its carry, <c>{cout, s} = a + b</c> of 4-bit a and b, is a 5-bit sum: past four bits, a box.</summary>
+        /// <summary>
+        /// A sum with its carry, <c>{cout, s} = a + b</c> of 4-bit a and b: the language's 5-bit sum of the two widened, drawn
+        /// as the 4-bit ripple of a and b with its carry on top -- the textbook's adder -- on every value; a 5-bit sum of
+        /// 5-bit numbers stays a box.
+        /// </summary>
         [Test]
-        public void ASumWithItsCarry_IsFiveBitsWide_AndStaysABox()
+        public void ASumWithItsCarry_IsTheRippleOfItsNumbers_OnEveryValue()
         {
-            RtlNetlist netlist = Extract("module c (input logic [3:0] a, b, output logic [3:0] s, output logic cout);\n    assign {cout, s} = a + b;\nendmodule\n", "c", out _);
+            RtlNetlist netlist = Extract("module c (input logic [3:0] a, b, output logic [3:0] s, output logic cout);\n    assign {cout, s} = a + b;\nendmodule\n", "c", out Design design);
             RtlDrawing drawing = RtlDrawing.Of(Project.New("p"), netlist, "c", gates: true);
-            Assert.AreEqual(0, drawing.Opened);
+            Hold(drawing, netlist, "c", gates: true);
+            Assert.AreEqual(1, drawing.Opened);
+            Assert.IsEmpty(drawing.Module.Parts.OfType<OperatorPart>());
+            Assert.AreEqual(7, drawing.Module.Parts.OfType<GatePart>().Count(g => g.Kind == GateKind.Xor), "four bits' ripple");
+
+            int a = Signal(design, "c.a"), b = Signal(design, "c.b");
+            for (int value = 0; value < 256; value++)
+            {
+                var signals = design.Signals.Select(s => LogicVec.AllX(s.Width)).ToArray();
+                signals[a] = LogicVec.FromUInt64((ulong)(value & 15), 4);
+                signals[b] = LogicVec.FromUInt64((ulong)(value >> 4), 4);
+                HoldOpenings(drawing, netlist, signals, "c " + value);
+            }
+
+            RtlNetlist wide = Extract("module w (input logic [4:0] a, b, output logic [4:0] s, output logic cout);\n    assign {cout, s} = a + b;\nendmodule\n", "w", out _);
+            Assert.AreEqual(0, RtlDrawing.Of(Project.New("p"), wide, "w", gates: true).Opened, "5-bit numbers: a box");
         }
 
         /// <summary>Past four bits an operator stays the box it is with GATES, and nothing is opened.</summary>
