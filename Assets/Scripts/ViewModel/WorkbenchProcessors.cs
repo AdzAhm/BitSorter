@@ -70,7 +70,11 @@ namespace BitSorter.ViewModel
             Project project = import.Project;
             var used = new HashSet<string>(StringComparer.Ordinal);
             Collect(project, project.Find(bench), used);
-            return project with { Modules = project.Modules.Where(m => used.Contains(m.Name)).ToArray() };
+            project = project with { Modules = project.Modules.Where(m => used.Contains(m.Name)).ToArray() };
+            foreach (KeyValuePair<string, IReadOnlyDictionary<string, Placement>> laid in Arranged)
+                if (project.Find(laid.Key) is Module module)
+                    project = project.WithModule(module with { Arrangement = laid.Value, ArrangedFor = module.Source });
+            return project;
         }
 
         /// <summary><paramref name="module"/> and every module it makes, all the way down.</summary>
@@ -81,6 +85,116 @@ namespace BitSorter.ViewModel
             foreach (Module child in WrittenModules.UsesOf(project, module))
                 Collect(project, child, used);
         }
+
+        /// <summary>
+        /// Where each datapath's parts stand, laid out by hand as the textbook draws one (Part 15h-6, Ahmad: "it doesnt
+        /// look so beatiful and orgnized"): the PC on the left, decode in the middle, execute, write-back on the right, the
+        /// next PC and the write-back fed back over the top -- by the keys the drawing names its parts with
+        /// (<see cref="RtlDrawing.KeyOf"/>), kept against the code they were laid out for. ProcessorSampleTests holds every
+        /// key to a part of the drawing.
+        /// </summary>
+        public static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, Placement>> Arranged =
+            new Dictionary<string, IReadOnlyDictionary<string, Placement>>
+            {
+                ["scpu_datapath"] = new Dictionary<string, Placement>
+                {
+                    ["sig:pc_next"] = new Placement(4.0, 0.0),
+                    ["port:pc_src"] = new Placement(4.75, -4.0),
+                    ["cell:MuxPart:0"] = new Placement(8.0, 0.0),
+                    ["cell:ConstantPart:1"] = new Placement(6.5, -2.75),
+                    ["cell:BoxPart:3"] = new Placement(8.0, 3.0),
+                    ["port:rst"] = new Placement(4.0, 3.0),
+                    ["reg:pc"] = new Placement(12.0, 0.0),
+                    ["port:clk"] = new Placement(12.0, -3.0),
+                    ["cell:ConstantPart:0"] = new Placement(13.5, 5.0),
+                    ["sig:pc_plus4"] = new Placement(17.0, 4.5),
+                    ["port:pc"] = new Placement(16.5, 0.0),
+                    ["port:instr"] = new Placement(16.25, -6.5),
+                    ["cell:BoxPart:0"] = new Placement(20.0, -5.0),
+                    ["cell:BoxPart:1"] = new Placement(20.0, -6.5),
+                    ["cell:BoxPart:2"] = new Placement(20.0, -8.0),
+                    ["port:rf_we"] = new Placement(25.25, -2.0),
+                    ["inst:regfile"] = new Placement(25.0, -6.5),
+                    ["inst:immgen"] = new Placement(25.0, -11.0),
+                    ["sig:opcode"] = new Placement(20.0, -13.0),
+                    ["sig:funct3"] = new Placement(20.0, -14.5),
+                    ["sig:funct7_5"] = new Placement(20.0, -16.0),
+                    ["port:opcode"] = new Placement(24.25, -13.0),
+                    ["port:funct3"] = new Placement(24.25, -14.5),
+                    ["port:funct7_5"] = new Placement(24.5, -16.0),
+                    ["sig:target"] = new Placement(31.0, 4.5),
+                    ["inst:compare"] = new Placement(31.0, -2.0),
+                    ["port:taken"] = new Placement(35.75, -2.0),
+                    ["sig:alu_a"] = new Placement(31.0, -6.0),
+                    ["port:alu_a_pc"] = new Placement(31.5, -9.0),
+                    ["sig:alu_b"] = new Placement(34.0, -9.0),
+                    ["port:alu_b_imm"] = new Placement(34.5, -12.0),
+                    ["inst:alu"] = new Placement(38.0, -7.0),
+                    ["port:alu_op"] = new Placement(38.75, -10.5),
+                    ["port:data_addr"] = new Placement(42.0, -7.0),
+                    ["port:write_data"] = new Placement(42.0, -14.0),
+                    ["cell:BoxPart:4"] = new Placement(42.0, -2.5),
+                    ["cell:ConstantPart:2"] = new Placement(42.25, -4.0),
+                    ["cell:BoxPart:5"] = new Placement(45.5, -3.25),
+                    ["port:read_data"] = new Placement(44.0, -10.5),
+                    ["sig:wb"] = new Placement(49.0, -8.0),
+                    ["port:wb_src"] = new Placement(49.75, -12.0),
+                },
+                ["mcpu_datapath"] = new Dictionary<string, Placement>
+                {
+                    ["sig:pc_next"] = new Placement(4.0, 0.0),
+                    ["port:pc_src"] = new Placement(4.75, -4.0),
+                    ["cell:MuxPart:0"] = new Placement(8.0, 0.0),
+                    ["cell:BoxPart:4"] = new Placement(8.0, 3.0),
+                    ["port:pc_we"] = new Placement(4.25, 3.0),
+                    ["cell:MuxPart:1"] = new Placement(12.0, 0.0),
+                    ["cell:BoxPart:3"] = new Placement(12.0, 3.0),
+                    ["port:rst"] = new Placement(12.0, 5.5),
+                    ["cell:ConstantPart:0"] = new Placement(10.5, -2.75),
+                    ["reg:pc"] = new Placement(15.5, 0.0),
+                    ["port:clk"] = new Placement(15.5, -3.0),
+                    ["port:pc"] = new Placement(19.0, 1.5),
+                    ["port:instr"] = new Placement(18.75, -6.5),
+                    ["cell:MuxPart:2"] = new Placement(22.0, -6.5),
+                    ["cell:MuxPart:3"] = new Placement(22.0, -2.5),
+                    ["cell:BoxPart:5"] = new Placement(22.0, -10.0),
+                    ["port:ir_we"] = new Placement(18.25, -10.0),
+                    ["reg:ir"] = new Placement(25.5, -6.5),
+                    ["reg:old_pc"] = new Placement(25.5, -2.5),
+                    ["cell:BoxPart:0"] = new Placement(30.0, -5.0),
+                    ["cell:BoxPart:1"] = new Placement(30.0, -6.5),
+                    ["cell:BoxPart:2"] = new Placement(30.0, -8.0),
+                    ["port:rf_we"] = new Placement(35.25, -3.5),
+                    ["inst:regfile"] = new Placement(35.0, -6.5),
+                    ["inst:immgen"] = new Placement(35.0, -11.0),
+                    ["sig:opcode"] = new Placement(30.0, -13.0),
+                    ["sig:funct3"] = new Placement(30.0, -14.5),
+                    ["sig:funct7_5"] = new Placement(30.0, -16.0),
+                    ["port:opcode"] = new Placement(34.25, -13.0),
+                    ["port:funct3"] = new Placement(34.25, -14.5),
+                    ["port:funct7_5"] = new Placement(34.5, -16.0),
+                    ["reg:a"] = new Placement(40.0, -5.5),
+                    ["reg:b"] = new Placement(40.0, -8.0),
+                    ["inst:compare"] = new Placement(44.5, -1.0),
+                    ["port:taken"] = new Placement(48.75, -1.0),
+                    ["sig:alu_a"] = new Placement(45.0, -5.0),
+                    ["port:alu_a_sel"] = new Placement(46.0, -8.75),
+                    ["cell:ConstantPart:1"] = new Placement(45.5, -11.5),
+                    ["sig:alu_b"] = new Placement(48.5, -9.0),
+                    ["port:alu_b_sel"] = new Placement(49.5, -12.75),
+                    ["inst:alu"] = new Placement(52.5, -6.5),
+                    ["port:alu_op"] = new Placement(53.25, -10.0),
+                    ["reg:alu_out"] = new Placement(56.5, -6.5),
+                    ["port:data_addr"] = new Placement(60.0, -6.5),
+                    ["port:write_data"] = new Placement(60.0, -15.0),
+                    ["cell:ConstantPart:2"] = new Placement(53.0, -2.0),
+                    ["cell:OperatorPart:0"] = new Placement(56.5, -1.5),
+                    ["port:read_data"] = new Placement(57.5, -10.5),
+                    ["reg:mdr"] = new Placement(60.5, -10.5),
+                    ["sig:wb"] = new Placement(65.0, -8.0),
+                    ["port:wb_src"] = new Placement(65.75, -12.0),
+                },
+            };
 
         private const string Scpu = @"// scpu: an original single-cycle processor -- each instruction fetched, decoded, executed, given its
 // memory access and written back within one clock cycle, so the clock has to be as slow as the slowest

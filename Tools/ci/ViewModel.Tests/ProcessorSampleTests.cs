@@ -55,5 +55,30 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains("PASS: every result as expected", said);
             Assert.AreEqual(result.Time, project.Stimulus.End, "the run is shown to where the testbench stops");
         }
+
+        /// <summary>
+        /// Each datapath laid out by hand (the review of the first shots, 2026-11-01): every key of its arrangement a part of
+        /// its drawing, each part standing where it was put, against the code it was laid out for.
+        /// </summary>
+        [TestCase("Single-cycle RISC-V", "scpu_tb.dut.datapath", "scpu_datapath")]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb.dut.datapath", "mcpu_datapath")]
+        public void ADatapath_IsDrawnWhereItWasLaidOut(string name, string scope, string module)
+        {
+            Project project = WorkbenchSamples.All.Single(s => s.Name == name).Build();
+            Module datapath = project.Find(module);
+            Assert.AreEqual(WorkbenchProcessors.Arranged[module].Count, datapath.Arrangement.Count);
+            Assert.AreEqual(datapath.Source, datapath.ArrangedFor, "laid out against this code");
+
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            RtlDrawing drawing = RtlDrawing.Of(project, RtlExtractor.Of(elaboration.Design, scope), module, arranged: datapath);
+            var drawn = drawing.Module.Parts.ToDictionary(p => drawing.KeyOf(p.Id), p => drawing.Module.Layout.PlacementOf(p.Id));
+            foreach (System.Collections.Generic.KeyValuePair<string, Placement> laid in datapath.Arrangement)
+            {
+                Assert.IsTrue(drawn.ContainsKey(laid.Key), $"{laid.Key} names no part of {module}'s drawing");
+                Assert.AreEqual(laid.Value, drawn[laid.Key], laid.Key);
+            }
+            Assert.AreEqual(drawn.Count, datapath.Arrangement.Count, "every part laid out by hand");
+        }
     }
 }
