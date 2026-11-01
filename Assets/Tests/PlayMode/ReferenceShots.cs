@@ -1622,11 +1622,19 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Shot70_WorkbenchPipelinedProcessor() => Processor("Pipelined RISC-V", 1800, null, "70-workbench-pipelined");
 
         /// <summary>
-        /// Part 15h-6b: the multicycle RV32I's controller stepped into -- one `case` of 224 parts and no blocks, its tallest
-        /// columns wrapped side by side so it stands wider than tall, as the window does (118 by 98 cells before, 146 by 60).
+        /// Part 15h-6e: the multicycle RV32I's controller stepped into, mid-run -- its eleven states as the textbook draws them,
+        /// FETCH on the left, each a box of what it sets and every arrow labelled in the code's words, the state it is in lit
+        /// and the arrow it came by; its ALU decoder's table beside it. (Until 15h-6e, its 224 parts drawn literally.)
         /// </summary>
         [UnityTest]
         public IEnumerator Shot71_WorkbenchMulticycleControlWrapped() => Processor("Multicycle RISC-V", 6000, "control", "71-workbench-multicycle-control");
+
+        /// <summary>
+        /// Part 15h-6e: the single-cycle RV32I's controller stepped into, mid-run -- its two decoders as control tables, a row
+        /// an opcode and a column a signal, the row of the instruction running lit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot72_WorkbenchSingleCycleControlTables() => Processor("Single-cycle RISC-V", 1500, "control", "72-workbench-single-cycle-control");
 
         /// <summary>A processor sample opened, stepped inside <paramref name="inside"/> where one is named, run to <paramref name="at"/> and fitted.</summary>
         private IEnumerator Processor(string sample, double at, string inside, string shot)

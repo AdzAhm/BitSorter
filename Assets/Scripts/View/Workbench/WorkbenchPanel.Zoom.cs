@@ -92,7 +92,7 @@ namespace BitSorter.View
         {
             if (_circuitZoom != null)
             {
-                bool shown = _viewState != null && _session != null && !_session.ShowsCode && !PageShowing;
+                bool shown = _viewState != null && _session != null && !_session.ShowsCode && !PageShowing && !ControllerShown;
                 Shown(_circuitZoom, shown);
                 if (shown)
                 {

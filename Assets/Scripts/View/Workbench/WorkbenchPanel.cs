@@ -615,6 +615,11 @@ namespace BitSorter.View
         /// <summary>Shows the whole circuit again, where it belongs.</summary>
         public void FitView()
         {
+            if (ControllerShown)
+            {
+                _controllerView.Fit();   // the controller's diagram, over the drawing (Part 15h-6e)
+                return;
+            }
             if (_viewState == null)
                 return;
 
@@ -1281,6 +1286,8 @@ namespace BitSorter.View
         private bool InView(Vector2 screenPoint, out Vector2 at)
         {
             at = default;
+            if (ControllerShown)
+                return false;   // a controller's diagram covers the drawing: nothing reaches it (Part 15h-6e)
             if (_view == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(_view, screenPoint, null, out Vector2 local))
                 return false;
 
@@ -1546,6 +1553,7 @@ namespace BitSorter.View
             RefreshPartsPanel();
             TickCode();
             TickDrawingSwitch();
+            TickController();
             TickLock();
             TickRewriteQuestion();
             TickZoomSliders();
@@ -1647,6 +1655,7 @@ namespace BitSorter.View
             Fit();
             BuildStage(palette);
             BuildCodeView(palette);
+            BuildController(palette);   // over the drawing in the circuit's window, under the switches in its top strip (Part 15h-6e)
             BuildLock(palette);
             BuildListingView(palette);
             RefreshDockButtons();

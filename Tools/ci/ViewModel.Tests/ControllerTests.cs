@@ -124,7 +124,7 @@ namespace BitSorter.ViewModel.Tests
         public void TheLayout_KeepsEveryBoxApart_TheWaysForwardGoingForward_TheTablesBeside()
         {
             WorkbenchSession session = InsideTheControl("Multicycle RISC-V");
-            ControllerLayout layout = ControllerLayout.Of(session.Controller, 8f, 16f);
+            ControllerLayout layout = ControllerLayout.Of(session.Controller, (text, bold) => text.Length * (bold ? 9f : 8f), 16f);
             Assert.AreEqual(11, layout.Boxes.Count);
             for (int a = 0; a < layout.Boxes.Count; a++)
                 for (int b = a + 1; b < layout.Boxes.Count; b++)

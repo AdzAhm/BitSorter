@@ -181,19 +181,22 @@ namespace BitSorter.ViewModel
         public static string Line(ReadValue value) => value.Text == "1" ? value.Signal : value.Signal + " = " + value.Text;
 
         /// <summary>
-        /// <paramref name="reading"/> laid out for text whose characters are <paramref name="charWidth"/> wide and whose lines are
-        /// <paramref name="lineHeight"/> apart: the measures of the face the view sets it in.
+        /// <paramref name="reading"/> laid out for text <paramref name="measure"/> gives the width of -- in the bold face for a
+        /// state's name, the second argument -- and whose lines are <paramref name="lineHeight"/> apart: the face the view sets
+        /// it in, measured, since a proportional face's width is no count of its letters.
         /// </summary>
-        public static ControllerLayout Of(ControllerReading reading, float charWidth, float lineHeight)
+        public static ControllerLayout Of(ControllerReading reading, Func<string, bool, float> measure, float lineHeight)
         {
             if (reading == null)
                 throw new ArgumentNullException(nameof(reading));
+            if (measure == null)
+                throw new ArgumentNullException(nameof(measure));
             var boxes = new List<ControllerBox>();
             var arrows = new List<ControllerArrowShape>();
             float right = 0, top = 0;
             if (reading.Machine != null)
             {
-                Diagram(reading.Machine, charWidth, lineHeight, boxes, arrows);
+                Diagram(reading.Machine, measure, lineHeight, boxes, arrows);
                 foreach (ControllerBox box in boxes)
                 {
                     right = Math.Max(right, box.Max.x);
@@ -208,7 +211,7 @@ namespace BitSorter.ViewModel
             var tables = new List<ControllerTableShape>();
             foreach (TableReading table in reading.Tables)
             {
-                ControllerTableShape shape = Table(table, new Vec2(right, top), charWidth, lineHeight);
+                ControllerTableShape shape = Table(table, new Vec2(right, top), measure, lineHeight);
                 tables.Add(shape);
                 right = shape.Max.x + TableGap;
             }
@@ -217,7 +220,7 @@ namespace BitSorter.ViewModel
 
         // ---- the diagram
 
-        private static void Diagram(MachineReading machine, float cw, float lh, List<ControllerBox> boxes, List<ControllerArrowShape> shapes)
+        private static void Diagram(MachineReading machine, Func<string, bool, float> measure, float lh, List<ControllerBox> boxes, List<ControllerArrowShape> shapes)
         {
             int n = machine.States.Count;
             var outs = new List<int>[n];
@@ -278,10 +281,10 @@ namespace BitSorter.ViewModel
                 lines[v] = new List<string> { machine.States[v] };
                 foreach (ReadValue set in machine.Settings[v])
                     lines[v].Add(Line(set));
-                int longest = 0;
-                foreach (string line in lines[v])
-                    longest = Math.Max(longest, line.Length);
-                size[v] = new Vec2(longest * cw + 2 * Pad, lines[v].Count * lh + 2 * Pad);
+                float longest = 0;
+                for (int l = 0; l < lines[v].Count; l++)
+                    longest = Math.Max(longest, measure(lines[v][l], l == 0));
+                size[v] = new Vec2(longest + 2 * Pad, lines[v].Count * lh + 2 * Pad);
             }
 
             // Every way forward that skips a column takes a slot in each column it passes: a gap a line high.
@@ -381,7 +384,7 @@ namespace BitSorter.ViewModel
                 float words = 0;
                 foreach (int a in forward)
                     if (column[machine.Arrows[a].To] == c + 1)
-                        words = Math.Max(words, (Label(machine, machine.Arrows[a]) ?? "").Length * cw);
+                        words = Math.Max(words, measure(Label(machine, machine.Arrows[a]) ?? "", false));
                 at += width[c] + Math.Max(ColumnGap, words + 2 * Pad + backFrom[c] * Lane);
             }
 
@@ -487,7 +490,7 @@ namespace BitSorter.ViewModel
                         if (sa == a)
                             points.Add(new Vec2(x[c] + width[c] / 2, y[(true, slots.FindIndex(s => s.Arrow == a && s.Step == step))]));
                     points.Add(end);
-                    float words = label != null ? label.Length * cw : 0;
+                    float words = label != null ? measure(label, false) : 0;
                     shapes.Add(new ControllerArrowShape(a, points, true, label, new Vec2(end.x - Pad - words, end.y - 4)));
                     continue;
                 }
@@ -529,21 +532,21 @@ namespace BitSorter.ViewModel
 
         // ---- a table
 
-        private static ControllerTableShape Table(TableReading table, Vec2 at, float cw, float lh)
+        private static ControllerTableShape Table(TableReading table, Vec2 at, Func<string, bool, float> measure, float lh)
         {
             int columns = table.Columns.Count + 1;
             var widths = new float[columns];
-            widths[0] = table.Subject.Length;
+            widths[0] = measure(table.Subject, true);
             for (int c = 1; c < columns; c++)
-                widths[c] = table.Columns[c - 1].Length;
+                widths[c] = measure(table.Columns[c - 1], true);
             foreach (TableRow row in table.Rows)
             {
-                widths[0] = Math.Max(widths[0], row.Label.Length);
+                widths[0] = Math.Max(widths[0], measure(row.Label, false));
                 for (int c = 1; c < columns; c++)
-                    widths[c] = Math.Max(widths[c], row.Cells[c - 1].Text.Length);
+                    widths[c] = Math.Max(widths[c], measure(row.Cells[c - 1].Text, false));
             }
             for (int c = 0; c < columns; c++)
-                widths[c] = widths[c] * cw + 2 * Pad;
+                widths[c] += 2 * Pad;
 
             float rowHeight = lh + Pad;
             var titleAt = new Vec2(at.x, at.y + lh);

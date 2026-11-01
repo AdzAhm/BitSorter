@@ -132,9 +132,6 @@ namespace BitSorter.View
             {
                 var switchSize = new Vector2(DrawingSwitchWidth, 32f);
                 TopLeft(_drawingSwitch.GetComponent<RectTransform>(), CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x, 8f), switchSize);
-                if (_gatesSwitch != null)
-                    TopLeft(_gatesSwitch.GetComponent<RectTransform>(),
-                        CornerOf(_regions.Circuit) + new Vector2(size.x - 10f - switchSize.x - 8f - GatesWidth, 8f), new Vector2(GatesWidth, 32f));
             }
         }
 
@@ -190,14 +187,26 @@ namespace BitSorter.View
                 _drawingSwitchShown = shown;
             }
 
-            // GATES beside it over a drawing of code, never over the code itself.
-            bool gates = shown && _session.ShowsDrawingOfCode;
+            // DIAGRAM or DRAWING beside it over a controller (Part 15h-6e); GATES beside them over a drawing of code, never over
+            // the code itself nor over a controller's diagram, which is no drawing.
+            float window = SizeOf(_regions.Circuit).x;
+            float codeLeft = window - 10f - DrawingSwitchWidth;
+            bool controller = TickControllerSwitch(shown, codeLeft);
+            float gatesLeft = (controller ? codeLeft - 8f - ControllerSwitchWidth : codeLeft) - 8f - GatesWidth;
+            bool gates = shown && _session.ShowsDrawingOfCode && !_session.ShowsController;
             if (gates != _gatesSwitchShown && _gatesSwitch != null)
             {
                 Show(_gatesSwitch, gates);
                 if (gates)
                     _gatesSwitch.transform.SetAsLastSibling();
                 _gatesSwitchShown = gates;
+            }
+            if (gates && _gatesSwitch != null)
+            {
+                Vector2 gatesAt = CornerOf(_regions.Circuit) + new Vector2(gatesLeft, 8f);
+                var gatesRect = _gatesSwitch.GetComponent<RectTransform>();
+                if (gatesRect.anchoredPosition != new Vector2(gatesAt.x, -gatesAt.y))
+                    TopLeft(gatesRect, gatesAt, new Vector2(GatesWidth, 32f));
             }
 
             // TIDY beside them while some of the drawing is put by hand; over a drawn circuit, left of the padlock while it is not
@@ -212,8 +221,7 @@ namespace BitSorter.View
             }
             if (tidy && _tidySwitch != null)
             {
-                float window = SizeOf(_regions.Circuit).x;
-                float left = gates ? window - 10f - DrawingSwitchWidth - 8f - GatesWidth - 8f - TidyWidth
+                float left = gates ? gatesLeft - 8f - TidyWidth
                     : window - 8f - 72f - KeyRoom - (Lockable ? 8f + LockWidth : 0f) - 8f - TidyWidth;   // clear of FIT's key, F, and the padlock
                 Vector2 at = CornerOf(_regions.Circuit) + new Vector2(left, 8f);
                 var rect = _tidySwitch.GetComponent<RectTransform>();
@@ -224,7 +232,8 @@ namespace BitSorter.View
             // FIT steps left of the switches while they are up.
             if (_fit != null)
             {
-                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (gates ? GatesWidth + 8f : 0f) + (tidy ? TidyWidth + 8f : 0f)) : -8f;
+                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (controller ? ControllerSwitchWidth + 8f : 0f) + (gates ? GatesWidth + 8f : 0f)
+                    + (tidy ? TidyWidth + 8f : 0f)) : -8f;
                 var fit = _fit.GetComponent<RectTransform>();
                 if (!Mathf.Approximately(fit.anchoredPosition.x, right))
                     TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));

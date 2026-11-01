@@ -3330,6 +3330,56 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// Part 15h-6e: stepping into the multicycle processor's controller opens on its state diagram, the state the run is in
+        /// lit; over it the pointer is the diagram's, never the drawing's; DRAWING turns to the drawing of its code, GATES
+        /// beside it again, and DIAGRAM back.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AController_OpensOnItsDiagram_LitAsTheRunGoes_TheDrawingOneClickAway()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int sample = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Multicycle RISC-V")
+                    sample = i;
+            workbench.ShowSample(sample);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.StepInto(workbench.Session.DrawnModule.Parts.First(p => p.Name == "control").Id));
+            workbench.Session.Finish();
+            workbench.Seek(6000);
+            yield return null;
+            yield return null;
+            yield return null;
+
+            ControllerView diagram = workbench.ControllerView;
+            Assert.IsTrue(workbench.Session.ShowsController, "a whole controller opens on its diagram");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, diagram.resolvedStyle.display);
+            Assert.IsNotNull(diagram.Layout, "laid out once it has a size");
+            Assert.AreEqual(11, diagram.Layout.Boxes.Count);
+            Assert.GreaterOrEqual(diagram.LitState, 0, "the state the run is in, lit");
+            Assert.AreEqual(WorkbenchPanel.DrawingCaption, workbench.ControllerSwitch.GetComponentInChildren<TMP_Text>().text);
+            Assert.IsFalse(workbench.GatesSwitch.gameObject.activeSelf, "GATES belongs to the drawing");
+            Assert.IsTrue(ShellPanel.OverControlAt(ShellPanel.ScreenPointOf(diagram)), "over the diagram the pointer is the diagram's");
+
+            yield return Click(WorkbenchPanel.ControllerSwitchName);
+            yield return null;
+            Assert.IsFalse(workbench.Session.ShowsController, "DRAWING");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, diagram.resolvedStyle.display);
+            Assert.AreEqual(WorkbenchPanel.DiagramCaption, workbench.ControllerSwitch.GetComponentInChildren<TMP_Text>().text);
+            Assert.IsTrue(workbench.GatesSwitch.gameObject.activeSelf, "GATES beside it again");
+
+            yield return Click(WorkbenchPanel.ControllerSwitchName);
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsController, "and DIAGRAM back");
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, diagram.resolvedStyle.display);
+        }
+
         private static Rect WorldRect(RectTransform rect)
         {
             var corners = new Vector3[4];
