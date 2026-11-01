@@ -26,6 +26,7 @@
     <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
     <!-- The exercises as the game ships them (Part 15d): the run the EXERCISES page lists. -->
     <Compile Include="../Board.Tests/ExerciseFiles.cs" Link="Shared/ExerciseFiles.cs" />
+    <Compile Include="../Board.Tests/ControllerEngine.cs" Link="Shared/ControllerEngine.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BitSorter.Board;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.ViewModel
 {
@@ -601,6 +602,81 @@ namespace BitSorter.ViewModel
         public static string GatesCapRefusal(int parts, int cap) =>
             $"GATES would draw {parts} parts, more than a browser draws at once ({cap}), so the boxes stay: the desktop version of BitSorter opens them all.";
 
+        /// <summary>
+        /// The controller the written module shown is, as the textbook draws one, read from its code (Part 15h-6e,
+        /// <see cref="ControllerReader"/>): a state machine's states and arrows, a decoder's table. Null where the module is no
+        /// controller, or is shown as its code.
+        /// </summary>
+        public ControllerReading Controller
+        {
+            get
+            {
+                if (!ShowsDrawingOfCode || _drawnTree == null)
+                    return null;
+                if (!ReferenceEquals(_controllerTree, _drawnTree) || _controllerModule != Module)
+                {
+                    _controllerTree = _drawnTree;
+                    _controllerModule = Module;
+                    ModuleDeclaration declaration = _drawnTree.Modules.Find(m => m.Name == Module);
+                    _controller = declaration != null ? ControllerReader.Read(_drawnTree, declaration, out _) : null;
+                }
+                return _controller;
+            }
+        }
+
+        private ControllerReading _controller;
+        private SyntaxTree _controllerTree;
+        private string _controllerModule;
+        private readonly HashSet<string> _controllerFlipped = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Whether the circuit's window shows the module as the controller it is rather than as its drawing: one the reading is
+        /// the whole of opens so, any other only once asked -- the traffic light, whose counter the diagram leaves out. Kept
+        /// for each module, as CODE is.
+        /// </summary>
+        public bool ShowsController => Controller is ControllerReading reading && reading.Whole != _controllerFlipped.Contains(Module);
+
+        /// <summary>Shows the module as the controller it is (DIAGRAM), or as its drawing again (DRAWING).</summary>
+        public void DrawController(bool shown)
+        {
+            if (Controller == null || shown == ShowsController)
+                return;
+            if (!_controllerFlipped.Add(Module))
+                _controllerFlipped.Remove(Module);
+        }
+
+        /// <summary>What an edit of the circuit is told while it is shown as a controller.</summary>
+        public const string ControllerRefusal = "This is the controller as the textbook draws it: press DRAWING to edit its drawing.";
+
+        private int[] _rows = Array.Empty<int>();
+
+        /// <summary>
+        /// Where the controller shown is at the time shown: its state, the state it came from, and the row each table's subject
+        /// picks -- -1 for none -- read off the run (<see cref="History.ValueBefore"/>). The rows' array is reused.
+        /// </summary>
+        public ControllerMoment ControllerNow()
+        {
+            ControllerReading reading = Controller;
+            WorkbenchModel model = Run?.Model;
+            if (reading == null || model == null || _drawnPath == null)
+                return new ControllerMoment(-1, -1, Array.Empty<int>());
+            Design design = model.Session.Design;
+            History history = model.Session.History;
+            long time = (long)Math.Floor(model.Time);
+            int state = -1, from = -1;
+            if (reading.Machine is MachineReading machine && design.TryFind(_drawnPath + "." + machine.Register, out SignalId register))
+            {
+                state = machine.StateOf(history.ValueAt(register, time));
+                from = machine.StateOf(history.ValueBefore(register, time));
+            }
+            if (_rows.Length != reading.Tables.Count)
+                _rows = new int[reading.Tables.Count];
+            for (int t = 0; t < reading.Tables.Count; t++)
+                _rows[t] = design.TryFind(_drawnPath + "." + reading.Tables[t].Subject, out SignalId subject)
+                    ? reading.Tables[t].RowOf(history.ValueAt(subject, time)) : -1;
+            return new ControllerMoment(state, from, _rows);
+        }
+
         /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
         public void DrawCode(bool drawn)
         {
@@ -631,7 +707,7 @@ namespace BitSorter.ViewModel
             "Edit the drawing? This module's code is written again from it: the comments inside it go, and its case statements, loops and expressions become the assigns, gates and instances drawn. Ctrl+Z brings the code back.";
 
         // Moving and turning on a drawing of code: refused, by the lock first.
-        private EditResult? OnTheDrawing => Unchangeable ?? (ShowsDrawingOfCode ? EditResult.Refused(ArrangeRefusal) : (EditResult?)null);
+        private EditResult? OnTheDrawing => Untouchable ?? (ShowsDrawingOfCode ? EditResult.Refused(ArrangeRefusal) : (EditResult?)null);
 
         /// <summary>
         /// An edit of the circuit shown (Part 15h-4g): on a drawn module, <paramref name="edit"/> made by the document's editor
@@ -641,7 +717,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         private EditResult Edit(Func<BoardEditor, string, EditResult> edit, Func<EditResult, EditResult> after)
         {
-            if (Unchangeable is EditResult locked)
+            if (Untouchable is EditResult locked)
                 return locked;
             if (!ShowsDrawingOfCode)
                 return after(edit(Editor, Module));
@@ -774,6 +850,9 @@ namespace BitSorter.ViewModel
 
         private EditResult? Unchangeable => _locked ? EditResult.Refused(LockedRefusal) : (EditResult?)null;
 
+        /// <summary>Why the circuit shown takes no edit on the canvas: locked, or shown as the controller it is (Part 15h-6e); null where it does.</summary>
+        private EditResult? Untouchable => Unchangeable ?? (ShowsController ? EditResult.Refused(ControllerRefusal) : (EditResult?)null);
+
         /// <summary>
         /// Why the circuit shown takes no edit -- the drawing of code's or the lock's reason -- or null: asked before a name
         /// is asked for, so MAKE BLOCK refuses at once rather than after the name (the review of the lock).
@@ -840,6 +919,7 @@ namespace BitSorter.ViewModel
                     return null;
                 _drawnNetlist = netlist;
                 _drawnDesign = design;
+                _drawnTree = compiled.Tree;
             }
             _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates, gates ? null : project.Find(module));   // the boxes' arrangement, never the gates'
             if (gates && GatesCap is int cap && _drawing.Module.Parts.Count > cap)
@@ -860,6 +940,7 @@ namespace BitSorter.ViewModel
 
         private RtlNetlist _drawnNetlist;
         private Design _drawnDesign;
+        private SyntaxTree _drawnTree;
 
         /// <summary>The drawing of code laid out, its wires no signal holds valued from the netlist.</summary>
         private SchematicLayout DrawingLayout(Project project, CompiledProject compiled, string path, string module)
@@ -1023,7 +1104,7 @@ namespace BitSorter.ViewModel
         /// 12b): drawn now, and replayed -- the circuit doing exactly what it did. The result's id is the new instance's.
         /// </summary>
         public EditResult MakeBlock(IReadOnlyCollection<int> parts, string name) =>
-            Unchangeable ?? (ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : Edited(BlockMaker.Make(Editor, Module, parts, name)));
+            Untouchable ?? (ShowsDrawingOfCode ? EditResult.Refused(DrawingRefusal) : Edited(BlockMaker.Make(Editor, Module, parts, name)));
 
         /// <summary>Takes parts and wires away (<see cref="BoardEditor.RemoveParts"/>): drawn now, and replayed.</summary>
         public EditResult Remove(IEnumerable<int> parts, IEnumerable<int> wires = null) =>
@@ -1090,7 +1171,7 @@ namespace BitSorter.ViewModel
         /// <summary>Moves, turns or mirrors parts (<see cref="BoardEditor.MoveParts"/>): drawn again, and nothing replayed.</summary>
         public EditResult Move(IReadOnlyDictionary<int, Placement> to, bool continuing = false)
         {
-            if (Unchangeable is EditResult locked)
+            if (Untouchable is EditResult locked)
                 return locked;
             if (!ShowsDrawingOfCode)
                 return Laid(Editor.MoveParts(Module, to, continuing));
@@ -1114,7 +1195,7 @@ namespace BitSorter.ViewModel
         /// on a drawn circuit, its parts laid out as the drawing of code is and its wires' bends dropped
         /// (<see cref="BoardEditor.Tidy"/>). One step either way; refused locked, over code, and with nothing to tidy.
         /// </summary>
-        public EditResult Tidy() => Unchangeable ?? (ShowsDrawingOfCode ? Laid(Editor.Arrange(Module, null))
+        public EditResult Tidy() => Untouchable ?? (ShowsDrawingOfCode ? Laid(Editor.Arrange(Module, null))
             : ShowsCode ? EditResult.Refused("TIDY lays out a drawing: press DRAWING to see one.")
             : Laid(Editor.Tidy(Module)));
 
@@ -1184,7 +1265,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult Turn(IReadOnlyCollection<int> parts, int quarterTurns, bool mirror = false)
         {
-            if (Unchangeable is EditResult locked)
+            if (Untouchable is EditResult locked)
                 return locked;
             Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);   // the drawing's parts, turned by hand (15h-4f)
             if (module == null || parts == null || parts.Count == 0)

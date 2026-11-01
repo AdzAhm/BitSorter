@@ -157,6 +157,36 @@ namespace BitSorter.Sim
             return changes[found].Value;
         }
 
+        /// <summary>
+        /// The value <paramref name="signal"/> held before it last took the value it has once <paramref name="time"/> has
+        /// settled -- the state a machine came from (Part 15h-6e) -- or that value itself where it never held another.
+        /// </summary>
+        public LogicVec ValueBefore(SignalId signal, long time)
+        {
+            Buffer<ValueChange> changes = _changes[signal.Index];
+
+            int low = 0, high = changes.Count - 1, found = 0;
+            while (low <= high)
+            {
+                int mid = (low + high) >> 1;
+                if (changes[mid].Time <= time)
+                {
+                    found = mid;
+                    low = mid + 1;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            LogicVec now = changes[found].Value;
+            for (int i = found - 1; i >= 0; i--)
+                if (!changes[i].Value.Equals(now))
+                    return changes[i].Value;
+            return now;
+        }
+
         /// <summary>The first time after <paramref name="time"/> at which any signal changed, if one did.</summary>
         public long? NextChangeAfter(long time)
         {
