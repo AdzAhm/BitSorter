@@ -3439,6 +3439,24 @@ namespace BitSorter.PlayMode.Tests
             yield return ClickAtScreen(listing.ScreenPointOfLine(body));
             StringAssert.Contains("makes no part of the drawing", workbench.ChipText, "a comment makes nothing");
             CollectionAssert.AreEquivalent(new[] { b.Id }, workbench.Editor.Selection.Parts, "and leaves the selection");
+
+            // A drag over lines selects their text to copy, and nothing on the drawing (the review of 15h-5).
+            string chip = workbench.ChipText;
+            Move(_mouse.position, listing.ScreenPointOfLine(line + body - 1));
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            Vector2 from = listing.ScreenPointOfLine(line + body - 1), to = listing.ScreenPointOfLine(bLine + body - 1);
+            for (int step = 1; step <= 6; step++)
+            {
+                Move(_mouse.position, Vector2.Lerp(from, to, step / 6f));
+                yield return null;
+            }
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEquivalent(new[] { b.Id }, workbench.Editor.Selection.Parts, "a drag selects nothing on the drawing");
+            Assert.AreEqual(chip, workbench.ChipText, "and says nothing");
         }
 
         private static Rect WorldRect(RectTransform rect)

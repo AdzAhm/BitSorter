@@ -122,16 +122,21 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The field's clicks, heard beside the field's own on its object: a click on a line, never a drag that selects text,
-        /// which the field takes as a drag and so never as a click.
+        /// The field's clicks, heard beside the field's own on its object: a click on a line, never a drag that selects text
+        /// nor the second click of a double-click. The event system still calls a press and release on one object a click
+        /// after a drag between them, since the field is what was both pressed and dragged (the review of 15h-5).
         /// </summary>
         private sealed class Clicks : MonoBehaviour, IPointerClickHandler
         {
+            /// <summary>How far, in pixels, a press may move before its release and still be a click on its line.</summary>
+            private const float Slop = 4f;
+
             public CodeListingView View;
 
             public void OnPointerClick(PointerEventData eventData)
             {
-                if (eventData.button != PointerEventData.InputButton.Left || View == null || View._field == null)
+                if (eventData.button != PointerEventData.InputButton.Left || View == null || View._field == null
+                    || eventData.dragging || eventData.clickCount > 1 || (eventData.pressPosition - eventData.position).sqrMagnitude > Slop * Slop)
                     return;
                 int line = TMP_TextUtilities.FindIntersectingLine(View._field.textComponent, eventData.position, eventData.pressEventCamera);
                 if (line >= 0)
@@ -233,7 +238,7 @@ namespace BitSorter.View
             if (_scrollToMark)
             {
                 _scrollToMark = false;
-                ScrollTo(_marked[0]);
+                ScrollIntoView();
             }
 
             // The numbers and the marks follow the text as the field scrolls it.
@@ -279,23 +284,30 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Line <paramref name="line"/> brought into view, a third of the way down, when it is not in view already -- through
-        /// the field's own scroll, which keeps its place as its own: to the top, then down by the line's share of the text.
+        /// The first marked line brought into view, a third of the way down, when no marked line is in view already -- a box
+        /// drawn over the drawing, or Ctrl+A, keeps the code where it was (the review of 15h-5) -- through the field's own
+        /// scroll, which keeps its place as its own: to the top, then down by the line's share of the text.
         /// </summary>
-        private void ScrollTo(int line)
+        private void ScrollIntoView()
         {
             TMP_Text text = _field.textComponent;
             text.ForceMeshUpdate();
             TMP_TextInfo info = text.textInfo;
             float view = _field.textViewport.rect.height, whole = text.preferredHeight;
-            if (line < 1 || line > info.lineCount || whole <= view)
+            if (whole <= view)
                 return;
 
-            float top = info.lineInfo[0].ascender - info.lineInfo[line - 1].ascender;
-            float bottom = info.lineInfo[0].ascender - info.lineInfo[line - 1].descender;
             float scrolled = text.rectTransform.anchoredPosition.y;
-            if (top >= scrolled && bottom <= scrolled + view)
+            foreach (int marked in _marked)
+                if (marked >= 1 && marked <= info.lineCount
+                    && info.lineInfo[0].ascender - info.lineInfo[marked - 1].ascender >= scrolled
+                    && info.lineInfo[0].ascender - info.lineInfo[marked - 1].descender <= scrolled + view)
+                    return;
+
+            int line = _marked[0];
+            if (line < 1 || line > info.lineCount)
                 return;
+            float top = info.lineInfo[0].ascender - info.lineInfo[line - 1].ascender;
 
             float wanted = Mathf.Clamp(top - view / 3f, 0f, whole - view) / (whole - view);
             var toTheTop = new PointerEventData(EventSystem.current) { scrollDelta = new Vector2(0f, 1e6f) };

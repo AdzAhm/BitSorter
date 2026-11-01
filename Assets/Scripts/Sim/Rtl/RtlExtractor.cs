@@ -617,6 +617,17 @@ namespace BitSorter.Sim
                 if (_nets[n].Signal >= 0)
                     _netOfSignal.Remove(_nets[n].Signal);
             _nets.RemoveRange(netsBefore, _nets.Count - netsBefore);
+
+            // Their ids are given out again, so where a condition on one was tested goes with it (the review of 15h-5).
+            if (_conditionAt.Count > 0)
+            {
+                var gone = new List<int>();
+                foreach (int condition in _conditionAt.Keys)
+                    if (condition >= netsBefore)
+                        gone.Add(condition);
+                foreach (int condition in gone)
+                    _conditionAt.Remove(condition);
+            }
         }
 
         /// <summary>The scope a process is in, by its name: its scope's path, a dot, and where it is written.</summary>

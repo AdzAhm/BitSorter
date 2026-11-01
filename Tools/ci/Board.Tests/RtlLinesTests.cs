@@ -84,6 +84,24 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(20, netlist.Cells.Single(c => c.Kind == RtlKind.Gate).At.Line, "or g1");
         }
 
+        /// <summary>The review of 15h-5: a register written by two processes took the first's line for both of its pieces.</summary>
+        [Test]
+        public void EachPieceOfARegisterWrittenByTwoProcesses_TakesItsOwnProcesssLine()
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(
+                "module two (input logic clk, input logic [1:0] d, output logic [1:0] q);\n" +   // 1
+                "    always_ff @(posedge clk)\n" +                                                // 2
+                "        q[0] <= d[0];\n" +                                                       // 3
+                "    always_ff @(posedge clk)\n" +                                                // 4
+                "        q[1] <= d[1];\n" +                                                       // 5
+                "endmodule\n", "two.sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("; ", tree.Diagnostics));
+            Elaboration e = Elaborator.Elaborate(tree, "two");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, "two");
+            CollectionAssert.AreEquivalent(new[] { 2, 4 }, netlist.Cells.Where(c => c.Kind == RtlKind.Register).Select(c => c.At.Line).ToArray());
+        }
+
         [Test]
         public void APortsNet_IsDeclaredOnItsLine()
         {

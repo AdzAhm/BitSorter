@@ -1104,16 +1104,21 @@ namespace BitSorter.ViewModel
             foreach (int part in Selection.Parts)
                 if (_session.LineOfPart(part) is int line && line > 0)
                     lines.Add(line);
-            if (Module != null)
+            if (Module != null && Selection.Wires.Count > 0)
+            {
+                var wires = new Dictionary<int, Wire>();
+                foreach (Wire wire in Module.Wires)
+                    wires[wire.Id] = wire;
                 foreach (int id in Selection.Wires)
                 {
                     // A tap's wire is driven by what drives the wire it taps.
-                    Wire wire = Module.FindWire(id);
+                    wires.TryGetValue(id, out Wire wire);
                     for (int hops = 0; wire != null && wire.From.IsTap && hops < 64; hops++)
-                        wire = Module.FindWire(wire.From.TapOf);
+                        wires.TryGetValue(wire.From.TapOf, out wire);
                     if (wire != null && !wire.From.IsTap && _session.LineOfPart(wire.From.Pin.Part) is int line && line > 0)
                         lines.Add(line);
                 }
+            }
             return new List<int>(lines);
         }
 

@@ -349,6 +349,7 @@ namespace BitSorter.Sim
                 for (int i = 0; i < list.Count; i++)
                 {
                     (Opened process, int value, int lowest, int width) = list[i];
+                    _at = process.Process.At;   // q[1]'s register from the always_ff that writes it, not the first's (the review of 15h-5)
                     int part = lowest == 0 && width == _nets[value].Width ? value : Slice(value, lowest, width);
                     inputs[i] = Drives(process, signal, part, lowest, width, -1);
                     lowests[i] = lowest;
@@ -356,6 +357,7 @@ namespace BitSorter.Sim
                 }
 
                 int target = taken ? NewNet(info.Width, NameOf(signal) + " (written here)", -1) : net;
+                _at = list[0].Process.Process.At;
                 RtlCell join = NewCellDriving(RtlKind.Join, NameOf(signal), inputs, target);
                 join.Signal = signal;
                 join.Lowests = lowests;
