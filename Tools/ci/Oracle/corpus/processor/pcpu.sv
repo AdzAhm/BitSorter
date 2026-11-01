@@ -173,6 +173,43 @@ module pcpu_control (
     end
 endmodule
 
+// The immediate generator: the instruction's immediate, its bits gathered and its sign extended as its format says.
+module pcpu_immgen (
+    input  logic [31:0] instr,
+    output logic [31:0] imm
+);
+    always_comb begin
+        case (instr[6:0])
+            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
+            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
+            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
+            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+            default:                  imm = 32'd0;
+        endcase
+    end
+endmodule
+
+// The branch comparator: whether a branch's condition holds of its two registers, by funct3.
+module pcpu_branch (
+    input  logic [31:0] a,
+    input  logic [31:0] b,
+    input  logic [2:0]  funct3,
+    output logic        taken
+);
+    always_comb begin
+        case (funct3)
+            3'b000:  taken = a == b;
+            3'b001:  taken = a != b;
+            3'b100:  taken = $signed(a) < $signed(b);
+            3'b101:  taken = $signed(a) >= $signed(b);
+            3'b110:  taken = a < b;
+            3'b111:  taken = a >= b;
+            default: taken = 1'b0;
+        endcase
+    end
+endmodule
+
 // Where each of the ALU's register operands comes from: 0 the register file, by way of decode; 1 the
 // memory/write-back register, a result two instructions back; 2 the execute/memory register, a result
 // one instruction back -- the newer one winning when both write the register.
@@ -324,16 +361,7 @@ module pcpu_decode (
         .stall(stall)
     );
 
-    always_comb begin
-        case (instr[6:0])
-            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
-            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
-            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
-            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
-            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
-            default:                  imm = 32'd0;
-        endcase
-    end
+    pcpu_immgen immgen (.instr(instr), .imm(imm));
 endmodule
 
 // Between decode and execute. A stall or a flush lets a bubble through: its controls cleared, so it writes nothing
@@ -485,17 +513,7 @@ module pcpu_execute (
 
     pcpu_alu alu (.a(alu_a), .b(alu_b), .op(alu_op), .y(alu_y));
 
-    always_comb begin
-        case (funct3)
-            3'b000:  taken = src_a == src_b;
-            3'b001:  taken = src_a != src_b;
-            3'b100:  taken = $signed(src_a) < $signed(src_b);
-            3'b101:  taken = $signed(src_a) >= $signed(src_b);
-            3'b110:  taken = src_a < src_b;
-            3'b111:  taken = src_a >= src_b;
-            default: taken = 1'b0;
-        endcase
-    end
+    pcpu_branch compare (.a(src_a), .b(src_b), .funct3(funct3), .taken(taken));
 
     assign redirect = jump || jump_reg || (branch && taken);
     assign target = jump_reg ? alu_y & ~32'd1 : pc + imm;

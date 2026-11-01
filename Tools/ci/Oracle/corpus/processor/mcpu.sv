@@ -72,6 +72,43 @@ module mcpu_memory #(
     assign rdata = mem[addr[11:2]];
 endmodule
 
+// The immediate generator: the instruction's immediate, its bits gathered and its sign extended as its format says.
+module mcpu_immgen (
+    input  logic [31:0] instr,
+    output logic [31:0] imm
+);
+    always_comb begin
+        case (instr[6:0])
+            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
+            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
+            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
+            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+            default:                  imm = 32'd0;
+        endcase
+    end
+endmodule
+
+// The branch comparator: whether a branch's condition holds of its two registers, by funct3.
+module mcpu_branch (
+    input  logic [31:0] a,
+    input  logic [31:0] b,
+    input  logic [2:0]  funct3,
+    output logic        taken
+);
+    always_comb begin
+        case (funct3)
+            3'b000:  taken = a == b;
+            3'b001:  taken = a != b;
+            3'b100:  taken = $signed(a) < $signed(b);
+            3'b101:  taken = $signed(a) >= $signed(b);
+            3'b110:  taken = a < b;
+            3'b111:  taken = a >= b;
+            default: taken = 1'b0;
+        endcase
+    end
+endmodule
+
 module mcpu_control (
     input  logic       clk,
     input  logic       rst,         // asynchronous, active high
@@ -264,28 +301,9 @@ module mcpu_datapath (
         mdr <= read_data;
     end
 
-    always_comb begin
-        case (opcode)
-            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{ir[31]}}, ir[31:20]};
-            OP_STORE:                 imm = {{20{ir[31]}}, ir[31:25], ir[11:7]};
-            OP_BRANCH:                imm = {{19{ir[31]}}, ir[31], ir[7], ir[30:25], ir[11:8], 1'b0};
-            OP_LUI, OP_AUIPC:         imm = {ir[31:12], 12'd0};
-            OP_JAL:                   imm = {{11{ir[31]}}, ir[31], ir[19:12], ir[20], ir[30:21], 1'b0};
-            default:                  imm = 32'd0;
-        endcase
-    end
+    mcpu_immgen immgen (.instr(ir), .imm(imm));
 
-    always_comb begin
-        case (funct3)
-            3'b000:  taken = a == b;
-            3'b001:  taken = a != b;
-            3'b100:  taken = $signed(a) < $signed(b);
-            3'b101:  taken = $signed(a) >= $signed(b);
-            3'b110:  taken = a < b;
-            3'b111:  taken = a >= b;
-            default: taken = 1'b0;
-        endcase
-    end
+    mcpu_branch compare (.a(a), .b(b), .funct3(funct3), .taken(taken));
 
     always_comb begin
         case (alu_a_sel)

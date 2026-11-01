@@ -4,7 +4,9 @@
 // register outside the register file, and separate instruction and data memories of 1,024 words each,
 // loaded from images with $readmemh. It runs the RV32I instructions a program needs: lui, auipc, jal,
 // jalr, every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
-// immediate. No bytes or halfwords, no system instructions. scpu_tb runs rv_program.hex on rv_data.hex
+// immediate. No bytes or halfwords, no system instructions. Its datapath is drawn as the textbook draws one: the PC,
+// the register file, an immediate generator and a branch comparator as blocks of their own, the ALU, and a mux for
+// each choice -- the next PC, the ALU's a and b, what is written back. scpu_tb runs rv_program.hex on rv_data.hex
 // until the program stores to 0x7fc, then checks its results against rv_expected.hex. Written for
 // BitSorter's oracle from the published RISC-V specification; not taken from any course material.
 
@@ -73,19 +75,20 @@ module scpu_memory #(
     assign rdata = mem[addr[11:2]];
 endmodule
 
+// The control logic: what the instruction asks of the datapath, worked out from its opcode and funct fields alone --
+// and, for a branch, from the comparison the datapath makes of its two registers.
 module scpu_control (
     input  logic [6:0] opcode,
     input  logic [2:0] funct3,
     input  logic       funct7_5,    // instruction bit 30: sub and sra
+    input  logic       taken,       // the branch comparator: the condition holds
+    output logic [1:0] pc_src,      // the next PC: 0 the PC and four, 1 the PC and the immediate, 2 the ALU, bit 0 cleared
     output logic       rf_we,
     output logic       mem_we,
     output logic       alu_a_pc,    // the ALU's a: 0 the register, 1 the PC
     output logic       alu_b_imm,   // the ALU's b: 0 the register, 1 the immediate
     output logic [3:0] alu_op,
-    output logic       branch,
-    output logic       jump,        // jal: to the PC and the immediate
-    output logic       jump_reg,    // jalr: to the ALU's sum, bit 0 cleared
-    output logic [1:0] wb_src       // 0 the ALU, 1 the data memory, 2 the PC and four
+    output logic [1:0] wb_src       // what is written back: 0 the ALU, 1 the data memory, 2 the PC and four
 );
     logic [3:0] alu_function;
 
@@ -104,14 +107,12 @@ module scpu_control (
     end
 
     always_comb begin
+        pc_src = 2'd0;
         rf_we = 1'b0;
         mem_we = 1'b0;
         alu_a_pc = 1'b0;
         alu_b_imm = 1'b0;
         alu_op = ALU_ADD;
-        branch = 1'b0;
-        jump = 1'b0;
-        jump_reg = 1'b0;
         wb_src = 2'd0;
 
         case (opcode)
@@ -135,17 +136,17 @@ module scpu_control (
                 alu_b_imm = 1'b1;
             end
             OP_JAL: begin
+                pc_src = 2'd1;
                 rf_we = 1'b1;
-                jump = 1'b1;
                 wb_src = 2'd2;
             end
             OP_JALR: begin
+                pc_src = 2'd2;
                 rf_we = 1'b1;
                 alu_b_imm = 1'b1;
-                jump_reg = 1'b1;
                 wb_src = 2'd2;
             end
-            OP_BRANCH: branch = 1'b1;
+            OP_BRANCH: pc_src = taken ? 2'd1 : 2'd0;
             OP_LOAD: begin
                 rf_we = 1'b1;
                 alu_b_imm = 1'b1;
@@ -160,16 +161,53 @@ module scpu_control (
     end
 endmodule
 
+// The immediate generator: the instruction's immediate, its bits gathered and its sign extended as its format says.
+module scpu_immgen (
+    input  logic [31:0] instr,
+    output logic [31:0] imm
+);
+    always_comb begin
+        case (instr[6:0])
+            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
+            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
+            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
+            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+            default:                  imm = 32'd0;
+        endcase
+    end
+endmodule
+
+// The branch comparator: whether a branch's condition holds of its two registers, by funct3.
+module scpu_branch (
+    input  logic [31:0] a,
+    input  logic [31:0] b,
+    input  logic [2:0]  funct3,
+    output logic        taken
+);
+    always_comb begin
+        case (funct3)
+            3'b000:  taken = a == b;
+            3'b001:  taken = a != b;
+            3'b100:  taken = $signed(a) < $signed(b);
+            3'b101:  taken = $signed(a) >= $signed(b);
+            3'b110:  taken = a < b;
+            3'b111:  taken = a >= b;
+            default: taken = 1'b0;
+        endcase
+    end
+endmodule
+
+// The datapath: the PC, the register file, the immediate generator, the branch comparator, the ALU, and the muxes
+// that choose each one's inputs -- the PC's next value, the ALU's a and b, and what is written back.
 module scpu_datapath (
     input  logic        clk,
     input  logic        rst,          // asynchronous, active high: the PC to 0
+    input  logic [1:0]  pc_src,
     input  logic        rf_we,
     input  logic        alu_a_pc,
     input  logic        alu_b_imm,
     input  logic [3:0]  alu_op,
-    input  logic        branch,
-    input  logic        jump,
-    input  logic        jump_reg,
     input  logic [1:0]  wb_src,
     input  logic [31:0] instr,        // from the instruction memory
     input  logic [31:0] read_data,    // from the data memory
@@ -178,16 +216,30 @@ module scpu_datapath (
     output logic [31:0] write_data,
     output logic [6:0]  opcode,
     output logic [2:0]  funct3,
-    output logic        funct7_5
+    output logic        funct7_5,
+    output logic        taken
 );
     logic [31:0] rd1, rd2, imm, alu_a, alu_b, alu_y, pc_plus4, target, pc_next, wb;
-    logic        taken;
 
     assign opcode = instr[6:0];
     assign funct3 = instr[14:12];
     assign funct7_5 = instr[30];
     assign data_addr = alu_y;
     assign write_data = rd2;
+
+    always_ff @(posedge clk, posedge rst)
+        if (rst) pc <= 32'd0;
+        else pc <= pc_next;
+
+    assign pc_plus4 = pc + 32'd4;
+    assign target = pc + imm;
+
+    always_comb
+        case (pc_src)
+            2'd1:    pc_next = target;
+            2'd2:    pc_next = {alu_y[31:1], 1'b0};
+            default: pc_next = pc_plus4;
+        endcase
 
     scpu_regfile regfile (
         .clk(clk),
@@ -200,54 +252,21 @@ module scpu_datapath (
         .rd2(rd2)
     );
 
-    scpu_alu alu (.a(alu_a), .b(alu_b), .op(alu_op), .y(alu_y));
+    scpu_immgen immgen (.instr(instr), .imm(imm));
 
-    always_ff @(posedge clk, posedge rst)
-        if (rst) pc <= 32'd0;
-        else pc <= pc_next;
-
-    always_comb begin
-        case (opcode)
-            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
-            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
-            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
-            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
-            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
-            default:                  imm = 32'd0;
-        endcase
-    end
-
-    always_comb begin
-        case (funct3)
-            3'b000:  taken = rd1 == rd2;
-            3'b001:  taken = rd1 != rd2;
-            3'b100:  taken = $signed(rd1) < $signed(rd2);
-            3'b101:  taken = $signed(rd1) >= $signed(rd2);
-            3'b110:  taken = rd1 < rd2;
-            3'b111:  taken = rd1 >= rd2;
-            default: taken = 1'b0;
-        endcase
-    end
+    scpu_branch compare (.a(rd1), .b(rd2), .funct3(funct3), .taken(taken));
 
     assign alu_a = alu_a_pc ? pc : rd1;
     assign alu_b = alu_b_imm ? imm : rd2;
-    assign pc_plus4 = pc + 32'd4;
-    assign target = pc + imm;
 
-    always_comb begin
-        if (jump_reg)
-            pc_next = alu_y & ~32'd1;
-        else if (jump || (branch && taken))
-            pc_next = target;
-        else
-            pc_next = pc_plus4;
+    scpu_alu alu (.a(alu_a), .b(alu_b), .op(alu_op), .y(alu_y));
 
+    always_comb
         case (wb_src)
             2'd1:    wb = read_data;
             2'd2:    wb = pc_plus4;
             default: wb = alu_y;
         endcase
-    end
 endmodule
 
 module scpu #(
@@ -257,8 +276,8 @@ module scpu #(
     input  logic clk,
     input  logic rst      // asynchronous, active high
 );
-    logic        rf_we, mem_we, alu_a_pc, alu_b_imm, branch, jump, jump_reg, funct7_5;
-    logic [1:0]  wb_src;
+    logic        rf_we, mem_we, alu_a_pc, alu_b_imm, funct7_5, taken;
+    logic [1:0]  pc_src, wb_src;
     logic [3:0]  alu_op;
     logic [6:0]  opcode;
     logic [2:0]  funct3;

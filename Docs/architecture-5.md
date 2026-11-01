@@ -3748,7 +3748,14 @@ samples in 15h-6"; the program, 2026-11-01: "all of these examples").
   memory/write-back registers (`pcpu_forward`), a cycle's stall when decode needs a word a load in execute has not yet
   read (`pcpu_hazard`), branches and jumps decided in execute and the two instructions behind a taken one turned into
   bubbles, and a register file that passes a value being written back straight through to a read of it in the same
-  cycle -- the textbook's write in the first half, read in the second. The three share `rv32i.svh`.
+  cycle -- the textbook's write in the first half, read in the second. The three share `rv32i.svh`. **Each datapath is
+  drawn as the textbook draws one** (Ahmad asked, 2026-11-01, with the course's figures as an illustration of the goal,
+  nothing taken from them): the immediate generator and the branch comparator are modules of their own in all three
+  (`*_immgen`, `*_branch`, an instance named `compare`), so a datapath's drawing is the PC, the register file, those two,
+  the ALU and a mux for each choice -- 41 parts single-cycle and 51 multicycle, where each was about a hundred, the two
+  `case`s spread across it; the single-cycle's next PC is a select (`pc_src`) its control sets from the comparator's
+  `taken`, as the textbook's control logic does. mcpu runs as it did, to the cycle. Each controller stays one module, its
+  `case` drawn whole: the textbook draws control as a box, and so does the top.
 - **One demo program for all three** (`rv_program.hex`, `rv_data.hex`, `rv_expected.hex`): the sum of 1 to 10, the first
   ten Fibonacci numbers -- F2 to F9 each loaded back from the two words before it, so the pipeline stalls on every one --
   and every instruction the processors run, once (RV32I less its byte and halfword memory instructions and its system
