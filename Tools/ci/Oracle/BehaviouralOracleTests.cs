@@ -42,6 +42,9 @@ namespace BitSorter.Ci.Oracle
         [TestCase("system/printing.sv", "printing", null, null)]
         [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
         [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
+        [TestCase("processor/scpu.sv", "scpu_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
         public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data)
         {
             Icarus icarus = Icarus.Require();

@@ -7,7 +7,7 @@
 // 0x7fc, then checks its results against mcpu_expected.hex. Written for BitSorter's oracle from the
 // published RISC-V specification; not taken from any course material.
 
-`include "mcpu_defs.svh"
+`include "rv32i.svh"
 
 module mcpu_alu (
     input  logic [31:0] a,
@@ -314,7 +314,10 @@ module mcpu_datapath (
     end
 endmodule
 
-module mcpu (
+module mcpu #(
+    parameter PROGRAM = "mcpu_program.hex",   // the instruction memory's image
+    parameter DATA    = "mcpu_data.hex"       // the data memory's image
+) (
     input  logic clk,
     input  logic rst      // asynchronous, active high
 );
@@ -325,7 +328,7 @@ module mcpu (
     logic [2:0]  funct3;
     logic [31:0] pc, instr, data_addr, write_data, read_data;
 
-    mcpu_memory #(.IMAGE("mcpu_program.hex")) imem (
+    mcpu_memory #(.IMAGE(PROGRAM)) imem (
         .clk(clk),
         .we(1'b0),
         .addr(pc),
@@ -333,7 +336,7 @@ module mcpu (
         .rdata(instr)
     );
 
-    mcpu_memory #(.IMAGE("mcpu_data.hex")) dmem (
+    mcpu_memory #(.IMAGE(DATA)) dmem (
         .clk(clk),
         .we(mem_we),
         .addr(data_addr),
@@ -397,6 +400,61 @@ module mcpu_tb;
 
     initial begin
         #200000;
+        $display("TIMEOUT: the program never said it was done");
+        $finish;
+    end
+endmodule
+
+// mcpu running rv_demo, the program scpu and pcpu run too -- the sum of 1 to 10, ten Fibonacci numbers and
+// every instruction once -- so the three processors can be compared on one program: the start page's
+// multicycle sample (Part 15h-6).
+module mcpu_demo_tb;
+    logic        clk = 1'b0;
+    logic        rst;
+    integer      cycles = 0;
+    integer      failures = 0;
+    integer      i;
+    logic [31:0] expected [0:63];
+
+    mcpu #(.PROGRAM("rv_program.hex"), .DATA("rv_data.hex")) dut (.clk(clk), .rst(rst));
+
+    always #5 clk = ~clk;
+    always @(posedge clk) cycles <= cycles + 1;
+
+    initial begin
+        $readmemh("rv_expected.hex", expected);
+        rst = 1'b1;
+        repeat (2) @(posedge clk);
+        @(negedge clk) rst = 1'b0;
+    end
+
+    // The program says it is done by storing to 0x7fc; that store lands on the next rising edge,
+    // after every result is in memory.
+    always @(negedge clk)
+        if (dut.mem_we && dut.data_addr == 32'h0000_07fc) begin
+            $display("done after %0d cycles, at %0t", cycles, $time);
+            $display("the sum of 1 to 10: %0d", dut.dmem.mem[64]);
+            $write("ten Fibonacci numbers:");
+            for (i = 0; i < 10; i++)
+                $write(" %0d", dut.dmem.mem[65 + i]);
+            $display;
+            $display("every instruction once: %0d of 31 checks held", dut.dmem.mem[126]);
+
+            for (i = 0; i < 64; i++)
+                if (dut.dmem.mem[64 + i] !== expected[i]) begin
+                    $display("FAIL: the word at %h is %h, not %h", 32'h100 + 4 * i, dut.dmem.mem[64 + i], expected[i]);
+                    failures++;
+                end
+
+            if (failures == 0)
+                $display("PASS: every result as expected");
+            else
+                $display("FAIL: %0d results wrong", failures);
+            $finish;
+        end
+
+    initial begin
+        #100000;
         $display("TIMEOUT: the program never said it was done");
         $finish;
     end

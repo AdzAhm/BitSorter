@@ -26,6 +26,9 @@ namespace BitSorter.View.Workbench
         public const double SliceMilliseconds = 8;
 
         [SerializeField] private string _design = "processor/mcpu.sv";
+
+        /// <summary>The testbench run: mcpu.sv holds two, its own and the start page's sample's (Part 15h-6).</summary>
+        [SerializeField] private string _top = "mcpu_tb";
         [SerializeField] private int _cycles;
         [SerializeField] private int _runs = 5;
         [SerializeField] private string[] _sourcePaths = new string[0];
@@ -79,7 +82,7 @@ namespace BitSorter.View.Workbench
             for (int run = 1; run <= _runs; run++)
             {
                 double start = Time.realtimeSinceStartupAsDouble;
-                Elaboration elaboration = Elaborator.Elaborate(SyntaxReader.Read(_design, sources));
+                Elaboration elaboration = Elaborator.Elaborate(SyntaxReader.Read(_design, sources), _top);
                 double elaborated = Time.realtimeSinceStartupAsDouble;
 
                 if (elaboration.Design == null)

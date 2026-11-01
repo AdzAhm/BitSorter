@@ -149,7 +149,8 @@ endmodule", "counter.sv")).Design;
             for (int run = 0; run < 5; run++)
             {
                 var clock = Stopwatch.StartNew();
-                Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.Read("processor/mcpu.sv", sources)).Design;
+                // mcpu_tb by name: mcpu.sv holds mcpu_demo_tb too, the start page's sample (Part 15h-6).
+                Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.Read("processor/mcpu.sv", sources), "mcpu_tb").Design;
                 double elaborated = clock.Elapsed.TotalSeconds;
                 sim = new Simulator(design, null, new SimOptions { Files = files });
                 RunResult result = sim.RunTo(1_000_000);
