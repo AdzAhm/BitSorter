@@ -3806,7 +3806,7 @@ ones").
   testbench's checks are one process box reading a thousand words, and no wrap shortens a part (`RtlDrawingTests`); the
   count agreeing with the drawing, with gates and without, for every scope of every design; and the multicycle
   controller's GATES refused under the cap with the desktop named, the single-cycle's opened, and every gate opened with
-  no cap (`ProcessorSampleTests`).
+  no cap (`ProcessorSampleTests`); and shot 71, the multicycle controller stepped into, wrapped.
 - **Known, and left**: a testbench's checking process is drawn as one box of a pin for each word it reads -- 547 cells
   tall on the processors' testbenches, which a student opens only by stepping into the bench.
 

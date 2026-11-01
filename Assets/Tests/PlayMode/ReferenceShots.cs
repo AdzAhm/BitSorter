@@ -1621,6 +1621,13 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator Shot70_WorkbenchPipelinedProcessor() => Processor("Pipelined RISC-V", 1800, null, "70-workbench-pipelined");
 
+        /// <summary>
+        /// Part 15h-6b: the multicycle RV32I's controller stepped into -- one `case` of 224 parts and no blocks, its tallest
+        /// columns wrapped side by side so it stands wider than tall, as the window does (118 by 98 cells before, 146 by 60).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot71_WorkbenchMulticycleControlWrapped() => Processor("Multicycle RISC-V", 6000, "control", "71-workbench-multicycle-control");
+
         /// <summary>A processor sample opened, stepped inside <paramref name="inside"/> where one is named, run to <paramref name="at"/> and fitted.</summary>
         private IEnumerator Processor(string sample, double at, string inside, string shot)
         {
