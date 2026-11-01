@@ -42,12 +42,16 @@ namespace BitSorter.Board
     /// <summary>A value as the code writes it -- <c>2</c>, <c>ALU_PASSB</c>, <c>taken</c> -- for a signal, and what it is when it is a constant.</summary>
     public readonly struct ReadValue
     {
-        public ReadValue(string signal, string text, LogicVec? constant)
+        public ReadValue(string signal, string text, LogicVec? constant, int width = 0)
         {
             Signal = signal;
             Text = text;
             Constant = constant;
+            Width = width;
         }
+
+        /// <summary>The signal's width as declared, 0 where it is not known: a one-bit output set to 1 is written by its name alone.</summary>
+        public int Width { get; }
 
         /// <summary>The signal given the value.</summary>
         public string Signal { get; }
@@ -120,7 +124,10 @@ namespace BitSorter.Board
         /// <summary>Each state's value in the register.</summary>
         public IReadOnlyList<LogicVec> Codes { get; }
 
-        /// <summary>The state a reset puts it in; the first where nothing resets it.</summary>
+        /// <summary>
+        /// The state a reset puts it in -- or, with no reset, the value the register is declared with -- and -1 where the code
+        /// says neither, rather than a guess.
+        /// </summary>
         public int Start { get; }
 
         /// <summary>Every way out of every state, a loop where it stays.</summary>

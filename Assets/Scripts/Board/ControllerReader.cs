@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
@@ -57,17 +58,22 @@ namespace BitSorter.Board
             public NotReadable(string why) : base(why) { }
         }
 
-        /// <summary>One way through an arm: what decided it, whether an <c>else</c> or a <c>default</c> did, and what it set.</summary>
+        /// <summary>
+        /// One way through an arm: the tests it passed, the tests it failed -- an <c>else</c>, a <c>default</c> -- and what it
+        /// set. An arrow's words are both: "done and !err", where the failed test alone read "otherwise" and lost the "done"
+        /// (the review of 15h-6e).
+        /// </summary>
         private sealed class Way
         {
             public readonly List<string> Conditions = new List<string>();
-            public bool Otherwise;
+            public readonly List<string> Negations = new List<string>();
             public readonly Dictionary<string, Expression> Values = new Dictionary<string, Expression>(StringComparer.Ordinal);
 
             public Way Copy()
             {
-                var copy = new Way { Otherwise = Otherwise };
+                var copy = new Way();
                 copy.Conditions.AddRange(Conditions);
+                copy.Negations.AddRange(Negations);
                 foreach (KeyValuePair<string, Expression> v in Values)
                     copy.Values[v.Key] = v.Value;
                 return copy;
@@ -81,6 +87,11 @@ namespace BitSorter.Board
             private readonly Dictionary<string, Expression> _parameters = new Dictionary<string, Expression>(StringComparer.Ordinal);
             private readonly Dictionary<string, EnumType> _types = new Dictionary<string, EnumType>(StringComparer.Ordinal);
             private readonly Dictionary<string, DataType> _declared = new Dictionary<string, DataType>(StringComparer.Ordinal);
+            private readonly Dictionary<string, LogicVec> _members = new Dictionary<string, LogicVec>(StringComparer.Ordinal);
+            private readonly Dictionary<string, Expression> _initial = new Dictionary<string, Expression>(StringComparer.Ordinal);
+
+            /// <summary>Set where the register's process keeps something the reading does not show: not the whole module.</summary>
+            private bool _partial;
 
             public Reader(SyntaxTree tree, ModuleDeclaration module)
             {
@@ -108,28 +119,66 @@ namespace BitSorter.Board
                             break;
                         case TypedefDeclaration t when t.Type?.Enum != null:
                             _types[t.Name] = t.Type.Enum;
+                            Members(t.Type.Enum);
                             break;
                         case DataDeclaration d when d.Type != null:
+                            if (d.Type.Enum != null)
+                                Members(d.Type.Enum);
                             foreach (Declarator name in d.Declarators)
+                            {
                                 _declared[name.Name] = d.Type;
+                                if (name.Initializer != null)
+                                    _initial[name.Name] = name.Initializer;
+                            }
                             break;
                     }
                 }
             }
 
+            /// <summary>Each member of <paramref name="type"/> and its value, a constant like a parameter: a label may name one.</summary>
+            private void Members(EnumType type)
+            {
+                int width = type.BaseType != null ? Width(type.BaseType) : 32;
+                ulong value = 0;
+                foreach (EnumMember member in type.Members)
+                {
+                    if (member.Value != null)
+                    {
+                        if (!(Constant(member.Value) is LogicVec given) || !given.TryGetUInt64(out value))
+                            return;   // worked out: none of its members is a constant here
+                    }
+                    _members[member.Name] = LogicVec.FromUInt64(value, Math.Max(1, width));
+                    value++;
+                }
+            }
+
             public ControllerReading Read(out string why)
             {
+                // Whole only where every item is a declaration or a process the reading takes: an assign, an instance, a
+                // gate, a function, a generate block, an initial block or a wire given a value as it is declared is
+                // something the diagram does not show (the review of 15h-6e).
                 var processes = new List<ProceduralBlock>();
                 bool other = false;
                 foreach (ModuleItem item in _module.Items)
                 {
-                    if (item is ProceduralBlock p)
+                    switch (item)
                     {
-                        if (p.Kind != ProcessKind.Initial && p.Kind != ProcessKind.Final)
+                        case ProceduralBlock p when p.Kind != ProcessKind.Initial && p.Kind != ProcessKind.Final:
                             processes.Add(p);
+                            break;
+                        case DataDeclaration d:
+                            foreach (Declarator name in d.Declarators)
+                                other |= name.Initializer != null && d.NetType != null;
+                            break;
+                        case TypedefDeclaration _:
+                        case ParameterDeclaration _:
+                        case PortItemDeclaration _:
+                        case ImportDeclaration _:
+                            break;
+                        default:
+                            other = true;
+                            break;
                     }
-                    else if (item is ContinuousAssign || item is ModuleInstantiation)
-                        other = true;
                 }
 
                 var used = new HashSet<ProceduralBlock>();
@@ -137,7 +186,7 @@ namespace BitSorter.Board
                 var tables = new List<TableReading>();
                 foreach (ProceduralBlock p in processes)
                 {
-                    if (used.Contains(p) || p.Kind != ProcessKind.AlwaysComb)
+                    if (used.Contains(p) || CombBody(p) == null)
                         continue;
                     TableReading table = ReadTable(p, machine?.Register);
                     if (table != null)
@@ -147,7 +196,7 @@ namespace BitSorter.Board
                     }
                 }
 
-                bool whole = !other && used.Count == processes.Count;
+                bool whole = !other && !_partial && used.Count == processes.Count;
                 if (machine == null && (tables.Count == 0 || !whole))
                 {
                     why = tables.Count == 0
@@ -191,13 +240,20 @@ namespace BitSorter.Board
                             continue;
                         foreach (ProceduralBlock comb in processes)
                         {
-                            if (comb == register || comb.Kind != ProcessKind.AlwaysComb)
+                            if (comb == register || !(CombBody(comb) is Statement combBody))
                                 continue;
-                            if (!(CaseOn(comb.Body, s1, out List<AssignmentStatement> defaults) is CaseStatement arms) || !Assigns(arms, n))
+                            if (!(CaseOn(combBody, s1, out List<AssignmentStatement> defaults) is CaseStatement arms) || !Assigns(arms, n))
                                 continue;
                             used.Add(register);
                             used.Add(comb);
-                            return Machine(s1, n, resets.TryGetValue(s1, out Expression start) ? start : null, defaults, arms, blocking: true, processes, used);
+                            // Whole only if the process keeps nothing else: each other register takes a value the case works
+                            // out (count <= count_next), and the reset only constants.
+                            foreach (Statement kept in Flatten(rest))
+                                _partial |= !(kept is AssignmentStatement k) || !k.IsNonBlocking || k.Operator != "<="
+                                    || !(SimpleName(k.Value) is string from) || SimpleName(k.Target) != s1 && !AssignsIn(combBody, from);
+                            foreach (Expression given in resets.Values)
+                                _partial |= Constant(given) == null && StateNamed(given) == null;
+                            return Machine(s1, n, StartOf(s1, resets), defaults, arms, blocking: true, processes, used);
                         }
                     }
 
@@ -207,12 +263,23 @@ namespace BitSorter.Board
                             && CaseOn(rest, subject, out List<AssignmentStatement> ownDefaults, nonBlocking: true) is CaseStatement own)
                         {
                             used.Add(register);
-                            return Machine(subject, subject, resets.TryGetValue(subject, out Expression start) ? start : null, ownDefaults, own,
-                                blocking: false, processes, used);
+                            return Machine(subject, subject, StartOf(subject, resets), ownDefaults, own, blocking: false, processes, used);
                         }
                 }
                 return null;
             }
+
+            /// <summary>
+            /// What a register starts at: its reset's value where the process is <c>if (reset) ... else ...</c>, else the value it
+            /// is declared with, else nothing known -- never a guess (the review of 15h-6e: a reset after the next value read as
+            /// the first state).
+            /// </summary>
+            private Expression StartOf(string register, Dictionary<string, Expression> resets) =>
+                resets.TryGetValue(register, out Expression reset) ? reset : _initial.TryGetValue(register, out Expression initial) ? initial : null;
+
+            /// <summary>The name an expression gives a state or a constant, a package's included: <c>IDLE</c>, <c>p::IDLE</c>.</summary>
+            private static string StateNamed(Expression e) =>
+                Unparenthesized(e) is NameExpression n && n.Path.Count == 1 ? n.Name : null;
 
             private MachineReading Machine(string register, string next, Expression start, List<AssignmentStatement> defaults, CaseStatement arms,
                 bool blocking, List<ProceduralBlock> processes, HashSet<ProceduralBlock> used)
@@ -254,12 +321,12 @@ namespace BitSorter.Board
                     if (states.Count < 2)
                         throw new NotReadable($"A case on {register} of fewer than two states is no state machine.");
                 }
-                int startState = StateOf(start, states, codes) ?? 0;
+                int startState = StateOf(start, states, codes) ?? -1;
 
                 // Every other always_comb that is a case on the register only gives outputs: the three-process style.
                 var outputArms = new List<(List<AssignmentStatement> Defaults, CaseStatement Arms)>();
                 foreach (ProceduralBlock comb in processes)
-                    if (!used.Contains(comb) && comb.Kind == ProcessKind.AlwaysComb && CaseOn(comb.Body, register, out List<AssignmentStatement> d) is CaseStatement c
+                    if (!used.Contains(comb) && CombBody(comb) is Statement combBody && CaseOn(combBody, register, out List<AssignmentStatement> d) is CaseStatement c
                         && !Assigns(c, next))
                     {
                         outputArms.Add((d, c));
@@ -271,13 +338,13 @@ namespace BitSorter.Board
                 var settings = new List<IReadOnlyList<ReadValue>>();
                 for (int s = 0; s < states.Count; s++)
                 {
-                    List<Way> ways = Walk(ArmFor(arms, states[s]), Start(defaultValues), blocking);
-                    var targets = new List<(int To, Way Way, string Extra)>();
+                    List<Way> ways = Walk(ArmFor(arms, s, states, codes), Start(defaultValues), blocking);
+                    var targets = new List<(int To, Way Way, List<string> Passed, List<string> Failed)>();
                     foreach (Way way in ways)
                     {
                         Expression target = way.Values.TryGetValue(next, out Expression t) ? t : null;
-                        foreach ((int index, string extra) in Targets(target, register, s, states, codes))
-                            targets.Add((index, way, extra));
+                        foreach ((int index, List<string> passed, List<string> failed) in Targets(target, register, s, states, codes))
+                            targets.Add((index, way, passed, failed));
                     }
                     // What every way sets goes in the state's box (Moore); what differs by way, on the arrows its ways take
                     // (Mealy: start / load = 1).
@@ -298,7 +365,7 @@ namespace BitSorter.Board
                     foreach ((List<AssignmentStatement> d, CaseStatement c) in outputArms)
                     {
                         var outDefaults = Defaults(d, blocking: true);
-                        Settle(set, Walk(ArmFor(c, states[s]), Start(outDefaults), blocking: true), outDefaults, next);
+                        Settle(set, Walk(ArmFor(c, s, states, codes), Start(outDefaults), blocking: true), outDefaults, next);
                     }
                     settings.Add(set);
                 }
@@ -309,26 +376,42 @@ namespace BitSorter.Board
             /// The states <paramref name="target"/> names -- a state, the register for staying, nothing for holding, or a ?: of
             /// them -- each with what chooses it.
             /// </summary>
-            private IEnumerable<(int To, string Condition)> Targets(Expression target, string register, int here, List<string> states, List<LogicVec> codes)
+            private IEnumerable<(int To, List<string> Passed, List<string> Failed)> Targets(Expression target, string register, int here,
+                List<string> states, List<LogicVec> codes)
             {
                 target = Unparenthesized(target);
                 if (target == null || SimpleName(target) == register)
                 {
-                    yield return (here, null);   // nothing sets it, or it is set to itself: it holds
+                    yield return (here, new List<string>(), new List<string>());   // nothing sets it, or it is set to itself: it holds
                     yield break;
                 }
                 if (target is ConditionalExpression choice)
                 {
-                    string condition = Text(choice.Condition);
-                    foreach ((int to, string c) in Targets(choice.WhenTrue, register, here, states, codes))
-                        yield return (to, c == null ? condition : condition + " and " + c);
-                    foreach ((int to, string c) in Targets(choice.WhenFalse, register, here, states, codes))
-                        yield return (to, c ?? MachineArrow.Otherwise);
+                    foreach ((int to, List<string> passed, List<string> failed) in Targets(choice.WhenTrue, register, here, states, codes))
+                    {
+                        passed.Insert(0, Text(choice.Condition));
+                        yield return (to, passed, failed);
+                    }
+                    foreach ((int to, List<string> passed, List<string> failed) in Targets(choice.WhenFalse, register, here, states, codes))
+                    {
+                        failed.Insert(0, Negated(choice.Condition));
+                        yield return (to, passed, failed);
+                    }
                     yield break;
                 }
                 if (!(StateOf(target, states, codes) is int index))
                     throw new NotReadable($"In {states[here]}, the next state is {Text(target)}, which is no state of {register}.");
-                yield return (index, null);
+                yield return (index, new List<string>(), new List<string>());
+            }
+
+            /// <summary>A condition failed, in the code's words: <c>!walk</c>, <c>walk</c> for <c>!walk</c>, <c>!(a == b)</c>.</summary>
+            private static string Negated(Expression condition)
+            {
+                condition = Unparenthesized(condition);
+                if (condition is UnaryExpression not && not.Operator == "!")
+                    return Text(not.Operand);
+                string text = Text(condition);
+                return condition is NameExpression ? "!" + text : "!(" + text + ")";
             }
 
             /// <summary>The state <paramref name="e"/> is -- by its name, or by the value it is -- or null for none.</summary>
@@ -336,7 +419,7 @@ namespace BitSorter.Board
             {
                 if (e == null)
                     return null;
-                if (SimpleName(e) is string name && states.IndexOf(name) is int i && i >= 0)
+                if (StateNamed(e) is string name && states.IndexOf(name) is int i && i >= 0)
                     return i;
                 if (Constant(e) is LogicVec v && v.TryGetUInt64(out ulong value))
                     for (int s = 0; s < codes.Count; s++)
@@ -346,20 +429,20 @@ namespace BitSorter.Board
             }
 
             /// <summary>A state's name as a label gives it: the constant it names, or the number as written.</summary>
-            private static string LabelName(Expression label) => SimpleName(label) ?? Text(label, sized: true);
+            private static string LabelName(Expression label) => StateNamed(label) ?? Text(label, sized: true);
 
             /// <summary>
             /// The arrows out of state <paramref name="from"/>: one to each state its ways reach, labelled with what takes it, and
             /// carrying what the ways that take it set of <paramref name="varying"/> -- the outputs that differ by way.
             /// </summary>
-            private IEnumerable<MachineArrow> Arrows(int from, List<(int To, Way Way, string Extra)> targets, List<string> varying,
-                Dictionary<string, Expression> defaults)
+            private IEnumerable<MachineArrow> Arrows(int from, List<(int To, Way Way, List<string> Passed, List<string> Failed)> targets,
+                List<string> varying, Dictionary<string, Expression> defaults)
             {
                 var order = new List<int>();
                 var labels = new Dictionary<int, List<string>>();
                 var taking = new Dictionary<int, List<Way>>();
                 var always = new HashSet<int>();
-                foreach ((int to, Way way, string extra) in targets)
+                foreach ((int to, Way way, List<string> passed, List<string> failed) in targets)
                 {
                     if (!labels.ContainsKey(to))
                     {
@@ -369,11 +452,14 @@ namespace BitSorter.Board
                     }
                     if (!taking[to].Contains(way))
                         taking[to].Add(way);
+                    // What was passed, then what was failed on the way; a way that only failed tests is the otherwise of the
+                    // state's arrows -- the ways part the inputs between them, so it is exactly what no other arrow takes.
                     var parts = new List<string>(way.Conditions);
-                    if (extra != null && extra != MachineArrow.Otherwise)
-                        parts.Add(extra);
-                    string label = parts.Count > 0 ? string.Join(" and ", parts)
-                        : way.Otherwise || extra == MachineArrow.Otherwise ? MachineArrow.Otherwise : null;
+                    parts.AddRange(passed);
+                    var fails = new List<string>(way.Negations);
+                    fails.AddRange(failed);
+                    string label = parts.Count > 0 ? string.Join(" and ", parts.Concat(fails))
+                        : fails.Count > 0 ? MachineArrow.Otherwise : null;
                     if (label == null)
                         always.Add(to);
                     else if (!labels[to].Contains(label))
@@ -421,10 +507,10 @@ namespace BitSorter.Board
                     text = t;
                     only = v;
                 }
-                return new ReadValue(name, text ?? "", only != null ? Constant(only) : null);
+                return new ReadValue(name, text ?? "", only != null ? Constant(only) : null, WidthOf(name));
             }
 
-            /// <summary>Everything <paramref name="ways"/> set <paramref name="name"/> to, one after another: <c>1 / 0</c>.</summary>
+            /// <summary>Everything <paramref name="ways"/> set <paramref name="name"/> to, one after another: <c>1 or 0</c>.</summary>
             private ReadValue Joined(List<Way> ways, string name, Dictionary<string, Expression> defaults)
             {
                 var texts = new List<string>();
@@ -435,7 +521,7 @@ namespace BitSorter.Board
                     if (!texts.Contains(t))
                         texts.Add(t);
                 }
-                return new ReadValue(name, string.Join(" / ", texts), null);
+                return new ReadValue(name, string.Join(" or ", texts), null, WidthOf(name));
             }
 
             /// <summary>Whether <paramref name="value"/> is what <paramref name="name"/> is set to before the case anyway.</summary>
@@ -468,7 +554,7 @@ namespace BitSorter.Board
                     if (texts.Count == 1 && texts[0] == fallback)
                         continue;
                     int at = set.FindIndex(r => r.Signal == name);
-                    var value = new ReadValue(name, string.Join(" / ", texts), texts.Count == 1 && only != null ? Constant(only) : null);
+                    var value = new ReadValue(name, string.Join(" or ", texts), texts.Count == 1 && only != null ? Constant(only) : null, WidthOf(name));
                     if (at >= 0)
                         set[at] = value;
                     else
@@ -492,7 +578,7 @@ namespace BitSorter.Board
 
             private TableReading ReadTable(ProceduralBlock process, string register)
             {
-                if (!(CaseOnAnything(process.Body, out List<AssignmentStatement> defaults) is CaseStatement table))
+                if (!(CaseOnAnything(CombBody(process), out List<AssignmentStatement> defaults) is CaseStatement table))
                     return null;
                 if (register != null && SimpleName(table.Subject) == register)
                     return null;
@@ -521,6 +607,19 @@ namespace BitSorter.Board
                 if (columns.Count == 0)
                     return null;
 
+                // A decoder sets numbers -- a control value, a parameter, an enum's member -- mostly: a case of signals is a mux
+                // on the data, drawn, not tabled (the review of 15h-6e: case (sel) 0: y = a; 1: y = b read as a table).
+                int constants = 0, cells = 0;
+                foreach ((CaseItem _, Dictionary<string, Expression> sets) in arms)
+                    foreach (Expression v in sets.Values)
+                    {
+                        cells++;
+                        if (Constant(v) != null || Unparenthesized(v) is ConditionalExpression)
+                            constants++;
+                    }
+                if (constants * 2 < cells)
+                    return null;
+
                 var rows = new List<TableRow>();
                 foreach ((CaseItem item, Dictionary<string, Expression> sets) in arms)
                 {
@@ -532,17 +631,17 @@ namespace BitSorter.Board
                         if (Constant(label) is LogicVec v)
                             matches.Add(v);
                     }
-                    var cells = new List<TableCell>();
+                    var row = new List<TableCell>();
                     foreach (string column in columns)
                     {
                         if (sets.TryGetValue(column, out Expression v))
-                            cells.Add(new TableCell(Text(v), Constant(v), false));
+                            row.Add(new TableCell(Text(v), Constant(v), false));
                         else if (defaultValues.TryGetValue(column, out Expression d))
-                            cells.Add(new TableCell(Text(d), Constant(d), true));
+                            row.Add(new TableCell(Text(d), Constant(d), true));
                         else
-                            cells.Add(new TableCell("", null, true));
+                            row.Add(new TableCell("", null, true));
                     }
-                    rows.Add(new TableRow(item.IsDefault ? MachineArrow.Otherwise : Join(labels), matches, item.IsDefault, cells));
+                    rows.Add(new TableRow(item.IsDefault ? MachineArrow.Otherwise : Join(labels), matches, item.IsDefault, row));
                 }
                 return new TableReading(Text(table.Subject), columns, rows);
             }
@@ -580,11 +679,17 @@ namespace BitSorter.Board
                         if (!(SimpleName(a.Target) is string target))
                             throw new NotReadable($"An arm sets {Text(a.Target)}, a part of a signal.");
                         foreach (Way way in ways)
-                            way.Values[target] = a.Value;
+                        {
+                            // y = 1; z = y: z is 1 on this way, as the engine has it, not "y".
+                            Expression value = a.Value;
+                            if (SimpleName(value) is string copied && copied != target && way.Values.TryGetValue(copied, out Expression earlier))
+                                value = earlier;
+                            way.Values[target] = value;
+                        }
                         return ways;
                     case IfStatement choice:
                     {
-                        string condition = Text(choice.Condition);
+                        string condition = Text(choice.Condition), failed = Negated(choice.Condition);
                         var then = new List<Way>();
                         var otherwise = new List<Way>();
                         foreach (Way way in ways)
@@ -593,7 +698,7 @@ namespace BitSorter.Board
                             t.Conditions.Add(condition);
                             then.Add(t);
                             Way e = way.Copy();
-                            e.Otherwise = true;
+                            e.Negations.Add(failed);
                             otherwise.Add(e);
                         }
                         var result = Walk(choice.Then, then, blocking);
@@ -605,6 +710,11 @@ namespace BitSorter.Board
                         string subject = Text(inner.Subject);
                         var result = new List<Way>();
                         bool hasDefault = false;
+                        var every = new List<string>();
+                        foreach (CaseItem item in inner.Items)
+                            foreach (Expression label in item.Labels)
+                                every.Add(Text(label, sized: true));
+                        string none = subject + " is none of " + Join(every);
                         foreach (CaseItem item in inner.Items)
                         {
                             var labels = new List<string>();
@@ -616,7 +726,7 @@ namespace BitSorter.Board
                             {
                                 Way w = way.Copy();
                                 if (item.IsDefault)
-                                    w.Otherwise = true;
+                                    w.Negations.Add(none);
                                 else
                                     w.Conditions.Add(subject + " is " + Join(labels));
                                 these.Add(w);
@@ -627,7 +737,7 @@ namespace BitSorter.Board
                             foreach (Way way in ways)
                             {
                                 Way w = way.Copy();
-                                w.Otherwise = true;
+                                w.Negations.Add(none);
                                 result.Add(w);
                             }
                         return Capped(result);
@@ -652,25 +762,38 @@ namespace BitSorter.Board
             {
                 var values = new Dictionary<string, Expression>(StringComparer.Ordinal);
                 foreach (AssignmentStatement a in defaults)
-                    if (a.IsNonBlocking != blocking && SimpleName(a.Target) is string target)
+                    if (a.IsNonBlocking != blocking && a.Operator == (blocking ? "=" : "<=") && SimpleName(a.Target) is string target)
                         values[target] = a.Value;
                 return values;
             }
 
-            /// <summary>The arm a state takes: its own label's, else <c>default</c>'s, else none.</summary>
-            private static Statement ArmFor(CaseStatement arms, string state)
+            /// <summary>
+            /// The arm state <paramref name="state"/> takes: the first item one of whose labels names it or is its value -- an
+            /// enum's A = 1 is taken by 2'd1: as well as by A: (the review of 15h-6e) -- else <c>default</c>'s, else none.
+            /// </summary>
+            private Statement ArmFor(CaseStatement arms, int state, List<string> states, List<LogicVec> codes)
             {
                 Statement fallback = null;
+                codes[state].TryGetUInt64(out ulong code);
                 foreach (CaseItem item in arms.Items)
                 {
                     if (item.IsDefault)
                         fallback = item.Body;
                     foreach (Expression label in item.Labels)
-                        if (LabelName(label) == state)
+                        if (LabelName(label) == states[state] || Constant(label) is LogicVec v && v.TryGetUInt64(out ulong value) && value == code)
                             return item.Body;
                 }
                 return fallback;
             }
+
+            /// <summary>
+            /// What a combinational process runs: an <c>always_comb</c>'s body, or an <c>always @(*)</c>'s after its event;
+            /// null for any other process.
+            /// </summary>
+            private static Statement CombBody(ProceduralBlock process) =>
+                process.Kind == ProcessKind.AlwaysComb ? process.Body
+                : process.Kind == ProcessKind.Always && process.Body is TimedStatement timed && timed.Control is EventControl e && e.Implicit ? timed.Body
+                : null;
 
             /// <summary>
             /// The <c>case</c> on <paramref name="subject"/> that <paramref name="body"/> is, after plain assignments; or null. The
@@ -685,11 +808,13 @@ namespace BitSorter.Board
             private static CaseStatement CaseOnAnything(Statement body, out List<AssignmentStatement> defaults, bool nonBlocking = false)
             {
                 defaults = new List<AssignmentStatement>();
+                if (body == null)
+                    return null;
                 CaseStatement found = null;
                 foreach (Statement s in Flatten(body))
                 {
                     if (found == null && s is AssignmentStatement a && a.IsNonBlocking == nonBlocking && a.IntraAssignment == null
-                        && SimpleName(a.Target) != null)
+                        && a.Operator == (nonBlocking ? "<=" : "=") && SimpleName(a.Target) != null)
                         defaults.Add(a);
                     else if (found == null && s is CaseStatement c && !c.Inside && c.Keyword == "case")
                         found = c;
@@ -779,16 +904,24 @@ namespace BitSorter.Board
                 return type.Keyword == "int" || type.Keyword == "integer" ? 32 : width;
             }
 
-            /// <summary>The value <paramref name="e"/> is where it is a number or a parameter written as one; null otherwise.</summary>
+            /// <summary>The value <paramref name="e"/> is where it is a number, a parameter written as one, or an enum's member; null otherwise.</summary>
             private LogicVec? Constant(Expression e, int depth = 0)
             {
                 e = Unparenthesized(e);
                 if (e is NumberLiteral literal && !literal.FillsContext)
                     return literal.Value;
-                if (depth < 8 && SimpleName(e) is string name && _parameters.TryGetValue(name, out Expression value) && value != null)
-                    return Constant(value, depth + 1);
+                if (StateNamed(e) is string name)
+                {
+                    if (_members.TryGetValue(name, out LogicVec member))
+                        return member;
+                    if (depth < 8 && _parameters.TryGetValue(name, out Expression value) && value != null)
+                        return Constant(value, depth + 1);
+                }
                 return null;
             }
+
+            /// <summary>A signal's width as declared; 0 where it is not known.</summary>
+            private int WidthOf(string signal) => _declared.TryGetValue(signal, out DataType type) ? Width(type) : 0;
 
             private static string SimpleName(Expression e) =>
                 Unparenthesized(e) is NameExpression n && n.Path.Count == 1 && n.Package == null ? n.Name : null;

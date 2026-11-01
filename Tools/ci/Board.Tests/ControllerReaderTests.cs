@@ -145,6 +145,177 @@ namespace BitSorter.Board.Tests
         private static string[] Settings(MachineReading machine, string state) =>
             machine.Settings[machine.States.ToList().IndexOf(state)].Select(s => s.ToString()).ToArray();
 
+        // ---- what the review of 15h-6e found, each held to the engine as well
+
+        private const string Nested = @"
+module nested (input logic clk, rst, go, done, err, output logic busy);
+    typedef enum logic [1:0] {IDLE, RUN, ERR} st_t;
+    st_t state, nxt;
+    always_ff @(posedge clk, posedge rst)
+        if (rst) state <= IDLE;
+        else state <= nxt;
+    always_comb begin
+        nxt = state;
+        busy = 1'b0;
+        case (state)
+            IDLE: if (go) nxt = RUN;
+            RUN: begin
+                busy = 1'b1;
+                if (done) begin
+                    if (err) nxt = ERR;
+                    else nxt = IDLE;
+                end
+            end
+            default: nxt = IDLE;
+        endcase
+    end
+endmodule
+";
+
+        /// <summary>An else inside an if keeps the if's condition: done and !err, never a bare "done" (the review of 15h-6e).</summary>
+        [Test]
+        public void AnElseInsideAnIf_KeepsTheIfsCondition_OnItsArrow()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(Nested, "nested");
+            CollectionAssert.AreEqual(new[] { "ERR: done and err", "IDLE: done and !err", "RUN: otherwise" },
+                Out(reading.Machine, "RUN").Select(a => a.To + ": " + a.Condition).ToArray());
+            CollectionAssert.AreEqual(new[] { "busy = 1" }, Settings(reading.Machine, "RUN"));
+            Assert.AreEqual(1, reading.Machine.Settings[1].Single().Width, "busy is one bit");
+            ControllerEngine.Hold(tree, "nested", reading);
+        }
+
+        private const string Numbered = @"
+module numbered (input logic clk, rst, x, output logic y);
+    typedef enum logic [1:0] {A = 2'd1, B = 2'd2, C = 2'd3} st_t;
+    st_t state, nxt;
+    always_ff @(posedge clk, posedge rst)
+        if (rst) state <= A;
+        else state <= nxt;
+    always_comb begin
+        nxt = A;
+        y = 1'b0;
+        case (state)
+            2'd1: nxt = B;
+            B: nxt = x ? C : A;
+            default: begin nxt = A; y = 1'b1; end
+        endcase
+    end
+endmodule
+";
+
+        /// <summary>A label written as the state's value takes the state as its name would (the review: A = 1 and 2'd1: read A -> A).</summary>
+        [Test]
+        public void ALabelWrittenAsTheStatesValue_TakesTheState()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(Numbered, "numbered");
+            CollectionAssert.AreEqual(new[] { "B" }, Out(reading.Machine, "A").Select(a => a.To).ToArray(), "A's arm is the 2'd1: one");
+            CollectionAssert.AreEqual(new[] { "C: x", "A: otherwise" }, Out(reading.Machine, "B").Select(a => a.To + ": " + a.Condition).ToArray());
+            ControllerEngine.Hold(tree, "numbered", reading);
+        }
+
+        /// <summary>A case of signals is a mux on the data, drawn and never tabled (the review: case (sel) 0: y = a read as a table).</summary>
+        [Test]
+        public void ACaseOfSignals_IsAMux_NoTable()
+        {
+            const string mux = @"
+module pick (input logic [1:0] sel, input logic [7:0] a, b, c, d, output logic [7:0] y);
+    always_comb
+        case (sel)
+            2'd0: y = a;
+            2'd1: y = b;
+            2'd2: y = c;
+            default: y = d;
+        endcase
+endmodule
+";
+            SyntaxTree tree = SyntaxReader.ReadText(mux, "pick.sv");
+            Assert.IsNull(ControllerReader.Read(tree, tree.Modules.Single(), out string why));
+            Assert.IsNotEmpty(why);
+        }
+
+        /// <summary>A register process that keeps more than the state, or a wire given a value, is not the whole module.</summary>
+        [TestCase("    always_ff @(posedge clk) acc <= acc + 8'd1;\n", TestName = "ARegisterBesideTheMachine_IsNotWhole")]
+        [TestCase("    wire spare = state == RUN;\n", TestName = "AWireGivenAValue_IsNotWhole")]
+        [TestCase("    function logic f(input logic a); return a; endfunction\n", TestName = "AFunction_IsNotWhole")]
+        public void SomethingTheDiagramDoesNotShow_MakesItNotWhole(string extra)
+        {
+            string text = Nested.Replace("    st_t state, nxt;\n", "    st_t state, nxt;\n    logic [7:0] acc;\n" + extra);
+            (SyntaxTree _, ControllerReading reading) = ReadText(text, "nested");
+            Assert.IsFalse(reading.Whole);
+        }
+
+        [Test]
+        public void TheMachineAlone_IsWhole() => Assert.IsTrue(ReadText(Nested, "nested").Reading.Whole);
+
+        /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
+        [Test]
+        public void ADecodersEnumLabels_PickTheirRows()
+        {
+            const string decoder = @"
+typedef enum logic [1:0] {P, Q, R} op_t;
+module dec (input op_t op, output logic [3:0] y);
+    always_comb begin
+        y = 4'd0;
+        case (op)
+            P: y = 4'd3;
+            Q: y = 4'd5;
+            default: y = 4'd9;
+        endcase
+    end
+endmodule
+";
+            SyntaxTree tree = SyntaxReader.ReadText(decoder, "dec.sv");
+            ControllerReading reading = ControllerReader.Read(tree, tree.Modules.Single(), out string why);
+            Assert.IsNotNull(reading, why);
+            TableReading table = reading.Tables.Single();
+            Assert.AreEqual(0, table.RowOf(LogicVec.FromUInt64(0, 2)));
+            Assert.AreEqual(1, table.RowOf(LogicVec.FromUInt64(1, 2)));
+            Assert.AreEqual(2, table.RowOf(LogicVec.FromUInt64(2, 2)), "R: the default's");
+            ControllerEngine.Hold(tree, "dec", reading);
+        }
+
+        /// <summary>A start the code does not say is no start, never the first state; one declared with a value starts there.</summary>
+        [Test]
+        public void TheStart_IsTheResets_OrTheDeclaredValue_OrNone()
+        {
+            string late = Nested.Replace("        if (rst) state <= IDLE;\n        else state <= nxt;\n", "        begin state <= nxt; if (rst) state <= RUN; end\n");
+            (SyntaxTree _, ControllerReading noStart) = ReadText(late, "nested");
+            Assert.AreEqual(-1, noStart.Machine.Start, "a reset after the next value is no reset this reads");
+            Assert.IsFalse(noStart.Whole);
+
+            string declared = Nested.Replace("    st_t state, nxt;\n", "    st_t state = RUN, nxt;\n")
+                .Replace("        if (rst) state <= IDLE;\n        else state <= nxt;\n", "        state <= nxt;\n");
+            (SyntaxTree _, ControllerReading fromDeclaration) = ReadText(declared, "nested");
+            Assert.AreEqual("RUN", fromDeclaration.Machine.States[fromDeclaration.Machine.Start]);
+        }
+
+        /// <summary>always @(*) reads as always_comb does; a compound default is no plain one; a copy is the value it copies.</summary>
+        [Test]
+        public void AlwaysStar_Reads_ACompoundDefaultDoesNot_ACopyIsItsValue()
+        {
+            string star = Nested.Replace("    always_comb begin\n        nxt = state;", "    always @(*) begin\n        nxt = state;");
+            (SyntaxTree starTree, ControllerReading starred) = ReadText(star, "nested");
+            Assert.AreEqual(3, starred.Machine.States.Count);
+            ControllerEngine.Hold(starTree, "nested", starred);
+
+            string compound = Nested.Replace("        busy = 1'b0;\n", "        busy = 1'b0;\n        busy |= 1'b0;\n");
+            SyntaxTree tree = SyntaxReader.ReadText(compound, "nested.sv");
+            Assert.IsNull(ControllerReader.Read(tree, tree.Modules.Single(), out _), "busy |= is no plain default");
+
+            string copy = Nested.Replace("                busy = 1'b1;\n", "                nxt = RUN;\n                busy = nxt == RUN;\n");
+            (SyntaxTree _, ControllerReading copied) = ReadText(copy, "nested");
+            Assert.IsNotNull(copied);
+        }
+
+        private static (SyntaxTree Tree, ControllerReading Reading) ReadText(string text, string module)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(text, module + ".sv");
+            Assert.IsFalse(tree.HasErrors, string.Join("\n", tree.Diagnostics));
+            ControllerReading reading = ControllerReader.Read(tree, tree.Modules.Single(m => m.Name == module), out string why);
+            Assert.IsNotNull(reading, why);
+            return (tree, reading);
+        }
+
         private static ControllerReading Read(string kind, string file, string module)
         {
             ControllerReading reading = ReadOrNull(kind, file, module, out string why);
