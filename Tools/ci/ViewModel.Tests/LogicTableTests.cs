@@ -175,20 +175,34 @@ namespace BitSorter.ViewModel.Tests
         // The K-map
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// The course draws a K-map with its first variables across the top and the rest down the side -- ab across and cd
+        /// down for four, ab across and c down for three -- each cell under its column's bits, then its row's. The LOGIC
+        /// tab drew it transposed until the course's lectures and tutorials were read (2026-11-02).
+        /// </summary>
         [Test]
-        public void AKMap_LaysTheTableOutInGrayOrder_TheFirstVariablesDownTheSide()
+        public void AKMap_LaysTheTableOutInGrayOrder_TheFirstVariablesAcrossTheTop_AsTheCourseDrawsIt()
         {
             // f(a,b,c,d) = 1 only where a=1, b=0, c=1, d=1: row 1011 = 11.
             char[] values = Enumerable.Range(0, 16).Select(r => r == 11 ? '1' : r == 5 ? 'x' : '0').ToArray();
             KarnaughLayout map = KarnaughLayout.Of(new[] { "a", "b", "c", "d" }, values);
 
-            Assert.AreEqual("ab", map.Down);
-            Assert.AreEqual("cd", map.Across);
+            Assert.AreEqual("ab", map.Across);
+            Assert.AreEqual("cd", map.Down);
             CollectionAssert.AreEqual(new[] { "00", "01", "11", "10" }, map.RowLabels.ToArray());
             CollectionAssert.AreEqual(new[] { "00", "01", "11", "10" }, map.ColumnLabels.ToArray());
-            Assert.AreEqual('1', map.Cells[3, 2], "ab = 10 is the fourth row, cd = 11 the third column");
+            Assert.AreEqual('1', map.Cells[2, 3], "cd = 11 is the third row, ab = 10 the fourth column");
             Assert.AreEqual('x', map.Cells[1, 1], "0101");
             Assert.AreEqual(15, Enumerable.Range(0, 16).Count(i => map.Cells[i / 4, i % 4] != '1'));
+
+            // Three variables: ab across, c down.
+            char[] three = Enumerable.Range(0, 8).Select(r => r == 6 ? '1' : '0').ToArray();   // abc = 110
+            KarnaughLayout small = KarnaughLayout.Of(new[] { "a", "b", "c" }, three);
+            Assert.AreEqual("ab", small.Across);
+            Assert.AreEqual("c", small.Down);
+            Assert.AreEqual(4, small.ColumnLabels.Count);
+            Assert.AreEqual(2, small.RowLabels.Count);
+            Assert.AreEqual('1', small.Cells[0, 2], "ab = 11 is the third column, c = 0 the first row");
 
             Assert.AreEqual(1, KarnaughLayout.Of(new[] { "a" }, new[] { '0', '1' }).RowLabels.Count, "one variable: one row");
             Assert.IsNull(KarnaughLayout.Of(new[] { "a", "b", "c", "d", "e" }, new char[32]), "five variables: no map");
