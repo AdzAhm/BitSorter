@@ -437,32 +437,64 @@ namespace BitSorter.View
             return height;
         }
 
-        /// <summary>A K-map at <paramref name="x"/>, <paramref name="y"/>: the variables in its corner, Gray codes along its edges, a cell for each row. Its foot.</summary>
+        /// <summary>
+        /// A K-map at <paramref name="x"/>, <paramref name="y"/>, drawn as the textbook draws one: its corner split by a
+        /// diagonal, the variables across the top above it on the right and those down the side below it on the left; the Gray
+        /// codes against the cells, over each column and beside each row; a cell for each row of the table. Its foot. It had
+        /// the variables in a line well above the map, which Ahmad marked up with the diagonal he wanted (2026-11-02).
+        /// </summary>
         private float DrawMap(KarnaughLayout map, float x, float y, SchematicPalette palette)
         {
-            const float cell = 34f, side = 70f;
-            Label corner = ShellTheme.Label("corner", (map.Down.Length > 0 ? map.Down + " \\ " : "") + map.Across, UiType.Micro, palette.TextDim);
-            ShellTheme.Place(corner, x, y, side + cell * map.ColumnLabels.Count, 20f);
-            _logicList.Add(corner);
-            y += 20f;
+            const float cell = 34f, pad = 4f;
+
+            // The corner as wide as its names need, never narrower than a code beside a row; as tall as two lines of names.
+            float corner = Mathf.Max(48f, 14f + 7.5f * Mathf.Max(map.Across.Length, map.Down.Length));
+            const float head = 40f, code = 18f;
+
+            var slash = new VisualElement { name = "corner", pickingMode = PickingMode.Ignore };
+            Color line = palette.TextDim;
+            slash.generateVisualContent += context =>
+            {
+                Painter2D painter = context.painter2D;
+                painter.strokeColor = line;
+                painter.lineWidth = 1f;
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(0f, 0f));
+                painter.LineTo(new Vector2(corner, head));
+                painter.Stroke();
+            };
+            ShellTheme.Place(slash, x, y, corner, head);
+            _logicList.Add(slash);
+
+            Label across = ShellTheme.Label("across", map.Across, UiType.Micro, palette.Text, TextAnchor.UpperRight);
+            ShellTheme.Place(across, x, y, corner - pad, code);
+            _logicList.Add(across);
+            if (map.Down.Length > 0)
+            {
+                Label down = ShellTheme.Label("down", map.Down, UiType.Micro, palette.Text, TextAnchor.LowerLeft);
+                ShellTheme.Place(down, x + pad, y + head - code, corner - pad, code);
+                _logicList.Add(down);
+            }
+
             for (int c = 0; c < map.ColumnLabels.Count; c++)
             {
-                Label label = ShellTheme.Label("column", map.ColumnLabels[c], UiType.Micro, palette.TextDim, TextAnchor.MiddleCenter);
-                ShellTheme.Place(label, x + side + c * cell, y, cell, 20f);
+                Label label = ShellTheme.Label("column", map.ColumnLabels[c], UiType.Micro, palette.TextDim, TextAnchor.LowerCenter);
+                ShellTheme.Place(label, x + corner + c * cell, y + head - code - 2f, cell, code);
                 _logicList.Add(label);
             }
-            y += 20f;
+
+            y += head;
             for (int r = 0; r < map.RowLabels.Count; r++)
             {
                 Label label = ShellTheme.Label("row", map.RowLabels[r], UiType.Micro, palette.TextDim, TextAnchor.MiddleRight);
-                ShellTheme.Place(label, x, y + r * cell, side - 8f, cell);
+                ShellTheme.Place(label, x, y + r * cell, corner - 6f, cell);
                 _logicList.Add(label);
                 for (int c = 0; c < map.ColumnLabels.Count; c++)
                 {
                     char value = map.Cells[r, c];
                     var box = new VisualElement { name = "cell", pickingMode = PickingMode.Ignore };
                     ShellTheme.Outline(box, palette.CardEdge, value == '1' ? palette.Over(palette.Accent, 0.18f) : palette.Ground, 1f, 0f);
-                    ShellTheme.Place(box, x + side + c * cell, y + r * cell, cell, cell);
+                    ShellTheme.Place(box, x + corner + c * cell, y + r * cell, cell, cell);
                     Label text = ShellTheme.Label("value", value.ToString(), UiType.Caption, value == '1' ? palette.Text : palette.TextDim, TextAnchor.MiddleCenter);
                     ShellTheme.Place(text, 0f, 0f, cell, cell);
                     box.Add(text);
