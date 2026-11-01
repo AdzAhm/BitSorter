@@ -203,8 +203,9 @@ namespace BitSorter.Board
 
         /// <summary>
         /// How many parts <paramref name="netlist"/> drawn has -- with <paramref name="gates"/>, every opening's gates counted --
-        /// worked out without wiring or laying any of them out: what a browser's GATES asks before it opens (Part 15h-6), since
-        /// the drawing it would refuse takes most of a second to lay out and route even on the desktop.
+        /// worked out without wiring or laying any of them out: what a browser's GATES asks before it opens (Part 15h-6).
+        /// Making the parts is most of what <see cref="Of"/> costs; what the count saves a refusal is the routing and the
+        /// schematic after it.
         /// </summary>
         public static int PartsOf(Project project, RtlNetlist netlist, bool gates)
         {

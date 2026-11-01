@@ -1525,6 +1525,13 @@ namespace BitSorter.View
             RefreshLogic();
             RefreshStates();
 
+            // GATES drawn as its boxes past the browser's cap, however it came to be on, says so (the review of #123).
+            if (_session?.TakeGatesRefusal() is string capped)
+            {
+                Notice(capped);
+                _saidDesktopIsFaster = true;
+            }
+
             // In a browser, once a run of the game, a drawing slow to draw again says the desktop version is faster (Part 15g).
             if (_session != null && DesktopHint.Due(Application.platform == RuntimePlatform.WebGLPlayer, _saidDesktopIsFaster,
                     _session.TakeSlowestMilliseconds()))

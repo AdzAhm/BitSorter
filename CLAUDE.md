@@ -1109,7 +1109,8 @@ failure side.
   is split into its bits once, however many openings read it. **In a browser GATES
   opens no more than 800 parts** (`WorkbenchSession.GatesCap`, Part 15h-6, Ahmad's
   choice): past that the boxes stay, and it says the desktop version opens them all --
-  the multicycle controller's 1,004, which take most of a second on the desktop. **A big
+  the multicycle controller's 1,004, a third of a second to make and route on the
+  desktop -- held wherever the drawing is made with GATES on, not only at the press. **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

@@ -105,9 +105,19 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(multicycle.ShowsGatesOfCode);
             Assert.Greater(multicycle.DrawnModule.Parts.Count, cap, "every gate opened");
             Assert.AreEqual(WorkbenchSession.GatesCapRefusal(multicycle.DrawnModule.Parts.Count, cap), refused, "the refusal counted what it would draw");
-            multicycle.GatesCap = cap;
             Assert.IsNull(multicycle.DrawGates(false), "BOXES is never refused");
-            Assert.IsFalse(multicycle.ShowsGatesOfCode);
+            Assert.IsNull(multicycle.DrawGates(true));
+
+            // On already when the drawing is made again past the cap -- as code made bigger with GATES on, or an import of the
+            // same name, would bring it: drawn as its boxes, and why told once (the review of #123).
+            multicycle.GatesCap = cap;
+            Assert.IsNull(multicycle.TakeGatesRefusal(), "nothing refused yet");
+            Assert.IsTrue(multicycle.StepOut());
+            Assert.IsTrue(multicycle.StepInto(ControlOf(multicycle)));
+            Assert.IsFalse(multicycle.ShowsGatesOfCode, "the boxes");
+            Assert.AreEqual(boxes, multicycle.DrawnModule.Parts.Count);
+            Assert.AreEqual(refused, multicycle.TakeGatesRefusal());
+            Assert.IsNull(multicycle.TakeGatesRefusal(), "told once");
 
             WorkbenchSession single = InsideTheControl("Single-cycle RISC-V");
             single.GatesCap = cap;
@@ -121,10 +131,12 @@ namespace BitSorter.ViewModel.Tests
             double now = 0;
             var session = new WorkbenchSession(WorkbenchSamples.All.Single(s => s.Name == sample).Build(), () => now += 0.01);
             session.Finish();
-            int control = session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Module.EndsWith("_control", System.StringComparison.Ordinal)).Id;
-            Assert.IsTrue(session.StepInto(control));
+            Assert.IsTrue(session.StepInto(ControlOf(session)));
             Assert.IsTrue(session.ShowsDrawingOfCode, "the controller drawn");
             return session;
         }
+
+        private static int ControlOf(WorkbenchSession session) =>
+            session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Module.EndsWith("_control", System.StringComparison.Ordinal)).Id;
     }
 }

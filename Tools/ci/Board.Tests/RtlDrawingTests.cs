@@ -52,17 +52,18 @@ namespace BitSorter.Board.Tests
         /// <summary>
         /// A big drawing wraps its too-tall columns (Part 15h-6, Ahmad's choice, 2026-11-01): no drawing of fifty parts or
         /// more is much taller than it is wide, where a processor's controller -- a hundred parts and more, no blocks -- was
-        /// one column no fit could read.
+        /// one column no fit could read; with GATES as well, where the multicycle one stood 247 cells wide and 629 tall.
         /// </summary>
         [TestCaseSource(nameof(Designs))]
         public void ABigDrawing_IsNoTallerThanItIsWide(string kind, string name)
         {
             foreach ((Project project, Design design) in Load(kind, name))
                 foreach (ScopeInfo scope in design.Scopes)
+                    foreach (bool gates in new[] { false, true })
                 {
                     if (scope.Kind != ScopeKind.Top && scope.Kind != ScopeKind.Instance)
                         continue;
-                    RtlDrawing drawing = RtlDrawing.Of(project, RtlExtractor.Of(design, scope.Path), "drawing_of_" + scope.Module);
+                    RtlDrawing drawing = RtlDrawing.Of(project, RtlExtractor.Of(design, scope.Path), "drawing_of_" + scope.Module, gates);
                     if (drawing.Module.Parts.Count < 50)
                         continue;
                     double left = double.MaxValue, right = double.MinValue, bottom = double.MaxValue, top = double.MinValue, tallest = 0;
@@ -76,10 +77,10 @@ namespace BitSorter.Board.Tests
                         tallest = Math.Max(tallest, o.Top - o.Bottom);
                     }
                     double wide = right - left, tall = top - bottom;
-                    TestContext.WriteLine($"{name} {scope.Path}: {drawing.Module.Parts.Count} parts, {wide:F0} wide, {tall:F0} tall, {tall / wide:F2}");
+                    string what = $"{name} {scope.Path}{(gates ? " with GATES" : "")}: {drawing.Module.Parts.Count} parts";
+                    TestContext.WriteLine($"{what}, {wide:F0} wide, {tall:F0} tall, {tall / wide:F2}");
                     // A part no wrap can shorten: a testbench's checks, one process reading a thousand words, are one box that tall.
-                    Assert.LessOrEqual(tall, Math.Max(TallestRatio * wide, tallest),
-                        $"{name} {scope.Path}: {drawing.Module.Parts.Count} parts, {tall / wide:F2} times as tall as wide");
+                    Assert.LessOrEqual(tall, Math.Max(TallestRatio * wide, tallest), $"{what}, {tall / wide:F2} times as tall as wide");
                 }
         }
 

@@ -3788,8 +3788,11 @@ ones").
 - **A column far taller than the drawing is wide wraps** (`LayeredLayout.Wrap`): once the columns are found and ordered,
   the height that would make the drawing about twice as wide as tall -- the window's shape -- is worked out from the
   columns' area, never under 40 cells (`LeastWrapHeight`), and a column more than a quarter taller than it
-  (`WrapMargin`) is cut, in its order, into pieces of about that height standing side by side. Parts of one column never
-  link to one another, so no link runs backwards; each part then stands level with what feeds it as before.
+  (`WrapMargin`) is cut, in its order, into pieces of about that height standing side by side. Two parts of one column
+  link only through a register or a loop's cut link, both drawn round already, so wrapped such a link runs forward at
+  most and no link turns backwards (the review counted them in every drawing that changed); each part then stands level
+  with what feeds it as before. With GATES the wrap matters most: the multicycle controller opened stood 247 cells wide
+  and 629 tall. TIDY, which lays a drawn circuit out the same way, wraps as well.
 - **The floor was measured, not chosen**: over every corpus and exercise drawing, a floor of 20 cells also wrapped the
   ALUs, the immediate generators and `traffic_light` -- drawings about fifty cells tall that read at a fit already --
   for a few per cent of size, and an ALU's operators, one column as the textbook draws them, came out in two. At 40,
@@ -3799,14 +3802,20 @@ ones").
 - **GATES in a browser opens no more than 800 parts** (`WorkbenchSession.GatesCap`, set by the view in a WebGL build to
   `BrowserGatesCap`; null on the desktop): asked to open more, the boxes stay and it says "GATES would draw N parts, more
   than a browser draws at once (800), so the boxes stay: the desktop version of BitSorter opens them all", which counts as
-  the browser's one desktop hint (`DesktopHint`) for the run. The count is the drawing's parts made and not wired or laid
-  out (`RtlDrawing.PartsOf`): the multicycle controller's 1,004 take 231 ms to make and lay out and 499 to route on the
-  desktop, several times that in a browser. 800 is past the single-cycle and pipelined controllers (470 and 451).
+  the browser's one desktop hint (`DesktopHint`) for the run. As GATES is pressed the parts are counted without being
+  laid out or routed (`RtlDrawing.PartsOf`) -- making them is most of a drawing's own cost, so what a refusal saves is
+  the routing and the schematic -- and wherever else the drawing is made with GATES on (the code made bigger under it,
+  an import of the same name, another instance's parameters) one past the cap is drawn as its boxes and says the same
+  (`TakeGatesRefusal`; the review of #123 found the cap held only at the press). The multicycle controller's 1,004 parts
+  took a third of a second to make and route on the desktop (15h-6a's measure), several times that in a browser; 800 is
+  past the single-cycle and pipelined controllers (470 and 451).
 - **Tests**: every drawing of fifty parts or more no taller than 1.5 times its width, or its tallest part -- a
   testbench's checks are one process box reading a thousand words, and no wrap shortens a part (`RtlDrawingTests`); the
-  count agreeing with the drawing, with gates and without, for every scope of every design; and the multicycle
-  controller's GATES refused under the cap with the desktop named, the single-cycle's opened, and every gate opened with
-  no cap (`ProcessorSampleTests`); and shot 71, the multicycle controller stepped into, wrapped.
+  same with GATES; a column of two hundred inputs wrapped in its order with nothing on anything, and one of twelve left
+  whole (`LayeredLayoutTests`) -- with the wrap switched off, six of these fail; the count agreeing with the drawing,
+  with gates and without, for every scope of every design; and the multicycle controller's GATES refused under the cap
+  with the desktop named, drawn as its boxes and told once where GATES was on already, the single-cycle's opened, and
+  every gate opened with no cap (`ProcessorSampleTests`); and shot 71, the multicycle controller stepped into, wrapped.
 - **Known, and left**: a testbench's checking process is drawn as one box of a pin for each word it reads -- 547 cells
   tall on the processors' testbenches, which a student opens only by stepping into the bench.
 

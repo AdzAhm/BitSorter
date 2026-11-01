@@ -7,7 +7,8 @@ namespace BitSorter.Board
     /// Parts placed in columns by how far they are from the inputs (Part 15h-4): the inputs on the left, each part a column
     /// past everything that feeds it, the outputs on the right, a register after the logic that gives it its next value --
     /// so a value runs left to right, as the textbook draws a circuit, and a register's output comes back round. Within a
-    /// column, the parts are ordered to cross fewer wires and stood level with what feeds them, as near as they fit.
+    /// column, the parts are ordered to cross fewer wires and stood level with what feeds them, as near as they fit; a
+    /// column far taller than the drawing is wide stands as several side by side (Part 15h-6).
     /// </summary>
     /// <remarks>
     /// The same parts and links lay out the same every time: no dictionary's order and no randomness decides anything, so a
@@ -24,7 +25,8 @@ namespace BitSorter.Board
         /// <summary>
         /// Where each of <paramref name="parts"/> stands. <paramref name="links"/> are what feeds what, by index into the
         /// parts, from a driver to a reader; <paramref name="first"/> stand in the first column and <paramref name="last"/> in
-        /// the last, and a link into one of <paramref name="cuts"/> -- a register -- does not count, so it ends a loop.
+        /// the last -- in the first few and the last few, where there are too many for one column to stand (Part 15h-6) --
+        /// and a link into one of <paramref name="cuts"/> -- a register -- does not count, so it ends a loop.
         /// </summary>
         public static Placement[] Arrange(Project project, IReadOnlyList<Part> parts, IReadOnlyList<(int From, int To)> links,
             ISet<int> first, ISet<int> last, ISet<int> cuts)
@@ -152,7 +154,8 @@ namespace BitSorter.Board
 
             // A column far taller than the drawing would be wide stands as several side by side, in its order (Part 15h-6,
             // Ahmad's choice, 2026-11-01): a module of a hundred parts and no blocks -- a processor's controller -- drew as
-            // one column no fit could read. Parts of one column never link to one another, so no link runs backwards.
+            // one column no fit could read. Two parts of one column link only through a register or a loop's cut link, both
+            // drawn round already; wrapped, such a link runs forward at most, so no link turns backwards.
             Wrap(ref columns, ref inColumn, column, outlines);
 
             // Each column as wide as its widest part, with room between; each part as tall as it is, stood level with the
@@ -254,8 +257,9 @@ namespace BitSorter.Board
         public const double WrapMargin = 1.25;
 
         /// <summary>
-        /// Every column taller than the drawing's height, where that height makes the drawing about twice as wide as tall --
-        /// the window's shape -- cut into pieces of about that height, standing side by side in the column's order.
+        /// Every column more than <see cref="WrapMargin"/> times the drawing's height, where that height makes the drawing about
+        /// twice as wide as tall -- the window's shape -- and is never under <see cref="LeastWrapHeight"/>, cut into pieces of
+        /// about that height, standing side by side in the column's order. With none so tall, nothing moves.
         /// </summary>
         private static void Wrap(ref int columns, ref List<int>[] inColumn, int[] column, PartOutline[] outlines)
         {

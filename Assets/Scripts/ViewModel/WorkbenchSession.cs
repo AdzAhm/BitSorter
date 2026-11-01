@@ -552,7 +552,15 @@ namespace BitSorter.ViewModel
                 return null;
             if (gates && GatesCap is int cap && !_gatesOfCode.Contains(Module) && ShownDrawing != null && _drawnNetlist != null)
             {
-                int parts = RtlDrawing.PartsOf(Project, _drawnNetlist, gates: true);
+                int parts;
+                try
+                {
+                    parts = RtlDrawing.PartsOf(Project, _drawnNetlist, gates: true);
+                }
+                catch (Exception)
+                {
+                    parts = 0;   // the drawing it would make throws as well, and is caught where it is made, the code shown
+                }
                 if (parts > cap)
                     return GatesCapRefusal(parts, cap);
             }
@@ -564,13 +572,28 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The most parts GATES draws at once, or null for no limit: set by the view in a browser (Part 15h-6, Ahmad's choice,
-        /// 2026-11-01), where a drawing of a thousand gates takes seconds to lay out and route. The desktop opens them all.
+        /// 2026-11-01), where a drawing of a thousand gates takes seconds to make and route. The desktop opens them all. Held
+        /// wherever the drawing is made, not only as GATES is pressed (<see cref="TakeGatesRefusal"/>).
         /// </summary>
         public int? GatesCap { get; set; }
 
+        private string _gatesRefusal;
+
+        /// <summary>
+        /// Why a drawing with GATES on was drawn as its boxes since this was last asked -- more parts than <see cref="GatesCap"/>
+        /// once its code or its instance changed under GATES -- or null; forgotten as it is told.
+        /// </summary>
+        public string TakeGatesRefusal()
+        {
+            string said = _gatesRefusal;
+            _gatesRefusal = null;
+            return said;
+        }
+
         /// <summary>
         /// The cap a browser sets: past the gates of the pipelined and single-cycle processors' controllers (451 and 470
-        /// parts), short of the multicycle's (1,004), which took 0.7 s to draw on the desktop -- several times that in a browser.
+        /// parts), short of the multicycle's (1,004), a third of a second to make and route on the desktop (Part 15h-6a's
+        /// measure) and several times that in a browser.
         /// </summary>
         public const int BrowserGatesCap = 800;
 
@@ -819,6 +842,16 @@ namespace BitSorter.ViewModel
                 _drawnDesign = design;
             }
             _drawing = RtlDrawing.Of(project, _drawnNetlist, module, gates, gates ? null : project.Find(module));   // the boxes' arrangement, never the gates'
+            if (gates && GatesCap is int cap && _drawing.Module.Parts.Count > cap)
+            {
+                // Past the cap however GATES came to be on -- the code made bigger with it on, an import of the same name,
+                // another instance's parameters: the boxes, and why told (the review of #123). Before the routing, which
+                // is most of what the cap saves.
+                _gatesOfCode.Remove(module);
+                _gatesRefusal = GatesCapRefusal(_drawing.Module.Parts.Count, cap);
+                gates = false;
+                _drawing = RtlDrawing.Of(project, _drawnNetlist, module, false, project.Find(module));
+            }
             _drawnGates = gates;
             _drawnModules = project.Modules;
             _drawnPath = path;
