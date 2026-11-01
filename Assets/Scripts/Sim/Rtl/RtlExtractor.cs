@@ -154,6 +154,7 @@ namespace BitSorter.Sim
                 if (process.Dormant || !_own.Contains(ScopeOf(process.Name)))
                     continue;
                 int cellsBefore = _cells.Count, netsBefore = _nets.Count;
+                _at = process.At;
                 Opened o = OpenProcess(process, out string why);
                 if (o != null)
                 {
@@ -180,6 +181,9 @@ namespace BitSorter.Sim
 
         /// <summary>What the code does that no cell says (<see cref="RtlNetlist.Unshown"/>).</summary>
         private readonly List<string> _unshown = new List<string>();
+
+        /// <summary>Where the code the cells made now come from is written, which each takes (<see cref="RtlCell.At"/>).</summary>
+        private SourceLocation _at;
 
         private string Relative(string name) => name.StartsWith(_prefix, StringComparison.Ordinal) ? name.Substring(_prefix.Length) : name;
 
@@ -443,6 +447,7 @@ namespace BitSorter.Sim
             for (int i = 0; i < drivers.Count; i++)
             {
                 DriverInfo d = drivers[i];
+                _at = d.At;
                 lowests[i] = d.TargetLowest;
                 widths[i] = d.TargetWidth;
                 if (d is GateDriver g)
@@ -468,6 +473,7 @@ namespace BitSorter.Sim
             // resolved, is the design's.
             SignalInfo info = _design.Signals[target];
             int net = _shared.Contains(target) ? NewNet(info.Width, NameOf(target) + " (driven here)", -1) : Read(target, info.Width);
+            _at = drivers[0].At;
             RtlCell join = NewCellDriving(RtlKind.Join, NameOf(target), values, net);
             join.Signal = target;
             join.Lowests = lowests;
@@ -481,6 +487,7 @@ namespace BitSorter.Sim
         private void Instance(int instance, Dictionary<int, Expr> connections)
         {
             ScopeInfo scope = _design.Scopes[instance];
+            _at = scope.At;
             var inputs = new List<int>();
             var inputNames = new List<string>();
             var outputs = new List<int>();
@@ -558,6 +565,7 @@ namespace BitSorter.Sim
         /// <summary>A process opened into cells; one that is no hardware, a box -- every signal it reads in, every one it writes out.</summary>
         private void Box(ProcessInfo process, string why)
         {
+            _at = process.At;
             var reads = new SortedSet<int>();
             process.CollectAllReads(reads);
             var inputs = new List<int>();
@@ -879,6 +887,8 @@ namespace BitSorter.Sim
         private int NewNet(int width, string name, int signal)
         {
             var net = new RtlNet(_nets.Count, width, name ?? "$" + (_unnamed++).ToString(System.Globalization.CultureInfo.InvariantCulture), signal);
+            if (signal >= 0)
+                net.Declared = _design.Signals[signal].Declared;
             _nets.Add(net);
             return net.Id;
         }
@@ -889,7 +899,7 @@ namespace BitSorter.Sim
 
         private RtlCell NewCellDriving(RtlKind kind, string name, int[] inputs, params int[] outputs)
         {
-            var cell = new RtlCell(_cells.Count, kind, name, inputs, outputs);
+            var cell = new RtlCell(_cells.Count, kind, name, inputs, outputs) { At = _at };
             _cells.Add(cell);
             foreach (int net in outputs)
                 if (_nets[net].Driver < 0)

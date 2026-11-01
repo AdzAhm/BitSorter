@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Sim
 {
@@ -43,6 +44,11 @@ namespace BitSorter.Sim
         // The values made on the path being followed, by expression, until it writes something blocking: a case's subject is
         // one cell however many labels it is matched against (the review of #106: case (a + b) was three adders).
         private Dictionary<Expr, int> _pathMade;
+
+        // The file of the process being opened, whose instructions carry the lines of their statements; and where the code
+        // testing each condition is written, for the mux that joins its ways (Part 15h-5).
+        private string _processFile;
+        private readonly Dictionary<int, SourceLocation> _conditionAt = new Dictionary<int, SourceLocation>();
 
         /// <summary>A process found to be no hardware, part-way through: unwinds the run to its box.</summary>
         private sealed class NotHardware : Exception
@@ -100,6 +106,8 @@ namespace BitSorter.Sim
             Instruction[] code = process.Code;
             int n = code.Length;
             why = null;
+            _processFile = process.At.File;
+            _conditionAt.Clear();
 
             // The shapes the elaborator compiles a process to: an always_comb's body, its wait, and the jump back; an always's
             // wait, its body, and the jump back.
@@ -328,6 +336,7 @@ namespace BitSorter.Sim
                 List<(Opened Process, int Value, int Lowest, int Width)> list = entry.Value;
                 int net = Read(signal, info.Width);
                 bool taken = _nets[net].Driver >= 0;
+                _at = list[0].Process.Process.At;
                 if (!taken && list.Count == 1 && list[0].Lowest == 0 && list[0].Width == info.Width)
                 {
                     Drives(list[0].Process, signal, list[0].Value, 0, info.Width, net);
@@ -449,6 +458,8 @@ namespace BitSorter.Sim
                 }
 
                 Instruction ins = code[pc];
+                if (ins.Line > 0 && _processFile != null)
+                    _at = new SourceLocation(_processFile, ins.Line, 1);
                 if (function != null && ins.Op != OpCode.Assign && ins.Op != OpCode.Jump && ins.Op != OpCode.JumpUnless
                     && ins.Op != OpCode.JumpIf && ins.Op != OpCode.JumpIfMatch)
                 {
@@ -498,6 +509,7 @@ namespace BitSorter.Sim
                 path.Pc = known[0] == Logic4.One ? whenTrue : whenFalse;
                 return;
             }
+            _conditionAt[condition] = _at;
             paths.Remove(path);
             paths.Add(path.Fork(whenTrue, condition, true));
             paths.Add(path.Fork(whenFalse, condition, false));
@@ -744,6 +756,9 @@ namespace BitSorter.Sim
             var joined = new Dictionary<int, int>();
             var signals = new SortedSet<int>(a.Keys);
             signals.UnionWith(b.Keys);
+            SourceLocation here = _at;
+            if (_conditionAt.TryGetValue(condition, out SourceLocation tested))
+                _at = tested;
             foreach (int signal in signals)
             {
                 int width = _design.Signals[signal].Width;
@@ -753,6 +768,7 @@ namespace BitSorter.Sim
                 int vb = b.TryGetValue(signal, out int y) ? y : Kept(signal);
                 joined[signal] = va == vb ? va : bTaken ? Mux(condition, vb, va, width) : Mux(condition, va, vb, width);
             }
+            _at = here;
             return joined;
         }
 

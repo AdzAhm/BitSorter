@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Sim
 {
@@ -124,6 +125,9 @@ namespace BitSorter.Sim
         /// <summary>The design's signal it is, by index into <see cref="Design.Signals"/>; -1 for a value inside an expression.</summary>
         public int Signal { get; }
 
+        /// <summary>Where its signal is declared (<see cref="SignalInfo.Declared"/>, Part 15h-5); none for a value inside an expression.</summary>
+        public SourceLocation Declared { get; internal set; }
+
         /// <summary>The cell that drives it, by <see cref="RtlCell.Id"/>; -1 for one nothing in the netlist drives -- an input.</summary>
         public int Driver { get; internal set; } = -1;
 
@@ -147,6 +151,12 @@ namespace BitSorter.Sim
 
         public int Id { get; internal set; }
         public RtlKind Kind { get; }
+
+        /// <summary>
+        /// Where the code that makes it is written (Part 15h-5): an assign's or a gate's line, an instance's, the statement of a
+        /// process it computes -- an if's or a case's for the mux that joins its ways -- and its keyword's for a register or a box.
+        /// </summary>
+        public SourceLocation At { get; internal set; }
 
         /// <summary>
         /// Its name: a gate's or an instance's as written, a process's place in the source (<c>always_ff@21</c>), a driver's

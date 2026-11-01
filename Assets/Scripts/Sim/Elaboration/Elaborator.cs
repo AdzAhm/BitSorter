@@ -628,7 +628,8 @@ namespace BitSorter.Sim
                         _unit.Top = scope;
 
                     // Recorded before anything inside it, so every scope comes after its parent.
-                    scope.Index = _builder.Scope(path, module.Name, isTop ? ScopeKind.Top : ScopeKind.Instance, isTop ? -1 : within.Recorded);
+                    scope.Index = _builder.Scope(path, module.Name, isTop ? ScopeKind.Top : ScopeKind.Instance, isTop ? -1 : within.Recorded,
+                        isTop ? default : at);
 
                     // What the header imports, which its parameters and ports may use (Part L6).
                     foreach (ImportDeclaration import in module.HeaderImports)
@@ -1277,7 +1278,7 @@ namespace BitSorter.Sim
                 {
                     // Everything the declaration said goes with it, for a waveform to list and name it by.
                     id = _builder.Declare(fullName, shape.Width, kind, shape.Signed, local, initial,
-                        shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded, shape.TwoState);
+                        shape.Msb, shape.Lsb, shape.Enum, port, scope.Recorded, shape.TwoState, at);
                     if (shape.Type.IsString)
                         _builder.MarkString(id);
                     if (shape.Type.IsReal)
@@ -1848,6 +1849,7 @@ namespace BitSorter.Sim
             private void Drive(Scope scope, List<ExpressionBuilder.Part> parts, Expr value, Delay delay, bool signExtend, SourceLocation at, string name)
             {
                 _builder.WrittenIn = scope.Recorded;
+                _builder.WrittenAt = at;
                 try
                 {
                     Drive(parts, value, delay, signExtend, at, name);
@@ -1855,6 +1857,7 @@ namespace BitSorter.Sim
                 finally
                 {
                     _builder.WrittenIn = -1;
+                    _builder.WrittenAt = default;
                 }
             }
 
@@ -1989,6 +1992,7 @@ namespace BitSorter.Sim
                         try
                         {
                             _builder.WrittenIn = scope.Recorded;
+                            _builder.WrittenAt = instance.Location;
                             try
                             {
                                 _builder.Gate(kind, name, parts[0].Signal.Signal, parts[0].Lowest, delay, inputExprs);
@@ -1996,6 +2000,7 @@ namespace BitSorter.Sim
                             finally
                             {
                                 _builder.WrittenIn = -1;
+                                _builder.WrittenAt = default;
                             }
                         }
                         catch (InvalidOperationException ex)
