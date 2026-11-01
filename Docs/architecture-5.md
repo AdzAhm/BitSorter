@@ -3876,6 +3876,35 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   forward forward through no box (`ControllerTests`); in Play Mode, the switch both ways and the pointer the diagram's;
   shot 71 the multicycle controller's diagram mid-run, and 72 the single-cycle controller's tables.
 
+**As built in Part 15h-5: the drawing of code and its code linked** (Ahmad's choice, 2026-11-01, in place of the
+DRAWING dock tab first planned: the circuit window already shows the drawing while the dock's CODE tab shows the code,
+so what was missing was the link between them).
+- **Where things are written** is kept from the elaborator on: a signal's declaration (`SignalInfo.Declared`), an
+  instance's (`ScopeInfo.At`), an assign's or a gate's (`DriverInfo.At`), a process's keyword (`ProcessInfo.At`), and each
+  instruction its statement's line (`Instruction.Line`, set as each statement is compiled, a nested one's its own). The
+  netlist carries them onto its cells (`RtlCell.At`) and its signals' nets (`RtlNet.Declared`): an assign's operators take
+  its line, a statement's in a process its own, the mux that joins an if's ways the if's (the line of the code testing
+  its condition), a register or a box its always.
+- **On the drawing** (`RtlDrawing.LineOf`, `PartsOn`): each part the line of the cell it is drawn from -- every gate of
+  an opening the operator's -- a port its declaration, an array block its instantiation. Only lines of the module's own
+  file count: an included file's would point at the wrong text, so they point nowhere.
+- **The session and the editor** (`WorkbenchSession.LineOfPart`, `PartsOnLine`; `CanvasEditor.LinesOfSelection`,
+  `SelectLine`): the lines of what is selected -- a wire's the line of the part driving it, through taps -- and a line's
+  parts selected in place of the selection, which a line making none leaves as it was. Over the code, a controller's
+  diagram or a drawn module there are none. The inspector ends a part's line "From line N."
+- **The CODE tab** (`CodeListingView.Mark`, `LineClicked`): a band behind each marked line, laid out as the text is and
+  moved with it, the first scrolled into view a third of the way down through the field's own `OnScroll`; a plain click
+  on a line -- a drag that selects text is no click -- selects its parts and the chip says how many, or that the line
+  makes none by itself. **A written module's file is numbered from its own first line** (`CodeListing.BodyLine`): the
+  header BitSorter prints over it has no numbers, so a line number is the same in the editor, the listing, the
+  inspector and a compile error. An exported file keeps the header, two or four lines more.
+- **Tests**: the lines on a small design, one of each kind (`RtlLinesTests`); every part of every exercise's and corpus
+  module's drawing, with GATES and without, from a line of its own code that makes it -- a port's naming it, a block's
+  its module or instance, a register's an always -- and each line's parts those whose line it is (`DrawingLinesTests`);
+  the selection both ways, the inspector's words and the numbering (`DrawingCodeLinkTests`); in Play Mode, the written
+  adder's + marking its line in view, a click on b's line selecting b and one on a comment selecting nothing; shot 73,
+  shot 63's small ALU with its subtracter selected and its line marked.
+
 **As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
 the code untouched, and find them there again).
 - **`Module.Arrangement`**: where parts of the drawing of a written module's code were put, by a key naming each as the

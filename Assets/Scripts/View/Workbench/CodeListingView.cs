@@ -86,7 +86,7 @@ namespace BitSorter.View
 
             // The marks behind the text, moved with it as it scrolls (Part 15h-5).
             _marks = UiTheme.Rect("marks", area);
-            _markColour = palette.Over(palette.Selection, 0.28f);
+            _markColour = palette.Over(palette.Accent, 0.2f);   // the selection's own colour, faint: the selection's fill is too near the ground to show behind text
 
             TextMeshProUGUI text = UiTheme.Label("text", area, UiType.Body, palette.Text, TextAlignmentOptions.TopLeft);
             UiTheme.Stretch(text.rectTransform, 0f);
