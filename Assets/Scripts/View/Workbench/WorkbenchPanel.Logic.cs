@@ -447,9 +447,11 @@ namespace BitSorter.View
         {
             const float cell = 34f, pad = 4f;
 
-            // The corner as wide as its names need, never narrower than a code beside a row; as tall as two lines of names.
-            float corner = Mathf.Max(48f, 14f + 7.5f * Mathf.Max(map.Across.Length, map.Down.Length));
-            const float head = 40f, code = 18f;
+            // The corner a cell, as the textbook's is -- wider only for long names -- and about as tall as it is wide, so the
+            // diagonal stays near 45 degrees and as short as the corner (Ahmad: "the line is a bit long").
+            float corner = Mathf.Max(cell, 14f + 7f * Mathf.Max(map.Across.Length, map.Down.Length));
+            float head = Mathf.Clamp(corner, cell, 44f);
+            const float code = 16f;
 
             var slash = new VisualElement { name = "corner", pickingMode = PickingMode.Ignore };
             Color line = palette.TextDim;
