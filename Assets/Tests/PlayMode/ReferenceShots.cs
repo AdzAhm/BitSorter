@@ -2221,6 +2221,49 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>The written adder's block made a small ALU for the drawing of code's shot: its ports as they were.</summary>
+        /// <summary>
+        /// Part 15h-5: the drawing of code and its code linked -- shot 63's small ALU with its subtracter selected on the
+        /// drawing, and the line it comes from marked in the dock's CODE tab, numbered as the code's editor numbers it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot73_WorkbenchDrawingAndCodeLinked()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return Frames(2);
+
+            BitSorter.Board.EditResult applied = workbench.Session.SetSource(DrawnAlu);
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            workbench.Session.Finish();
+            yield return Frames(2);
+            workbench.ShowCode();
+            workbench.FitView();
+            workbench.Seek(4 * WorkbenchSamples.WrittenAdderStep + 4.5);
+            yield return Frames(2);
+
+            BitSorter.Board.OperatorPart minus = workbench.Session.DrawnModule.Parts.OfType<BitSorter.Board.OperatorPart>()
+                .Single(p => p.Op == BitSorter.Board.OperatorKind.Subtract);
+            workbench.Editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: minus.Id), extend: false, toggle: false);
+            yield return Frames(30);
+
+            Assert.AreEqual(1, workbench.ListingView.Marked.Count, "sanity: its line marked");
+            yield return Capture("73-workbench-drawing-and-code-linked");
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

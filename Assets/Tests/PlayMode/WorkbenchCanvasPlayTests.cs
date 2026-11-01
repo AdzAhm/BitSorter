@@ -3388,6 +3388,59 @@ namespace BitSorter.PlayMode.Tests
             Assert.Greater(diagram.WordCount, 40, "its words back with it, every state's and arrow's (the review of 15h-6e)");
         }
 
+        /// <summary>
+        /// Part 15h-5: a part selected on the drawing of code marks the line of the code it comes from in the CODE tab, in view;
+        /// a click on a line of the code selects the parts it makes on the drawing, and the chip says how many.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ThePartsOfADrawingOfCode_AndTheLinesOfItsCode_PointAtEachOther()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int sample = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    sample = i;
+            workbench.ShowSample(sample);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            Assert.IsTrue(workbench.StepInto(Top(workbench).Parts.First(p => p is BlockPart).Id));
+            workbench.Session.Finish();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the written adder as its drawing");
+
+            yield return Click(WorkbenchPanel.CodeTabName);
+            yield return null;
+            CodeListingView listing = workbench.ListingView;
+            CodeListing printed = workbench.Session.Listing;
+            int body = printed.BodyLine(printed.FileOf(workbench.Session.Module));
+            string[] code = WorkbenchSamples.AdderSource.Split('\n');
+
+            OperatorPart plus = workbench.Session.DrawnModule.Parts.OfType<OperatorPart>().Single(p => p.Op == OperatorKind.Add);
+            int line = workbench.Session.LineOfPart(plus.Id);
+            StringAssert.Contains("a + b", code[line - 1], "the + comes from the assign");
+            workbench.Editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: plus.Id), extend: false, toggle: false);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { line + body - 1 }, listing.Marked, "its line marked in the code");
+            Assert.IsTrue(RectTransformUtility.RectangleContainsScreenPoint(listing.Field.textViewport, listing.ScreenPointOfLine(line + body - 1), null),
+                "and in view");
+
+            PortPart b = workbench.Session.DrawnModule.Parts.OfType<PortPart>().Single(p => p.Name == "b");
+            int bLine = workbench.Session.LineOfPart(b.Id);
+            StringAssert.Contains("input  logic [N-1:0] b", code[bLine - 1]);
+            yield return ClickAtScreen(listing.ScreenPointOfLine(bLine + body - 1));
+            CollectionAssert.AreEquivalent(new[] { b.Id }, workbench.Editor.Selection.Parts, "a click on b's line selects b");
+            StringAssert.Contains("1 part selected on the drawing", workbench.ChipText);
+            CollectionAssert.AreEqual(new[] { bLine + body - 1 }, listing.Marked, "and marks the line");
+
+            yield return ClickAtScreen(listing.ScreenPointOfLine(body));
+            StringAssert.Contains("makes no part of the drawing", workbench.ChipText, "a comment makes nothing");
+            CollectionAssert.AreEquivalent(new[] { b.Id }, workbench.Editor.Selection.Parts, "and leaves the selection");
+        }
+
         private static Rect WorldRect(RectTransform rect)
         {
             var corners = new Vector3[4];

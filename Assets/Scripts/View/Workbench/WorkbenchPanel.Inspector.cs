@@ -156,7 +156,8 @@ namespace BitSorter.View
             _inspectedWires = wires;
             _refusal = null;
             ShowInspection(single.Kind == CanvasTargetKind.Nothing ? null
-                    : BitSorter.ViewModel.Inspector.Of(_session.DrawnProject, _session.Module, single, _session.ShowsDrawingOfCode ? _session.DescribePart : (System.Func<int, string>)null),
+                    : BitSorter.ViewModel.Inspector.Of(_session.DrawnProject, _session.Module, single, _session.ShowsDrawingOfCode ? _session.DescribePart : (System.Func<int, string>)null,
+                        _session.ShowsDrawingOfCode ? _session.LineOfPart : (System.Func<int, int>)null),
                 parts, wires);
         }
 
