@@ -337,7 +337,8 @@ namespace BitSorter.Ci.Oracle
             {
                 string[] sources = paths.Where(p => p.EndsWith(".sv", StringComparison.Ordinal)).Append(dump).ToArray();
                 string[] data = paths.Where(p => !p.EndsWith(".sv", StringComparison.Ordinal)).ToArray();
-                using IcarusRun run = icarus.Simulate(sources, null, new[] { Path.GetDirectoryName(paths[0]) }, TimeSpan.FromMinutes(2), data);
+                // Only the testbench the import ran, and the dump: a folder may hold others, as processor/ does (Part 15h-6).
+                using IcarusRun run = icarus.Simulate(sources, bench + ",oracle_dump", new[] { Path.GetDirectoryName(paths[0]) }, TimeSpan.FromMinutes(2), data);
                 Assert.IsTrue(run.Succeeded, run.Explain());
                 using var vcd = new StreamReader(Path.Combine(run.Folder, "oracle.vcd"));
                 return (VcdReader.Read(vcd), run.Simulate.StandardOutput);

@@ -165,7 +165,9 @@ namespace BitSorter.Ci.Oracle
             {
                 string design = Corpus.File(file);
                 string[] sources = ownDump != null ? new[] { design } : new[] { design, dump };
-                using IcarusRun run = icarus.Simulate(sources, null, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2), dataFiles);
+                // Only the testbench asked for, and the dump: a file may hold another, as mcpu.sv does (Part 15h-6).
+                string tops = ownDump != null ? top : top + ",oracle_dump";
+                using IcarusRun run = icarus.Simulate(sources, tops, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2), dataFiles);
                 Assert.IsTrue(run.Succeeded, run.Explain());
 
                 var written = new Dictionary<string, string>(StringComparer.Ordinal);

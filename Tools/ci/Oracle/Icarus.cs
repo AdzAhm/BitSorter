@@ -139,7 +139,10 @@ namespace BitSorter.Ci.Oracle
         /// folder of its own.
         /// </summary>
         /// <param name="sources">Full paths to the source files, in the order the compiler should read them.</param>
-        /// <param name="top">The top module, or null to let Icarus pick the one nothing instantiates.</param>
+        /// <param name="top">
+        /// The top module, or several separated by commas -- a testbench and the module that dumps it, where a file holds
+        /// more than one testbench -- or null to let Icarus pick every one nothing instantiates.
+        /// </param>
         /// <param name="includeDirs">Folders searched for <c>`include</c> files.</param>
         /// <param name="timeout">For each of the two steps. Thirty seconds if not given.</param>
         /// <param name="dataFiles">
@@ -157,7 +160,8 @@ namespace BitSorter.Ci.Oracle
             // -g2012 is the SystemVerilog the course writes. -o names the compiled design.
             var compileArguments = new List<string> { "-g2012", "-o", "design.vvp" };
             if (top != null)
-                compileArguments.AddRange(new[] { "-s", top });
+                foreach (string each in top.Split(','))
+                    compileArguments.AddRange(new[] { "-s", each.Trim() });
             foreach (string dir in includeDirs ?? Enumerable.Empty<string>())
                 compileArguments.Add("-I" + dir);
             compileArguments.AddRange(sources);
