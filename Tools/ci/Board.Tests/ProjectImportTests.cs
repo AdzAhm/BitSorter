@@ -77,6 +77,30 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(import.Project.Stimulus.Tracks, "the testbench drives the inputs, not a stimulus");
         }
 
+        /// <summary>
+        /// Files that hold two testbenches run the first, saying so -- or the one asked for by name (Part 15h-6: the multicycle
+        /// sample runs mcpu.sv's second testbench, the demo program, beside its own).
+        /// </summary>
+        [Test]
+        public void OfTwoTestbenches_TheFirstIsRun_OrTheOneAskedFor()
+        {
+            string longer = MuxBench.Replace("mux2_tb", "mux2_long_tb").Replace("#10 $stop", "#30 $stop");
+            var files = new[] { new SourceFile("mux2.sv", Mux), new SourceFile("mux2_tb.sv", MuxBench), new SourceFile("mux2_long_tb.sv", longer) };
+
+            ProjectImport first = ProjectImporter.Import(files);
+            Assert.IsTrue(first.Succeeded, Notes(first));
+            Assert.AreEqual("mux2_tb", first.Project.Bench);
+            Assert.IsTrue(first.Notes.Any(n => n.ToString().Contains("mux2_long_tb looks like a testbench too")), Notes(first));
+
+            ProjectImport asked = ProjectImporter.Import(files, "mux2_long_tb");
+            Assert.IsTrue(asked.Succeeded, Notes(asked));
+            Assert.AreEqual("mux2_long_tb", asked.Project.Bench);
+            Assert.AreEqual(40, asked.Project.Stimulus.End, "run to where the one asked for stops");
+            Assert.IsTrue(asked.Notes.Any(n => n.ToString().Contains("mux2_tb looks like a testbench too")), Notes(asked));
+
+            Assert.AreEqual("mux2_tb", ProjectImporter.Import(files, "mux2").Project.Bench, "a name that is no testbench is the first found");
+        }
+
         [Test]
         public void WithNoTestbench_TheDesignIsTheModuleNothingUses()
         {

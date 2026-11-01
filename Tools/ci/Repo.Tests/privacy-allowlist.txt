@@ -13,3 +13,8 @@ Assets/Scripts/Sim/SystemFunctions.cs 259341593 the constant IEEE 1364's rtl_dis
 Tools/ci/Sim.Tests/ExpressionTests.cs 303379748 $random's first number from a seed of 0, printed by Icarus 12 and by the standard's generator
 Tools/ci/Sim.Tests/ExpressionTests.cs 230244124 $random's second number from a seed of -5 (printed negative), from Icarus 12
 Assets/Plugins/WebGL/codemirror.jspre 999999999 @codemirror/state's RangeSet.eq ends at its C.Far, 10^9, less one, which the minifier folds into one number (Part 12f)
+Assets/Scripts/ViewModel/WorkbenchProcessors.cs 10802023 the RV32I word for sw s0, 0x100(zero) in rv_program.hex, copied for the start page's processors (Part 15h-6)
+Assets/Scripts/ViewModel/WorkbenchProcessors.cs 10400513 the RV32I word for addi a0, zero, 0x104 in rv_program.hex, copied for the start page's processors
+Assets/Scripts/ViewModel/WorkbenchProcessors.cs 00001297 the RV32I word for auipc t0, 0x1 in rv_program.hex, copied for the start page's processors
+Assets/Scripts/ViewModel/WorkbenchProcessors.cs 00965293 the RV32I word for srli t0, a2, 9 in rv_program.hex, copied for the start page's processors
+Assets/Scripts/ViewModel/WorkbenchProcessors.cs 00005280 0xa5 shifted left by 7, slli's expected result in rv_expected.hex, copied for the start page's processors

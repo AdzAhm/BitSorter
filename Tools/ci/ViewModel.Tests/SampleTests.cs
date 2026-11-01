@@ -52,8 +52,9 @@ namespace BitSorter.ViewModel.Tests
         public void TheChip_OffersTheReference_ThenTheFullAdder_ThenTheCounter()
         {
             CollectionAssert.AreEqual(new[] { "Reference", "Full adder", "Counter", "Four half adders", "Written adder" }, Names);
-            CollectionAssert.AreEqual(new[] { "Traffic light", "Two-bit ALU", "Is it prime?", "Sequence detector", "Seven segments" }, WrittenNames,
-                "and then five written as code");
+            CollectionAssert.AreEqual(new[] { "Traffic light", "Two-bit ALU", "Is it prime?", "Sequence detector", "Seven segments",
+                    "Single-cycle RISC-V", "Multicycle RISC-V", "Pipelined RISC-V" }, WrittenNames,
+                "and then eight written as code, the three processors last (Part 15h-6)");
 
             Project reference = WorkbenchSamples.All[0].Build();
             Assert.AreEqual(ReferenceCircuit.Document().Top, reference.Top);

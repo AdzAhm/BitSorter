@@ -74,6 +74,15 @@ namespace BitSorter.ViewModel
                 ("Seven segments",
                     "A hex digit to a seven-segment display, written as one case: four inputs, seven outputs -- LOGIC gives each segment its K-map.",
                     SevenSegments),
+                ("Single-cycle RISC-V",
+                    "An RV32I processor that runs each instruction in one long clock cycle: its program sums 1 to 10, works out ten Fibonacci numbers and tries every instruction once, in 323 cycles. Double-click datapath to step inside.",
+                    WorkbenchProcessors.SingleCycle),
+                ("Multicycle RISC-V",
+                    "The same program on an RV32I processor whose state machine takes each instruction through three to five short cycles: 1,244 of them. Double-click control to step inside its state machine.",
+                    WorkbenchProcessors.Multicycle),
+                ("Pipelined RISC-V",
+                    "The same program on five stages at once: results forwarded, a cycle's stall after a load, two bubbles after a jump -- 386 cycles. Double-click forward or hazard to see how.",
+                    WorkbenchProcessors.Pipelined),
             });
 
         /// <summary>

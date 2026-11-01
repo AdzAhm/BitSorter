@@ -138,7 +138,12 @@ namespace BitSorter.Board
         /// <summary>A string in quotes on one line, its text the group: where a module names a file it includes or reads.</summary>
         private static readonly Regex Quoted = new Regex("\"([^\"\\r\\n]*)\"", RegexOptions.CultureInvariant);
 
-        public static ProjectImport Import(IReadOnlyList<SourceFile> files)
+        /// <summary>
+        /// The project <paramref name="files"/> make. With <paramref name="benchName"/>, the testbench run is the module of that
+        /// name where it is one -- for files that hold two, as a sample's own and the corpus's does (Part 15h-6); without, the
+        /// first found, in the files' order.
+        /// </summary>
+        public static ProjectImport Import(IReadOnlyList<SourceFile> files, string benchName = null)
         {
             var notes = new List<ImportNote>();
             var said = new HashSet<string>(StringComparer.Ordinal);
@@ -369,11 +374,13 @@ namespace BitSorter.Board
                         used.Add(name);
             }
 
-            // The testbench, and the design.
-            ModuleDeclaration bench = null;
+            // The testbench, and the design: the one asked for, where it is one, else the first.
+            bool IsBench(ModuleDeclaration module) =>
+                module.Ports.Count == 0 && !used.Contains(module.Name) && uses[module.Name].Exists(byName.ContainsKey);
+            ModuleDeclaration bench = benchName != null ? modules.Find(m => m.Name == benchName && IsBench(m)) : null;
             foreach (ModuleDeclaration module in modules)
             {
-                if (module.Ports.Count > 0 || used.Contains(module.Name) || !uses[module.Name].Exists(byName.ContainsKey))
+                if (!IsBench(module) || module == bench)
                     continue;
                 if (bench == null)
                     bench = module;

@@ -404,7 +404,7 @@ VCD           written for export, read for the oracle comparison
   an eleven-state machine, a datapath with its instruction, A, B, ALU-out and data registers between the
   steps, a register file, and instruction and data memories of 1,024 words each, loaded with `$readmemh`
   from images an instance names by parameter. Its opcodes and ALU operations are `localparam`s in an
-  included file (`mcpu_defs.svh`). It runs the RV32I a program needs -- `lui`, `auipc`, `jal`, `jalr`,
+  included file (`rv32i.svh`, `mcpu_defs.svh` until Part 15h-6 shared it with two more processors). It runs the RV32I a program needs -- `lui`, `auipc`, `jal`, `jalr`,
   every branch, `lw`, `sw`, and every arithmetic, logic and shift operation -- and its program sorts eight
   signed words, sums them, multiplies by shift and add, counts Fibonacci, and takes every kind of branch.
 - **It says it is done by a write**, as the course's processors do: the program stores to `0x7fc`, and the
@@ -3731,6 +3731,33 @@ as one column of 64 blocks, all at one depth).
   every box it makes saying what it does (`RtlDrawingTests`); a ripple adder's critical path lighting its one block of
   four copies and c along the way (`TimingViewTests`); every drawing counting a loop's copies as one
   (`RtlDrawing.FoldedInstances`).
+
+**As built in Part 15h-6, first half: three RV32I processors on the start page** (Ahmad's choice, 2026-10-29: "Three
+samples in 15h-6"; the program, 2026-11-01: "all of these examples").
+- **Two more processors in the corpus**, written from the published RISC-V specification and nothing else, beside
+  `mcpu.sv`: `scpu.sv`, single-cycle -- a decoder of combinational logic, the PC the only register outside the register
+  file; and `pcpu.sv`, pipelined -- five stages with a register between each two, forwarding from the execute/memory and
+  memory/write-back registers (`pcpu_forward`), a cycle's stall when decode needs a word a load in execute has not yet
+  read (`pcpu_hazard`), branches and jumps decided in execute and the two instructions behind a taken one turned into
+  bubbles, and a register file written in a cycle's first half and read in its second. The three share `rv32i.svh`.
+- **One demo program for all three** (`rv_program.hex`, `rv_data.hex`, `rv_expected.hex`): the sum of 1 to 10, the first
+  ten Fibonacci numbers -- each loaded back from the two words before it, so the pipeline stalls on every one -- and
+  every RV32I instruction once, each result stored and checked by the program itself (31 checks). Assembled, and its
+  results worked out, by an emulator written from the specification and kept out of the repository, as mcpu's was.
+  Single-cycle it takes 323 cycles, pipelined 386, multicycle 1,244 -- the comparison the three samples are for.
+  `mcpu` takes its images by parameter now, and `mcpu.sv` holds a second testbench, `mcpu_demo_tb`, beside the oracle's.
+- **Held to Icarus on every signal** (`BehaviouralOracleTests`), each testbench by name: the harness gives Icarus `-s`
+  for it and its dump, where it let Icarus start every module nothing makes -- with two testbenches in one file both ran
+  (`Icarus.Simulate` takes several tops). The folder import does the same, and the speed test and the benchmark build
+  elaborate `mcpu_tb` by name.
+- **On the start page** (`WorkbenchProcessors`, after the written samples): Single-cycle, Multicycle and Pipelined
+  RISC-V, each the corpus's own text -- `ProcessorSampleTests` holds every string to its file, and each run to PASS in
+  the cycles its line says -- imported as FILE, IMPORT would, with the testbench named (`ProjectImporter.Import`'s
+  `benchName`, for files that hold two) and any other testbench left out. Every corpus design is drawn by the drawing
+  tests, so the three are drawn, opened into gates and described with the rest.
+- **Measured** (the desktop, best of two): drawing and routing the pipelined top, 207 parts and 384 wires, 8 ms; the
+  single-cycle datapath 100 parts, 2 ms; with GATES, the multicycle controller -- the most any opens, 1,004 parts and
+  1,709 wires -- 333 ms, the single-cycle's 468 parts 104 ms. Nothing on the desktop wants a cap.
 
 **As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
 the code untouched, and find them there again).
