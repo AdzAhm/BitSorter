@@ -702,7 +702,10 @@ namespace BitSorter.View
                 _found = false;
                 _asset = null;
 
-                if (ShellFonts.Mono != null)
+                // The one made earlier in the editor's session first: a domain reload loses this field, not the asset, and one
+                // made again is given its glyphs again (ShellFonts.Kept says what that costs).
+                _asset = Kept();
+                if (_asset == null && ShellFonts.Mono != null)
                     _asset = TMP_FontAsset.CreateFontAsset(ShellFonts.Mono);
                 if (_asset == null && Application.platform != RuntimePlatform.WebGLPlayer)
                 {
@@ -717,6 +720,10 @@ namespace BitSorter.View
 
                 if (_asset == null)
                     return null;
+                _asset.name = KeptName;
+                // Monospaced, so it has nothing to kern, and asking FontEngine for a face's kerning and ligature tables
+                // between the shell's two faces reads them again and leaks the old copy (ShellFonts.Kept).
+                _asset.getFontFeatures = false;
                 _asset.hideFlags = HideFlags.HideAndDontSave;
                 if (_asset.material != null)
                     _asset.material.hideFlags = HideFlags.HideAndDontSave;
@@ -728,6 +735,17 @@ namespace BitSorter.View
                 _found = true;
                 return _asset;
             }
+        }
+
+        private const string KeptName = "Code face";
+
+        /// <summary>The code's face made earlier in this editor's session from the same font -- the computer's, where that is none -- or null.</summary>
+        private static TMP_FontAsset Kept()
+        {
+            foreach (TMP_FontAsset kept in Resources.FindObjectsOfTypeAll<TMP_FontAsset>())
+                if (kept.name == KeptName && kept.sourceFontFile == ShellFonts.Mono)
+                    return kept;
+            return null;
         }
     }
 }

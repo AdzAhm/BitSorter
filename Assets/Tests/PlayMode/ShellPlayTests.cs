@@ -510,6 +510,42 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The shell's two faces hold every printable character from the moment they are made, and are kept for the editor's
+        /// session, so drawing the shell never adds a glyph to them. FontEngine (Unity 6000.3) keeps the kerning and ligature
+        /// tables of one face at a time: a glyph added to a face other than the last one given glyphs reads that face's tables
+        /// again -- about 12 MB for Plex Sans -- and never frees the copy it drops. The shell draws in two faces, every entry
+        /// to Play Mode made both again with no glyphs, and a day of test runs grew the shared editor by about 20 GB
+        /// (2026-10-29).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheShellsFaces_HoldEveryPrintableCharacter_AndAreKept()
+        {
+            yield return TestScene.Load();
+            yield return OpenTheWorkbench();
+
+            foreach (bool bold in new[] { false, true })
+            {
+                UnityEngine.TextCore.Text.FontAsset face = ShellFonts.AssetOf(bold);
+                Assert.IsNotNull(face, "sanity: the shell draws in IBM Plex, made from the scene's fonts");
+                for (char c = ' '; c <= '~'; c++)
+                    Assert.IsTrue(face.HasCharacter(c, false, false), $"'{c}' is not in {face.name} yet, so the first text with it adds a glyph");
+                Assert.AreEqual(HideFlags.HideAndDontSave, face.hideFlags, $"{face.name} outlives an unload and a domain reload, glyphs and all");
+            }
+        }
+
+        /// <summary>
+        /// The code's face reads no kerning or ligature tables: it is monospaced, so it has nothing to kern, and each time it
+        /// was given glyphs between two of the shell's faces FontEngine read a face's tables again and kept the old copy.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheCodesFace_ReadsNoKerningTables()
+        {
+            yield return TestScene.Load();
+            Assert.IsNotNull(CodeFont.Asset, "sanity: the code has a face of its own");
+            Assert.IsFalse(CodeFont.Asset.getFontFeatures, "the code's face asks FontEngine for its kerning and ligature tables");
+        }
+
+        /// <summary>
         /// What is typed in a shell field sits in the middle of its box, as its placeholder does. The theme the shell has
         /// none of is what stretches a field's text to the box's height, and without it every value sat at the box's top
         /// -- seen first in the inspector's bar (Part 11b-2), where every field shows a value.
