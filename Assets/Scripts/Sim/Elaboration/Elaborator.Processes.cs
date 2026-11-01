@@ -80,6 +80,12 @@ namespace BitSorter.Sim
                 public Proc(string name) => Name = name;
 
                 public readonly string Name;
+
+                /// <summary>Where it begins (<see cref="ProcessInfo.At"/>), and the line of the statement being compiled, which each instruction takes (Part 15h-5).</summary>
+                public SourceLocation At;
+
+                /// <inheritdoc cref="At"/>
+                public int Line;
                 public readonly List<Instruction> Code = new List<Instruction>();
                 public readonly HashSet<int> Writes = new HashSet<int>();
                 public readonly HashSet<int> Locals = new HashSet<int>();
@@ -108,6 +114,8 @@ namespace BitSorter.Sim
 
                 public int Emit(Instruction instruction)
                 {
+                    if (instruction.Line == 0)
+                        instruction.Line = Line;
                     Code.Add(instruction);
                     return Code.Count - 1;
                 }
@@ -143,7 +151,7 @@ namespace BitSorter.Sim
                     return null;
                 }
 
-                var p = new Proc($"{scope.Path}.{kind}@{block.Location.Line}");
+                var p = new Proc($"{scope.Path}.{kind}@{block.Location.Line}") { At = block.Location, Line = block.Location.Line };
 
                 switch (block.Kind)
                 {
@@ -206,7 +214,7 @@ namespace BitSorter.Sim
             {
                 var writes = new List<int>(p.Writes);
                 writes.Sort();
-                var info = new ProcessInfo(p.Name, kind, p.Code.ToArray(), writes.ToArray());
+                var info = new ProcessInfo(p.Name, kind, p.Code.ToArray(), writes.ToArray()) { At = p.At };
 
                 foreach (ProcessInfo branch in p.Branches)
                     branch.Parent = info;
@@ -312,7 +320,23 @@ namespace BitSorter.Sim
             // Statements
             // -----------------------------------------------------------------
 
+            /// <summary>A statement compiled, every instruction it makes taking its line (Part 15h-5): a nested one's its own.</summary>
             private void Statement(Proc p, Scope scope, Statement statement)
+            {
+                int outer = p.Line;
+                if (statement != null && statement.Location.Line > 0 && statement.Location.File == p.At.File)
+                    p.Line = statement.Location.Line;
+                try
+                {
+                    StatementAt(p, scope, statement);
+                }
+                finally
+                {
+                    p.Line = outer;
+                }
+            }
+
+            private void StatementAt(Proc p, Scope scope, Statement statement)
             {
                 switch (statement)
                 {
@@ -1107,7 +1131,7 @@ namespace BitSorter.Sim
                 var branches = new ProcessInfo[f.Branches.Count];
                 for (int i = 0; i < f.Branches.Count; i++)
                 {
-                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]");
+                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]") { At = f.Location, Line = f.Location.Line };
                     Statement(branch, inner, f.Branches[i]);
                     branch.Emit(OpCode.End);
                     if (branch.Failed)

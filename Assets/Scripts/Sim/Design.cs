@@ -69,6 +69,9 @@ namespace BitSorter.Sim
         /// <summary>Its full name, dot-separated through the hierarchy: <c>uut.sum</c>.</summary>
         public string Name { get; }
 
+        /// <summary>Where it is declared, for the drawing of code to point at (Part 15h-5); none for a signal made in code.</summary>
+        public SourceLocation Declared { get; internal set; }
+
         /// <summary>
         /// Whether it is a <c>string</c> (Part L6): its bytes are characters, at the bottom, zero bytes above
         /// them only room left over. Icarus leaves a string out of its dump, as a VCD has no type for one.
@@ -253,6 +256,9 @@ namespace BitSorter.Sim
 
         public ScopeKind Kind { get; }
 
+        /// <summary>Where an instance is written, the line that makes it (Part 15h-5); none for the top, a block, or a design made in code.</summary>
+        public SourceLocation At { get; internal set; }
+
         /// <summary>The scope it is inside, an index into <see cref="Design.Scopes"/> and always below its own; -1 for the top.</summary>
         public int Parent { get; }
 
@@ -295,6 +301,9 @@ namespace BitSorter.Sim
         /// inout drives the net its port is joined to, a signal of another scope (Part 15h).
         /// </summary>
         public int WrittenIn { get; internal set; } = -1;
+
+        /// <summary>Where it is written: the assign's or the gate's line, for the drawing of code to point at (Part 15h-5); none for a circuit built in code.</summary>
+        public SourceLocation At { get; internal set; }
 
         /// <summary>Its output for the signals' current values.</summary>
         internal abstract LogicVec Evaluate(LogicVec[] values);
@@ -594,14 +603,16 @@ namespace BitSorter.Sim
         /// <paramref name="local"/>, as <see cref="Net"/> takes neither.
         /// </summary>
         internal SignalId Declare(string name, int width, SignalKind kind, bool signed, bool local, LogicVec? initial,
-            int msb, int lsb, EnumInfo @enum, PortDirection? port, int scope, bool twoState = false)
+            int msb, int lsb, EnumInfo @enum, PortDirection? port, int scope, bool twoState = false, SourceLocation declared = default)
         {
             bool net = kind == SignalKind.Net;
             if (!net && !local && initial.HasValue && initial.Value.IsEmpty)
                 throw new ArgumentException("A starting value needs a value.", nameof(initial));
 
-            return Add(name, width, kind, signed, local: !net && local, initial: net ? null : initial, memory: null,
+            SignalId id = Add(name, width, kind, signed, local: !net && local, initial: net ? null : initial, memory: null,
                 msb: msb, lsb: lsb, @enum: @enum, port: port, scope: scope, twoState: twoState);
+            _signals[id.Index].Declared = declared;
+            return id;
         }
 
         /// <summary>
@@ -611,7 +622,7 @@ namespace BitSorter.Sim
         /// and a child's path is its parent's, a dot, and its own name. Its index, for
         /// <see cref="SignalInfo.Scope"/> and the scopes inside it.
         /// </summary>
-        internal int Scope(string path, string module, ScopeKind kind, int parent)
+        internal int Scope(string path, string module, ScopeKind kind, int parent, SourceLocation at = default)
         {
             if (string.IsNullOrEmpty(path))
                 throw new ArgumentException("A scope needs a path.", nameof(path));
@@ -634,7 +645,7 @@ namespace BitSorter.Sim
                 name = path.Substring(prefix.Length);
             }
 
-            _scopes.Add(new ScopeInfo(path, name, module, kind, parent));
+            _scopes.Add(new ScopeInfo(path, name, module, kind, parent) { At = at });
             return _scopes.Count - 1;
         }
 
@@ -696,7 +707,7 @@ namespace BitSorter.Sim
 
             RequireBits(output, outputBit, 1, $"the output of {name}");
             CountDriver(output, outputBit, 1, name);
-            _drivers.Add(new GateDriver(name, kind, output, outputBit, delay, inputs) { WrittenIn = WrittenIn });
+            _drivers.Add(new GateDriver(name, kind, output, outputBit, delay, inputs) { WrittenIn = WrittenIn, At = WrittenAt });
         }
 
         /// <summary>
@@ -715,7 +726,7 @@ namespace BitSorter.Sim
 
             string driverName = name ?? $"assign {_signals[target.Index].Name}";
             CountDriver(target, 0, width, driverName);
-            _drivers.Add(new AssignDriver(driverName, target, 0, width, delay, sized) { WrittenIn = WrittenIn });
+            _drivers.Add(new AssignDriver(driverName, target, 0, width, delay, sized) { WrittenIn = WrittenIn, At = WrittenAt });
         }
 
         /// <summary>
@@ -734,7 +745,7 @@ namespace BitSorter.Sim
 
             string driverName = name ?? $"assign {_signals[target.Index].Name}[{lowest + width - 1}:{lowest}]";
             CountDriver(target, lowest, width, driverName);
-            _drivers.Add(new AssignDriver(driverName, target, lowest, width, delay, sized) { WrittenIn = WrittenIn });
+            _drivers.Add(new AssignDriver(driverName, target, lowest, width, delay, sized) { WrittenIn = WrittenIn, At = WrittenAt });
         }
 
         /// <summary>An expression reading a signal of this design, at its own width.</summary>
@@ -747,6 +758,9 @@ namespace BitSorter.Sim
 
         /// <summary>The scope the drivers made now are written in, which the elaborator sets as it makes them (<see cref="DriverInfo.WrittenIn"/>).</summary>
         internal int WrittenIn = -1;
+
+        /// <summary>Where the drivers made now are written, which the elaborator sets beside <see cref="WrittenIn"/> (<see cref="DriverInfo.At"/>).</summary>
+        internal SourceLocation WrittenAt;
 
         private readonly List<(string Name, SignalId Signal)> _aliases = new List<(string, SignalId)>();
 

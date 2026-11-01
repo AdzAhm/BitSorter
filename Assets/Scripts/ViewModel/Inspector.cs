@@ -103,7 +103,8 @@ namespace BitSorter.ViewModel
         /// one of its pins; a wire's, for the wire or one of its corners. Null for nothing, or something no longer there.
         /// </summary>
         /// <param name="describe">On a drawing of code, what a part it makes up does (Part 15h-4e): its line, where it has one.</param>
-        public static Inspection Of(Project project, string module, CanvasTarget target, Func<int, string> describe = null)
+        /// <param name="lineOf">On a drawing of code, the line of the code a part comes from (Part 15h-5), which its line ends by saying; 0 for none.</param>
+        public static Inspection Of(Project project, string module, CanvasTarget target, Func<int, string> describe = null, Func<int, int> lineOf = null)
         {
             Module m = project?.Find(module);
             if (m == null)
@@ -114,7 +115,7 @@ namespace BitSorter.ViewModel
                 case CanvasTargetKind.Part:
                 case CanvasTargetKind.Pin:
                     Part part = m.FindPart(target.Part);
-                    return part == null ? null : OfPart(project, m, part, describe);
+                    return part == null ? null : OfPart(project, m, part, describe, lineOf);
 
                 case CanvasTargetKind.Wire:
                 case CanvasTargetKind.Bend:
@@ -141,7 +142,7 @@ namespace BitSorter.ViewModel
             return new Inspection("WIRE " + netName, says, -1, wire.Id, fields, "name");
         }
 
-        private static Inspection OfPart(Project project, Module m, Part part, Func<int, string> describe = null)
+        private static Inspection OfPart(Project project, Module m, Part part, Func<int, string> describe = null, Func<int, int> lineOf = null)
         {
             var fields = new List<InspectorField> { new InspectorField("name", "NAME", part.Name) };
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
@@ -276,6 +277,8 @@ namespace BitSorter.ViewModel
 
             if (describe?.Invoke(part.Id) is string described)
                 says = described;
+            if (lineOf?.Invoke(part.Id) is int line && line > 0)
+                says = (says.Length > 0 ? says + " " : "") + "From line " + line.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".";
             // A part the drawing of code makes up goes by what it is: OPERATOR, never OPERATOR $p4.
             string title = part.Name != null && part.Name.StartsWith("$", StringComparison.Ordinal) ? kind : kind + " " + part.Name;
             return new Inspection(title, says, part.Id, -1, fields, quick);

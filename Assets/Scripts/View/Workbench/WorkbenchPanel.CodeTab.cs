@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -53,6 +54,7 @@ namespace BitSorter.View
         private void BuildListingView(SchematicPalette palette)
         {
             _listingView = CodeListingView.Build(Root, palette);
+            _listingView.LineClicked += ClickedLine;
             PlaceListing();
             _listingView.SetShown(_dockTab == DockTab.Code);
         }
@@ -78,7 +80,10 @@ namespace BitSorter.View
             CodeListing listing = _session.Listing;
             bool stepped = _session.Module != _listingModule;
             if (ReferenceEquals(listing, _shownListing) && !stepped)
+            {
+                MarkSelectedLines();
                 return;
+            }
 
             string was = _shownListing != null && _listingFile >= 0 && _listingFile < _shownListing.Files.Count
                 ? _shownListing.Files[_listingFile].Path : null;
@@ -100,7 +105,79 @@ namespace BitSorter.View
             bool sameFile = _listingFile >= 0 && listing.Files[_listingFile].Path == was;
             _shownListing = listing;
             BuildCodeChips(SchematicPalette.Current);
-            _listingView.Show(_listingFile >= 0 ? listing.Files[_listingFile].Text : "", sameFile);
+            ShowListingFile(sameFile);
+        }
+
+        /// <summary>The file chosen shown, and what the link to the drawing needs of it noted once rather than each frame.</summary>
+        private void ShowListingFile(bool sameFile)
+        {
+            bool any = _listingFile >= 0 && _listingFile < _shownListing.Files.Count;
+            _listingBody = any ? _shownListing.BodyLine(_listingFile) : 1;
+            _listingIsTheModules = any && _listingFile == _shownListing.FileOf(_session.Module);
+            _listingView.Show(any ? _shownListing.Files[_listingFile].Text : "", sameFile, _listingBody);
+            MarkSelectedLines();
+        }
+
+        // The listing's line the shown file's own code begins on, and whether the file is the module the circuit's window shows.
+        private int _listingBody = 1;
+        private bool _listingIsTheModules;
+
+        /// <summary>
+        /// Whether the file shown is the code of the drawing of code in the circuit's window, and if so the listing's line its
+        /// own first line is on (Part 15h-5): its lines are the drawing's.
+        /// </summary>
+        private bool ListingIsTheDrawings(out int bodyLine)
+        {
+            bodyLine = _listingBody;
+            return _listingIsTheModules && _session.ShowsDrawingOfCode && !_session.ShowsController;
+        }
+
+        private readonly List<int> _markedLines = new List<int>();
+
+        // What the marks were worked out for: worked out again only when one of these changes, never each frame (the review
+        // of 15h-5 -- Ctrl+A on a big drawing looked up every selected wire's driver every frame).
+        private bool _markedOn;
+        private int _markedVersion = -1, _markedBody = -1;
+        private Board.Module _markedDrawing;
+
+        /// <summary>The lines what is selected on the drawing of code comes from, marked in its code (Part 15h-5).</summary>
+        private void MarkSelectedLines()
+        {
+            int body = -1;
+            bool on = _editor != null && ListingIsTheDrawings(out body);
+            if (!on)
+                body = -1;
+            int version = on ? _editor.Selection.Version : -1;
+            Board.Module drawing = on ? _session.DrawnModule : null;
+            if (on == _markedOn && version == _markedVersion && body == _markedBody && ReferenceEquals(drawing, _markedDrawing))
+                return;
+            _markedOn = on;
+            _markedVersion = version;
+            _markedBody = body;
+            _markedDrawing = drawing;
+
+            _markedLines.Clear();
+            if (on)
+                foreach (int line in _editor.LinesOfSelection())
+                    _markedLines.Add(line + body - 1);
+            _listingView.Mark(_markedLines);
+        }
+
+        /// <summary>
+        /// A click on a line of the code (Part 15h-5): the parts it makes selected on the drawing, and the chip says how many
+        /// -- or that it makes none, the selection left as it was.
+        /// </summary>
+        private void ClickedLine(int listed)
+        {
+            if (_editor == null || !ListingIsTheDrawings(out int body))
+                return;
+            int line = listed - body + 1;
+            if (line < 1)
+                return;
+            int parts = _editor.SelectLine(line);
+            string number = line.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Notice(parts == 0 ? "Line " + number + " makes no part of the drawing by itself."
+                : "Line " + number + ": " + parts.ToString(System.Globalization.CultureInfo.InvariantCulture) + (parts == 1 ? " part" : " parts") + " selected on the drawing.");
         }
 
         /// <summary>A chip chosen: its file shown from the top.</summary>
@@ -110,7 +187,7 @@ namespace BitSorter.View
                 return;
             _listingFile = index;
             BuildCodeChips(SchematicPalette.Current);
-            _listingView.Show(_shownListing.Files[index].Text, sameFile: false);
+            ShowListingFile(sameFile: false);
         }
 
         /// <summary>A chip a file, left to right in the order they are read, as many as the header has room for.</summary>

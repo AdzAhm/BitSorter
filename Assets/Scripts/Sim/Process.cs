@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Sim
 {
@@ -258,6 +259,9 @@ namespace BitSorter.Sim
         public MemoryTask Memory;
         public ForkSpec Fork;
         public DisableSpec Disable;
+
+        /// <summary>The line of the statement it is part of, in its process's file: what the drawing of code points at (Part 15h-5).</summary>
+        public int Line;
     }
 
     /// <summary>
@@ -286,6 +290,9 @@ namespace BitSorter.Sim
 
         /// <summary><c>initial</c>, <c>always</c>, <c>always_ff</c>, <c>always_comb</c> or <c>always_latch</c>.</summary>
         public string Kind { get; }
+
+        /// <summary>Where it begins, its keyword's line (Part 15h-5); its statements' lines are its instructions'.</summary>
+        public SourceLocation At { get; internal set; }
 
         public int InstructionCount => Code.Length;
 

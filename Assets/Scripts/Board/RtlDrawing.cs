@@ -49,6 +49,37 @@ namespace BitSorter.Board
             _keys = builder.Keys;
             FoldedInstances = builder.FoldedInstances;
             _netlist = builder.Netlist;
+            _lineOf = builder.LineOf;
+        }
+
+        private readonly Dictionary<int, int> _lineOf;
+        private Dictionary<int, List<int>> _partsOn;
+
+        /// <summary>
+        /// The line of the module's own code that makes part <paramref name="part"/> (Part 15h-5), as its editor numbers it: a
+        /// port's declaration, an instance's, an assign's, a gate's, the statement of a process an operator computes -- the if's
+        /// or the case's for the mux that joins its ways, and its keyword's for a register or a box -- the line of the cell an
+        /// opening's gates were. 0 for none: a box of a signal given its value elsewhere, or code read from another file.
+        /// </summary>
+        public int LineOf(int part) => _lineOf.TryGetValue(part, out int line) ? line : 0;
+
+        /// <summary>The parts line <paramref name="line"/> of the module's own code makes (<see cref="LineOf"/>), in the order made; none for a line that makes none.</summary>
+        public IReadOnlyList<int> PartsOn(int line)
+        {
+            if (_partsOn == null)
+            {
+                var on = new Dictionary<int, List<int>>();
+                foreach (Part part in Module.Parts)
+                    if (_lineOf.TryGetValue(part.Id, out int at))
+                    {
+                        if (!on.TryGetValue(at, out List<int> parts))
+                            on[at] = parts = new List<int>();
+                        parts.Add(part.Id);
+                    }
+                _partsOn = on;
+            }
+
+            return _partsOn.TryGetValue(line, out List<int> found) ? found : (IReadOnlyList<int>)Array.Empty<int>();
         }
 
         /// <summary>What the code does that the drawing does not show (<see cref="RtlNetlist.Unshown"/>): code written from it would lose it.</summary>
@@ -284,6 +315,13 @@ namespace BitSorter.Board
             /// <summary>The cell each part made of one is, by the part's id: what it says it does (<see cref="RtlDrawing.Describe"/>).</summary>
             public readonly Dictionary<int, RtlCell> CellOf = new Dictionary<int, RtlCell>();
 
+            /// <summary>The line of the module's own code each part comes from, by its id (<see cref="RtlDrawing.LineOf"/>).</summary>
+            public readonly Dictionary<int, int> LineOf = new Dictionary<int, int>();
+
+            // The module's own file, and where the code the parts made now come from is written: each part takes it.
+            private readonly string _file;
+            private SourceLocation _at;
+
             /// <summary>The muxes a case's chain of them is drawn as, by id, with their subject's width.</summary>
             public readonly Dictionary<int, int> CaseParts = new Dictionary<int, int>();
 
@@ -323,6 +361,7 @@ namespace BitSorter.Board
                 _project = project;
                 _netlist = netlist;
                 _gates = gates;
+                _file = netlist.Module != null ? WrittenModules.FileOf(netlist.Module) : null;
                 int nets = netlist.Nets.Count;
                 _source = new (int, string)[nets];
                 _loads = new List<(int, string)>[nets];
@@ -378,6 +417,7 @@ namespace BitSorter.Board
                 foreach (int input in _netlist.Inputs)
                 {
                     RtlNet net = _netlist.Nets[input];
+                    _at = net.Declared;
                     int id = Add(new PortPart { Name = Identifier(net.Name), Width = net.Width });
                     _first.Add(_parts.Count - 1);
                     _source[input] = (id, "out");
@@ -385,12 +425,16 @@ namespace BitSorter.Board
 
                 // A generate loop's copies as one block, drawn before the cells that read its buses (Part 15h-4e).
                 foreach (ArrayFold fold in _arrays.Values)
+                {
+                    _at = fold.Copies[0].At;
                     DrawArray(fold);
+                }
 
                 foreach (RtlCell cell in _netlist.Cells)
                 {
                     if (_merged.Contains(cell.Id) || _swallowed.Contains(cell.Id) || _foldedAway.Contains(cell.Id) || _arrays.ContainsKey(cell.Id))
                         continue;
+                    _at = cell.At;
                     if (_joinsOfArrays.ContainsKey(cell.Id))
                     {
                         DrawJoinOfArray(cell);
@@ -456,6 +500,7 @@ namespace BitSorter.Board
                 foreach (int output in _netlist.Outputs)
                 {
                     RtlNet net = _netlist.Nets[output];
+                    _at = net.Declared;
                     int id = Add(new PortPart { Name = Identifier(net.Name), Direction = PortDirection.Output, Width = net.Width });
                     _last.Add(_parts.Count - 1);
                     _loads[Root(output)].Add((id, "in"));
@@ -464,6 +509,7 @@ namespace BitSorter.Board
                 // A net something reads that nothing here drives -- a signal given its value in another scope: a box of its name.
                 // One of the module's own that nothing drives at all -- an output left empty, a part's input not yet wired -- is a
                 // pin left open (Part 15h-4g): a box there would be a second driver for the wire drawn to it next.
+                _at = default;
                 for (int net = 0; net < _netlist.Nets.Count; net++)
                 {
                     if (Root(net) != net || _loads[net].Count == 0 || _source[net].Part >= 0)
@@ -1013,6 +1059,8 @@ namespace BitSorter.Board
                 // A part with no name of its own is named as no signal can be, so a signal p3 keeps its name on its net (the
                 // review of #108: a carry-lookahead's p3 became p3_2, read by no name).
                 _parts.Add(part with { Id = id, Name = part.Name ?? "$p" + id.ToString(CultureInfo.InvariantCulture) });
+                if (_at.Line > 0 && _file != null && _at.File == _file)
+                    LineOf[id] = _at.Line;
                 return id;
             }
 

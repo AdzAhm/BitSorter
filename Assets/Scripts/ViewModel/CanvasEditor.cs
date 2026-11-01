@@ -1094,6 +1094,50 @@ namespace BitSorter.ViewModel
             }
         }
 
+        /// <summary>
+        /// The lines of its module's code what is selected on a drawing of code comes from (Part 15h-5), in order: a part's
+        /// own, a wire's the part that drives it. None on anything but a drawing of code.
+        /// </summary>
+        public IReadOnlyList<int> LinesOfSelection()
+        {
+            var lines = new SortedSet<int>();
+            foreach (int part in Selection.Parts)
+                if (_session.LineOfPart(part) is int line && line > 0)
+                    lines.Add(line);
+            if (Module != null && Selection.Wires.Count > 0)
+            {
+                var wires = new Dictionary<int, Wire>();
+                foreach (Wire wire in Module.Wires)
+                    wires[wire.Id] = wire;
+                foreach (int id in Selection.Wires)
+                {
+                    // A tap's wire is driven by what drives the wire it taps.
+                    wires.TryGetValue(id, out Wire wire);
+                    for (int hops = 0; wire != null && wire.From.IsTap && hops < 64; hops++)
+                        wires.TryGetValue(wire.From.TapOf, out wire);
+                    if (wire != null && !wire.From.IsTap && _session.LineOfPart(wire.From.Pin.Part) is int line && line > 0)
+                        lines.Add(line);
+                }
+            }
+            return new List<int>(lines);
+        }
+
+        /// <summary>
+        /// The parts line <paramref name="line"/> of the module's code makes selected on its drawing, in place of what was
+        /// (Part 15h-5): a click on the line in the code. How many; with none, the selection is left as it was.
+        /// </summary>
+        public int SelectLine(int line)
+        {
+            IReadOnlyList<int> parts = _session.PartsOnLine(line);
+            if (parts.Count == 0)
+                return 0;
+            Selection.Clear();
+            foreach (int part in parts)
+                Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: part), extend: true, toggle: false);
+            Version++;
+            return parts.Count;
+        }
+
         /// <summary>Every part and wire (Ctrl+A).</summary>
         public void SelectAll()
         {

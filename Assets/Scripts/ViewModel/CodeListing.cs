@@ -50,6 +50,26 @@ namespace BitSorter.ViewModel
             return -1;
         }
 
+        /// <summary>
+        /// The line of file <paramref name="index"/> its module's own code begins on (Part 15h-5): past the lines BitSorter
+        /// prints over a written module -- its unit, and the comment that says it was written here -- so the listing numbers
+        /// it as its editor does, and a line of it is one line everywhere; the first for any other file.
+        /// </summary>
+        public int BodyLine(int index)
+        {
+            if (Project == null || index < 0 || index >= Files.Count)
+                return 1;
+            string path = Files[index].Path, text = Files[index].Text;
+            Module module = path.EndsWith(".sv", StringComparison.Ordinal) ? Project.Find(path.Substring(0, path.Length - 3)) : null;
+            if (module == null || !module.IsWritten || module.Source == null || text == null || !text.EndsWith(module.Source, StringComparison.Ordinal))
+                return 1;
+            int line = 1;
+            for (int i = 0; i < text.Length - module.Source.Length; i++)
+                if (text[i] == '\n')
+                    line++;
+            return line;
+        }
+
         /// <summary>What file <paramref name="index"/> is called on its chip: CELLS, TESTBENCH, or its module's name.</summary>
         public string Caption(int index)
         {
