@@ -438,7 +438,7 @@ module mcpu_demo_tb;
             for (i = 0; i < 10; i++)
                 $write(" %0d", dut.dmem.mem[65 + i]);
             $display;
-            $display("every instruction once: %0d of 40 checks held", dut.dmem.mem[126]);
+            $display("every instruction once: %0d of 41 checks held", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin

@@ -26,9 +26,9 @@ namespace BitSorter.ViewModel.Tests
                     $"{file} differs from the corpus's: copy the corpus file into WorkbenchProcessors.cs");
         }
 
-        [TestCase("Single-cycle RISC-V", "scpu_tb", 398)]
-        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", 1529)]
-        [TestCase("Pipelined RISC-V", "pcpu_tb", 471)]
+        [TestCase("Single-cycle RISC-V", "scpu_tb", 408)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", 1568)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", 482)]
         public void AProcessor_RunsTheDemo_ToPass_InTheCyclesItsLineSays(string name, string bench, int cycles)
         {
             (string Name, string Says, System.Func<Project> Build) sample = WorkbenchSamples.All.Single(s => s.Name == name);
@@ -51,7 +51,7 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains($"done after {cycles} cycles", said);
             StringAssert.Contains("the sum of 1 to 10: 55", said);
             StringAssert.Contains("ten Fibonacci numbers: 0 1 1 2 3 5 8 13 21 34", said);
-            StringAssert.Contains("every instruction once: 40 of 40 checks held", said);
+            StringAssert.Contains("every instruction once: 41 of 41 checks held", said);
             StringAssert.Contains("PASS: every result as expected", said);
             Assert.AreEqual(result.Time, project.Stimulus.End, "the run is shown to where the testbench stops");
         }

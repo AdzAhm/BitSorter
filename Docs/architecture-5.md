@@ -3742,7 +3742,9 @@ as one column of 64 blocks, all at one depth).
 samples in 15h-6"; the program, 2026-11-01: "all of these examples").
 - **Two more processors in the corpus**, written from the published RISC-V specification and nothing else, beside
   `mcpu.sv`: `scpu.sv`, single-cycle -- a decoder of combinational logic, the PC the only register outside the register
-  file; and `pcpu.sv`, pipelined -- five stages with a register between each two, forwarding from the execute/memory and
+  file; and `pcpu.sv`, pipelined -- five stages with a register between each two, drawn as the textbook draws one, a
+  module a stage (`pcpu_fetch`, `pcpu_decode`, `pcpu_execute`) and a module a register (`pcpu_if_id`, `pcpu_id_ex`,
+  `pcpu_ex_mem`, `pcpu_mem_wb`), so its top's drawing reads left to right -- forwarding from the execute/memory and
   memory/write-back registers (`pcpu_forward`), a cycle's stall when decode needs a word a load in execute has not yet
   read (`pcpu_hazard`), branches and jumps decided in execute and the two instructions behind a taken one turned into
   bubbles, and a register file that passes a value being written back straight through to a read of it in the same
@@ -3750,12 +3752,13 @@ samples in 15h-6"; the program, 2026-11-01: "all of these examples").
 - **One demo program for all three** (`rv_program.hex`, `rv_data.hex`, `rv_expected.hex`): the sum of 1 to 10, the first
   ten Fibonacci numbers -- F2 to F9 each loaded back from the two words before it, so the pipeline stalls on every one --
   and every instruction the processors run, once (RV32I less its byte and halfword memory instructions and its system
-  ones), each result stored and checked by the program itself: 40 checks, every branch both taken and not, a load's
-  word used by the very next instruction and compared by the very next branch, and a `jalr` to an odd address landing
-  even. Assembled, and its results worked out, by an emulator written from the specification and kept out of the
-  repository, as mcpu's was. Counted from the first clock, the reset's two included: single-cycle 398 cycles, pipelined
-  471, multicycle 1,529 -- the comparison the three samples are for. A review mutated the pipeline -- the hazard unit
-  blind to rs1, a branch stuck either way, `jalr` keeping bit 0 -- and the demo fails on each.
+  ones), each result stored and checked by the program itself: 41 checks, every branch both taken and not, a load's
+  word used by the very next instruction and compared by the very next branch, taken and not, and a `jalr` to an odd
+  address landing even. Assembled, and its results worked out, by an emulator written from the specification and kept out of the
+  repository, as mcpu's was. Counted from the first clock, the reset's two included: single-cycle 408 cycles, pipelined
+  482, multicycle 1,568 -- the comparison the three samples are for. A review mutated the pipeline -- the hazard unit
+  blind to rs1, a branch stuck either way, `jalr` keeping bit 0, a stall letting no bubble through -- and the demo
+  fails on each.
   `mcpu` takes its images by parameter now, and `mcpu.sv` holds a second testbench, `mcpu_demo_tb`, beside the oracle's.
 - **Held to Icarus on every signal** (`BehaviouralOracleTests`), each testbench by name: the harness gives Icarus `-s`
   for it and its dump, where it let Icarus start every module nothing makes -- with two testbenches in one file both ran
@@ -3767,7 +3770,8 @@ samples in 15h-6"; the program, 2026-11-01: "all of these examples").
   (`ProjectImporter.Import`'s `benchName`, for files that hold two; a name that is no testbench is said so) and any
   other testbench left out. Every corpus design is drawn by the drawing tests, so the three are drawn, opened into
   gates and described with the rest. The oracle holds a processor's testbench to its own PASS as well as to Icarus.
-- **Measured** (the desktop, best of two): drawing and routing the pipelined top, 207 parts and 384 wires, 8 ms; the
+- **Measured** (the desktop, best of two, before the pipeline was split into a module a stage): drawing and routing the
+  pipelined top, then 207 parts and 384 wires in one tall column no fit could read, 8 ms; the
   single-cycle datapath 100 parts, 2 ms; with GATES, the multicycle controller -- the most any opens, 1,004 parts and
   1,709 wires -- 333 ms, the single-cycle's 468 parts 104 ms. Nothing on the desktop wants a cap.
 

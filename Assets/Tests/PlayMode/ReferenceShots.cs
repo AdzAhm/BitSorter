@@ -1607,11 +1607,11 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator Shot68_WorkbenchSingleCycleProcessor() => Processor("Single-cycle RISC-V", 1500, null, "68-workbench-single-cycle");
 
-        /// <summary>Part 15h-6: the multicycle RV32I stepped inside its controller, the state machine's drawing mid-run.</summary>
+        /// <summary>Part 15h-6: the multicycle RV32I stepped inside its datapath, its registers between the steps, mid-run.</summary>
         [UnityTest]
-        public IEnumerator Shot69_WorkbenchMulticycleController() => Processor("Multicycle RISC-V", 6000, "control", "69-workbench-multicycle-control");
+        public IEnumerator Shot69_WorkbenchMulticycleDatapath() => Processor("Multicycle RISC-V", 6000, "datapath", "69-workbench-multicycle-datapath");
 
-        /// <summary>Part 15h-6: the pipelined RV32I's five stages, their registers and its forwarding and hazard units, mid-run.</summary>
+        /// <summary>Part 15h-6: the pipelined RV32I drawn as the textbook draws one -- a block a stage, a block a register between -- mid-run.</summary>
         [UnityTest]
         public IEnumerator Shot70_WorkbenchPipelinedProcessor() => Processor("Pipelined RISC-V", 1800, null, "70-workbench-pipelined");
 

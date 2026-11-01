@@ -12,7 +12,7 @@ namespace BitSorter.ViewModel
     /// The start page's three RV32I processors (Part 15h-6, Ahmad's choice, 2026-10-29): single-cycle, multicycle and
     /// pipelined with forwarding, each running the one demo program -- the sum of 1 to 10, the first ten Fibonacci numbers
     /// and every instruction they run once, checking itself (asked 2026-11-01: "all of these examples") -- so the three
-    /// can be compared on it: 398 cycles single-cycle, 1,529 multicycle, 471 pipelined.
+    /// can be compared on it: 408 cycles single-cycle, 1,568 multicycle, 482 pipelined.
     /// </summary>
     /// <remarks>
     /// Written for BitSorter's oracle from the published RISC-V specification, never from any course material, and held
@@ -398,7 +398,7 @@ module scpu_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -861,7 +861,7 @@ module mcpu_demo_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -886,7 +886,9 @@ endmodule
 
         private const string Pcpu = @"// pcpu: an original pipelined processor -- five stages, fetch, decode, execute, memory and write-back,
 // with a register between each two, so five instructions are under way at once and the clock need only
-// be as slow as the slowest stage. Hazards are handled as the textbook does:
+// be as slow as the slowest stage. Drawn as the textbook draws one: a module a stage (pcpu_fetch,
+// pcpu_decode, pcpu_execute, and the data memory for the memory stage) and a module a register between
+// them (pcpu_if_id, pcpu_id_ex, pcpu_ex_mem, pcpu_mem_wb). Hazards are handled as the textbook does:
 //   - forwarding: a result still in the execute/memory or memory/write-back register goes straight to
 //     the ALU's operands, rather than waiting to be written to the register file;
 //   - a stall: an instruction that needs a word a load has not yet read waits one cycle in decode, with
@@ -1099,88 +1101,86 @@ module pcpu_hazard (
     assign stall = ex_mem_read && ex_rd != 5'd0 && (ex_rd == id_rs1 || ex_rd == id_rs2);
 endmodule
 
-module pcpu #(
-    parameter PROGRAM = ""rv_program.hex"",   // the instruction memory's image
-    parameter DATA    = ""rv_data.hex""       // the data memory's image
-) (
-    input  logic clk,
-    input  logic rst      // asynchronous, active high: the PC to 0, every stage a bubble
+// ---------------------------------------------------------------- the stages, and the registers between them
+
+// Fetch: the PC, which steps on by four, holds while decode waits, and takes a branch's or a jump's target.
+module pcpu_fetch (
+    input  logic        clk,
+    input  logic        rst,        // asynchronous, active high: the PC to 0
+    input  logic        stall,      // decode waits a cycle: the PC holds
+    input  logic        redirect,   // a taken branch or a jump in execute
+    input  logic [31:0] target,     // where it goes
+    output logic [31:0] pc
 );
-    // ---- fetch
-    logic [31:0] pc, pc_next, instr;
-    logic        stall, redirect;
-    logic [31:0] target;
-
-    // ---- fetch/decode
-    logic [31:0] id_pc, id_instr;
-
-    // ---- decode
-    logic        rf_we, mem_we_id, mem_read, alu_a_pc, alu_b_imm, branch, jump, jump_reg, link;
-    logic [3:0]  alu_op;
-    logic [31:0] rd1, rd2, imm;
-
-    // ---- decode/execute
-    logic        ex_rf_we, ex_mem_we, ex_mem_read, ex_alu_a_pc, ex_alu_b_imm, ex_branch, ex_jump, ex_jump_reg, ex_link;
-    logic [3:0]  ex_alu_op;
-    logic [2:0]  ex_funct3;
-    logic [4:0]  ex_rs1, ex_rs2, ex_rd;
-    logic [31:0] ex_pc, ex_rd1, ex_rd2, ex_imm;
-
-    // ---- execute
-    logic [1:0]  forward_a, forward_b;
-    logic [31:0] src_a, src_b, alu_a, alu_b, alu_y, ex_result;
-    logic        taken;
-
-    // ---- execute/memory
-    logic        mem_rf_we, mem_mem_read;
-    logic [4:0]  mem_rd;
-    logic [31:0] mem_result, write_data, read_data, data_addr;
-    logic        mem_we_stage;
-
-    // ---- memory/write-back
-    logic        wb_rf_we;
-    logic [4:0]  wb_rd;
-    logic [31:0] wb_value;
-
-    // The testbench watches the memory stage's store.
-    logic        mem_we;
-    assign mem_we = mem_we_stage;
-    assign data_addr = mem_result;
-
-    // ================================================================ fetch
-    pcpu_memory #(.IMAGE(PROGRAM)) imem (
-        .clk(clk),
-        .we(1'b0),
-        .addr(pc),
-        .wdata(32'd0),
-        .rdata(instr)
-    );
-
-    assign pc_next = redirect ? target : pc + 32'd4;
-
     always_ff @(posedge clk, posedge rst)
         if (rst) pc <= 32'd0;
-        else if (redirect || !stall) pc <= pc_next;
+        else if (redirect) pc <= target;
+        else if (!stall) pc <= pc + 32'd4;
+endmodule
 
+// Between fetch and decode: the instruction and its PC. A flush makes it a bubble, a stall holds it.
+module pcpu_if_id (
+    input  logic        clk,
+    input  logic        rst,
+    input  logic        stall,
+    input  logic        flush,
+    input  logic [31:0] pc,
+    input  logic [31:0] instr,
+    output logic [31:0] id_pc,
+    output logic [31:0] id_instr    // 0, a bubble: opcode 0 does nothing
+);
     always_ff @(posedge clk, posedge rst)
         if (rst) begin
             id_pc <= 32'd0;
-            id_instr <= 32'd0;      // a bubble: opcode 0 does nothing
-        end else if (redirect) begin
+            id_instr <= 32'd0;
+        end else if (flush) begin
             id_pc <= 32'd0;
             id_instr <= 32'd0;
         end else if (!stall) begin
             id_pc <= pc;
             id_instr <= instr;
         end
+endmodule
 
-    // ================================================================ decode
+// Decode: what the instruction asks for, the registers it reads, its immediate, and whether it must wait for a load.
+module pcpu_decode (
+    input  logic        clk,
+    input  logic [31:0] instr,
+    input  logic        wb_rf_we,       // write-back writes the register file
+    input  logic [4:0]  wb_rd,
+    input  logic [31:0] wb_value,
+    input  logic        ex_mem_read,    // the instruction in execute, for the load hazard
+    input  logic [4:0]  ex_rd,
+    output logic        stall,
+    output logic        rf_we,
+    output logic        mem_we,
+    output logic        mem_read,
+    output logic        alu_a_pc,
+    output logic        alu_b_imm,
+    output logic [3:0]  alu_op,
+    output logic        branch,
+    output logic        jump,
+    output logic        jump_reg,
+    output logic        link,
+    output logic [2:0]  funct3,
+    output logic [4:0]  rs1,
+    output logic [4:0]  rs2,
+    output logic [4:0]  rd,
+    output logic [31:0] rd1,
+    output logic [31:0] rd2,
+    output logic [31:0] imm
+);
+    assign funct3 = instr[14:12];
+    assign rs1 = instr[19:15];
+    assign rs2 = instr[24:20];
+    assign rd = instr[11:7];
+
     pcpu_control control (
-        .opcode(id_instr[6:0]),
-        .funct3(id_instr[14:12]),
-        .funct7_5(id_instr[30]),
+        .opcode(instr[6:0]),
+        .funct3(instr[14:12]),
+        .funct7_5(instr[30]),
         .rf_we(rf_we),
-        .mem_we(mem_we_id),
+        .mem_we(mem_we),
         .mem_read(mem_read),
         .alu_a_pc(alu_a_pc),
         .alu_b_imm(alu_b_imm),
@@ -1194,8 +1194,8 @@ module pcpu #(
     pcpu_regfile regfile (
         .clk(clk),
         .we(wb_rf_we),
-        .ra1(id_instr[19:15]),
-        .ra2(id_instr[24:20]),
+        .ra1(rs1),
+        .ra2(rs2),
         .wa(wb_rd),
         .wd(wb_value),
         .rd1(rd1),
@@ -1205,26 +1205,69 @@ module pcpu #(
     pcpu_hazard hazard (
         .ex_mem_read(ex_mem_read),
         .ex_rd(ex_rd),
-        .id_rs1(id_instr[19:15]),
-        .id_rs2(id_instr[24:20]),
+        .id_rs1(rs1),
+        .id_rs2(rs2),
         .stall(stall)
     );
 
     always_comb begin
-        case (id_instr[6:0])
-            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{id_instr[31]}}, id_instr[31:20]};
-            OP_STORE:                 imm = {{20{id_instr[31]}}, id_instr[31:25], id_instr[11:7]};
-            OP_BRANCH:                imm = {{19{id_instr[31]}}, id_instr[31], id_instr[7], id_instr[30:25], id_instr[11:8], 1'b0};
-            OP_LUI, OP_AUIPC:         imm = {id_instr[31:12], 12'd0};
-            OP_JAL:                   imm = {{11{id_instr[31]}}, id_instr[31], id_instr[19:12], id_instr[20], id_instr[30:21], 1'b0};
+        case (instr[6:0])
+            OP_IMM, OP_LOAD, OP_JALR: imm = {{20{instr[31]}}, instr[31:20]};
+            OP_STORE:                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            OP_BRANCH:                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
+            OP_LUI, OP_AUIPC:         imm = {instr[31:12], 12'd0};
+            OP_JAL:                   imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
             default:                  imm = 32'd0;
         endcase
     end
+endmodule
 
-    // A stall or a flush lets a bubble into execute: its controls cleared, so it writes nothing and jumps
-    // nowhere, whatever its other fields hold.
+// Between decode and execute. A stall or a flush lets a bubble through: its controls cleared, so it writes nothing
+// and jumps nowhere, whatever its other fields hold.
+module pcpu_id_ex (
+    input  logic        clk,
+    input  logic        rst,
+    input  logic        stall,
+    input  logic        flush,
+    input  logic        rf_we,
+    input  logic        mem_we,
+    input  logic        mem_read,
+    input  logic        alu_a_pc,
+    input  logic        alu_b_imm,
+    input  logic [3:0]  alu_op,
+    input  logic        branch,
+    input  logic        jump,
+    input  logic        jump_reg,
+    input  logic        link,
+    input  logic [2:0]  funct3,
+    input  logic [4:0]  rs1,
+    input  logic [4:0]  rs2,
+    input  logic [4:0]  rd,
+    input  logic [31:0] pc,
+    input  logic [31:0] rd1,
+    input  logic [31:0] rd2,
+    input  logic [31:0] imm,
+    output logic        ex_rf_we,
+    output logic        ex_mem_we,
+    output logic        ex_mem_read,
+    output logic        ex_alu_a_pc,
+    output logic        ex_alu_b_imm,
+    output logic [3:0]  ex_alu_op,
+    output logic        ex_branch,
+    output logic        ex_jump,
+    output logic        ex_jump_reg,
+    output logic        ex_link,
+    output logic [2:0]  ex_funct3,
+    output logic [4:0]  ex_rs1,
+    output logic [4:0]  ex_rs2,
+    output logic [4:0]  ex_rd,
+    output logic [31:0] ex_pc,
+    output logic [31:0] ex_rd1,
+    output logic [31:0] ex_rd2,
+    output logic [31:0] ex_imm
+);
     logic bubble;
-    assign bubble = redirect || stall;
+    assign bubble = stall || flush;
 
     always_ff @(posedge clk, posedge rst)
         if (rst) begin
@@ -1233,11 +1276,11 @@ module pcpu #(
             ex_mem_read <= 1'b0;
             ex_alu_a_pc <= 1'b0;
             ex_alu_b_imm <= 1'b0;
+            ex_alu_op <= ALU_ADD;
             ex_branch <= 1'b0;
             ex_jump <= 1'b0;
             ex_jump_reg <= 1'b0;
             ex_link <= 1'b0;
-            ex_alu_op <= ALU_ADD;
             ex_funct3 <= 3'd0;
             ex_rs1 <= 5'd0;
             ex_rs2 <= 5'd0;
@@ -1248,29 +1291,60 @@ module pcpu #(
             ex_imm <= 32'd0;
         end else begin
             ex_rf_we <= rf_we && !bubble;
-            ex_mem_we <= mem_we_id && !bubble;
+            ex_mem_we <= mem_we && !bubble;
             ex_mem_read <= mem_read && !bubble;
             ex_alu_a_pc <= alu_a_pc;
             ex_alu_b_imm <= alu_b_imm;
+            ex_alu_op <= alu_op;
             ex_branch <= branch && !bubble;
             ex_jump <= jump && !bubble;
             ex_jump_reg <= jump_reg && !bubble;
             ex_link <= link;
-            ex_alu_op <= alu_op;
-            ex_funct3 <= id_instr[14:12];
-            ex_rs1 <= id_instr[19:15];
-            ex_rs2 <= id_instr[24:20];
-            ex_rd <= id_instr[11:7];
-            ex_pc <= id_pc;
+            ex_funct3 <= funct3;
+            ex_rs1 <= rs1;
+            ex_rs2 <= rs2;
+            ex_rd <= rd;
+            ex_pc <= pc;
             ex_rd1 <= rd1;
             ex_rd2 <= rd2;
             ex_imm <= imm;
         end
+endmodule
 
-    // ================================================================ execute
+// Execute: the operands, forwarded where a newer value is on its way; the ALU; and whether a branch or a jump goes.
+module pcpu_execute (
+    input  logic        alu_a_pc,
+    input  logic        alu_b_imm,
+    input  logic [3:0]  alu_op,
+    input  logic        branch,
+    input  logic        jump,
+    input  logic        jump_reg,
+    input  logic        link,
+    input  logic [2:0]  funct3,
+    input  logic [4:0]  rs1,
+    input  logic [4:0]  rs2,
+    input  logic [31:0] pc,
+    input  logic [31:0] rd1,
+    input  logic [31:0] rd2,
+    input  logic [31:0] imm,
+    input  logic        mem_rf_we,      // the instruction in memory, one ahead
+    input  logic [4:0]  mem_rd,
+    input  logic [31:0] mem_result,
+    input  logic        wb_rf_we,       // the instruction in write-back, two ahead
+    input  logic [4:0]  wb_rd,
+    input  logic [31:0] wb_value,
+    output logic        redirect,       // fetch takes target, and the two instructions behind are flushed
+    output logic [31:0] target,
+    output logic [31:0] result,         // what the instruction writes back, a load's address or the PC and four
+    output logic [31:0] store_data      // what a store writes
+);
+    logic [1:0]  forward_a, forward_b;
+    logic [31:0] src_a, src_b, alu_a, alu_b, alu_y;
+    logic        taken;
+
     pcpu_forward forward (
-        .rs1(ex_rs1),
-        .rs2(ex_rs2),
+        .rs1(rs1),
+        .rs2(rs2),
         .mem_rf_we(mem_rf_we),
         .mem_rd(mem_rd),
         .wb_rf_we(wb_rf_we),
@@ -1283,22 +1357,22 @@ module pcpu #(
         case (forward_a)
             2'd2:    src_a = mem_result;
             2'd1:    src_a = wb_value;
-            default: src_a = ex_rd1;
+            default: src_a = rd1;
         endcase
         case (forward_b)
             2'd2:    src_b = mem_result;
             2'd1:    src_b = wb_value;
-            default: src_b = ex_rd2;
+            default: src_b = rd2;
         endcase
     end
 
-    assign alu_a = ex_alu_a_pc ? ex_pc : src_a;
-    assign alu_b = ex_alu_b_imm ? ex_imm : src_b;
+    assign alu_a = alu_a_pc ? pc : src_a;
+    assign alu_b = alu_b_imm ? imm : src_b;
 
-    pcpu_alu alu (.a(alu_a), .b(alu_b), .op(ex_alu_op), .y(alu_y));
+    pcpu_alu alu (.a(alu_a), .b(alu_b), .op(alu_op), .y(alu_y));
 
     always_comb begin
-        case (ex_funct3)
+        case (funct3)
             3'b000:  taken = src_a == src_b;
             3'b001:  taken = src_a != src_b;
             3'b100:  taken = $signed(src_a) < $signed(src_b);
@@ -1309,48 +1383,270 @@ module pcpu #(
         endcase
     end
 
-    assign redirect = ex_jump || ex_jump_reg || (ex_branch && taken);
-    assign target = ex_jump_reg ? alu_y & ~32'd1 : ex_pc + ex_imm;
-    assign ex_result = ex_link ? ex_pc + 32'd4 : alu_y;
+    assign redirect = jump || jump_reg || (branch && taken);
+    assign target = jump_reg ? alu_y & ~32'd1 : pc + imm;
+    assign result = link ? pc + 32'd4 : alu_y;
+    assign store_data = src_b;
+endmodule
 
+// Between execute and memory.
+module pcpu_ex_mem (
+    input  logic        clk,
+    input  logic        rst,
+    input  logic        rf_we,
+    input  logic        mem_we,
+    input  logic        mem_read,
+    input  logic [4:0]  rd,
+    input  logic [31:0] result,
+    input  logic [31:0] store_data,
+    output logic        mem_rf_we,
+    output logic        mem_mem_we,
+    output logic        mem_mem_read,
+    output logic [4:0]  mem_rd,
+    output logic [31:0] mem_result,
+    output logic [31:0] mem_store_data
+);
     always_ff @(posedge clk, posedge rst)
         if (rst) begin
             mem_rf_we <= 1'b0;
-            mem_we_stage <= 1'b0;
+            mem_mem_we <= 1'b0;
             mem_mem_read <= 1'b0;
             mem_rd <= 5'd0;
             mem_result <= 32'd0;
-            write_data <= 32'd0;
+            mem_store_data <= 32'd0;
         end else begin
-            mem_rf_we <= ex_rf_we;
-            mem_we_stage <= ex_mem_we;
-            mem_mem_read <= ex_mem_read;
-            mem_rd <= ex_rd;
-            mem_result <= ex_result;
-            write_data <= src_b;
+            mem_rf_we <= rf_we;
+            mem_mem_we <= mem_we;
+            mem_mem_read <= mem_read;
+            mem_rd <= rd;
+            mem_result <= result;
+            mem_store_data <= store_data;
         end
+endmodule
 
-    // ================================================================ memory
-    pcpu_memory #(.IMAGE(DATA)) dmem (
-        .clk(clk),
-        .we(mem_we_stage),
-        .addr(mem_result),
-        .wdata(write_data),
-        .rdata(read_data)
-    );
-
+// Between memory and write-back: what is written back -- the word read for a load, else the result.
+module pcpu_mem_wb (
+    input  logic        clk,
+    input  logic        rst,
+    input  logic        rf_we,
+    input  logic        mem_read,
+    input  logic [4:0]  rd,
+    input  logic [31:0] result,
+    input  logic [31:0] read_data,
+    output logic        wb_rf_we,
+    output logic [4:0]  wb_rd,
+    output logic [31:0] wb_value
+);
     always_ff @(posedge clk, posedge rst)
         if (rst) begin
             wb_rf_we <= 1'b0;
             wb_rd <= 5'd0;
             wb_value <= 32'd0;
         end else begin
-            wb_rf_we <= mem_rf_we;
-            wb_rd <= mem_rd;
-            wb_value <= mem_mem_read ? read_data : mem_result;
+            wb_rf_we <= rf_we;
+            wb_rd <= rd;
+            wb_value <= mem_read ? read_data : result;
         end
+endmodule
 
-    // ================================================================ write-back: the register file, above
+// The processor: the two memories, the three stages that do the work, and the four registers between the five.
+module pcpu #(
+    parameter PROGRAM = ""rv_program.hex"",   // the instruction memory's image
+    parameter DATA    = ""rv_data.hex""       // the data memory's image
+) (
+    input  logic clk,
+    input  logic rst      // asynchronous, active high: the PC to 0, every stage a bubble
+);
+    logic [31:0] pc, instr, id_pc, id_instr;
+    logic        stall, redirect;
+    logic [31:0] target;
+
+    logic        rf_we, mem_we_id, mem_read, alu_a_pc, alu_b_imm, branch, jump, jump_reg, link;
+    logic [3:0]  alu_op;
+    logic [2:0]  funct3;
+    logic [4:0]  rs1, rs2, rd;
+    logic [31:0] rd1, rd2, imm;
+
+    logic        ex_rf_we, ex_mem_we, ex_mem_read, ex_alu_a_pc, ex_alu_b_imm, ex_branch, ex_jump, ex_jump_reg, ex_link;
+    logic [3:0]  ex_alu_op;
+    logic [2:0]  ex_funct3;
+    logic [4:0]  ex_rs1, ex_rs2, ex_rd;
+    logic [31:0] ex_pc, ex_rd1, ex_rd2, ex_imm, ex_result, store_data;
+
+    logic        mem_rf_we, mem_we, mem_mem_read;
+    logic [4:0]  mem_rd;
+    logic [31:0] mem_result, write_data, read_data, data_addr;
+
+    logic        wb_rf_we;
+    logic [4:0]  wb_rd;
+    logic [31:0] wb_value;
+
+    // The memory stage's store, which the testbench watches.
+    assign data_addr = mem_result;
+
+    pcpu_memory #(.IMAGE(PROGRAM)) imem (
+        .clk(clk),
+        .we(1'b0),
+        .addr(pc),
+        .wdata(32'd0),
+        .rdata(instr)
+    );
+
+    pcpu_fetch fetch (
+        .clk(clk),
+        .rst(rst),
+        .stall(stall),
+        .redirect(redirect),
+        .target(target),
+        .pc(pc)
+    );
+
+    pcpu_if_id if_id (
+        .clk(clk),
+        .rst(rst),
+        .stall(stall),
+        .flush(redirect),
+        .pc(pc),
+        .instr(instr),
+        .id_pc(id_pc),
+        .id_instr(id_instr)
+    );
+
+    pcpu_decode decode (
+        .clk(clk),
+        .instr(id_instr),
+        .wb_rf_we(wb_rf_we),
+        .wb_rd(wb_rd),
+        .wb_value(wb_value),
+        .ex_mem_read(ex_mem_read),
+        .ex_rd(ex_rd),
+        .stall(stall),
+        .rf_we(rf_we),
+        .mem_we(mem_we_id),
+        .mem_read(mem_read),
+        .alu_a_pc(alu_a_pc),
+        .alu_b_imm(alu_b_imm),
+        .alu_op(alu_op),
+        .branch(branch),
+        .jump(jump),
+        .jump_reg(jump_reg),
+        .link(link),
+        .funct3(funct3),
+        .rs1(rs1),
+        .rs2(rs2),
+        .rd(rd),
+        .rd1(rd1),
+        .rd2(rd2),
+        .imm(imm)
+    );
+
+    pcpu_id_ex id_ex (
+        .clk(clk),
+        .rst(rst),
+        .stall(stall),
+        .flush(redirect),
+        .rf_we(rf_we),
+        .mem_we(mem_we_id),
+        .mem_read(mem_read),
+        .alu_a_pc(alu_a_pc),
+        .alu_b_imm(alu_b_imm),
+        .alu_op(alu_op),
+        .branch(branch),
+        .jump(jump),
+        .jump_reg(jump_reg),
+        .link(link),
+        .funct3(funct3),
+        .rs1(rs1),
+        .rs2(rs2),
+        .rd(rd),
+        .pc(id_pc),
+        .rd1(rd1),
+        .rd2(rd2),
+        .imm(imm),
+        .ex_rf_we(ex_rf_we),
+        .ex_mem_we(ex_mem_we),
+        .ex_mem_read(ex_mem_read),
+        .ex_alu_a_pc(ex_alu_a_pc),
+        .ex_alu_b_imm(ex_alu_b_imm),
+        .ex_alu_op(ex_alu_op),
+        .ex_branch(ex_branch),
+        .ex_jump(ex_jump),
+        .ex_jump_reg(ex_jump_reg),
+        .ex_link(ex_link),
+        .ex_funct3(ex_funct3),
+        .ex_rs1(ex_rs1),
+        .ex_rs2(ex_rs2),
+        .ex_rd(ex_rd),
+        .ex_pc(ex_pc),
+        .ex_rd1(ex_rd1),
+        .ex_rd2(ex_rd2),
+        .ex_imm(ex_imm)
+    );
+
+    pcpu_execute execute (
+        .alu_a_pc(ex_alu_a_pc),
+        .alu_b_imm(ex_alu_b_imm),
+        .alu_op(ex_alu_op),
+        .branch(ex_branch),
+        .jump(ex_jump),
+        .jump_reg(ex_jump_reg),
+        .link(ex_link),
+        .funct3(ex_funct3),
+        .rs1(ex_rs1),
+        .rs2(ex_rs2),
+        .pc(ex_pc),
+        .rd1(ex_rd1),
+        .rd2(ex_rd2),
+        .imm(ex_imm),
+        .mem_rf_we(mem_rf_we),
+        .mem_rd(mem_rd),
+        .mem_result(mem_result),
+        .wb_rf_we(wb_rf_we),
+        .wb_rd(wb_rd),
+        .wb_value(wb_value),
+        .redirect(redirect),
+        .target(target),
+        .result(ex_result),
+        .store_data(store_data)
+    );
+
+    pcpu_ex_mem ex_mem (
+        .clk(clk),
+        .rst(rst),
+        .rf_we(ex_rf_we),
+        .mem_we(ex_mem_we),
+        .mem_read(ex_mem_read),
+        .rd(ex_rd),
+        .result(ex_result),
+        .store_data(store_data),
+        .mem_rf_we(mem_rf_we),
+        .mem_mem_we(mem_we),
+        .mem_mem_read(mem_mem_read),
+        .mem_rd(mem_rd),
+        .mem_result(mem_result),
+        .mem_store_data(write_data)
+    );
+
+    pcpu_memory #(.IMAGE(DATA)) dmem (
+        .clk(clk),
+        .we(mem_we),
+        .addr(mem_result),
+        .wdata(write_data),
+        .rdata(read_data)
+    );
+
+    pcpu_mem_wb mem_wb (
+        .clk(clk),
+        .rst(rst),
+        .rf_we(mem_rf_we),
+        .mem_read(mem_mem_read),
+        .rd(mem_rd),
+        .result(mem_result),
+        .read_data(read_data),
+        .wb_rf_we(wb_rf_we),
+        .wb_rd(wb_rd),
+        .wb_value(wb_value)
+    );
 endmodule
 
 module pcpu_tb;
@@ -1382,7 +1678,7 @@ module pcpu_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -1755,32 +2051,42 @@ f10f8f93  // 4b0: addi t6, t6, -240
 00200f93  // 4d8: addi t6, zero, 2
 01f29463  // 4dc: bne t0, t6, skip37
 001d8d93  // 4e0: addi s11, s11, 1
-0080036f  // 4e4: jal t1, after_jal         <- the_jal
-f9cd8d93  // 4e8: addi s11, s11, -100       never runs
-0064a023  // 4ec: sw t1, 0(s1)              jal links (after_jal)
-00448493  // 4f0: addi s1, s1, 4
-00000fb7  // 4f4: lui t6, 0x0
-4e8f8f93  // 4f8: addi t6, t6, 1256
-01f31463  // 4fc: bne t1, t6, skip38
-001d8d93  // 500: addi s11, s11, 1
-00000397  // 504: auipc t2, 0               <- the_auipc
-01138367  // 508: jalr t1, 17(t2)           an odd target: bit 0 cleared
-f9cd8d93  // 50c: addi s11, s11, -100       never runs
+00000293  // 4e4: addi t0, zero, 0
+1f002383  // 4e8: lw t2, 0x1f0(zero)
+00c39463  // 4ec: bne t2, a2, over_unequal  not taken: the word just loaded is a2
+00128293  // 4f0: addi t0, t0, 1
+00228293  // 4f4: addi t0, t0, 2            <- over_unequal
+0054a023  // 4f8: sw t0, 0(s1)              a branch on a word just loaded, not taken
+00448493  // 4fc: addi s1, s1, 4
+00300f93  // 500: addi t6, zero, 3
+01f29463  // 504: bne t0, t6, skip38
+001d8d93  // 508: addi s11, s11, 1
+0080036f  // 50c: jal t1, after_jal         <- the_jal
 f9cd8d93  // 510: addi s11, s11, -100       never runs
-00000e17  // 514: auipc t3, 0               where it landed, which must be even (landed)
-0064a023  // 518: sw t1, 0(s1)              jalr links
-00448493  // 51c: addi s1, s1, 4
-00000fb7  // 520: lui t6, 0x0
-50cf8f93  // 524: addi t6, t6, 1292
-01f31463  // 528: bne t1, t6, skip39
-001d8d93  // 52c: addi s11, s11, 1
-01c4a023  // 530: sw t3, 0(s1)              jalr lands with bit 0 cleared
-00448493  // 534: addi s1, s1, 4
-00000fb7  // 538: lui t6, 0x0
-514f8f93  // 53c: addi t6, t6, 1300
-01fe1463  // 540: bne t3, t6, skip40
-001d8d93  // 544: addi s11, s11, 1
-00008067  // 548: jalr zero, 0(ra)          return
+0064a023  // 514: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 518: addi s1, s1, 4
+00000fb7  // 51c: lui t6, 0x0
+510f8f93  // 520: addi t6, t6, 1296
+01f31463  // 524: bne t1, t6, skip39
+001d8d93  // 528: addi s11, s11, 1
+00000397  // 52c: auipc t2, 0               <- the_auipc
+01138367  // 530: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 534: addi s11, s11, -100       never runs
+f9cd8d93  // 538: addi s11, s11, -100       never runs
+00000e17  // 53c: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 540: sw t1, 0(s1)              jalr links
+00448493  // 544: addi s1, s1, 4
+00000fb7  // 548: lui t6, 0x0
+534f8f93  // 54c: addi t6, t6, 1332
+01f31463  // 550: bne t1, t6, skip40
+001d8d93  // 554: addi s11, s11, 1
+01c4a023  // 558: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 55c: addi s1, s1, 4
+00000fb7  // 560: lui t6, 0x0
+53cf8f93  // 564: addi t6, t6, 1340
+01fe1463  // 568: bne t3, t6, skip41
+001d8d93  // 56c: addi s11, s11, 1
+00008067  // 570: jalr zero, 0(ra)          return
 ";
 
         private const string Data = @"// rv_demo's data: word 0 for its lw, and words 1 to 127 cleared, so every result word starts at 0.
@@ -1916,7 +2222,7 @@ f9cd8d93  // 510: addi s11, s11, -100       never runs
 ";
 
         private const string Expected = @"// What rv_demo leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): the sum, ten Fibonacci
-// numbers, 40 results of every instruction the processors run, the word it stored to 0x1f0,
+// numbers, 41 results of every instruction the processors run, the word it stored to 0x1f0,
 // and at 0x1f8 how many of its checks held. Worked out by an emulator written from the RISC-V
 // specification.
 // Written for BitSorter's oracle; not taken from any course material.
@@ -1973,16 +2279,16 @@ f0f01234  // 198
 00000003  // 1c8
 5a5a0f10  // 1cc
 00000002  // 1d0
-000004e8  // 1d4
-0000050c  // 1d8
-00000514  // 1dc
-00000000  // 1e0
+00000003  // 1d4
+00000510  // 1d8
+00000534  // 1dc
+0000053c  // 1e0
 00000000  // 1e4
 00000000  // 1e8
 00000000  // 1ec
 f0f01234  // 1f0
 00000000  // 1f4
-00000028  // 1f8
+00000029  // 1f8
 00000000  // 1fc
 ";
     }

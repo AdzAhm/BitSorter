@@ -321,7 +321,7 @@ and pipelined one, written from the RISC-V specification, each running the same
 small program -- the sum of 1 to 10, the first ten Fibonacci numbers, and every
 instruction they run once, checking itself. Open one to read its drawing,
 double-click a block to step inside, and compare how many clock cycles each takes:
-398, 1,529 and 471.
+408, 1,568 and 482.
 
 Every pin nothing is wired to yet has a short lead with an open circle at its end:
 point at one and it lights, and a drag from there draws a wire. While you draw one,

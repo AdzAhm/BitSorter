@@ -316,29 +316,39 @@ f10f8f93  // 4b0: addi t6, t6, -240
 00200f93  // 4d8: addi t6, zero, 2
 01f29463  // 4dc: bne t0, t6, skip37
 001d8d93  // 4e0: addi s11, s11, 1
-0080036f  // 4e4: jal t1, after_jal         <- the_jal
-f9cd8d93  // 4e8: addi s11, s11, -100       never runs
-0064a023  // 4ec: sw t1, 0(s1)              jal links (after_jal)
-00448493  // 4f0: addi s1, s1, 4
-00000fb7  // 4f4: lui t6, 0x0
-4e8f8f93  // 4f8: addi t6, t6, 1256
-01f31463  // 4fc: bne t1, t6, skip38
-001d8d93  // 500: addi s11, s11, 1
-00000397  // 504: auipc t2, 0               <- the_auipc
-01138367  // 508: jalr t1, 17(t2)           an odd target: bit 0 cleared
-f9cd8d93  // 50c: addi s11, s11, -100       never runs
+00000293  // 4e4: addi t0, zero, 0
+1f002383  // 4e8: lw t2, 0x1f0(zero)
+00c39463  // 4ec: bne t2, a2, over_unequal  not taken: the word just loaded is a2
+00128293  // 4f0: addi t0, t0, 1
+00228293  // 4f4: addi t0, t0, 2            <- over_unequal
+0054a023  // 4f8: sw t0, 0(s1)              a branch on a word just loaded, not taken
+00448493  // 4fc: addi s1, s1, 4
+00300f93  // 500: addi t6, zero, 3
+01f29463  // 504: bne t0, t6, skip38
+001d8d93  // 508: addi s11, s11, 1
+0080036f  // 50c: jal t1, after_jal         <- the_jal
 f9cd8d93  // 510: addi s11, s11, -100       never runs
-00000e17  // 514: auipc t3, 0               where it landed, which must be even (landed)
-0064a023  // 518: sw t1, 0(s1)              jalr links
-00448493  // 51c: addi s1, s1, 4
-00000fb7  // 520: lui t6, 0x0
-50cf8f93  // 524: addi t6, t6, 1292
-01f31463  // 528: bne t1, t6, skip39
-001d8d93  // 52c: addi s11, s11, 1
-01c4a023  // 530: sw t3, 0(s1)              jalr lands with bit 0 cleared
-00448493  // 534: addi s1, s1, 4
-00000fb7  // 538: lui t6, 0x0
-514f8f93  // 53c: addi t6, t6, 1300
-01fe1463  // 540: bne t3, t6, skip40
-001d8d93  // 544: addi s11, s11, 1
-00008067  // 548: jalr zero, 0(ra)          return
+0064a023  // 514: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 518: addi s1, s1, 4
+00000fb7  // 51c: lui t6, 0x0
+510f8f93  // 520: addi t6, t6, 1296
+01f31463  // 524: bne t1, t6, skip39
+001d8d93  // 528: addi s11, s11, 1
+00000397  // 52c: auipc t2, 0               <- the_auipc
+01138367  // 530: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 534: addi s11, s11, -100       never runs
+f9cd8d93  // 538: addi s11, s11, -100       never runs
+00000e17  // 53c: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 540: sw t1, 0(s1)              jalr links
+00448493  // 544: addi s1, s1, 4
+00000fb7  // 548: lui t6, 0x0
+534f8f93  // 54c: addi t6, t6, 1332
+01f31463  // 550: bne t1, t6, skip40
+001d8d93  // 554: addi s11, s11, 1
+01c4a023  // 558: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 55c: addi s1, s1, 4
+00000fb7  // 560: lui t6, 0x0
+53cf8f93  // 564: addi t6, t6, 1340
+01fe1463  // 568: bne t3, t6, skip41
+001d8d93  // 56c: addi s11, s11, 1
+00008067  // 570: jalr zero, 0(ra)          return
