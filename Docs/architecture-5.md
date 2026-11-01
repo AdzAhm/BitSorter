@@ -1542,7 +1542,11 @@ hierarchy, 11d the keyboard map and the docs).
   (`ShellSlider`), since no theme draws UI Toolkit's.
 - **The typeface** (`ShellFonts`): IBM Plex Sans, regular and bold, as a TextCore font asset made at run time from
   the two TTFs, which the scene builder puts in the scene so they ship. A label is bold by the bold face alone: a bold
-  style on it as well thickens it twice.
+  style on it as well thickens it twice. **Each face is made with every printable character in it and kept for the
+  editor's session**, found again by name after a domain reload (2026-11-01): Unity 6000.3's FontEngine keeps one face's
+  kerning and ligature tables at a time, and glyphs given to any other face read that face's again, about 12 MB for Plex
+  Sans, never freeing the old copy. Made empty in every domain, the two faces leaked that on every entry to Play Mode and
+  again as new letters came, about 20 GB in a day of test runs.
 - **The bridges**, each held by a Play Mode test (`ShellPlayTests`):
   - *Pointer.* The event system sees the panel as one nameless object, so the panel is asked which of its elements is
     under the pointer: `WorkbenchControlSample` and `PointerGate` both ask it, and a tap on a shell button is the
@@ -1922,7 +1926,9 @@ code editor in the circuit's window, and a block made from a selection asks for 
 - **IBM Plex Mono ships as the code's face** (Ahmad approved the download, 2026-10-26): the family of the game's Plex
   Sans, under the same licence, held by `ShellFonts` so every build has it. `CodeFont` takes it first, and a monospaced
   face the computer has only in a scene without it. Credited in the README, `LICENSE`, and -- CodeMirror -- the credits
-  roll's BUILT WITH.
+  roll's BUILT WITH. **It reads no kerning** (`getFontFeatures` off, 2026-11-01): its one kerned pair, after `_`, pushed
+  the rest of a line off the monospaced grid by a fraction of a pixel, and asking for the tables leaks as the shell's
+  faces did. Like them it is kept for the editor's session.
 - **Checked.** In Play Mode: the code set in Plex Mono, and a popup open known. The bridge itself runs only in a browser,
   so **one browser build checks all of Part 12**: the page's half -- the editor made, placed, filled, marked, typed in,
   Ctrl+Enter and Escape -- checked by driving it in the served build (2026-10-26); the game driving it waits for a pane

@@ -748,6 +748,25 @@ failure side.
   are the shell's (`ShellPopup`): the menus, the + SIGNAL list, the one-line
   fields and the keyboard map, which `?` opens (`KeyMap`, every key from
   `WorkbenchKeys` and the gestures, so the keys are listed once).
+
+  **The shell's faces are made full and kept, and the code's reads no kerning**
+  (`ShellFonts`, `CodeFont`). Unity 6000.3's FontEngine keeps the kerning and
+  ligature tables of one face at a time: glyphs given to a face other than the
+  last one given glyphs read that face's tables again -- about 12 MB for Plex
+  Sans -- and the copy dropped is never freed, not even by
+  `FontEngine.UnloadAllFontFaces`. The shell's two faces were made empty in every
+  domain, so every entry to Play Mode, and new letters after it, switched
+  between them: a day of test runs grew the shared editor by about 20 GB under
+  FontEngine until it could not compile (2026-10-29). Each face is now given
+  every printable character as it is made and kept for the editor's session
+  (`HideAndDontSave`, found again by name after a domain reload), so drawing
+  never gives it a glyph; the code's face asks for no tables at all. Measured
+  with memory snapshots (2026-11-01), a whole Play Mode run adds nothing under
+  FontEngine where it added about 400 MB. **A runtime font asset that is given
+  glyphs is made full and kept, or reads no kerning** -- one made empty per
+  domain brings the leak back. An Edit Mode run still adds about 27 MB, not yet
+  traced; `UiThemeTests` measuring goals through the dynamic fallback is the
+  first suspect.
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface
