@@ -850,7 +850,7 @@ failure side.
   counts from it -- the win celebration once pulsed on the game clock and a solve
   could land at the bottom of its swell.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures seventy-one states (menu, a built
+  `BitSorter/Capture Reference Shots` captures seventy-two states (menu, a built
   board, bits in flight, a collision one tick out and one that takes both bits,
   the solved card, the level list, free play, the help panel, the chapter card, a
   clocked level, the tutorial's intro and its closing card, a first-time hint, a
@@ -862,7 +862,7 @@ failure side.
   built and running, its carry passing between the boxes, and 5.0's workbench
   preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
   radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, the written adder's block made a small ALU and shown as the drawing of its code, and the written adder's own sum with GATES, the 4-bit ripple, and the Two-bit ALU's LOGIC tab, its long expressions whole, and an imported written design's code, locked, and the waves zoomed in with the range bar's thumb short, and the start page's three RV32I processors -- each running its demo -- the single-cycle's and the multicycle's datapaths stepped into, the pipelined one's five stages and the registers between them, and the multicycle one's controller, its tall columns wrapped side by side -- every other shot taken with the hints seen) as an Explicit Play
+  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, the written adder's block made a small ALU and shown as the drawing of its code, and the written adder's own sum with GATES, the 4-bit ripple, and the Two-bit ALU's LOGIC tab, its long expressions whole, and an imported written design's code, locked, and the waves zoomed in with the range bar's thumb short, and the start page's three RV32I processors -- each running its demo -- the single-cycle's and the multicycle's datapaths stepped into, the pipelined one's five stages and the registers between them, the multicycle one's controller as its state diagram and the single-cycle one's as its control tables -- every other shot taken with the hints seen) as an Explicit Play
   Mode fixture, so it runs under `SaveGuard` --
   driving the real game for a screenshot by hand once marked a level solved on
   the developer's own save. Frame time is fixed, particle systems are seeded,
@@ -1110,7 +1110,20 @@ failure side.
   opens no more than 800 parts** (`WorkbenchSession.GatesCap`, Part 15h-6, Ahmad's
   choice): past that the boxes stay, and it says the desktop version opens them all --
   the multicycle controller's 1,004, a third of a second to make and route on the
-  desktop -- held wherever the drawing is made with GATES on, not only at the press. **A big
+  desktop -- held wherever the drawing is made with GATES on, not only at the press.
+  **A controller is shown as the textbook draws one** (Part 15h-6e, Ahmad's choice,
+  2026-11-01, on seeing the multicycle controller's 224 parts drawn literally): a state
+  machine written in code -- a register, of an enum or of localparam states, with a
+  case on it -- as its state diagram, each state a box of what it sets and every arrow
+  labelled in the code's own words, an output set on only some ways after a slash on
+  its arrow; a decoder -- a case that sets outputs to values -- as its control table
+  (`ControllerReader`, `ControllerLayout`, `ControllerView`). The state the run is in,
+  the arrow it came by and each table's row are lit as it plays; the wheel zooms it, a
+  drag moves it, FIT fits it. DIAGRAM or DRAWING beside CODE turns between it and the
+  drawing, kept for each module; one the reading is the whole of opens on it, and on
+  it every edit is refused saying to press DRAWING. Every reading is held to the
+  engine (`ControllerEngine`): the netlist's next state for every state and input is
+  one the diagram has an arrow to, and every value it shows is the circuit's. **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

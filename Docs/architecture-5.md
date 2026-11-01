@@ -3819,6 +3819,48 @@ ones").
 - **Known, and left**: a testbench's checking process is drawn as one box of a pin for each word it reads -- 547 cells
   tall on the processors' testbenches, which a student opens only by stepping into the bench.
 
+**As built in Part 15h-6e: a controller drawn as the textbook draws it** (Ahmad, 2026-11-01, on shot 71 -- the
+multicycle controller's 11-state `case` drawn literally, 224 parts and some 400 wires: "tf is that"; he chose a state
+diagram and a control table over a case-as-one-table box, splitting the controllers' code, or leaving control a box).
+- **Read from the code** (`Board/ControllerReader`, `ControllerReading`), so a machine of any number of inputs reads,
+  where the STATES tab's search by running stops at four input bits:
+  - *a state machine*: a register set in an `always_ff` -- its reset's value the start -- whose next value is a variable
+    an `always_comb` works out as one `case` on the register, after plain assignments of what holds unless an arm says
+    otherwise, or a `case` on the register in the `always_ff` itself; its states the register's enum's members, else the
+    case's labels, each a constant (the sequence detector's `localparam`s). Each state's arm -- its label's, else
+    `default`'s -- is followed down every way: `if`/`else`, a nested `case`, a `?:` in the next value. An arrow carries
+    the code's words (`opcode is OP_REG, OP_IMM or OP_LUI`, `!walk`, `otherwise`); what every way out of a state sets
+    is its box (Moore), what differs by way rides on the arrow that sets it (Mealy, `start / load = 1`). A second
+    `always_comb` that is a `case` on the register gives outputs too;
+  - *a decoder*: an `always_comb` that is, after plain assignments, one `case` whose arms set signals to numbers, names
+    or a `?:` between them -- a table, a row a label and a column a signal. A `case` that computes -- an ALU's `a + b`,
+    an immediate's bits, a comparison -- is no table, and stays its drawing;
+  - anything else is no reading, and says why. `Whole` says the reading is all of the module -- every process a part
+    of it, no `assign`, no instance -- and such a module opens on it.
+- **Held to the engine** (`Tools/ci/Board.Tests/ControllerEngine`, shared with the view-model's tests): the module's
+  netlist worked out (`RtlEvaluator`) for every state and every value of every input and held register of eight bits
+  or fewer, the rest random -- the next state is one the diagram has an arrow to, every arrow is taken, and every
+  constant a box, an arrow or a table shows is the circuit's. Read in the corpus and the samples: the three
+  processors' controllers (11 states and the ALU decoder; two tables each), the traffic light (its counter left to the
+  drawing), the multiplier's Mealy control and the sequence detector.
+- **On the workbench** (`WorkbenchSession.Controller`, `ShowsController`, `DrawController`, `ControllerNow`): DIAGRAM or
+  DRAWING left of CODE, kept for each module; GATES and TIDY step aside while the diagram is up. The diagram
+  (`ViewModel/ControllerLayout`, `View/Workbench/ControllerView`) lays the states left to right from the start, a column
+  a step and each a column past what leads to it but what comes back round; a way forward curves between columns
+  through a gap kept for it in any column it passes, a way back runs in a lane under the diagram and in from the left,
+  a loop sits over its box; the tables stand beside it. Its words are measured in the shell's own face. It is painted
+  with UI Toolkit's painter in the style's colours, opaque over the drawing and a control, so the canvas takes no
+  pointer under it (`InView`); the wheel zooms about the pointer, a drag moves it, FIT and F fit it -- the multicycle
+  controller is 1,800 by 600 at the workbench's text size. Lit as the run goes: the state the register holds now, the
+  arrow from the state it held before (`History.ValueBefore`, new), and each table's row its subject picks. While it is
+  up every edit of the canvas is refused (`ControllerRefusal`).
+- **Tests**: the readings above row for row and arrow for arrow (`ControllerReaderTests`), every corpus, exercise and
+  sample module read or saying why and every reading held to the engine; stepping in opens on the diagram, DRAWING and
+  back kept, an edit refused; over the whole multicycle demo the lit state goes through all eleven states, each from
+  the state before it; the single-cycle tables' rows lit by every instruction; the layout's boxes apart and its ways
+  forward forward through no box (`ControllerTests`); in Play Mode, the switch both ways and the pointer the diagram's;
+  shot 71 the multicycle controller's diagram mid-run, and 72 the single-cycle controller's tables.
+
 **As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
 the code untouched, and find them there again).
 - **`Module.Arrangement`**: where parts of the drawing of a written module's code were put, by a key naming each as the
