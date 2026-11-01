@@ -735,7 +735,9 @@ failure side.
   SystemVerilog's, a slice a frame too and marked where its search was cut
   short of proving it the smallest, `Minimizer`, each shown whole, on as many rows as
   it needs, cut between its products (15h-4d, `TextRows`: it ended in "..."); and for
-  four inputs or fewer its K-map, no groups drawn, `KarnaughLayout`) and STATES
+  four inputs or fewer its K-map, no groups drawn, `KarnaughLayout` -- as the course draws one, the
+  first variables across the top and the rest down the side, the corner split by a diagonal with each side's names
+  beside their codes; it was transposed, under a line of names, until the course was read, 2026-11-02) and STATES
   (Part 15g, for a clocked circuit of up to six register bits, four input bits
   besides its clock and reset, and sixteen states reached: found by running the
   engine breadth first from its start, a run for each state and input, `StateExplorer`;

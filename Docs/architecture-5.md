@@ -3068,8 +3068,10 @@ is built (2026-10-28).
   a letter spaced apart, `b cin + a cin + a b`) and SystemVerilog's (`assign s = (~a & b) | (a & ~b);`).
 - **A K-map for four inputs or fewer** (`KarnaughLayout`): the first half of the variables across the top and the rest
   down the side, as the course draws it -- ab across and cd down, ab across and c down -- Gray order both ways, x where the
-  output reads x, its 1s shaded. No groups are drawn: the expression is beside it. (It was drawn transposed, the first
-  half down the side, until the course's lectures and tutorials were read, 2026-11-02.)
+  output reads x, its 1s shaded; its corner a cell split by a diagonal, the names across above it on the right and those
+  down below it on the left, the codes against the cells. No groups are drawn: the expression is beside it. (It was drawn
+  transposed, the first half down the side under a line of names well above it, until the course's lectures and
+  tutorials were read and Ahmad marked up the corner, 2026-11-02.)
 - **The tab** (`WorkbenchPanel.Logic.cs`) sits right of TIMING: the table on the left, each output's block -- its
   expression both ways and its map -- in columns on the right; the wheel scrolls whichever the pointer is over, the table
   three rows a notch and the expressions no further than they reach. It is made again only when the design changes
