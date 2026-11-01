@@ -801,6 +801,17 @@ namespace BitSorter.ViewModel
         /// </summary>
         public string DescribePart(int part) => ShownDrawing?.Describe(part);
 
+        /// <summary>
+        /// The line of its module's own code a part of the drawing of code shown comes from, as the code's editor numbers it
+        /// (<see cref="RtlDrawing.LineOf"/>, Part 15h-5); 0 for none, and over anything but the drawing -- its code, a
+        /// controller's diagram, a drawn module.
+        /// </summary>
+        public int LineOfPart(int part) => ShowsController ? 0 : ShownDrawing?.LineOf(part) ?? 0;
+
+        /// <summary>The parts of the drawing of code shown that line <paramref name="line"/> of its module's code makes (<see cref="LineOfPart"/>); none over anything else.</summary>
+        public IReadOnlyList<int> PartsOnLine(int line) =>
+            ShowsController || ShownDrawing == null ? Array.Empty<int>() : ShownDrawing.PartsOn(line);
+
         /// <summary>Whether an edit of the drawing of code waits on <see cref="RewriteQuestion"/>: the workbench asks it.</summary>
         public bool AsksToRewrite => _pendingRewrite != null && ReferenceEquals(_pendingProject, Project);
 
