@@ -1603,6 +1603,51 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("67-workbench-waves-zoomed");
         }
 
+        /// <summary>Part 15h-6: the single-cycle RV32I running its demo, the drawing of its top -- memories, control, datapath.</summary>
+        [UnityTest]
+        public IEnumerator Shot68_WorkbenchSingleCycleProcessor() => Processor("Single-cycle RISC-V", 1500, null, "68-workbench-single-cycle");
+
+        /// <summary>Part 15h-6: the multicycle RV32I stepped inside its controller, the state machine's drawing mid-run.</summary>
+        [UnityTest]
+        public IEnumerator Shot69_WorkbenchMulticycleController() => Processor("Multicycle RISC-V", 6000, "control", "69-workbench-multicycle-control");
+
+        /// <summary>Part 15h-6: the pipelined RV32I's five stages, their registers and its forwarding and hazard units, mid-run.</summary>
+        [UnityTest]
+        public IEnumerator Shot70_WorkbenchPipelinedProcessor() => Processor("Pipelined RISC-V", 1800, null, "70-workbench-pipelined");
+
+        /// <summary>A processor sample opened, stepped inside <paramref name="inside"/> where one is named, run to <paramref name="at"/> and fitted.</summary>
+        private IEnumerator Processor(string sample, double at, string inside, string shot)
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int index = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == sample)
+                    index = i;
+            Assert.GreaterOrEqual(index, 0, sample);
+            workbench.ShowSample(index);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return Frames(2);
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing of its code");
+            if (inside != null)
+            {
+                Assert.IsTrue(workbench.StepInto(workbench.Session.DrawnModule.Parts.First(p => p.Name == inside).Id), inside);
+                workbench.Session.Finish();
+                yield return Frames(2);
+            }
+            workbench.FitView();
+            workbench.Seek(at);
+            yield return Frames(30);
+            yield return Capture(shot);
+        }
+
         /// <summary>Part 14b: the dock's TIMING tab over the full adder, its critical path -- a to cout -- lit on the canvas.</summary>
         [UnityTest]
         public IEnumerator Shot47_WorkbenchTimingTab()
