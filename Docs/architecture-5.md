@@ -3895,7 +3895,7 @@ so what was missing was the link between them).
 - **The CODE tab** (`CodeListingView.Mark`, `LineClicked`): a band behind each marked line, laid out as the text is and
   moved with it, the first scrolled into view a third of the way down through the field's own `OnScroll` when none of
   them is in view; a plain click on a line selects its parts and the chip says how many, or that the line makes none by
-  itself. A drag that selects text is no click, nor a double-click's second: the event system calls a press and release
+  itself. A drag that selects text is no click: the event system calls a press and release
   on one object a click even after a drag between them, so the listing's handler asks how far the pointer went. The marks
   are worked out again only when the selection, the drawing or the file shown changes.
 - **What the lines do not say**: a function's statements are compiled apart from the process that calls it, so what a

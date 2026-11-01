@@ -122,9 +122,10 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The field's clicks, heard beside the field's own on its object: a click on a line, never a drag that selects text
-        /// nor the second click of a double-click. The event system still calls a press and release on one object a click
-        /// after a drag between them, since the field is what was both pressed and dragged (the review of 15h-5).
+        /// The field's clicks, heard beside the field's own on its object: a click on a line, never a drag that selects text.
+        /// The event system still calls a press and release on one object a click after a drag between them, since the field
+        /// is what was both pressed and dragged (the review of 15h-5). A double-click is two clicks on its line, harmless: a
+        /// count of clicks would also take two quick clicks on two lines for one.
         /// </summary>
         private sealed class Clicks : MonoBehaviour, IPointerClickHandler
         {
@@ -136,7 +137,7 @@ namespace BitSorter.View
             public void OnPointerClick(PointerEventData eventData)
             {
                 if (eventData.button != PointerEventData.InputButton.Left || View == null || View._field == null
-                    || eventData.dragging || eventData.clickCount > 1 || (eventData.pressPosition - eventData.position).sqrMagnitude > Slop * Slop)
+                    || eventData.dragging || (eventData.pressPosition - eventData.position).sqrMagnitude > Slop * Slop)
                     return;
                 int line = TMP_TextUtilities.FindIntersectingLine(View._field.textComponent, eventData.position, eventData.pressEventCamera);
                 if (line >= 0)
