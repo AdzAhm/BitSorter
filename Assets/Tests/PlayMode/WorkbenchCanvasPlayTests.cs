@@ -3378,6 +3378,8 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.IsTrue(workbench.Session.ShowsController, "and DIAGRAM back");
             Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, diagram.resolvedStyle.display);
+            yield return null;
+            Assert.Greater(diagram.WordCount, 40, "its words back with it, every state's and arrow's (the review of 15h-6e)");
         }
 
         private static Rect WorldRect(RectTransform rect)

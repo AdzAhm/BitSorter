@@ -51,6 +51,7 @@ namespace BitSorter.View
             RegisterCallback<PointerDownEvent>(OnDown);
             RegisterCallback<PointerMoveEvent>(OnMove);
             RegisterCallback<PointerUpEvent>(OnUp);
+            RegisterCallback<PointerCaptureOutEvent>(_ => _panning = false);   // a capture lost, never a drag left held
 
             // Measures of the face the words are set in, off screen: a proportional face's width is no count of its letters.
             _probe = ShellTheme.Label("measure", "", UiType.Caption, Color.clear);
@@ -109,6 +110,23 @@ namespace BitSorter.View
             MarkDirtyRepaint();
         }
 
+        /// <summary>Whether the whole of it is in view, neither zoomed nor moved: FIT is up while it is not.</summary>
+        public bool IsFitted => Mathf.Approximately(_zoom, 1f) && _pan == Vector2.zero;
+
+        /// <summary>The number of words drawn: each box's lines, each arrow's, each table's title and cells.</summary>
+        public int WordCount => _words.Count;
+
+        /// <summary>Zooms in, for a positive count, or out, about the middle: + and -.</summary>
+        public void ZoomAboutTheMiddle(int notches)
+        {
+            if (_layout == null || notches == 0)
+                return;
+            float zoom = Mathf.Clamp(_zoom * Mathf.Pow(1.15f, notches), MostOut, MostIn);
+            _pan *= zoom / _zoom;
+            _zoom = zoom;
+            Place();
+        }
+
         /// <summary>The whole of it in view again (FIT).</summary>
         public void Fit()
         {
@@ -133,12 +151,14 @@ namespace BitSorter.View
         private void Placed()
         {
             float width = float.IsNaN(layout.width) ? 0f : layout.width, height = float.IsNaN(layout.height) ? 0f : layout.height;
-            if (_reading == null || width <= 0f || height <= 0f)
+            if (_reading == null)
             {
                 ClearWords();
                 MarkDirtyRepaint();
                 return;
             }
+            if (width <= 0f || height <= 0f)
+                return;   // hidden: its words kept for when it is up again (the review: DRAWING and back lost them)
             if (_layout == null)
             {
                 _layout = ControllerLayout.Of(_reading, Measure, LineHeight);
@@ -238,6 +258,8 @@ namespace BitSorter.View
 
         private void OnDown(PointerDownEvent e)
         {
+            if (e.button != 0 && e.button != 2)
+                return;   // the left button or the middle one moves it, as over a drawing
             _panning = true;
             _panFrom = e.localPosition;
             this.CapturePointer(e.pointerId);
@@ -292,8 +314,9 @@ namespace BitSorter.View
                 int row = t < _rows.Length ? _rows[t] : -1;
                 if (row >= 0 && row < table.Rows.Count)
                     Rect(painter, ToView(table.Rows[row].Min), ToView(table.Rows[row].Max), litFill, null, 0f);
+                float headerFoot = table.Rows.Count > 0 ? table.Rows[0].Min.y : table.Max.y;
                 foreach (ControllerCell cell in table.Cells)
-                    Rect(painter, ToView(cell.Min), ToView(cell.Max), cell.Header && cell.Min.y < table.Rows[0].Min.y ? palette.Chip : (Color?)null,
+                    Rect(painter, ToView(cell.Min), ToView(cell.Max), cell.Header && cell.Min.y < headerFoot ? palette.Chip : (Color?)null,
                         palette.Outline, 1f);
             }
 

@@ -608,6 +608,11 @@ namespace BitSorter.View
 
         private void ZoomAboutTheMiddle(int notches)
         {
+            if (ControllerShown)
+            {
+                _controllerView.ZoomAboutTheMiddle(notches);   // + and - zoom the diagram up, never the drawing under it (Part 15h-6e)
+                return;
+            }
             if (_viewState != null && _viewState.ZoomAbout(_viewState.Window * 0.5f, notches))
                 ApplyView();
         }
@@ -1305,7 +1310,7 @@ namespace BitSorter.View
         {
             _schematic.anchoredPosition = new Vector2(_viewState.Offset.x, -_viewState.Offset.y);
             _schematic.localScale = new Vector3(_viewState.Zoom, _viewState.Zoom, 1f);
-            Show(_fit, !_viewState.IsFitted);
+            Show(_fit, ControllerShown ? !_controllerView.IsFitted : !_viewState.IsFitted);
             PlaceMinimap();
 
             // The edges' smoothing is a pixel wide, and a zoom changes how many units a pixel is; a pan

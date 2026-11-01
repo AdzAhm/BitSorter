@@ -14,8 +14,8 @@ namespace BitSorter.View
         /// <summary>The switch between a controller's diagram and its drawing, left of the CODE switch.</summary>
         public const string ControllerSwitchName = "Workbench controller switch";
 
-        /// <summary>What the switch says over the drawing of a controller: it turns to the diagram.</summary>
-        public const string DiagramCaption = "DIAGRAM";
+        /// <summary>What the switch says over the drawing of a controller: it turns to the diagram, or to the tables of one with no state.</summary>
+        public const string DiagramCaption = "DIAGRAM", TableCaption = "TABLE";
 
         private const float ControllerSwitchWidth = 116f;
 
@@ -70,6 +70,11 @@ namespace BitSorter.View
                 else
                     PlaceMinimap();
             }
+
+            // The drawing it stands for out of sight while it is up: the diagram starts under the window's top strip, and the
+            // drawing showed through there beside the breadcrumb (shot 71). Asked each frame, since every run builds it anew.
+            if (_schematic != null && _schematic.gameObject.activeSelf == shown)
+                _schematic.gameObject.SetActive(!shown);
             if (!shown)
                 return;
 
@@ -82,6 +87,10 @@ namespace BitSorter.View
             }
             _controllerView.Show(_session.Controller);
             _controllerView.Light(_session.ControllerNow());
+
+            // FIT up while the diagram is zoomed or moved, as it is over a drawing that is.
+            if (_fit != null && _fit.gameObject.activeSelf == _controllerView.IsFitted)
+                Show(_fit, !_controllerView.IsFitted);
         }
 
         /// <summary>The controller switch shown and placed, left of the CODE switch, saying what it turns to; whether it is shown.</summary>
@@ -103,7 +112,7 @@ namespace BitSorter.View
             var rect = _controllerSwitch.GetComponent<RectTransform>();
             if (rect.anchoredPosition != new Vector2(at.x, -at.y))
                 TopLeft(rect, at, new Vector2(ControllerSwitchWidth, 32f));
-            string caption = _session.ShowsController ? DrawingCaption : DiagramCaption;
+            string caption = _session.ShowsController ? DrawingCaption : _session.Controller.Machine != null ? DiagramCaption : TableCaption;
             if (_controllerCaption.text != caption)
                 _controllerCaption.text = caption;
             return true;

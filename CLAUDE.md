@@ -1119,11 +1119,17 @@ failure side.
   its arrow; a decoder -- a case that sets outputs to values -- as its control table
   (`ControllerReader`, `ControllerLayout`, `ControllerView`). The state the run is in,
   the arrow it came by and each table's row are lit as it plays; the wheel zooms it, a
-  drag moves it, FIT fits it. DIAGRAM or DRAWING beside CODE turns between it and the
-  drawing, kept for each module; one the reading is the whole of opens on it, and on
-  it every edit is refused saying to press DRAWING. Every reading is held to the
-  engine (`ControllerEngine`): the netlist's next state for every state and input is
-  one the diagram has an arrow to, and every value it shows is the circuit's. **A big
+  drag or + and - move it, FIT fits it. DIAGRAM (TABLE for one with no states) or
+  DRAWING beside CODE turns between it and the drawing, kept for each module; a module
+  the reading is the whole of opens on it where it is a state machine or a table of
+  several signals -- a one-output case, the prime and seven-segment samples, stays its
+  drawing -- and on it every edit is refused saying to press DRAWING. **Every reading
+  is held to the engine before it is shown** (`ControllerCheck`): for every state and
+  every value of each input of eight bits or fewer, the others random, the next state
+  the instance's netlist works out must be one the diagram has an arrow to, every
+  arrow must be taken and every constant shown must be the circuit's -- a reading it
+  does not bear out is not shown. The words are the code's own, an else's and a
+  default's failed test included ("done and !err"), and not themselves checked. **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

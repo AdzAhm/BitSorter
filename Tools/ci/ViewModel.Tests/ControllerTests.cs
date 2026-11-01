@@ -147,6 +147,45 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(8, layout.Tables[0].Rows.Count);
         }
 
+        /// <summary>
+        /// A one-output case is a function, which its drawing and the LOGIC tab show better: the prime and seven-segment samples
+        /// open on their drawings, though a reading is there for DIAGRAM; the sequence detector, a state machine, on its diagram.
+        /// </summary>
+        [TestCase("Is it prime?", false)]
+        [TestCase("Seven segments", false)]
+        [TestCase("Sequence detector", true)]
+        public void ASampleOpens_AsItsDrawing_UnlessItIsAMachineOrAControlTable(string sample, bool diagram)
+        {
+            double now = 0;
+            var session = new WorkbenchSession(WorkbenchSamples.All.Single(s => s.Name == sample).Build(), () => now += 0.01);
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the drawing of its code");
+            Assert.AreEqual(diagram, session.ShowsController);
+            if (!diagram && session.Controller != null)
+            {
+                session.DrawController(true);
+                Assert.IsTrue(session.ShowsController, "DIAGRAM shows its table");
+            }
+        }
+
+        /// <summary>The check the session makes before it shows a reading refuses one the engine does not bear out: an arrow taken away.</summary>
+        [Test]
+        public void AReadingTheEngineDoesNotBearOut_IsRefused()
+        {
+            CompiledProject compiled = BoardCompiler.Compile(WorkbenchSamples.All.Single(s => s.Name == "Sequence detector").Build());
+            ControllerReading reading = ControllerReader.Read(compiled.Tree, compiled.Tree.Modules.Single(m => m.Name == "seq101"), out _);
+            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, "seq101");
+            Design design = elaboration.Design;
+            string top = design.Scopes.Single(s => s.Kind == ScopeKind.Top).Path;
+            RtlNetlist netlist = RtlExtractor.Of(design, top);
+            Assert.IsNull(ControllerCheck.Why(reading, design, netlist, top), "as read, it holds");
+
+            MachineReading machine = reading.Machine;
+            var fewer = new MachineReading(machine.Register, machine.Next, machine.States, machine.Codes, machine.Start,
+                machine.Arrows.Skip(1).ToList(), machine.Settings);
+            StringAssert.Contains("no arrow", ControllerCheck.Why(new ControllerReading(reading.Module, fewer, reading.Tables, reading.Whole), design, netlist, top));
+        }
+
         private static bool Overlap(Vec2 aMin, Vec2 aMax, Vec2 bMin, Vec2 bMax) =>
             aMin.x <= bMax.x && bMin.x <= aMax.x && aMin.y <= bMax.y && bMin.y <= aMax.y;
 

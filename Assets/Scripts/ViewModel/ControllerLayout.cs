@@ -178,7 +178,7 @@ namespace BitSorter.ViewModel
         public Vec2 Max { get; }
 
         /// <summary>A value as a box or an arrow writes it: a one-bit output set to 1 by its name alone.</summary>
-        public static string Line(ReadValue value) => value.Text == "1" ? value.Signal : value.Signal + " = " + value.Text;
+        public static string Line(ReadValue value) => value.Text == "1" && value.Width == 1 ? value.Signal : value.Signal + " = " + value.Text;
 
         /// <summary>
         /// <paramref name="reading"/> laid out for text <paramref name="measure"/> gives the width of -- in the bold face for a
@@ -247,7 +247,7 @@ namespace BitSorter.ViewModel
                 }
                 seen[v] = 2;
             }
-            Visit(machine.Start);
+            Visit(machine.Start >= 0 ? machine.Start : 0);
             for (int v = 0; v < n; v++)
                 if (seen[v] == 0)
                     Visit(v);

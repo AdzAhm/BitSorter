@@ -404,8 +404,8 @@ namespace BitSorter.View
             Rect2 side = _regions.Side;
             Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState, side.width - 2f * PanelPad - 2f * pad);
             _minimap.Map = map;
-            _minimap.gameObject.SetActive(map != null);
-            if (map == null)
+            _minimap.gameObject.SetActive(map != null && !ControllerShown);   // a map of a drawing out of sight, while a controller's diagram is up
+            if (map == null || ControllerShown)
                 return;
 
             var size = new Vector2(map.Size.x + 2f * pad, map.Size.y + 2f * pad);

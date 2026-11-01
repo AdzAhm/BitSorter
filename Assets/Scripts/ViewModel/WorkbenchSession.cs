@@ -619,6 +619,12 @@ namespace BitSorter.ViewModel
                     _controllerModule = Module;
                     ModuleDeclaration declaration = _drawnTree.Modules.Find(m => m.Name == Module);
                     _controller = declaration != null ? ControllerReader.Read(_drawnTree, declaration, out _) : null;
+
+                    // Held to the run's own netlist of the instance before it is shown: a reading the engine does not bear out
+                    // is never drawn, and the module is shown as its code builds instead (the review of 15h-6e).
+                    if (_controller != null && _drawnDesign != null && _drawnNetlist != null
+                        && ControllerCheck.Why(_controller, _drawnDesign, _drawnNetlist, _drawnPath) != null)
+                        _controller = null;
                 }
                 return _controller;
             }
@@ -627,22 +633,39 @@ namespace BitSorter.ViewModel
         private ControllerReading _controller;
         private SyntaxTree _controllerTree;
         private string _controllerModule;
-        private readonly HashSet<string> _controllerFlipped = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, bool> _controllerChosen = new Dictionary<string, bool>(StringComparer.Ordinal);
 
         /// <summary>
-        /// Whether the circuit's window shows the module as the controller it is rather than as its drawing: one the reading is
-        /// the whole of opens so, any other only once asked -- the traffic light, whose counter the diagram leaves out. Kept
-        /// for each module, as CODE is.
+        /// Whether the circuit's window shows the module as the controller it is rather than as its drawing: as DIAGRAM or
+        /// DRAWING last chose for the module, kept as CODE is; and before any choice, as <see cref="OpensAsController"/> says.
         /// </summary>
-        public bool ShowsController => Controller is ControllerReading reading && reading.Whole != _controllerFlipped.Contains(Module);
+        public bool ShowsController => Controller is ControllerReading reading
+            && (_controllerChosen.TryGetValue(Module, out bool chosen) ? chosen : OpensAsController(reading));
 
-        /// <summary>Shows the module as the controller it is (DIAGRAM), or as its drawing again (DRAWING).</summary>
+        /// <summary>
+        /// Whether a module opens as the controller it is: the reading is the whole of it, and it is a state machine or sets
+        /// several signals a row -- a control table. A one-output case is a function, which its drawing and the LOGIC tab show
+        /// better: the "Is it prime?" and seven-segment samples stay drawings (the review of 15h-6e). The traffic light, whose
+        /// counter the diagram leaves out, opens on its drawing too; DIAGRAM shows it.
+        /// </summary>
+        public static bool OpensAsController(ControllerReading reading)
+        {
+            if (reading == null || !reading.Whole)
+                return false;
+            if (reading.Machine != null)
+                return true;
+            foreach (TableReading table in reading.Tables)
+                if (table.Columns.Count >= 2)
+                    return true;
+            return false;
+        }
+
+        /// <summary>Shows the module as the controller it is (DIAGRAM), or as its drawing again (DRAWING); kept for the module.</summary>
         public void DrawController(bool shown)
         {
-            if (Controller == null || shown == ShowsController)
+            if (Controller == null)
                 return;
-            if (!_controllerFlipped.Add(Module))
-                _controllerFlipped.Remove(Module);
+            _controllerChosen[Module] = shown;
         }
 
         /// <summary>What an edit of the circuit is told while it is shown as a controller.</summary>
