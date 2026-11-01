@@ -1607,9 +1607,12 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator Shot68_WorkbenchSingleCycleProcessor() => Processor("Single-cycle RISC-V", 1500, null, "68-workbench-single-cycle");
 
-        /// <summary>Part 15h-6: the multicycle RV32I stepped inside its datapath, its registers between the steps, mid-run.</summary>
+        /// <summary>
+        /// Part 15h-6: the multicycle RV32I mid-run, its top -- memories, the controller's state machine, the datapath. Its
+        /// datapath and controller are each one flat module of a hundred parts and more, a column no fit can read.
+        /// </summary>
         [UnityTest]
-        public IEnumerator Shot69_WorkbenchMulticycleDatapath() => Processor("Multicycle RISC-V", 6000, "datapath", "69-workbench-multicycle-datapath");
+        public IEnumerator Shot69_WorkbenchMulticycleProcessor() => Processor("Multicycle RISC-V", 6000, null, "69-workbench-multicycle");
 
         /// <summary>Part 15h-6: the pipelined RV32I drawn as the textbook draws one -- a block a stage, a block a register between -- mid-run.</summary>
         [UnityTest]
