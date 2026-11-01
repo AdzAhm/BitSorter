@@ -109,6 +109,10 @@ namespace BitSorter.Ci.Oracle
                 .Select(m => m.Text)
                 .ToArray();
 
+            // A processor's testbench checks its own results: agreeing on a FAIL or a TIMEOUT is no pass (the review of #121).
+            if (file.StartsWith("processor/", StringComparison.Ordinal))
+                CollectionAssert.Contains(bitSorterLines, "PASS: every result as expected", string.Join("\n", bitSorterLines));
+
             var misprinted = new List<string>();
             for (int i = 0; i < Math.Max(icarusLines.Length, bitSorterLines.Length); i++)
             {

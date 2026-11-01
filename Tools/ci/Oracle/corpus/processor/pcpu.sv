@@ -7,8 +7,9 @@
 //     a bubble let into execute behind the load;
 //   - a flush: a taken branch or a jump is decided in execute, and the two instructions fetched after it
 //     are turned into bubbles.
-// The register file is written in the first half of a cycle and read in the second, so a value being
-// written back is read the same cycle. Separate instruction and data memories of 1,024 words each, loaded
+// The register file passes a value being written back straight through to a read of the same register
+// in that cycle -- the textbook's "written in the first half, read in the second" -- so decode never
+// reads a register the instruction leaving write-back is about to change. Separate instruction and data memories of 1,024 words each, loaded
 // from images with $readmemh. It runs the RV32I instructions a program needs: lui, auipc, jal, jalr,
 // every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
 // immediate. No bytes or halfwords, no system instructions. pcpu_tb runs rv_program.hex on rv_data.hex
@@ -57,7 +58,7 @@ module pcpu_regfile (
         if (we && wa != 5'd0) regs[wa] <= wd;
 
     // x0 reads 0 whatever is written to it; a register being written this cycle reads what is being
-    // written, as though written in the cycle's first half and read in its second.
+    // written, passed straight through: the textbook's write in the first half and read in the second.
     assign rd1 = ra1 == 5'd0 ? 32'd0 : we && wa == ra1 ? wd : regs[ra1];
     assign rd2 = ra2 == 5'd0 ? 32'd0 : we && wa == ra2 ? wd : regs[ra2];
 endmodule
@@ -334,9 +335,13 @@ module pcpu #(
         endcase
     end
 
-    // A stall or a flush lets a bubble into execute: nothing written, nothing jumped to.
+    // A stall or a flush lets a bubble into execute: its controls cleared, so it writes nothing and jumps
+    // nowhere, whatever its other fields hold.
+    logic bubble;
+    assign bubble = redirect || stall;
+
     always_ff @(posedge clk, posedge rst)
-        if (rst || redirect || stall) begin
+        if (rst) begin
             ex_rf_we <= 1'b0;
             ex_mem_we <= 1'b0;
             ex_mem_read <= 1'b0;
@@ -356,14 +361,14 @@ module pcpu #(
             ex_rd2 <= 32'd0;
             ex_imm <= 32'd0;
         end else begin
-            ex_rf_we <= rf_we;
-            ex_mem_we <= mem_we_id;
-            ex_mem_read <= mem_read;
+            ex_rf_we <= rf_we && !bubble;
+            ex_mem_we <= mem_we_id && !bubble;
+            ex_mem_read <= mem_read && !bubble;
             ex_alu_a_pc <= alu_a_pc;
             ex_alu_b_imm <= alu_b_imm;
-            ex_branch <= branch;
-            ex_jump <= jump;
-            ex_jump_reg <= jump_reg;
+            ex_branch <= branch && !bubble;
+            ex_jump <= jump && !bubble;
+            ex_jump_reg <= jump_reg && !bubble;
             ex_link <= link;
             ex_alu_op <= alu_op;
             ex_funct3 <= id_instr[14:12];
@@ -491,7 +496,7 @@ module pcpu_tb;
             for (i = 0; i < 10; i++)
                 $write(" %0d", dut.dmem.mem[65 + i]);
             $display;
-            $display("every instruction once: %0d of 31 checks held", dut.dmem.mem[126]);
+            $display("every instruction once: %0d of 40 checks held", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin

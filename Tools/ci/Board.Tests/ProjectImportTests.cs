@@ -98,7 +98,9 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(40, asked.Project.Stimulus.End, "run to where the one asked for stops");
             Assert.IsTrue(asked.Notes.Any(n => n.ToString().Contains("mux2_tb looks like a testbench too")), Notes(asked));
 
-            Assert.AreEqual("mux2_tb", ProjectImporter.Import(files, "mux2").Project.Bench, "a name that is no testbench is the first found");
+            ProjectImport noBench = ProjectImporter.Import(files, "mux2");
+            Assert.AreEqual("mux2_tb", noBench.Project.Bench, "a name that is no testbench is the first found");
+            Assert.IsTrue(noBench.Notes.Any(n => n.ToString().Contains("mux2 is no testbench here; mux2_tb is the one run")), Notes(noBench));
         }
 
         [Test]

@@ -11,8 +11,8 @@ namespace BitSorter.ViewModel
     /// <summary>
     /// The start page's three RV32I processors (Part 15h-6, Ahmad's choice, 2026-10-29): single-cycle, multicycle and
     /// pipelined with forwarding, each running the one demo program -- the sum of 1 to 10, the first ten Fibonacci numbers
-    /// and every instruction once, checking itself (asked 2026-11-01: "all of these examples") -- so the three can be
-    /// compared on it: 323 cycles single-cycle, 1,244 multicycle, 386 pipelined.
+    /// and every instruction they run once, checking itself (asked 2026-11-01: "all of these examples") -- so the three
+    /// can be compared on it: 398 cycles single-cycle, 1,529 multicycle, 471 pipelined.
     /// </summary>
     /// <remarks>
     /// Written for BitSorter's oracle from the published RISC-V specification, never from any course material, and held
@@ -24,13 +24,19 @@ namespace BitSorter.ViewModel
     public static class WorkbenchProcessors
     {
         /// <summary>The single-cycle processor: every instruction in one long clock cycle.</summary>
-        public static Project SingleCycle() => Imported("scpu_tb", ("scpu.sv", Scpu));
+        public static Project SingleCycle() => SingleCycleOnce.Value;
 
         /// <summary>The multicycle processor: a state machine takes each instruction through three to five short cycles.</summary>
-        public static Project Multicycle() => Imported("mcpu_demo_tb", ("mcpu.sv", Mcpu));
+        public static Project Multicycle() => MulticycleOnce.Value;
 
         /// <summary>The pipelined processor: five stages at once, forwarding, a stall after a load and a flush after a jump.</summary>
-        public static Project Pipelined() => Imported("pcpu_tb", ("pcpu.sv", Pcpu));
+        public static Project Pipelined() => PipelinedOnce.Value;
+
+        // Imported once each: an import runs the testbench to find where it stops, a third of a second, and a project is
+        // never changed in place, so every opening can share one (the review of #121).
+        private static readonly Lazy<Project> SingleCycleOnce = new Lazy<Project>(() => Imported("scpu_tb", ("scpu.sv", Scpu)));
+        private static readonly Lazy<Project> MulticycleOnce = new Lazy<Project>(() => Imported("mcpu_demo_tb", ("mcpu.sv", Mcpu)));
+        private static readonly Lazy<Project> PipelinedOnce = new Lazy<Project>(() => Imported("pcpu_tb", ("pcpu.sv", Pcpu)));
 
         /// <summary>Every file the samples are made from, by its corpus name: what ProcessorSampleTests compares.</summary>
         public static readonly IReadOnlyList<(string File, string Text)> Files = new[]
@@ -392,7 +398,7 @@ module scpu_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 31 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -855,7 +861,7 @@ module mcpu_demo_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 31 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -887,8 +893,9 @@ endmodule
 //     a bubble let into execute behind the load;
 //   - a flush: a taken branch or a jump is decided in execute, and the two instructions fetched after it
 //     are turned into bubbles.
-// The register file is written in the first half of a cycle and read in the second, so a value being
-// written back is read the same cycle. Separate instruction and data memories of 1,024 words each, loaded
+// The register file passes a value being written back straight through to a read of the same register
+// in that cycle -- the textbook's ""written in the first half, read in the second"" -- so decode never
+// reads a register the instruction leaving write-back is about to change. Separate instruction and data memories of 1,024 words each, loaded
 // from images with $readmemh. It runs the RV32I instructions a program needs: lui, auipc, jal, jalr,
 // every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
 // immediate. No bytes or halfwords, no system instructions. pcpu_tb runs rv_program.hex on rv_data.hex
@@ -937,7 +944,7 @@ module pcpu_regfile (
         if (we && wa != 5'd0) regs[wa] <= wd;
 
     // x0 reads 0 whatever is written to it; a register being written this cycle reads what is being
-    // written, as though written in the cycle's first half and read in its second.
+    // written, passed straight through: the textbook's write in the first half and read in the second.
     assign rd1 = ra1 == 5'd0 ? 32'd0 : we && wa == ra1 ? wd : regs[ra1];
     assign rd2 = ra2 == 5'd0 ? 32'd0 : we && wa == ra2 ? wd : regs[ra2];
 endmodule
@@ -1214,9 +1221,13 @@ module pcpu #(
         endcase
     end
 
-    // A stall or a flush lets a bubble into execute: nothing written, nothing jumped to.
+    // A stall or a flush lets a bubble into execute: its controls cleared, so it writes nothing and jumps
+    // nowhere, whatever its other fields hold.
+    logic bubble;
+    assign bubble = redirect || stall;
+
     always_ff @(posedge clk, posedge rst)
-        if (rst || redirect || stall) begin
+        if (rst) begin
             ex_rf_we <= 1'b0;
             ex_mem_we <= 1'b0;
             ex_mem_read <= 1'b0;
@@ -1236,14 +1247,14 @@ module pcpu #(
             ex_rd2 <= 32'd0;
             ex_imm <= 32'd0;
         end else begin
-            ex_rf_we <= rf_we;
-            ex_mem_we <= mem_we_id;
-            ex_mem_read <= mem_read;
+            ex_rf_we <= rf_we && !bubble;
+            ex_mem_we <= mem_we_id && !bubble;
+            ex_mem_read <= mem_read && !bubble;
             ex_alu_a_pc <= alu_a_pc;
             ex_alu_b_imm <= alu_b_imm;
-            ex_branch <= branch;
-            ex_jump <= jump;
-            ex_jump_reg <= jump_reg;
+            ex_branch <= branch && !bubble;
+            ex_jump <= jump && !bubble;
+            ex_jump_reg <= jump_reg && !bubble;
             ex_link <= link;
             ex_alu_op <= alu_op;
             ex_funct3 <= id_instr[14:12];
@@ -1371,7 +1382,7 @@ module pcpu_tb;
             for (i = 0; i < 10; i++)
                 $write("" %0d"", dut.dmem.mem[65 + i]);
             $display;
-            $display(""every instruction once: %0d of 31 checks held"", dut.dmem.mem[126]);
+            $display(""every instruction once: %0d of 40 checks held"", dut.dmem.mem[126]);
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -1427,8 +1438,9 @@ localparam logic [3:0] ALU_PASSB = 4'd10;
 ";
 
         private const string Program = @"// rv_demo, the program BitSorter's RV32I processors run: the sum of 1 to 10, the first ten
-// Fibonacci numbers, and every instruction once, checking itself. Assembled from the listing
-// beside each word; word n is the instruction at byte address 4n.
+// Fibonacci numbers, and every instruction the processors run once -- each branch both ways --
+// checking itself. Assembled from the listing beside each word; word n is the instruction at
+// byte address 4n.
 // Written for BitSorter's oracle; not taken from any course material.
 00000413  // 000: addi s0, zero, 0          1. the sum of 1 to 10
 00100293  // 004: addi t0, zero, 1          i
@@ -1618,78 +1630,157 @@ f0f01fb7  // 2dc: lui t6, 0xf0f01
 01f29463  // 2e4: bne t0, t6, skip23
 001d8d93  // 2e8: addi s11, s11, 1
 00000293  // 2ec: addi t0, zero, 0
-00d68463  // 2f0: beq a3, a3, over_beq      taken
+00d68463  // 2f0: beq a3, a3, over_beq_a3_a3  taken
 00128293  // 2f4: addi t0, t0, 1            skipped when taken
-00228293  // 2f8: addi t0, t0, 2            <- over_beq
-0054a023  // 2fc: sw t0, 0(s1)              beq
+00228293  // 2f8: addi t0, t0, 2            <- over_beq_a3_a3
+0054a023  // 2fc: sw t0, 0(s1)              beq, taken
 00448493  // 300: addi s1, s1, 4
 00200f93  // 304: addi t6, zero, 2
 01f29463  // 308: bne t0, t6, skip24
 001d8d93  // 30c: addi s11, s11, 1
 00000293  // 310: addi t0, zero, 0
-00d69463  // 314: bne a3, a3, over_bne      not taken
+00d60463  // 314: beq a2, a3, over_beq_a2_a3  not taken
 00128293  // 318: addi t0, t0, 1            skipped when taken
-00228293  // 31c: addi t0, t0, 2            <- over_bne
-0054a023  // 320: sw t0, 0(s1)              bne
+00228293  // 31c: addi t0, t0, 2            <- over_beq_a2_a3
+0054a023  // 320: sw t0, 0(s1)              beq, not taken
 00448493  // 324: addi s1, s1, 4
 00300f93  // 328: addi t6, zero, 3
 01f29463  // 32c: bne t0, t6, skip25
 001d8d93  // 330: addi s11, s11, 1
 00000293  // 334: addi t0, zero, 0
-00d64463  // 338: blt a2, a3, over_blt      taken
+00d69463  // 338: bne a3, a3, over_bne_a3_a3  not taken
 00128293  // 33c: addi t0, t0, 1            skipped when taken
-00228293  // 340: addi t0, t0, 2            <- over_blt
-0054a023  // 344: sw t0, 0(s1)              blt
+00228293  // 340: addi t0, t0, 2            <- over_bne_a3_a3
+0054a023  // 344: sw t0, 0(s1)              bne, not taken
 00448493  // 348: addi s1, s1, 4
-00200f93  // 34c: addi t6, zero, 2
+00300f93  // 34c: addi t6, zero, 3
 01f29463  // 350: bne t0, t6, skip26
 001d8d93  // 354: addi s11, s11, 1
 00000293  // 358: addi t0, zero, 0
-00d65463  // 35c: bge a2, a3, over_bge      not taken
+00d61463  // 35c: bne a2, a3, over_bne_a2_a3  taken
 00128293  // 360: addi t0, t0, 1            skipped when taken
-00228293  // 364: addi t0, t0, 2            <- over_bge
-0054a023  // 368: sw t0, 0(s1)              bge
+00228293  // 364: addi t0, t0, 2            <- over_bne_a2_a3
+0054a023  // 368: sw t0, 0(s1)              bne, taken
 00448493  // 36c: addi s1, s1, 4
-00300f93  // 370: addi t6, zero, 3
+00200f93  // 370: addi t6, zero, 2
 01f29463  // 374: bne t0, t6, skip27
 001d8d93  // 378: addi s11, s11, 1
 00000293  // 37c: addi t0, zero, 0
-00d66463  // 380: bltu a2, a3, over_bltu    not taken
+00d64463  // 380: blt a2, a3, over_blt_a2_a3  taken
 00128293  // 384: addi t0, t0, 1            skipped when taken
-00228293  // 388: addi t0, t0, 2            <- over_bltu
-0054a023  // 38c: sw t0, 0(s1)              bltu
+00228293  // 388: addi t0, t0, 2            <- over_blt_a2_a3
+0054a023  // 38c: sw t0, 0(s1)              blt, taken
 00448493  // 390: addi s1, s1, 4
-00300f93  // 394: addi t6, zero, 3
+00200f93  // 394: addi t6, zero, 2
 01f29463  // 398: bne t0, t6, skip28
 001d8d93  // 39c: addi s11, s11, 1
 00000293  // 3a0: addi t0, zero, 0
-00d67463  // 3a4: bgeu a2, a3, over_bgeu    taken
+00c6c463  // 3a4: blt a3, a2, over_blt_a3_a2  not taken
 00128293  // 3a8: addi t0, t0, 1            skipped when taken
-00228293  // 3ac: addi t0, t0, 2            <- over_bgeu
-0054a023  // 3b0: sw t0, 0(s1)              bgeu
+00228293  // 3ac: addi t0, t0, 2            <- over_blt_a3_a2
+0054a023  // 3b0: sw t0, 0(s1)              blt, not taken
 00448493  // 3b4: addi s1, s1, 4
-00200f93  // 3b8: addi t6, zero, 2
+00300f93  // 3b8: addi t6, zero, 3
 01f29463  // 3bc: bne t0, t6, skip29
 001d8d93  // 3c0: addi s11, s11, 1
-0080036f  // 3c4: jal t1, after_jal         <- the_jal
-f9cd8d93  // 3c8: addi s11, s11, -100       never runs
-0064a023  // 3cc: sw t1, 0(s1)              jal links (after_jal)
-00448493  // 3d0: addi s1, s1, 4
-00000fb7  // 3d4: lui t6, 0x0
-3c8f8f93  // 3d8: addi t6, t6, 968
-01f31463  // 3dc: bne t1, t6, skip30
-001d8d93  // 3e0: addi s11, s11, 1
-00000397  // 3e4: auipc t2, 0               <- the_auipc
-01038367  // 3e8: jalr t1, 16(t2)
-f9cd8d93  // 3ec: addi s11, s11, -100       never runs
-f9cd8d93  // 3f0: addi s11, s11, -100       never runs
-0064a023  // 3f4: sw t1, 0(s1)              jalr links
-00448493  // 3f8: addi s1, s1, 4
-00000fb7  // 3fc: lui t6, 0x0
-3ecf8f93  // 400: addi t6, t6, 1004
-01f31463  // 404: bne t1, t6, skip31
+00000293  // 3c4: addi t0, zero, 0
+00d65463  // 3c8: bge a2, a3, over_bge_a2_a3  not taken
+00128293  // 3cc: addi t0, t0, 1            skipped when taken
+00228293  // 3d0: addi t0, t0, 2            <- over_bge_a2_a3
+0054a023  // 3d4: sw t0, 0(s1)              bge, not taken
+00448493  // 3d8: addi s1, s1, 4
+00300f93  // 3dc: addi t6, zero, 3
+01f29463  // 3e0: bne t0, t6, skip30
+001d8d93  // 3e4: addi s11, s11, 1
+00000293  // 3e8: addi t0, zero, 0
+00c6d463  // 3ec: bge a3, a2, over_bge_a3_a2  taken
+00128293  // 3f0: addi t0, t0, 1            skipped when taken
+00228293  // 3f4: addi t0, t0, 2            <- over_bge_a3_a2
+0054a023  // 3f8: sw t0, 0(s1)              bge, taken
+00448493  // 3fc: addi s1, s1, 4
+00200f93  // 400: addi t6, zero, 2
+01f29463  // 404: bne t0, t6, skip31
 001d8d93  // 408: addi s11, s11, 1
-00008067  // 40c: jalr zero, 0(ra)          return
+00000293  // 40c: addi t0, zero, 0
+00d66463  // 410: bltu a2, a3, over_bltu_a2_a3  not taken
+00128293  // 414: addi t0, t0, 1            skipped when taken
+00228293  // 418: addi t0, t0, 2            <- over_bltu_a2_a3
+0054a023  // 41c: sw t0, 0(s1)              bltu, not taken
+00448493  // 420: addi s1, s1, 4
+00300f93  // 424: addi t6, zero, 3
+01f29463  // 428: bne t0, t6, skip32
+001d8d93  // 42c: addi s11, s11, 1
+00000293  // 430: addi t0, zero, 0
+00c6e463  // 434: bltu a3, a2, over_bltu_a3_a2  taken
+00128293  // 438: addi t0, t0, 1            skipped when taken
+00228293  // 43c: addi t0, t0, 2            <- over_bltu_a3_a2
+0054a023  // 440: sw t0, 0(s1)              bltu, taken
+00448493  // 444: addi s1, s1, 4
+00200f93  // 448: addi t6, zero, 2
+01f29463  // 44c: bne t0, t6, skip33
+001d8d93  // 450: addi s11, s11, 1
+00000293  // 454: addi t0, zero, 0
+00d67463  // 458: bgeu a2, a3, over_bgeu_a2_a3  taken
+00128293  // 45c: addi t0, t0, 1            skipped when taken
+00228293  // 460: addi t0, t0, 2            <- over_bgeu_a2_a3
+0054a023  // 464: sw t0, 0(s1)              bgeu, taken
+00448493  // 468: addi s1, s1, 4
+00200f93  // 46c: addi t6, zero, 2
+01f29463  // 470: bne t0, t6, skip34
+001d8d93  // 474: addi s11, s11, 1
+00000293  // 478: addi t0, zero, 0
+00c6f463  // 47c: bgeu a3, a2, over_bgeu_a3_a2  not taken
+00128293  // 480: addi t0, t0, 1            skipped when taken
+00228293  // 484: addi t0, t0, 2            <- over_bgeu_a3_a2
+0054a023  // 488: sw t0, 0(s1)              bgeu, not taken
+00448493  // 48c: addi s1, s1, 4
+00300f93  // 490: addi t6, zero, 3
+01f29463  // 494: bne t0, t6, skip35
+001d8d93  // 498: addi s11, s11, 1
+00002283  // 49c: lw t0, 0(zero)
+00128313  // 4a0: addi t1, t0, 1            the word just loaded, at once
+0064a023  // 4a4: sw t1, 0(s1)              lw, then used at once
+00448493  // 4a8: addi s1, s1, 4
+5a5a1fb7  // 4ac: lui t6, 0x5a5a1
+f10f8f93  // 4b0: addi t6, t6, -240
+01f31463  // 4b4: bne t1, t6, skip36
+001d8d93  // 4b8: addi s11, s11, 1
+00000293  // 4bc: addi t0, zero, 0
+1f002383  // 4c0: lw t2, 0x1f0(zero)
+00c38463  // 4c4: beq t2, a2, over_loaded   compares the word just loaded
+00128293  // 4c8: addi t0, t0, 1            skipped
+00228293  // 4cc: addi t0, t0, 2            <- over_loaded
+0054a023  // 4d0: sw t0, 0(s1)              a branch on a word just loaded
+00448493  // 4d4: addi s1, s1, 4
+00200f93  // 4d8: addi t6, zero, 2
+01f29463  // 4dc: bne t0, t6, skip37
+001d8d93  // 4e0: addi s11, s11, 1
+0080036f  // 4e4: jal t1, after_jal         <- the_jal
+f9cd8d93  // 4e8: addi s11, s11, -100       never runs
+0064a023  // 4ec: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 4f0: addi s1, s1, 4
+00000fb7  // 4f4: lui t6, 0x0
+4e8f8f93  // 4f8: addi t6, t6, 1256
+01f31463  // 4fc: bne t1, t6, skip38
+001d8d93  // 500: addi s11, s11, 1
+00000397  // 504: auipc t2, 0               <- the_auipc
+01138367  // 508: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 50c: addi s11, s11, -100       never runs
+f9cd8d93  // 510: addi s11, s11, -100       never runs
+00000e17  // 514: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 518: sw t1, 0(s1)              jalr links
+00448493  // 51c: addi s1, s1, 4
+00000fb7  // 520: lui t6, 0x0
+50cf8f93  // 524: addi t6, t6, 1292
+01f31463  // 528: bne t1, t6, skip39
+001d8d93  // 52c: addi s11, s11, 1
+01c4a023  // 530: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 534: addi s1, s1, 4
+00000fb7  // 538: lui t6, 0x0
+514f8f93  // 53c: addi t6, t6, 1300
+01fe1463  // 540: bne t3, t6, skip40
+001d8d93  // 544: addi s11, s11, 1
+00008067  // 548: jalr zero, 0(ra)          return
 ";
 
         private const string Data = @"// rv_demo's data: word 0 for its lw, and words 1 to 127 cleared, so every result word starts at 0.
@@ -1825,8 +1916,9 @@ f9cd8d93  // 3f0: addi s11, s11, -100       never runs
 ";
 
         private const string Expected = @"// What rv_demo leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): the sum, ten Fibonacci
-// numbers, 31 results of every instruction once, the word it stored to 0x1f0, and at 0x1f8
-// how many of its checks held. Worked out by an emulator written from the RISC-V specification.
+// numbers, 40 results of every instruction the processors run, the word it stored to 0x1f0,
+// and at 0x1f8 how many of its checks held. Worked out by an emulator written from the RISC-V
+// specification.
 // Written for BitSorter's oracle; not taken from any course material.
 00000037  // 100
 00000000  // 104
@@ -1869,28 +1961,28 @@ fff87809  // 190
 f0f01234  // 198
 00000002  // 19c
 00000003  // 1a0
-00000002  // 1a4
-00000003  // 1a8
-00000003  // 1ac
-00000002  // 1b0
-000003c8  // 1b4
-000003ec  // 1b8
-00000000  // 1bc
-00000000  // 1c0
-00000000  // 1c4
-00000000  // 1c8
-00000000  // 1cc
-00000000  // 1d0
-00000000  // 1d4
-00000000  // 1d8
-00000000  // 1dc
+00000003  // 1a4
+00000002  // 1a8
+00000002  // 1ac
+00000003  // 1b0
+00000003  // 1b4
+00000002  // 1b8
+00000003  // 1bc
+00000002  // 1c0
+00000002  // 1c4
+00000003  // 1c8
+5a5a0f10  // 1cc
+00000002  // 1d0
+000004e8  // 1d4
+0000050c  // 1d8
+00000514  // 1dc
 00000000  // 1e0
 00000000  // 1e4
 00000000  // 1e8
 00000000  // 1ec
 f0f01234  // 1f0
 00000000  // 1f4
-0000001f  // 1f8
+00000028  // 1f8
 00000000  // 1fc
 ";
     }

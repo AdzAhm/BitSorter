@@ -1,6 +1,7 @@
 // What rv_demo leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): the sum, ten Fibonacci
-// numbers, 31 results of every instruction once, the word it stored to 0x1f0, and at 0x1f8
-// how many of its checks held. Worked out by an emulator written from the RISC-V specification.
+// numbers, 40 results of every instruction the processors run, the word it stored to 0x1f0,
+// and at 0x1f8 how many of its checks held. Worked out by an emulator written from the RISC-V
+// specification.
 // Written for BitSorter's oracle; not taken from any course material.
 00000037  // 100
 00000000  // 104
@@ -43,26 +44,26 @@ fff87809  // 190
 f0f01234  // 198
 00000002  // 19c
 00000003  // 1a0
-00000002  // 1a4
-00000003  // 1a8
-00000003  // 1ac
-00000002  // 1b0
-000003c8  // 1b4
-000003ec  // 1b8
-00000000  // 1bc
-00000000  // 1c0
-00000000  // 1c4
-00000000  // 1c8
-00000000  // 1cc
-00000000  // 1d0
-00000000  // 1d4
-00000000  // 1d8
-00000000  // 1dc
+00000003  // 1a4
+00000002  // 1a8
+00000002  // 1ac
+00000003  // 1b0
+00000003  // 1b4
+00000002  // 1b8
+00000003  // 1bc
+00000002  // 1c0
+00000002  // 1c4
+00000003  // 1c8
+5a5a0f10  // 1cc
+00000002  // 1d0
+000004e8  // 1d4
+0000050c  // 1d8
+00000514  // 1dc
 00000000  // 1e0
 00000000  // 1e4
 00000000  // 1e8
 00000000  // 1ec
 f0f01234  // 1f0
 00000000  // 1f4
-0000001f  // 1f8
+00000028  // 1f8
 00000000  // 1fc

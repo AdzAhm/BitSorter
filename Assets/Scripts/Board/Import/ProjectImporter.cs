@@ -389,6 +389,10 @@ namespace BitSorter.Board
                         $"{module.Name} looks like a testbench too; {bench.Name} is the one run.", false);
             }
 
+            if (benchName != null && bench?.Name != benchName && files.Count > 0)
+                Note(bench?.Location.File ?? files[0].Path, 0, 0, bench != null
+                    ? $"{benchName} is no testbench here; {bench.Name} is the one run."
+                    : $"{benchName} is no testbench here, and there is none.", false);
             string top = bench != null ? DesignOf(bench, uses, instances, byName, Note) : null;
             if (bench == null)
             {

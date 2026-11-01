@@ -26,9 +26,9 @@ namespace BitSorter.ViewModel.Tests
                     $"{file} differs from the corpus's: copy the corpus file into WorkbenchProcessors.cs");
         }
 
-        [TestCase("Single-cycle RISC-V", "scpu_tb", 323)]
-        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", 1244)]
-        [TestCase("Pipelined RISC-V", "pcpu_tb", 386)]
+        [TestCase("Single-cycle RISC-V", "scpu_tb", 398)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", 1529)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", 471)]
         public void AProcessor_RunsTheDemo_ToPass_InTheCyclesItsLineSays(string name, string bench, int cycles)
         {
             (string Name, string Says, System.Func<Project> Build) sample = WorkbenchSamples.All.Single(s => s.Name == name);
@@ -36,7 +36,9 @@ namespace BitSorter.ViewModel.Tests
                 "the line under its name says how many cycles it takes");
             Project project = sample.Build();
             Assert.AreEqual(bench, project.Bench);
-            Assert.IsNull(project.Find("mcpu_tb"), "the oracle's own testbench is left out");
+            if (bench == "mcpu_demo_tb")
+                Assert.IsNull(project.Find("mcpu_tb"), "mcpu.sv's other testbench, the oracle's, is left out");
+            Assert.AreSame(project, sample.Build(), "imported once, and shared");
 
             CompiledProject compiled = BoardCompiler.Compile(project);
             Assert.IsTrue(compiled.Succeeded, string.Join("\n", compiled.Diagnostics));
@@ -49,7 +51,7 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains($"done after {cycles} cycles", said);
             StringAssert.Contains("the sum of 1 to 10: 55", said);
             StringAssert.Contains("ten Fibonacci numbers: 0 1 1 2 3 5 8 13 21 34", said);
-            StringAssert.Contains("every instruction once: 31 of 31 checks held", said);
+            StringAssert.Contains("every instruction once: 40 of 40 checks held", said);
             StringAssert.Contains("PASS: every result as expected", said);
             Assert.AreEqual(result.Time, project.Stimulus.End, "the run is shown to where the testbench stops");
         }

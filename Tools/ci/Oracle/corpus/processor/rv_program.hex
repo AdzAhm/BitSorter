@@ -1,6 +1,7 @@
 // rv_demo, the program BitSorter's RV32I processors run: the sum of 1 to 10, the first ten
-// Fibonacci numbers, and every instruction once, checking itself. Assembled from the listing
-// beside each word; word n is the instruction at byte address 4n.
+// Fibonacci numbers, and every instruction the processors run once -- each branch both ways --
+// checking itself. Assembled from the listing beside each word; word n is the instruction at
+// byte address 4n.
 // Written for BitSorter's oracle; not taken from any course material.
 00000413  // 000: addi s0, zero, 0          1. the sum of 1 to 10
 00100293  // 004: addi t0, zero, 1          i
@@ -190,75 +191,154 @@ f0f01fb7  // 2dc: lui t6, 0xf0f01
 01f29463  // 2e4: bne t0, t6, skip23
 001d8d93  // 2e8: addi s11, s11, 1
 00000293  // 2ec: addi t0, zero, 0
-00d68463  // 2f0: beq a3, a3, over_beq      taken
+00d68463  // 2f0: beq a3, a3, over_beq_a3_a3  taken
 00128293  // 2f4: addi t0, t0, 1            skipped when taken
-00228293  // 2f8: addi t0, t0, 2            <- over_beq
-0054a023  // 2fc: sw t0, 0(s1)              beq
+00228293  // 2f8: addi t0, t0, 2            <- over_beq_a3_a3
+0054a023  // 2fc: sw t0, 0(s1)              beq, taken
 00448493  // 300: addi s1, s1, 4
 00200f93  // 304: addi t6, zero, 2
 01f29463  // 308: bne t0, t6, skip24
 001d8d93  // 30c: addi s11, s11, 1
 00000293  // 310: addi t0, zero, 0
-00d69463  // 314: bne a3, a3, over_bne      not taken
+00d60463  // 314: beq a2, a3, over_beq_a2_a3  not taken
 00128293  // 318: addi t0, t0, 1            skipped when taken
-00228293  // 31c: addi t0, t0, 2            <- over_bne
-0054a023  // 320: sw t0, 0(s1)              bne
+00228293  // 31c: addi t0, t0, 2            <- over_beq_a2_a3
+0054a023  // 320: sw t0, 0(s1)              beq, not taken
 00448493  // 324: addi s1, s1, 4
 00300f93  // 328: addi t6, zero, 3
 01f29463  // 32c: bne t0, t6, skip25
 001d8d93  // 330: addi s11, s11, 1
 00000293  // 334: addi t0, zero, 0
-00d64463  // 338: blt a2, a3, over_blt      taken
+00d69463  // 338: bne a3, a3, over_bne_a3_a3  not taken
 00128293  // 33c: addi t0, t0, 1            skipped when taken
-00228293  // 340: addi t0, t0, 2            <- over_blt
-0054a023  // 344: sw t0, 0(s1)              blt
+00228293  // 340: addi t0, t0, 2            <- over_bne_a3_a3
+0054a023  // 344: sw t0, 0(s1)              bne, not taken
 00448493  // 348: addi s1, s1, 4
-00200f93  // 34c: addi t6, zero, 2
+00300f93  // 34c: addi t6, zero, 3
 01f29463  // 350: bne t0, t6, skip26
 001d8d93  // 354: addi s11, s11, 1
 00000293  // 358: addi t0, zero, 0
-00d65463  // 35c: bge a2, a3, over_bge      not taken
+00d61463  // 35c: bne a2, a3, over_bne_a2_a3  taken
 00128293  // 360: addi t0, t0, 1            skipped when taken
-00228293  // 364: addi t0, t0, 2            <- over_bge
-0054a023  // 368: sw t0, 0(s1)              bge
+00228293  // 364: addi t0, t0, 2            <- over_bne_a2_a3
+0054a023  // 368: sw t0, 0(s1)              bne, taken
 00448493  // 36c: addi s1, s1, 4
-00300f93  // 370: addi t6, zero, 3
+00200f93  // 370: addi t6, zero, 2
 01f29463  // 374: bne t0, t6, skip27
 001d8d93  // 378: addi s11, s11, 1
 00000293  // 37c: addi t0, zero, 0
-00d66463  // 380: bltu a2, a3, over_bltu    not taken
+00d64463  // 380: blt a2, a3, over_blt_a2_a3  taken
 00128293  // 384: addi t0, t0, 1            skipped when taken
-00228293  // 388: addi t0, t0, 2            <- over_bltu
-0054a023  // 38c: sw t0, 0(s1)              bltu
+00228293  // 388: addi t0, t0, 2            <- over_blt_a2_a3
+0054a023  // 38c: sw t0, 0(s1)              blt, taken
 00448493  // 390: addi s1, s1, 4
-00300f93  // 394: addi t6, zero, 3
+00200f93  // 394: addi t6, zero, 2
 01f29463  // 398: bne t0, t6, skip28
 001d8d93  // 39c: addi s11, s11, 1
 00000293  // 3a0: addi t0, zero, 0
-00d67463  // 3a4: bgeu a2, a3, over_bgeu    taken
+00c6c463  // 3a4: blt a3, a2, over_blt_a3_a2  not taken
 00128293  // 3a8: addi t0, t0, 1            skipped when taken
-00228293  // 3ac: addi t0, t0, 2            <- over_bgeu
-0054a023  // 3b0: sw t0, 0(s1)              bgeu
+00228293  // 3ac: addi t0, t0, 2            <- over_blt_a3_a2
+0054a023  // 3b0: sw t0, 0(s1)              blt, not taken
 00448493  // 3b4: addi s1, s1, 4
-00200f93  // 3b8: addi t6, zero, 2
+00300f93  // 3b8: addi t6, zero, 3
 01f29463  // 3bc: bne t0, t6, skip29
 001d8d93  // 3c0: addi s11, s11, 1
-0080036f  // 3c4: jal t1, after_jal         <- the_jal
-f9cd8d93  // 3c8: addi s11, s11, -100       never runs
-0064a023  // 3cc: sw t1, 0(s1)              jal links (after_jal)
-00448493  // 3d0: addi s1, s1, 4
-00000fb7  // 3d4: lui t6, 0x0
-3c8f8f93  // 3d8: addi t6, t6, 968
-01f31463  // 3dc: bne t1, t6, skip30
-001d8d93  // 3e0: addi s11, s11, 1
-00000397  // 3e4: auipc t2, 0               <- the_auipc
-01038367  // 3e8: jalr t1, 16(t2)
-f9cd8d93  // 3ec: addi s11, s11, -100       never runs
-f9cd8d93  // 3f0: addi s11, s11, -100       never runs
-0064a023  // 3f4: sw t1, 0(s1)              jalr links
-00448493  // 3f8: addi s1, s1, 4
-00000fb7  // 3fc: lui t6, 0x0
-3ecf8f93  // 400: addi t6, t6, 1004
-01f31463  // 404: bne t1, t6, skip31
+00000293  // 3c4: addi t0, zero, 0
+00d65463  // 3c8: bge a2, a3, over_bge_a2_a3  not taken
+00128293  // 3cc: addi t0, t0, 1            skipped when taken
+00228293  // 3d0: addi t0, t0, 2            <- over_bge_a2_a3
+0054a023  // 3d4: sw t0, 0(s1)              bge, not taken
+00448493  // 3d8: addi s1, s1, 4
+00300f93  // 3dc: addi t6, zero, 3
+01f29463  // 3e0: bne t0, t6, skip30
+001d8d93  // 3e4: addi s11, s11, 1
+00000293  // 3e8: addi t0, zero, 0
+00c6d463  // 3ec: bge a3, a2, over_bge_a3_a2  taken
+00128293  // 3f0: addi t0, t0, 1            skipped when taken
+00228293  // 3f4: addi t0, t0, 2            <- over_bge_a3_a2
+0054a023  // 3f8: sw t0, 0(s1)              bge, taken
+00448493  // 3fc: addi s1, s1, 4
+00200f93  // 400: addi t6, zero, 2
+01f29463  // 404: bne t0, t6, skip31
 001d8d93  // 408: addi s11, s11, 1
-00008067  // 40c: jalr zero, 0(ra)          return
+00000293  // 40c: addi t0, zero, 0
+00d66463  // 410: bltu a2, a3, over_bltu_a2_a3  not taken
+00128293  // 414: addi t0, t0, 1            skipped when taken
+00228293  // 418: addi t0, t0, 2            <- over_bltu_a2_a3
+0054a023  // 41c: sw t0, 0(s1)              bltu, not taken
+00448493  // 420: addi s1, s1, 4
+00300f93  // 424: addi t6, zero, 3
+01f29463  // 428: bne t0, t6, skip32
+001d8d93  // 42c: addi s11, s11, 1
+00000293  // 430: addi t0, zero, 0
+00c6e463  // 434: bltu a3, a2, over_bltu_a3_a2  taken
+00128293  // 438: addi t0, t0, 1            skipped when taken
+00228293  // 43c: addi t0, t0, 2            <- over_bltu_a3_a2
+0054a023  // 440: sw t0, 0(s1)              bltu, taken
+00448493  // 444: addi s1, s1, 4
+00200f93  // 448: addi t6, zero, 2
+01f29463  // 44c: bne t0, t6, skip33
+001d8d93  // 450: addi s11, s11, 1
+00000293  // 454: addi t0, zero, 0
+00d67463  // 458: bgeu a2, a3, over_bgeu_a2_a3  taken
+00128293  // 45c: addi t0, t0, 1            skipped when taken
+00228293  // 460: addi t0, t0, 2            <- over_bgeu_a2_a3
+0054a023  // 464: sw t0, 0(s1)              bgeu, taken
+00448493  // 468: addi s1, s1, 4
+00200f93  // 46c: addi t6, zero, 2
+01f29463  // 470: bne t0, t6, skip34
+001d8d93  // 474: addi s11, s11, 1
+00000293  // 478: addi t0, zero, 0
+00c6f463  // 47c: bgeu a3, a2, over_bgeu_a3_a2  not taken
+00128293  // 480: addi t0, t0, 1            skipped when taken
+00228293  // 484: addi t0, t0, 2            <- over_bgeu_a3_a2
+0054a023  // 488: sw t0, 0(s1)              bgeu, not taken
+00448493  // 48c: addi s1, s1, 4
+00300f93  // 490: addi t6, zero, 3
+01f29463  // 494: bne t0, t6, skip35
+001d8d93  // 498: addi s11, s11, 1
+00002283  // 49c: lw t0, 0(zero)
+00128313  // 4a0: addi t1, t0, 1            the word just loaded, at once
+0064a023  // 4a4: sw t1, 0(s1)              lw, then used at once
+00448493  // 4a8: addi s1, s1, 4
+5a5a1fb7  // 4ac: lui t6, 0x5a5a1
+f10f8f93  // 4b0: addi t6, t6, -240
+01f31463  // 4b4: bne t1, t6, skip36
+001d8d93  // 4b8: addi s11, s11, 1
+00000293  // 4bc: addi t0, zero, 0
+1f002383  // 4c0: lw t2, 0x1f0(zero)
+00c38463  // 4c4: beq t2, a2, over_loaded   compares the word just loaded
+00128293  // 4c8: addi t0, t0, 1            skipped
+00228293  // 4cc: addi t0, t0, 2            <- over_loaded
+0054a023  // 4d0: sw t0, 0(s1)              a branch on a word just loaded
+00448493  // 4d4: addi s1, s1, 4
+00200f93  // 4d8: addi t6, zero, 2
+01f29463  // 4dc: bne t0, t6, skip37
+001d8d93  // 4e0: addi s11, s11, 1
+0080036f  // 4e4: jal t1, after_jal         <- the_jal
+f9cd8d93  // 4e8: addi s11, s11, -100       never runs
+0064a023  // 4ec: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 4f0: addi s1, s1, 4
+00000fb7  // 4f4: lui t6, 0x0
+4e8f8f93  // 4f8: addi t6, t6, 1256
+01f31463  // 4fc: bne t1, t6, skip38
+001d8d93  // 500: addi s11, s11, 1
+00000397  // 504: auipc t2, 0               <- the_auipc
+01138367  // 508: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 50c: addi s11, s11, -100       never runs
+f9cd8d93  // 510: addi s11, s11, -100       never runs
+00000e17  // 514: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 518: sw t1, 0(s1)              jalr links
+00448493  // 51c: addi s1, s1, 4
+00000fb7  // 520: lui t6, 0x0
+50cf8f93  // 524: addi t6, t6, 1292
+01f31463  // 528: bne t1, t6, skip39
+001d8d93  // 52c: addi s11, s11, 1
+01c4a023  // 530: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 534: addi s1, s1, 4
+00000fb7  // 538: lui t6, 0x0
+514f8f93  // 53c: addi t6, t6, 1300
+01fe1463  // 540: bne t3, t6, skip40
+001d8d93  // 544: addi s11, s11, 1
+00008067  // 548: jalr zero, 0(ra)          return
