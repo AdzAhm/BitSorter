@@ -3366,6 +3366,10 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(WorkbenchPanel.DrawingCaption, workbench.ControllerSwitch.GetComponentInChildren<TMP_Text>().text);
             Assert.IsFalse(workbench.GatesSwitch.gameObject.activeSelf, "GATES belongs to the drawing");
             Assert.IsTrue(ShellPanel.OverControlAt(ShellPanel.ScreenPointOf(diagram)), "over the diagram the pointer is the diagram's");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("and")),
+                "PARTS offers nothing to place on the diagram, which takes no edit");
+            StringAssert.Contains("textbook", ShellPanel.Find<UnityEngine.UIElements.Label>(WorkbenchPanel.CodeNoteName).text,
+                "and says what it is looking at");
 
             yield return Click(WorkbenchPanel.ControllerSwitchName);
             yield return null;
@@ -3373,6 +3377,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.None, diagram.resolvedStyle.display);
             Assert.AreEqual(WorkbenchPanel.DiagramCaption, workbench.ControllerSwitch.GetComponentInChildren<TMP_Text>().text);
             Assert.IsTrue(workbench.GatesSwitch.gameObject.activeSelf, "GATES beside it again");
+            Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.PartButtonName("and")),
+                "and PARTS its parts, to place on the drawing");
 
             yield return Click(WorkbenchPanel.ControllerSwitchName);
             yield return null;

@@ -55,11 +55,13 @@ namespace BitSorter.View
         /// </summary>
         private void RefreshPartsPanel()
         {
-            if (_session == null || (ReferenceEquals(_partsProject, _session.Project) && _session.ShowsDrawingOfCode == _partsDrawing))
+            if (_session == null || (ReferenceEquals(_partsProject, _session.Project) && _session.ShowsDrawingOfCode == _partsDrawing
+                    && _session.ShowsController == _partsController))
                 return;
             _partsProject = _session.Project;
             if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary)
-                || _session.ShowsCode != _partsShowCode || _session.ShowsDrawingOfCode != _partsDrawing)
+                || _session.ShowsCode != _partsShowCode || _session.ShowsDrawingOfCode != _partsDrawing
+                || _session.ShowsController != _partsController)
             {
                 BuildPartsPanel(SchematicPalette.Current);
                 return;
@@ -78,7 +80,11 @@ namespace BitSorter.View
             _partsLibrary = _partsProject?.Settings?.Library;
             _partsShowCode = _session != null && _session.ShowsCode;
             _partsDrawing = _session != null && _session.ShowsDrawingOfCode;
+            _partsController = _session != null && _session.ShowsController;
         }
+
+        /// <summary>Whether PARTS was made for a controller's diagram or tables (Part 15h-6e), where nothing is placed.</summary>
+        private bool _partsController;
 
         /// <summary>Whether PARTS was made for the drawing of written code (Part 15h-4), which says so.</summary>
         private bool _partsDrawing;
