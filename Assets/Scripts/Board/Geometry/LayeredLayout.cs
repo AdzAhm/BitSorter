@@ -146,11 +146,17 @@ namespace BitSorter.Board
                 }
             }
 
-            // Each column as wide as its widest part, with room between; each part as tall as it is, stood level with the
-            // mean height of what feeds it from the column before where it fits, else below the part above it.
             var outlines = new PartOutline[n];
             for (int i = 0; i < n; i++)
                 outlines[i] = PartGeometry.Local(project, parts[i]);
+
+            // A column far taller than the drawing would be wide stands as several side by side, in its order (Part 15h-6,
+            // Ahmad's choice, 2026-11-01): a module of a hundred parts and no blocks -- a processor's controller -- drew as
+            // one column no fit could read. Parts of one column never link to one another, so no link runs backwards.
+            Wrap(ref columns, ref inColumn, column, outlines);
+
+            // Each column as wide as its widest part, with room between; each part as tall as it is, stood level with the
+            // mean height of what feeds it from the column before where it fits, else below the part above it.
             var x = new double[columns];
             double at = 0;
             for (int c = 0; c < columns; c++)
@@ -232,6 +238,75 @@ namespace BitSorter.Board
             for (int i = 0; i < n; i++)
                 placements[i] = new Placement(new Point(x[column[i]], y[i]));
             return placements;
+        }
+
+        /// <summary>
+        /// The height, in cells, no column is wrapped below. A drawing about fifty cells tall reads at a fit already, and
+        /// wrapping it gained a few per cent of size and lost its shape: an ALU's operators stood in one column, as the
+        /// textbook draws them, came out in two (measured on the corpus, 2026-11-01).
+        /// </summary>
+        public const double LeastWrapHeight = 40;
+
+        /// <summary>
+        /// How much taller than the drawing's height a column must be before it is wrapped, so a drawing whose columns are
+        /// all near it is laid out as it always was.
+        /// </summary>
+        public const double WrapMargin = 1.25;
+
+        /// <summary>
+        /// Every column taller than the drawing's height, where that height makes the drawing about twice as wide as tall --
+        /// the window's shape -- cut into pieces of about that height, standing side by side in the column's order.
+        /// </summary>
+        private static void Wrap(ref int columns, ref List<int>[] inColumn, int[] column, PartOutline[] outlines)
+        {
+            double area = 0, tallest = 0;
+            var heights = new double[columns];
+            for (int c = 0; c < columns; c++)
+            {
+                double width = 0;
+                foreach (int v in inColumn[c])
+                {
+                    heights[c] += outlines[v].Top - outlines[v].Bottom + RowGap;
+                    width = Math.Max(width, outlines[v].Right - outlines[v].Left);
+                }
+                area += heights[c] * (width + ColumnGap);
+                tallest = Math.Max(tallest, heights[c]);
+            }
+            double height = Math.Max(LeastWrapHeight, Math.Sqrt(area / 2));
+            if (tallest <= height * WrapMargin)
+                return;
+
+            var wrapped = new List<List<int>>();
+            for (int c = 0; c < columns; c++)
+            {
+                if (heights[c] <= height * WrapMargin)
+                {
+                    wrapped.Add(inColumn[c]);
+                    continue;
+                }
+                double each = heights[c] / Math.Ceiling(heights[c] / height);
+                var piece = new List<int>();
+                double stood = 0;
+                foreach (int v in inColumn[c])
+                {
+                    double tall = outlines[v].Top - outlines[v].Bottom + RowGap;
+                    if (piece.Count > 0 && stood + tall > each + 1e-9)
+                    {
+                        wrapped.Add(piece);
+                        piece = new List<int>();
+                        stood = 0;
+                    }
+                    piece.Add(v);
+                    stood += tall;
+                }
+                wrapped.Add(piece);
+            }
+
+            columns = wrapped.Count;
+            inColumn = wrapped.ToArray();
+            for (int c = 0; c < columns; c++)
+                foreach (int v in inColumn[c])
+                    column[v] = c;
         }
 
         /// <summary>Every loop broken where it closes: a link back to a part already on the way is taken out.</summary>
