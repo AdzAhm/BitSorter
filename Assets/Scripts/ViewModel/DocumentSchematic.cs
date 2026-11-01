@@ -343,7 +343,7 @@ namespace BitSorter.ViewModel
                 case GatePart gate: return gate.Kind.ToString().ToUpperInvariant();
                 case BlockPart block: return block.Copies > 1 ? block.Module + " ×" + block.Copies : block.Module;   // an array: half_adder x4
                 case BoxPart box: return box.Label;
-                case ConstantPart constant: return constant.Value.ToLiteral(SystemVerilog.Radix.Binary);
+                case ConstantPart constant: return constant.Literal;
                 case MuxPart mux: return "MUX";
                 case OperatorPart op: return Operators.Token(op.Op);
                 case RegisterPart _: return "REG";

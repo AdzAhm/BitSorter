@@ -33,7 +33,7 @@ namespace BitSorter.Board
             if (_caseSubjectWidth != null && _caseSubjectWidth.ContainsKey(part) && drawn is MuxPart chooser)
                 return Operand(part, "s") + " picks which input reaches y: d" + "k when it is k, each of the " + chooser.Inputs.ToString(CultureInfo.InvariantCulture) + " values a case arm.";
             if (drawn is ConstantPart constant)
-                return "The value " + constant.Value.ToLiteral(Radix.Binary) + ", as the code writes it.";
+                return "The value " + constant.Literal + ", as the code writes it.";
             if (_made != null && _made.TryGetValue(part, out (string Says, string Expression) made))
                 return made.Says;
             if (_matchSets != null && _matchSets.TryGetValue(part, out List<ulong> set))

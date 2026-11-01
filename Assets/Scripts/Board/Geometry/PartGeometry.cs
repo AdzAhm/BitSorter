@@ -176,7 +176,7 @@ namespace BitSorter.Board
                 {
                     // Room for the value as a literal, rounded up to the quarter-cell grid, and half a cell more for the lead
                     // its box steps back from its pin by (Part 15g): its pin stays put, and the box keeps the literal's room.
-                    int characters = constant.Value.ToLiteral(SystemVerilog.Radix.Binary).Length;
+                    int characters = constant.Literal.Length;
                     double width = Math.Ceiling(Math.Max(1.0, 0.3 + 0.12 * characters) * 4) / 4 + 0.5;
                     Right("y", 0, 0.5);
                     return new PartOutline(0.5 - width, -0.3, 0.5, 0.3, pins);

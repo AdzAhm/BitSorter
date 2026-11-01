@@ -134,6 +134,10 @@ namespace BitSorter.Board
     {
         public LogicVec Value { get; init; } = LogicVec.FromUInt64(0, 1);
 
+        /// <summary>How it is written on the drawing: in binary up to eight bits, in hex past them -- a 32-bit zero was
+        /// thirty-two digits wide on a processor's drawing (Part 15h-6).</summary>
+        public string Literal => Value.ToLiteral(Value.Width > 8 ? SystemVerilog.Radix.Hex : SystemVerilog.Radix.Binary);
+
         public override IReadOnlyList<Pin> Pins(Project project) => new[] { new Pin("y", PinDirection.Out, Value.Width) };
     }
 
