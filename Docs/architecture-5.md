@@ -3496,7 +3496,7 @@ instances inside written code stepped into, and GATES opening its small operator
     -- both operands not shown to be unsigned, a shift's left one -- and only one shown to be unsigned opens.
   - **Known**: a whole ALU opened -- a hundred gates or so -- is dense at the fitted zoom, the layout's columns not
     knowing a bit slice from another, and nothing caps how many open -- 128 openings drew 2,694 parts in 0.6 s and routed
-    in 3.1 on the desktop; bit slices and a cap are 15h-6's to measure. A gate opened has no signal of its own, so it
+    in 3.1 on the desktop; bit slices and a cap are 15h-6's to measure (the cap, a browser's alone, built in 15h-6b). A gate opened has no signal of its own, so it
     never flashes as the design's gates do.
 - **It took no edit** until 15h-4g: placing, wiring, moving, turning, deleting, pasting, routing and the inspector were
   each refused with "This is the drawing of the code: change the code to change it" (`WorkbenchSession.DrawingRefusal`),
@@ -3528,7 +3528,7 @@ instances inside written code stepped into, and GATES opening its small operator
 - **Known, and left** (the second half, or 15h-6's measuring): an inout port is not drawn; an operator's sign and a
   register's negedge are not shown; why a process is a box is held (`BoxPart.Says`) but not shown; a library cell is
   known by its name; and the code is elaborated again for each drawing, which 15h-6 measures with a cap on the parts
-  drawn -- 3,000 parts draw in about a tenth of a second, 12,000 route in eleven.
+  drawn -- 3,000 parts draw in about a tenth of a second, 12,000 route in eleven (15h-6b capped GATES in a browser only).
 - **Tests**: every exercise solution's and corpus design's netlist, each scope, drawn -- every operator, register, gate
   and instance a part, a port each, every wire on pins its parts have and named for its signal, nothing on anything,
   every wire routed, the same drawing twice; a case drawn as its mux; in the view-model, the written adder's drawing an
@@ -3781,6 +3781,34 @@ samples in 15h-6"; the program, 2026-11-01: "all of these examples").
   pipelined top, then 207 parts and 384 wires in one tall column no fit could read, 8 ms; the
   single-cycle datapath 100 parts, 2 ms; with GATES, the multicycle controller -- the most any opens, 1,004 parts and
   1,709 wires -- 333 ms, the single-cycle's 468 parts 104 ms. Nothing on the desktop wants a cap.
+
+**As built in Part 15h-6b: tall drawings wrap, and GATES capped in a browser** (Ahmad's choices, 2026-11-01: wrap "now,
+in 15h-6"; the cap "with a small addition that it gives a hint/warning to download the desktop version for the bigger
+ones").
+- **A column far taller than the drawing is wide wraps** (`LayeredLayout.Wrap`): once the columns are found and ordered,
+  the height that would make the drawing about twice as wide as tall -- the window's shape -- is worked out from the
+  columns' area, never under 40 cells (`LeastWrapHeight`), and a column more than a quarter taller than it
+  (`WrapMargin`) is cut, in its order, into pieces of about that height standing side by side. Parts of one column never
+  link to one another, so no link runs backwards; each part then stands level with what feeds it as before.
+- **The floor was measured, not chosen**: over every corpus and exercise drawing, a floor of 20 cells also wrapped the
+  ALUs, the immediate generators and `traffic_light` -- drawings about fifty cells tall that read at a fit already --
+  for a few per cent of size, and an ALU's operators, one column as the textbook draws them, came out in two. At 40,
+  no exercise drawing changes, and what wraps is what did not fit: `alu64` from 43 by 272 cells to 127 by 77, the
+  multicycle controller from 118 by 98 to 146 by 60, the pipelined one from 60 by 53 to 71 by 46, `memories_tb` from 15
+  by 105 to 33 by 36.
+- **GATES in a browser opens no more than 800 parts** (`WorkbenchSession.GatesCap`, set by the view in a WebGL build to
+  `BrowserGatesCap`; null on the desktop): asked to open more, the boxes stay and it says "GATES would draw N parts, more
+  than a browser draws at once (800), so the boxes stay: the desktop version of BitSorter opens them all", which counts as
+  the browser's one desktop hint (`DesktopHint`) for the run. The count is the drawing's parts made and not wired or laid
+  out (`RtlDrawing.PartsOf`): the multicycle controller's 1,004 take 231 ms to make and lay out and 499 to route on the
+  desktop, several times that in a browser. 800 is past the single-cycle and pipelined controllers (470 and 451).
+- **Tests**: every drawing of fifty parts or more no taller than 1.5 times its width, or its tallest part -- a
+  testbench's checks are one process box reading a thousand words, and no wrap shortens a part (`RtlDrawingTests`); the
+  count agreeing with the drawing, with gates and without, for every scope of every design; and the multicycle
+  controller's GATES refused under the cap with the desktop named, the single-cycle's opened, and every gate opened with
+  no cap (`ProcessorSampleTests`).
+- **Known, and left**: a testbench's checking process is drawn as one box of a pin for each word it reads -- 547 cells
+  tall on the processors' testbenches, which a student opens only by stepping into the bench.
 
 **As built in Part 15h-4f: a drawing of code arranged by hand** (asked 2026-10-29: move and turn parts on the drawing,
 the code untouched, and find them there again).

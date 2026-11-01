@@ -80,5 +80,51 @@ namespace BitSorter.ViewModel.Tests
             }
             Assert.AreEqual(drawn.Count, datapath.Arrangement.Count, "every part laid out by hand");
         }
+
+        /// <summary>
+        /// GATES in a browser opens no more parts than its cap (Part 15h-6, Ahmad's choice, 2026-11-01): the multicycle
+        /// controller's thousand gates keep their boxes and say the desktop version opens them, the single-cycle's open, and
+        /// the desktop opens every one.
+        /// </summary>
+        [Test]
+        public void GatesInABrowser_KeepTheBoxesPastTheCap_SayingTheDesktopOpensThem()
+        {
+            int cap = WorkbenchSession.BrowserGatesCap;
+            WorkbenchSession multicycle = InsideTheControl("Multicycle RISC-V");
+            multicycle.GatesCap = cap;
+            int boxes = multicycle.DrawnModule.Parts.Count;
+            string refused = multicycle.DrawGates(true);
+            Assert.IsNotNull(refused, "past the cap");
+            StringAssert.StartsWith("GATES would draw ", refused);
+            StringAssert.Contains("desktop version", refused);
+            Assert.IsFalse(multicycle.ShowsGatesOfCode, "the boxes kept");
+            Assert.AreEqual(boxes, multicycle.DrawnModule.Parts.Count);
+
+            multicycle.GatesCap = null;   // the desktop's
+            Assert.IsNull(multicycle.DrawGates(true));
+            Assert.IsTrue(multicycle.ShowsGatesOfCode);
+            Assert.Greater(multicycle.DrawnModule.Parts.Count, cap, "every gate opened");
+            Assert.AreEqual(WorkbenchSession.GatesCapRefusal(multicycle.DrawnModule.Parts.Count, cap), refused, "the refusal counted what it would draw");
+            multicycle.GatesCap = cap;
+            Assert.IsNull(multicycle.DrawGates(false), "BOXES is never refused");
+            Assert.IsFalse(multicycle.ShowsGatesOfCode);
+
+            WorkbenchSession single = InsideTheControl("Single-cycle RISC-V");
+            single.GatesCap = cap;
+            Assert.IsNull(single.DrawGates(true), "under the cap");
+            Assert.IsTrue(single.ShowsGatesOfCode);
+            Assert.LessOrEqual(single.DrawnModule.Parts.Count, cap);
+        }
+
+        private static WorkbenchSession InsideTheControl(string sample)
+        {
+            double now = 0;
+            var session = new WorkbenchSession(WorkbenchSamples.All.Single(s => s.Name == sample).Build(), () => now += 0.01);
+            session.Finish();
+            int control = session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Module.EndsWith("_control", System.StringComparison.Ordinal)).Id;
+            Assert.IsTrue(session.StepInto(control));
+            Assert.IsTrue(session.ShowsDrawingOfCode, "the controller drawn");
+            return session;
+        }
     }
 }

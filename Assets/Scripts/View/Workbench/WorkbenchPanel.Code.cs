@@ -90,8 +90,13 @@ namespace BitSorter.View
             {
                 if (_session != null)
                 {
-                    _session.DrawGates(!_session.ShowsGatesOfCode);
-                    if (_session.ShowsGatesOfCode && _session.GatesOpened == 0)
+                    string refused = _session.DrawGates(!_session.ShowsGatesOfCode);
+                    if (refused != null)
+                    {
+                        Notice(refused);
+                        _saidDesktopIsFaster = true;   // the refusal says it: once is enough (Part 15h-6)
+                    }
+                    else if (_session.ShowsGatesOfCode && _session.GatesOpened == 0)
                         Notice(NothingOpens);
                 }
                 UiTheme.Defocus();

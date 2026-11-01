@@ -1677,6 +1677,8 @@ namespace BitSorter.View
             _session = new WorkbenchSession(_sample == 0 ? MyCircuit() : WorkbenchSamples.Chip[_sample].Build(), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
             // A circuit opens as it was left, locked or not (Part 15h-4d); a sample and an exercise never are.
             _session.Locked = _sample == 0 && _exercise == null && Store() is ProgressStore locks && locks.IsLocked(_documentKey);
+            // In a browser GATES opens no more than a browser draws in good time; the desktop opens them all (Part 15h-6).
+            _session.GatesCap = Application.platform == RuntimePlatform.WebGLPlayer ? WorkbenchSession.BrowserGatesCap : (int?)null;
             _run = _session.Run;
             _model = _run.Model;
             _playback = new Playback(_run, _speed);

@@ -1065,7 +1065,8 @@ failure side.
   DRAWING sit at the right of the code's top strip -- in a browser the code is a box
   laid over everything under that strip (`WorkbenchSession.ShowsDrawingOfCode`). The
   drawing is what the code builds (`RtlDrawing` from `RtlExtractor`'s netlist, laid
-  out in columns by `LayeredLayout`), held beside the project and never in it; its
+  out in columns by `LayeredLayout`, a column far taller than the drawing is wide
+  standing as several side by side -- Part 15h-6), held beside the project and never in it; its
   values are the run's, a wire no signal holds worked out from the ones that are
   (`DrawnValues`). **Unlocked, it takes an edit, written into the code** (Part 15h-4g,
   asked 2026-10-29): what is placed, wired, deleted, pasted or typed in the inspector on
@@ -1105,7 +1106,10 @@ failure side.
   numbers with its carry, `{cout, s} = a + b` (`RtlGates.OpenWithCarry`) -- into
   their gates in their place, BOXES closing them again, kept for each module; a
   wire inside is valued by the engine's own gates (`RtlDrawing.Inner`), and a number
-  is split into its bits once, however many openings read it. **A big
+  is split into its bits once, however many openings read it. **In a browser GATES
+  opens no more than 800 parts** (`WorkbenchSession.GatesCap`, Part 15h-6, Ahmad's
+  choice): past that the boxes stay, and it says the desktop version opens them all --
+  the multicycle controller's 1,004, which take most of a second on the desktop. **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,

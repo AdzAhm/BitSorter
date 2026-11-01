@@ -201,6 +201,20 @@ namespace BitSorter.Board
             return new RtlDrawing(project with { Modules = modules }, module, drawing);
         }
 
+        /// <summary>
+        /// How many parts <paramref name="netlist"/> drawn has -- with <paramref name="gates"/>, every opening's gates counted --
+        /// worked out without wiring or laying any of them out: what a browser's GATES asks before it opens (Part 15h-6), since
+        /// the drawing it would refuse takes most of a second to lay out and route even on the desktop.
+        /// </summary>
+        public static int PartsOf(Project project, RtlNetlist netlist, bool gates)
+        {
+            if (netlist == null)
+                throw new ArgumentNullException(nameof(netlist));
+            var drawing = new Builder(project, netlist, gates);
+            drawing.MakeParts();
+            return drawing.PartCount;
+        }
+
         private sealed partial class Builder
         {
             private readonly Project _project;
@@ -320,7 +334,11 @@ namespace BitSorter.Board
                 }
             }
 
-            public Module Make(string name)
+            /// <summary>How many parts are made: after <see cref="MakeParts"/>, every one the drawing will have.</summary>
+            public int PartCount => _parts.Count;
+
+            /// <summary>Every part of the drawing made, and each net's source and readers found -- nothing yet wired or laid out.</summary>
+            public void MakeParts()
             {
                 // A join of one driver over the whole of its signal is a wire: the driver's net is the signal's. So is what only
                 // changes a value's sign, widens it with 0s, or takes the truth of a bit that is a 1 or a 0 -- the wire they
@@ -456,6 +474,11 @@ namespace BitSorter.Board
                     _first.Add(_parts.Count - 1);
                     _source[net] = (id, "y");
                 }
+            }
+
+            public Module Make(string name)
+            {
+                MakeParts();
 
                 // A wire from each net's source to each place it goes, named for the signal the net is -- or, holding none,
                 // for the pin that drives it after a $, as the parts it joins are named (`$p4_y`, `$g0_y`): no signal of

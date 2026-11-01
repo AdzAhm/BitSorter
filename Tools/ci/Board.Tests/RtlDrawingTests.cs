@@ -38,6 +38,7 @@ namespace BitSorter.Board.Tests
                     RtlNetlist netlist = RtlExtractor.Of(design, scope.Path);
                     RtlDrawing drawing = RtlDrawing.Of(project, netlist, "drawing_of_" + scope.Module);
                     Hold(drawing, netlist, name + " " + scope.Path);
+                    Assert.AreEqual(drawing.Module.Parts.Count, RtlDrawing.PartsOf(project, netlist, gates: false), $"{name} {scope.Path}: its parts counted, not drawn, as many as drawn");
                     drawn++;
 
                     RtlDrawing again = RtlDrawing.Of(project, netlist, "drawing_of_" + scope.Module);
@@ -103,6 +104,7 @@ namespace BitSorter.Board.Tests
                     RtlDrawing drawing = RtlDrawing.Of(project, netlist, "drawing_of_" + scope.Module, gates: true);
                     string what = name + " " + scope.Path;
                     Hold(drawing, netlist, what, gates: true);
+                    Assert.AreEqual(drawing.Module.Parts.Count, RtlDrawing.PartsOf(project, netlist, gates: true), $"{what}: its parts counted, not drawn, as many as drawn");
                     var random = new Random(what.Length * 7919 + what[what.Length - 1]);
                     for (int vector = 0; vector < 6; vector++)
                         HoldOpenings(drawing, netlist, design.Signals.Select(s => Known(random, s.Width)).ToArray(), what);

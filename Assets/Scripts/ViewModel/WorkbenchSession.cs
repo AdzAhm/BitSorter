@@ -542,15 +542,41 @@ namespace BitSorter.ViewModel
         /// <summary>How many operators and muxes the drawing of code shown draws as their gates: none while GATES is off, or none is small enough.</summary>
         public int GatesOpened => ShowsGatesOfCode ? ShownDrawing?.Opened ?? 0 : 0;
 
-        /// <summary>Draws the drawing of code shown with its small operators and muxes as their gates, or as their boxes again.</summary>
-        public void DrawGates(bool gates)
+        /// <summary>
+        /// Draws the drawing of code shown with its small operators and muxes as their gates, or as their boxes again -- the
+        /// boxes kept, and why returned, where the gates would be more parts than <see cref="GatesCap"/>; null otherwise.
+        /// </summary>
+        public string DrawGates(bool gates)
         {
             if (!ShowsDrawingOfCode)
-                return;
+                return null;
+            if (gates && GatesCap is int cap && !_gatesOfCode.Contains(Module) && ShownDrawing != null && _drawnNetlist != null)
+            {
+                int parts = RtlDrawing.PartsOf(Project, _drawnNetlist, gates: true);
+                if (parts > cap)
+                    return GatesCapRefusal(parts, cap);
+            }
             if (gates ? !_gatesOfCode.Add(Module) : !_gatesOfCode.Remove(Module))
-                return;
+                return null;
             Stepped();   // drawn afresh and fitted, as DRAWING is
+            return null;
         }
+
+        /// <summary>
+        /// The most parts GATES draws at once, or null for no limit: set by the view in a browser (Part 15h-6, Ahmad's choice,
+        /// 2026-11-01), where a drawing of a thousand gates takes seconds to lay out and route. The desktop opens them all.
+        /// </summary>
+        public int? GatesCap { get; set; }
+
+        /// <summary>
+        /// The cap a browser sets: past the gates of the pipelined and single-cycle processors' controllers (451 and 470
+        /// parts), short of the multicycle's (1,004), which took 0.7 s to draw on the desktop -- several times that in a browser.
+        /// </summary>
+        public const int BrowserGatesCap = 800;
+
+        /// <summary>What GATES says where its gates would be more parts than <see cref="GatesCap"/>: the boxes stay, and the desktop version opens them.</summary>
+        public static string GatesCapRefusal(int parts, int cap) =>
+            $"GATES would draw {parts} parts, more than a browser draws at once ({cap}), so the boxes stay: the desktop version of BitSorter opens them all.";
 
         /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
         public void DrawCode(bool drawn)
