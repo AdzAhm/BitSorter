@@ -211,6 +211,7 @@ namespace BitSorter.Board.Tests
                 "endmodule\n", "slip"), "slip", 10);
 
             StringAssert.Contains("a procedural continuous assignment", Box(netlist).Why);
+            CollectionAssert.AreEqual(new[] { "q" }, Box(netlist).OutputNames, "what it assigns is its output, so q is driven by it (the M4 review)");
         }
 
         /// <summary>
@@ -635,7 +636,7 @@ namespace BitSorter.Board.Tests
 
         /// <summary>
         /// Every process of every exercise's solution and of every corpus design is opened, but the ones listed: each initial,
-        /// two testbench clocks, one @* that calls a function reading what it does not wait on, and the slip of an assign inside
+        /// two testbench clocks, one @* that calls a function reading what it does not wait on, and two slips of an assign inside
         /// an always (M4).
         /// </summary>
         [Test]
@@ -646,7 +647,8 @@ namespace BitSorter.Board.Tests
                 ["behavioural/function_sensitivity.sv: function_sensitivity.always@16"] = "does not wait on it",
                 ["behavioural/interfaces.sv: interfaces_tb.always@32"] = "A delay, #d",
                 ["behavioural/multiplier.sv: multiplier_tb.always@139"] = "A delay, #d",
-                ["behavioural/procedural_assign.sv: procedural_assign_tb.always@15"] = "a procedural continuous assignment",
+                ["behavioural/procedural_assign.sv: procedural_assign_tb.always@17"] = "a procedural continuous assignment",
+                ["behavioural/procedural_assign.sv: procedural_assign_tb.always@21"] = "a procedural continuous assignment",
             };
             var found = new Dictionary<string, string>();
             int initials = 0, opened = 0;

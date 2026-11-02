@@ -171,6 +171,29 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         [Test]
+        public void AnAssignAndADeassignInsideAProcess_AreStatements_AndPrintAsWritten()   // M4
+        {
+            var assign = (ForceStatement)Statements("assign {r, s} = {a, b};").Single();
+            Assert.AreEqual("assign", assign.Keyword);
+            Assert.IsTrue(assign.IsAssign);
+            Assert.AreEqual("{r, s}", Printer.Print(assign.Target));
+            Assert.AreEqual("{a, b}", Printer.Print(assign.Value));
+
+            var deassign = (ForceStatement)Statements("deassign y;").Single();
+            Assert.IsTrue(deassign.IsAssign);
+            Assert.IsNull(deassign.Value);
+            Assert.IsFalse(((ForceStatement)Statements("force y = 1;").Single()).IsAssign);
+
+            SyntaxTree missing = Read("module m;\n  initial assign y a;\nendmodule\n");
+            StringAssert.Contains("after what assign sets", missing.Diagnostics.First().Message);
+
+            string printed = Printer.Print(Clean(Printer.Print(OnlyModule(
+                "module m;\n  always @(posedge clk) begin\n    assign q = d;\n    deassign q;\n  end\nendmodule\n"))));
+            StringAssert.Contains("assign q = d;", printed);
+            StringAssert.Contains("deassign q;", printed);
+        }
+
+        [Test]
         public void EventsForcesAndAssertions_AreReadAndPrintedAsWritten()
         {
             var trigger = (EventTriggerStatement)Statements("->> done;").Single();

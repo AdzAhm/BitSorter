@@ -316,7 +316,8 @@ namespace BitSorter.Sim
 
                         case OpCode.ProceduralAssign:
                         case OpCode.Deassign:
-                            why = $"{name} assigns or deassigns a variable with assign inside it, which a function cannot. A task can.";
+                            why = $"{name} has an assign or a deassign inside it -- a procedural continuous assignment, which a function " +
+                                "cannot make. To give a variable a value there, write the assignment alone: y = ...; -- or make it a task.";
                             break;
 
                         default:

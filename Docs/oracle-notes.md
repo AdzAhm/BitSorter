@@ -408,7 +408,8 @@ and runs it now, as ModelSim does -- below, "Procedural assign".
 
 `assign` and `deassign` inside a process (IEEE 1800, 10.6.1), probed under both simulators before the engine was built.
 ModelSim follows the standard on every question; Icarus 12 says "sorry: procedural continuous assignments are not yet
-fully supported. The RHS of this assignment will only be evaluated once", and does just that:
+fully supported. The RHS of this assignment will only be evaluated once", and does just that for an expression -- a
+lone variable on the right it does follow:
 
 | Question | Icarus 12 | ModelSim, the standard, and BitSorter |
 | --- | --- | --- |
@@ -420,9 +421,14 @@ fully supported. The RHS of this assignment will only be evaluated once", and do
 | `deassign` under a force, then `release` | the forced value kept | the forced value kept |
 | `assign {r, s} = {a, b};`, then `b` changes | r and s keep what they were given | s follows b |
 | An `assign` inside `always @(posedge clk)` | read again at each edge | followed from the first edge on, and again at each |
+| What an assign reads changes, and the process reads the variable in the same moment | the old value | the new one: an assign follows at once |
+| The same with a `force` | the old value | the old value: a force follows a delta later -- the standard leaves the region open, and BitSorter does as ModelSim |
+| `y = 9;` or `y <= 10;` in the moment after what the assign reads changed | the old value | the new one, kept |
+| `assign count = count + 1;` at an edge | one more | one more: what an assign changes does not set it going again |
+| `assign g = h + 1; assign h = g + 1;` from 0 | g=1, h=2 | g=3, h=2: h's change works g out again, and g's does not set h going, which is working out |
 | `assign m[1] = a;`, a word of an array | takes it; refuses a word picked by a variable ("index must be a constant") | refuses it: "Slice of unpacked array not allowed in procedural continuous assignment" -- BitSorter too |
 
-`corpus/behavioural/procedural_assign.sv` asks each of these, and is held to ModelSim on every signal and line
+`corpus/behavioural/procedural_assign.sv` asks each of these but the array word, and is held to ModelSim on every signal and line
 (`BehaviouralOracleTests.TheProceduralAssign_AgreesWithModelSim_OnEverySignal`) rather than to both: where CI runs, only
 Icarus is there, so `TestbenchControlTests` holds BitSorter to ModelSim's lines, to the character, and
 `Icarus12_ReadsAProceduralAssignsRightSideOnce` to Icarus's difference -- a later Icarus that follows the standard fails

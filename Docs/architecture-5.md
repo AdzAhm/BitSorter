@@ -596,7 +596,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Functions and tasks | `function` and `task`, static and automatic, ANSI and old-style arguments, defaults, `return`, `void` functions, recursion inside an expression | L2 |
 | Expressions | `inside` and `case inside`, `==?` and `!=?`, casts to the built-in types and to typedefs, an enum's methods, `$countones`, `$onehot`, `$onehot0`, `$isunknown`, `$random`, `$urandom`, `$urandom_range` | L3 |
 | Data types | packed `struct` and `union`, their members read and written (`pkt.kind`, `prog[i].op`); packed arrays of any number of dimensions, of structs and of typedefs; memories of more than one dimension; `foreach`; assignment patterns, `'{...}`, in order, by member, by index and with `default:`; `$bits` of a type or a memory | L4 |
-| Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; immediate `assert`, `assume` and `cover` | L5 |
+| Testbench control | `fork` with `join`, `join_any` and `join_none`; `wait fork`, `disable fork`; `disable` of a named block, a named fork or a task; named events with `->`, `->>`, `@(e)` and `e.triggered`; `force` and `release`; `assign` and `deassign` inside a process (M4); immediate `assert`, `assume` and `cover` | L5, M4 |
 | Reals and time | `real`, `realtime` and `shortreal` (held as a real), real parameters typed or by their value, real ports and functions; arithmetic and comparison with whole numbers made reals; conversion both ways, rounding half away from zero; `$itor`, `$rtoi`, `$realtobits`, `$bitstoreal` and the maths functions; `%e`, `%f`, `%g` with a precision; delays in fractions of a unit, `$realtime` | L7 |
 | Interfaces | `interface` with parameters, ports, signals, assigns, processes, functions and tasks; its instances, in generate loops too, reached by name; modports of `input`, `output`, `inout`, `ref` (read as `inout`) and `import`; interface ports with a modport or without, `interface` for any, a modport chosen at the connection, a port passed on; a task or function of an instance called through it, `bus.send(v)`, `dut.f(x)` | L8 |
 | Packages, macros, strings, files | `package` of parameters, typedefs, functions and tasks; `import p::*`, `import p::name`, in a module's header too, and `p::name`; macros with arguments and defaults, ``` `` ``` and `` `"...`" ``; `string`, joined with `{}`, compared as text, with its methods; `$sformatf`, `$sformat`, `$swrite`; `$fopen`, `$fdisplay`, `$fwrite`, `$fstrobe`, `$fclose`, `$fflush` | L6 |
@@ -4293,19 +4293,29 @@ where 15i-2 had refused it as a slip). The procedural continuous assignment of I
 - **Elaborated** (`Elaborator.Force`) into two instructions beside `Force` and `Release`: `OpCode.ProceduralAssign` and
   `Deassign`. The target is a whole variable or a concatenation of them; a wire ("which force overrides"), bits of a
   variable, an event and a word of an array -- a select whole of its signal, since BitSorter keeps each word a signal of
-  its own -- are refused in those words, as is either inside a function ("A task can").
-- **Run on force's machinery** (`Simulator`): a `ForceRecord` marked `Assigned`. It follows its value as a force does, a
-  write underneath is kept but not seen, and a second assign replaces the first on its bits. Every force lies over every
-  assign (`Overlay` lays the assigns first), so a force wins until it is released and the assign shows again; `release`
-  takes away forces only, `deassign` assigns only. A deassigned variable keeps the assign's value as what was last
-  written, so it shows that until it is next written -- or, under a force, the force's.
+  its own, told from bits by whether its name is the signal it reaches -- are refused in those words.
+- **Run on force's machinery** (`Simulator`): a `ForceRecord` marked `Assigned`. A write underneath is kept but not seen,
+  blocking or nonblocking, and a second assign replaces the first on its bits. Every force lies over every assign
+  (`Overlay` lays the assigns first), so a force wins until it is released and the assign shows again; `release` takes
+  away forces only, `deassign` assigns only. A deassigned variable keeps the assign's value as what was last written, so
+  it shows that until it is next written -- or, under a force, the force's.
+- **An assign follows at once, a force a delta later** -- each as ModelSim has it, measured (the review): a read straight
+  after what an assign reads changes sees the new value, where a force shows its new value only as its update lands
+  (`ForceRecord.Pending`, applied by the `ForceUpdate` event), so a write meanwhile cannot hurry it. An assign being
+  worked out again (`Updating`) is not set going by what it changes itself: `assign count = count + 1;` at an edge adds
+  one -- it ran past 10,000 deltas before the review -- and two assigns reading each other settle where ModelSim does. A
+  force that reads its own signal still loops, and the loop's message now names it.
+- **A variable takes one or the other** (`Design.Process`, SV0308): an assign onto a variable a continuous assignment or a
+  gate drives is refused as a write would be, in either order (`ProcessInfo.CollectAssigned`).
 - **The slip is still said** (SV0406, `ElaborationCodes.ProceduralAssign`): an `assign` in any `always` -- a fork's branch
-  is its process's kind (`Proc.Kind`) -- warns that its variable follows its value and ignores every other write until a
-  deassign, and gives the assignment that was likely meant, or the `assign` moved out, or a missing `end`. In an
-  `initial`, a testbench's, it is what was meant and nothing is said. `FriendlyErrorCases` holds it as a warning now, and
+  is its process's kind (`Proc.Kind`), a task its caller's -- warns that its variable follows its value and ignores every
+  other write until a deassign, and gives the assignment that was likely meant, or the `assign` moved out, or a missing
+  `end`; once however many times its module is placed, as lint is. In an `initial`, a testbench's, it is what was meant
+  and nothing is said. Inside a function it is refused, saying to write the assignment alone. `FriendlyErrorCases` holds it as a warning now, and
   `Lookalike` marks the two look-alike characters, which the export straightens.
 - **The drawing** boxes a process with one, saying it is no circuit's way of setting a value (`RtlProcess`), as it now
-  says of a force; TIMING follows one as it follows a force.
+  says of a force, and what it assigns is the box's output, so the variable is drawn driven. TIMING follows a process's
+  writes, and an assign is none: a path ends at it.
 - **The oracle**: Icarus 12 reads an assign's right side once ("not yet fully supported"); ModelSim follows the standard.
   So `corpus/behavioural/procedural_assign.sv` is held to ModelSim, `TestbenchControlTests` holds BitSorter to ModelSim's
   printed lines where CI runs, and a test holds Icarus's difference (`Docs/oracle-notes.md`, "Procedural assign").

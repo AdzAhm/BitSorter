@@ -358,6 +358,15 @@ namespace BitSorter.Sim
                     CollectAllReads(function.Code, reads, seen);
         }
 
+        /// <summary>What it assigns with <c>assign</c> inside it (M4): each takes its value from the process, though it is none of its writes.</summary>
+        internal void CollectAssigned(ICollection<int> assigned)
+        {
+            foreach (Instruction ins in Code)
+                if (ins.Op == OpCode.ProceduralAssign)
+                    foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                        assigned.Add(piece.Signal);
+        }
+
         /// <summary>What it forces or assigns (Part 14e and M4, for lint): either sets a signal, though it is none of its writes.</summary>
         internal void CollectForced(ICollection<int> forced)
         {

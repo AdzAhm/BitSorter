@@ -244,6 +244,12 @@ namespace BitSorter.Sim
             /// released, and then the assign shows again -- and taken away by <c>deassign</c>, never by <c>release</c>.
             /// </summary>
             public bool Assigned;
+
+            /// <summary>A force's value worked out again, which <see cref="Current"/> takes as its update lands, in the next delta.</summary>
+            public LogicVec Pending;
+
+            /// <summary>An assign's being worked out again now: what it changes does not set it going again (M4's review).</summary>
+            public bool Updating;
         }
 
         /// <summary>For each signal, the waits that read it.</summary>
@@ -704,6 +710,9 @@ namespace BitSorter.Sim
                             continue;
 
                         case EventKind.ForceUpdate:
+                            foreach (ForceRecord force in _forces[e.Index])
+                                if (!force.Assigned)
+                                    force.Current = force.Pending;
                             MarkDirty(e.Index);
                             continue;
                     }
@@ -1080,12 +1089,22 @@ namespace BitSorter.Sim
                     DriverReads(reader, origin, _written0[s]);
             }
 
-            // A force follows its expression, as a continuous assignment would, in the next delta.
+            // A force follows its expression, as a continuous assignment would, in the next delta: until its update lands it
+            // shows what it was, whatever else is written meanwhile. A procedural assign follows at once, as ModelSim has it --
+            // a read straight after what it reads changes sees the new value -- and is not set going again by what it changes
+            // itself, so assign count = count + 1 adds one, and two that read each other settle (Docs/oracle-notes.md).
             if (_forceReaders != null && _forceReaders[s] != null)
             {
                 foreach (ForceRecord force in _forceReaders[s])
                 {
-                    Evaluate(force);
+                    if (force.Assigned)
+                    {
+                        if (!force.Updating)
+                            Apply(force);
+                        continue;
+                    }
+
+                    force.Pending = Value(force);
                     _next.Add(new Event { Time = _now, Seq = ++_seq, Kind = EventKind.ForceUpdate, Index = force.Signal });
                 }
             }
@@ -1537,9 +1556,17 @@ namespace BitSorter.Sim
                 foreach (int s in readList)
                     (_forceReaders[s] ?? (_forceReaders[s] = new List<ForceRecord>())).Add(force);
 
-                Evaluate(force);
-                Refresh(piece.Signal);
+                Apply(force);
             }
+        }
+
+        /// <summary>A force or an assign takes its value now, and its signal shows it -- not set going again meanwhile.</summary>
+        private void Apply(ForceRecord force)
+        {
+            force.Updating = true;
+            force.Current = force.Pending = Value(force);
+            Refresh(force.Signal);
+            force.Updating = false;
         }
 
         /// <summary>
@@ -1610,8 +1637,7 @@ namespace BitSorter.Sim
             return any;
         }
 
-        private void Evaluate(ForceRecord force) =>
-            force.Current = Fit(force.Value.Evaluate(_values), force.Total).Slice(force.Offset, force.Width);
+        private LogicVec Value(ForceRecord force) => Fit(force.Value.Evaluate(_values), force.Total).Slice(force.Offset, force.Width);
 
         /// <summary>A signal's procedural assigns laid over its own value, and its forces over those.</summary>
         private LogicVec Overlay(int s, LogicVec value)
@@ -2228,13 +2254,15 @@ namespace BitSorter.Sim
             var names = new StringBuilder();
             int shown = 0;
 
+            bool forced = false;
             foreach (Event e in _current)
             {
-                if (e.Kind != EventKind.DriverUpdate || shown == 8)
+                if (e.Kind != EventKind.DriverUpdate && e.Kind != EventKind.ForceUpdate || shown == 8)
                     continue;
 
                 if (names.Length > 0) names.Append(", ");
-                names.Append(_design[_drivers[e.Index].Target].Name);
+                names.Append(e.Kind == EventKind.ForceUpdate ? _design.Signals[e.Index].Name : _design[_drivers[e.Index].Target].Name);
+                forced |= e.Kind == EventKind.ForceUpdate;
                 shown++;
             }
 
@@ -2251,8 +2279,10 @@ namespace BitSorter.Sim
             Stopped = true;
             _history.Message(time, Severity.Error,
                 $"At t = {time} the circuit was still changing after {_options.MaxDeltas} delta cycles: " +
-                $"a loop with no delay never settles. Still changing: {names}. Give a gate in the loop a delay, " +
-                "or break the loop.");
+                $"a loop with no delay never settles. Still changing: {names}. " +
+                (forced ? "A force follows what it reads, its own signal included: force it to a value that does not read it, or "
+                        : "Give a gate in the loop a delay, or ") +
+                "break the loop.");
         }
 
         /// <summary>

@@ -671,7 +671,19 @@ namespace BitSorter.Sim
                         "Give the assign or the gate a wire of its own.");
             }
 
+            // What it assigns with assign inside it (M4) takes its value from the process as well: never also driven (6.5).
+            var assigned = new List<int>();
+            process.CollectAssigned(assigned);
+            foreach (int s in assigned)
+                if (_driven.Contains(s))
+                    throw new InvalidOperationException(
+                        $"{_signals[s].Name} is assigned by {process.Name} and driven continuously as well; a variable takes one or the other. " +
+                        "Give the assign or the gate a wire of its own.");
+
             foreach (int s in process.Writes)
+                if (!_procedural.ContainsKey(s))
+                    _procedural[s] = process;
+            foreach (int s in assigned)
                 if (!_procedural.ContainsKey(s))
                     _procedural[s] = process;
 

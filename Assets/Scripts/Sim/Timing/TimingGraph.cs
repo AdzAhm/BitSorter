@@ -479,7 +479,6 @@ namespace BitSorter.Sim
                     case OpCode.Assign:
                     case OpCode.AssignLater:
                     case OpCode.Force:
-                    case OpCode.ProceduralAssign:
                         reads.Clear();
                         ins.Value?.CollectReads(reads);
                         foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())

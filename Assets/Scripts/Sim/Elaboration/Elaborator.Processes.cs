@@ -1290,12 +1290,15 @@ namespace BitSorter.Sim
                     width += part.Width;
                 }
 
-                // A select whole of its signal is a word of an array, which no procedural assign takes (10.6.1; ModelSim: "Slice
-                // of unpacked array not allowed"): BitSorter keeps a word as a signal of its own, so it is told by its shape.
-                if (f.IsAssign && SelectIn(f.Target) is Expression word)
+                // No select is a procedural assign's (10.6.1): bits of a variable, or a word of an array, which ModelSim refuses as
+                // "Slice of unpacked array not allowed" -- a word is a signal of its own here, so it is told by its shape and by
+                // whether its name is the signal it reaches.
+                if (f.IsAssign && SelectIn(f.Target) is Expression select)
                 {
-                    Error(word.Location, ElaborationCodes.BadLValue,
-                        $"{f.Keyword} inside a process takes a whole variable, or a concatenation of whole variables, and {Printer.Print(word)} is a word of an array.");
+                    string what = BaseName(select) is NameExpression name && scope.Lookup(name.Path[0]) is SignalEntry whole
+                        && name.Path.Count == 1 && whole.Width > 0 && parts.Exists(part => part.Signal == whole) ? "bits of a variable" : "a word of an array";
+                    Error(select.Location, ElaborationCodes.BadLValue,
+                        $"{f.Keyword} inside a process takes a whole variable, or a concatenation of whole variables, and {Printer.Print(select)} is {what}.");
                     p.Failed = true;
                     return;
                 }
@@ -1316,7 +1319,7 @@ namespace BitSorter.Sim
                 if (f.Keyword == "assign" && p.Kind != ProcessKind.Initial)
                 {
                     string target = Printer.Print(f.Target);
-                    Warning(f.Location, ElaborationCodes.ProceduralAssign,
+                    Lint(f.Location, ElaborationCodes.ProceduralAssign,
                         $"An assign inside an always is a procedural continuous assignment: from the first time it runs, {target} " +
                         $"follows {Printer.Print(f.Value)} and ignores every other write to it, until a deassign. If the assignment " +
                         $"alone was meant, write {target} = ...; -- or {target} <= ...; in an always_ff -- or move the assign out, " +
@@ -1331,6 +1334,18 @@ namespace BitSorter.Sim
                     _ => OpCode.Deassign,
                 };
                 p.Emit(new Instruction { Op = op, Target = pieces, TargetWidth = width, Value = value });
+            }
+
+            /// <summary>The name a chain of selects starts from; null for none.</summary>
+            private static Expression BaseName(Expression e)
+            {
+                while (true)
+                {
+                    if (e is IndexExpression i) e = i.Target;
+                    else if (e is RangeSelectExpression r) e = r.Target;
+                    else if (e is ParenthesizedExpression p) e = p.Inner;
+                    else return e as NameExpression;
+                }
             }
 
             /// <summary>The first piece of a target that is a select, concatenations and parentheses opened; null for none.</summary>

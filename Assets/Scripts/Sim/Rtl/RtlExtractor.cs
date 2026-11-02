@@ -584,6 +584,7 @@ namespace BitSorter.Sim
             var outputs = new List<int>();
             var outputNames = new List<string>();
             var writes = new SortedSet<int>(process.Writes);
+            process.CollectAssigned(writes);   // an assign inside it sets its variable as surely as a write (M4's review)
             foreach (int signal in writes)
             {
                 SignalInfo info = _design.Signals[signal];

@@ -213,9 +213,92 @@ endmodule"));
                 "15 deassigned under a force: y=1",
                 "16 released, kept: y=1",
                 "17 deassigned: r=1 s=3",
-                "53 after the first edge: q=7",
-                "63 after the second edge: q=3",
+                "21 u=3 v=3 f=3 fw=3",
+                "21 at once: u=7, a force not yet: f=3 fw=3",
+                "21 deassigned: u=7, a write ignored: v=7",
+                "22 next: u=7 v=7 f=7 fw=7",
+                "23 two that read each other: g=3 h=2",
+                "53 after the first edge: q=7 count=1",
+                "63 after the second edge: q=3 count=2",
             }, Printed(text));
+        }
+
+        [TestCase("logic [3:0] a, y; assign y = a; initial assign y = 4'd1;")]
+        [TestCase("logic [3:0] a, y; initial assign y = 4'd1; assign y = a;")]
+        public void AnAssignOntoAVariableDrivenContinuously_IsRefused_AsAWriteIs(string items)
+        {
+            Elaboration e = Elaborate("module t;\n    " + items + "\nendmodule");
+            Diagnostic refused = e.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.Drivers);
+            Assert.IsNotNull(refused, string.Join("\n", e.Diagnostics));
+            StringAssert.Contains("a variable takes one or the other", refused.Message);
+        }
+
+        [Test]
+        public void AnAssignDeassignedInPart_KeepsThatPart_AndAReleaseWithNoForceLeavesItFollowing()
+        {
+            CollectionAssert.AreEqual(new[] { "r=1 s=3", "y=6" }, Printed(@"
+module t;
+    logic [3:0] a = 1, b = 2, r, s, y;
+    initial begin
+        assign {r, s} = {a, b};
+        deassign r;
+        a = 4'd5; b = 4'd3;
+        #1 $display(""r=%0d s=%0d"", r, s);
+        assign y = a;
+        release y;
+        a = 4'd6;
+        #1 $display(""y=%0d"", y);
+    end
+endmodule"));
+        }
+
+        [Test]
+        public void AnAssignInAnAlwaysComb_FollowsWhatItReads()
+        {
+            CollectionAssert.AreEqual(new[] { "y=1", "y=0" }, Printed(@"
+module t;
+    logic a = 1, y;
+    always_comb assign y = a;
+    initial begin
+        #1 $display(""y=%0d"", y);
+        a = 0;
+        #1 $display(""y=%0d"", y);
+    end
+endmodule"));
+        }
+
+        [Test]
+        public void TheSlipsWarning_IsSaidInEveryKindOfAlways_AndOnceHoweverManyTimesItsModuleIsPlaced()
+        {
+            Elaboration e = Elaborate(@"
+module c (input logic clk, a, output logic y);
+    always_ff @(posedge clk) assign y = a;
+endmodule
+module t;
+    logic clk, a, y1, y2, y3, l, f, k;
+    c u1 (.clk(clk), .a(a), .y(y1));
+    c u2 (.clk(clk), .a(a), .y(y2));
+    c u3 (.clk(clk), .a(a), .y(y3));
+    task automatic set(); assign k = a; endtask
+    always_latch if (a) assign l = a;
+    always @(posedge clk) fork assign f = a; join_none
+    always @(negedge clk) set();
+endmodule");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            int[] lines = e.Diagnostics.Where(d => d.Code == ElaborationCodes.ProceduralAssign).Select(d => d.Location.Line).OrderBy(l => l).ToArray();
+            CollectionAssert.AreEqual(new[] { 3, 10, 11, 12 }, lines, "the always_ff's once for three placings, the latch's, the fork's and the task's");
+        }
+
+        [TestCase("logic [0:0] v; initial assign v[0] = 1'b1;", "v[0] is bits of a variable")]
+        [TestCase("logic [3:0] y; initial assign y[3:0] = 4'd1;", "y[3:0] is bits of a variable")]
+        [TestCase("logic [0:0][7:0] p; initial assign p[0] = 8'd1;", "p[0] is bits of a variable")]
+        [TestCase("logic [3:0] m [4]; initial assign m[1] = 4'd1;", "m[1] is a word of an array")]
+        public void ASelectWholeOfItsSignal_IsSaidAsWhatItSelects(string items, string says)
+        {
+            Elaboration e = Elaborate("module t;\n    " + items + "\nendmodule");
+            Diagnostic refused = e.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.BadLValue);
+            Assert.IsNotNull(refused, string.Join("\n", e.Diagnostics));
+            StringAssert.Contains(says, refused.Message);
         }
 
         [Test]
@@ -260,7 +343,7 @@ endmodule");
                 "module t;\n    logic y, q;\n    function logic f(input logic a); assign q = a; return a; endfunction\n    assign y = f(1'b1);\nendmodule");
             Diagnostic refused = function.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.BadCall);
             Assert.IsNotNull(refused, string.Join("\n", function.Diagnostics));
-            StringAssert.Contains("which a function cannot. A task can.", refused.Message);
+            StringAssert.Contains("which a function cannot make. To give a variable a value there, write the assignment alone", refused.Message);
         }
 
         // -----------------------------------------------------------------

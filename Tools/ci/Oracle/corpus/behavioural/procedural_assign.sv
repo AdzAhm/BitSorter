@@ -9,11 +9,43 @@
 
 module procedural_assign_tb;
     logic [3:0] a, b, y, r, s, q;
+    logic [3:0] c, d, u, v, f, g, h, count;
+    wire  [3:0] fw = c ^ d;
     logic clk;
 
     // The slip: from the first edge q follows a + 1, whatever happens at the edges after.
     always @(posedge clk)
         assign q = a + 4'd1;
+
+    // The slip that reads itself: one more at each edge, never a loop -- what it changes does not set it going again.
+    always @(posedge clk)
+        assign count = count + 4'd1;
+
+    // In one moment: an assign follows what it reads at once, a force a delta later; a deassign or an ignored write keeps
+    // what the assign has; nonblocking writes are ignored as blocking ones are; and two assigns reading each other settle.
+    initial begin
+        c = 4'd1; d = 4'd2; u = 4'd0; v = 4'd0; f = 4'd0; g = 4'd0; h = 4'd0; count = 4'd0;
+        #20 assign u = c + d;
+        assign v = c + d;
+        force f = c + d;
+        force fw = c + d;
+        #1 $display("%0t u=%0d v=%0d f=%0d fw=%0d", $time, u, v, f, fw);
+        c = 4'd5;
+        $display("%0t at once: u=%0d, a force not yet: f=%0d fw=%0d", $time, u, f, fw);
+        deassign u;
+        v = 4'd9;
+        v <= 4'd10;
+        $display("%0t deassigned: u=%0d, a write ignored: v=%0d", $time, u, v);
+        #1 $display("%0t next: u=%0d v=%0d f=%0d fw=%0d", $time, u, v, f, fw);
+        release f;
+        release fw;
+        assign g = h + 4'd1;
+        assign h = g + 4'd1;
+        #1 $display("%0t two that read each other: g=%0d h=%0d", $time, g, h);
+        deassign v;
+        deassign g;
+        deassign h;
+    end
 
     initial begin
         a = 4'd1; b = 4'd2; y = 4'd0; r = 4'd0; s = 4'd0;
@@ -44,11 +76,11 @@ module procedural_assign_tb;
         clk = 0;
         #50 clk = 1;             // the first edge: q follows a + 1 from here
         #2  a = 4'd6;
-        #1  $display("%0t after the first edge: q=%0d", $time, q);
+        #1  $display("%0t after the first edge: q=%0d count=%0d", $time, q, count);
         #2  clk = 0;
         #5  clk = 1;             // a second edge assigns it again
         #2  a = 4'd2;
-        #1  $display("%0t after the second edge: q=%0d", $time, q);
+        #1  $display("%0t after the second edge: q=%0d count=%0d", $time, q, count);
         #7  $finish;
     end
 endmodule
