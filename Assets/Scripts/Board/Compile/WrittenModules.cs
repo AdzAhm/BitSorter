@@ -82,7 +82,9 @@ namespace BitSorter.Board
     /// </remarks>
     public static class WrittenModules
     {
-        private const int KeptResults = 128;
+        // Room for every module of the largest import (ProjectImporter.MaxFiles, 200) and a few documents of them: at 128 a
+        // project of more written modules than that emptied the caches on every check.
+        private const int KeptResults = 512;
         private static readonly Dictionary<string, WrittenModule> Kept = new Dictionary<string, WrittenModule>(StringComparer.Ordinal);
         private static readonly Dictionary<string, (SyntaxTree Tree, List<SourceLocation> TimeDeclarations)> Parsed =
             new Dictionary<string, (SyntaxTree, List<SourceLocation>)>(StringComparer.Ordinal);
@@ -92,9 +94,9 @@ namespace BitSorter.Board
         // of all their text, which every read made again, kept or not. Opening the pipelined processor made 1.6 GB of keys
         // in a frame, and a browser, which frees memory only between frames, ran out of its 2 GB.
         private static readonly Dictionary<(object, object, string), WrittenModule> KeptFor =
-            new Dictionary<(object, object, string), WrittenModule>(ProjectFiles.SameObjects.Instance);
+            ProjectFiles.Memo(new Dictionary<(object, object, string), WrittenModule>(ProjectFiles.SameObjects.Instance));
         private static readonly Dictionary<(object, object, string), (SyntaxTree Tree, List<SourceLocation> TimeDeclarations)> ParsedFor =
-            new Dictionary<(object, object, string), (SyntaxTree, List<SourceLocation>)>(ProjectFiles.SameObjects.Instance);
+            ProjectFiles.Memo(new Dictionary<(object, object, string), (SyntaxTree, List<SourceLocation>)>(ProjectFiles.SameObjects.Instance));
 
         /// <summary>The top a written module is checked under as an instance: not an identifier, so no module can be called it.</summary>
         private const string HostName = "written check";
@@ -249,6 +251,7 @@ namespace BitSorter.Board
             if (KeptFor.Count >= KeptResults)
                 KeptFor.Clear();
             KeptFor[(project, module, null)] = read;
+            ProjectFiles.Pin(module.Source.Length);
             return read;
         }
 
@@ -480,6 +483,7 @@ namespace BitSorter.Board
             if (ParsedFor.Count >= KeptResults)
                 ParsedFor.Clear();
             ParsedFor[(text, files, file)] = kept;
+            ProjectFiles.Pin(text?.Length ?? 0);
             return kept;
         }
 

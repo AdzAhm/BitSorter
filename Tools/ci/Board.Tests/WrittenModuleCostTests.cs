@@ -84,7 +84,76 @@ namespace BitSorter.Board.Tests
             long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
 
             TestContext.WriteLine($"{bytes} bytes for {10 * written.Count} reads kept");
-            Assert.Less(bytes, 16 * 1024, "a read kept for this document costs nothing again -- no key made of the project's text");
+            Assert.Less(bytes, 1024, "a read kept for this document costs nothing again -- no key made of the project's text");
+        }
+
+        /// <summary>
+        /// A document made again of the same texts -- every edit makes a new one, and an import makes one for every part it
+        /// adds -- reads with a key of a few hundred characters: a number for each text, never the text.
+        /// </summary>
+        [Test]
+        public void ANewDocumentOfTheSameTexts_ReadsWithASmallKey()
+        {
+            Project project = Chain(16);
+            List<Module> written = project.Modules.Where(m => m.IsWritten).ToList();
+            for (int pass = 0; pass < 2; pass++)
+                foreach (Module module in written)
+                    WrittenModules.Read(project, module);
+
+            const int Documents = 10;
+            long bytes = 0;
+            for (int d = 0; d < Documents; d++)
+            {
+                Project again = project with { Name = "chain" + d };   // a new document, its modules and files the same
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                foreach (Module module in written)
+                    WrittenModules.Read(again, module);
+                bytes += GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+
+            int reads = Documents * written.Count;
+            TestContext.WriteLine($"{bytes} bytes for {reads} reads, {bytes / reads} a read");
+            Assert.Less(bytes / reads, 8 * 1024, "a key of a number for each text, where it was the project's 150 KB of text");
+        }
+
+        /// <summary>
+        /// What is kept by the very document asked of holds on to that document, and a document opened again is new text each
+        /// time: past <c>ProjectFiles.MemoBudget</c> characters the memos let go, so a large one reopened is not held once for
+        /// every opening (Part 15h-6d's review).
+        /// </summary>
+        [Test]
+        public void ALargeDocumentReopened_IsNotHeldOnceForEveryOpening()
+        {
+            const int Openings = 4;
+            var held = new WeakReference[Openings];
+            for (int i = 0; i < Openings; i++)
+                held[i] = OpenALargeOne();
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            int alive = held.Count(h => h.IsAlive);
+
+            TestContext.WriteLine($"{alive} of {Openings} openings of 6 million characters still held");
+            Assert.LessOrEqual(alive, 2, "the numbers keep the first, and the memos the latest -- never every one");
+        }
+
+        /// <summary>A document of one written module of some 6 million characters, made anew and read: its text, weakly held.</summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static WeakReference OpenALargeOne()
+        {
+            var text = new StringBuilder("module bulk (input logic a, output logic y);\n");
+            string line = "    // " + new string('-', 90) + "\n";
+            while (text.Length < 6_000_000)
+                text.Append(line);
+            text.Append("    assign y = a;\nendmodule\n");
+
+            string source = text.ToString();   // a new string each time, of the same characters
+            var module = new Module { Name = "bulk", Source = source };
+            var project = new Project { Name = "bulk", Modules = new[] { module }, Top = "bulk" };
+            Assert.IsEmpty(WrittenModules.Read(project, module).Diagnostics.Where(d => d.Severity == BitSorter.SystemVerilog.Syntax.DiagnosticSeverity.Error),
+                "sanity: it reads");
+            return new WeakReference(source);
         }
 
         [Test]

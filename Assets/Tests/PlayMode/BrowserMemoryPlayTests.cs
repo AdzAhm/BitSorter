@@ -67,6 +67,7 @@ namespace BitSorter.PlayMode.Tests
                 }
 
                 Assert.IsTrue(recorder.Valid, "sanity: the editor counts what a frame allocates");
+                Assert.Greater(worst, 1_000_000L, "sanity: the counter saw the open at all -- a processor is tens of MB to make");
                 Assert.AreEqual("FIBONACCI", workbench.Session.Choices[0].Chosen, "sanity: opened on the program asked for");
                 Assert.Less(worst, HalfTheBrowsersMemory,
                     $"the frames opening it made up to {worst / 1_000_000} MB; a browser holds all of a frame's at once");

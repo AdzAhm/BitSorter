@@ -4231,6 +4231,14 @@ with/against modelsim?").
 - **Held** by `WrittenModuleCostTests` (a read kept costs nothing again, from 314 KB; an ask of what a module uses 319
   bytes, from 14 KB) and `BrowserMemoryPlayTests` (opening the pipelined processor on FIBONACCI makes under 1 GB in any
   frame).
+- **The Sonnet review (2026-11-02) found no wrong result** -- 84,000 reads of fresh documents against the numbers' clearing
+  among its checks -- and four things, all fixed. What the memos keep by reference held each document it was asked of,
+  and a document reopened is new text each time, so a large import reopened was held once for every opening: past 16
+  million characters (`ProjectFiles.MemoBudget`) they now let go together, and the numbers, which keep the first text
+  of each run of characters, have a bound of their own (four 6-million-character openings, one held where all four
+  were). The caches hold 512 where 128 emptied them on every check of a 200-file import. `BrowserMemoryPlayTests` would
+  have passed had its counter read nothing, and now holds the open to more than 1 MB as well. And a new document of the
+  same texts -- the case the numbers are for -- is tested now: 2.6 KB a read, where the old key was 150 KB of text.
 - **What is left of the 601 MB is real work**: each written module elaborated on its own as the sample is imported, where
   a processor's top elaborates the whole design and a memory is a signal a word -- 1,024 for each of its two. That is for
   Part 16's optimisation pass.

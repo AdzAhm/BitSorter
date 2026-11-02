@@ -81,14 +81,43 @@ namespace BitSorter.Board
             if (KeysFor.Count >= KeptKeys)
                 KeysFor.Clear();
             KeysFor[(files, text, null)] = made;
+            Pin(text.Length);
             return made;
         }
 
         // What KeyOf said, by the very list and text it was asked of (Part 15h-6d): both are immutable, so the same two say
         // the same -- and a read of a module asks it of every other module's text, every time.
-        private const int KeptKeys = 256;
+        private const int KeptKeys = 512;
+        private static readonly List<System.Collections.IDictionary> Memos = new List<System.Collections.IDictionary>();
         private static readonly Dictionary<(object, object, string), string> KeysFor =
-            new Dictionary<(object, object, string), string>(SameObjects.Instance);
+            Memo(new Dictionary<(object, object, string), string>(SameObjects.Instance));
+
+        /// <summary>
+        /// The most characters the memos kept by reference may hold on to between them (Part 15h-6d's review). Each keeps the
+        /// document it was asked of alive, and a document opened again is new text each time: a large import reopened was
+        /// held once for every opening. Past this, every one of them lets go at once, and a later read makes its entry
+        /// again from the numbers its texts already have.
+        /// </summary>
+        internal const long MemoBudget = 1L << 24;
+        private static long _memoChars;
+
+        /// <summary><paramref name="memo"/>, kept by reference, and let go with the rest once what they hold passes the budget.</summary>
+        internal static Dictionary<TKey, TValue> Memo<TKey, TValue>(Dictionary<TKey, TValue> memo)
+        {
+            Memos.Add(memo);
+            return memo;
+        }
+
+        /// <summary>Counts <paramref name="chars"/> more held on to by a memo, every memo letting go once past the budget.</summary>
+        internal static void Pin(long chars)
+        {
+            _memoChars += chars;
+            if (_memoChars <= MemoBudget)
+                return;
+            _memoChars = 0;
+            foreach (System.Collections.IDictionary memo in Memos)
+                memo.Clear();
+        }
 
         private static string MakeKey(IReadOnlyList<ProjectFile> files, string text)
         {
@@ -123,25 +152,35 @@ namespace BitSorter.Board
             if (IdsFor.TryGetValue((text, null, null), out string same))
                 return same;
 
+            // The numbers keep the first text of each run of characters, so a text opened again adds nothing here; and they
+            // are let go only past their own bound, since a text given a new number misses every read kept under the old.
             if (!Ids.TryGetValue(text, out string id))
             {
-                if (Ids.Count >= KeptIds)
+                if (Ids.Count >= KeptIds || _idChars + text.Length > IdBudget)
+                {
                     Ids.Clear();
+                    _idChars = 0;
+                }
+
                 id = "#" + (++_lastId).ToString(CultureInfo.InvariantCulture);
                 Ids[text] = id;
+                _idChars += text.Length;
             }
 
             if (IdsFor.Count >= KeptIds)
                 IdsFor.Clear();
             IdsFor[(text, null, null)] = id;
+            Pin(text.Length);
             return id;
         }
 
         private const int KeptIds = 4096;
+        private const long IdBudget = 1L << 25;
         private static long _lastId;
+        private static long _idChars;
         private static readonly Dictionary<string, string> Ids = new Dictionary<string, string>(StringComparer.Ordinal);
         private static readonly Dictionary<(object, object, string), string> IdsFor =
-            new Dictionary<(object, object, string), string>(SameObjects.Instance);
+            Memo(new Dictionary<(object, object, string), string>(SameObjects.Instance));
 
         /// <summary>
         /// Two objects and a name, the objects compared as references: a cache's key for what is worked out from a document,
