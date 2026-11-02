@@ -110,9 +110,14 @@ namespace BitSorter.Sim
         /// <summary>
         /// <see cref="Depends"/> for a value written to the whole of <paramref name="held"/>: a ?: arm that reads all of it is its
         /// hold -- the register keeping its value, an enable -- and adds nothing, as an else that gives it back adds nothing
-        /// (Ahmad, 2026-11-02: written <c>q &lt;= en ? d : q</c>, the flip-flop read as a loop).
+        /// (Ahmad, 2026-11-02: written <c>q &lt;= en ? d : q</c>, the flip-flop read as a loop). The condition of a ?: with a
+        /// hold anywhere in it decides whether the register takes a value at all, as an if's does: its signals go into
+        /// <paramref name="gates"/>, a way and never a stage's data (the M2 review).
         /// </summary>
-        internal virtual BitDeps DependsHolding(int[] first, int held) => Depends(first);
+        internal virtual BitDeps DependsHolding(int[] first, int held, ICollection<int> gates) => Depends(first);
+
+        /// <summary>Whether a ?: in this value gives <paramref name="held"/> back whole on one of its ways.</summary>
+        internal virtual bool HoldsSomewhere(int[] first, int held) => false;
 
         /// <summary>Whether <paramref name="e"/> reads the whole of <paramref name="held"/> and nothing else.</summary>
         private static bool IsHold(Expr e, int[] first, int held) =>
@@ -873,14 +878,28 @@ namespace BitSorter.Sim
                 return BitDeps.Bits(Width, routing: false, i => SourceSet.Union((t.Of(i), Sense.Positive), (f.Of(i), Sense.Positive), (condition, Sense.Either)));
             }
 
-            /// <summary>The same, an arm that is the register's hold adding nothing; one inside an arm found as deep as it is.</summary>
-            internal override BitDeps DependsHolding(int[] first, int held)
+            internal override bool HoldsSomewhere(int[] first, int held) =>
+                IsHold(_whenTrue, first, held) || IsHold(_whenFalse, first, held)
+                || _whenTrue.HoldsSomewhere(first, held) || _whenFalse.HoldsSomewhere(first, held);
+
+            /// <summary>
+            /// The same, an arm that is the register's hold adding nothing, one inside an arm found as deep as it is; and the
+            /// condition of a ?: on the way to a hold a gate rather than data, as an enable's if is.
+            /// </summary>
+            internal override BitDeps DependsHolding(int[] first, int held, ICollection<int> gates)
             {
+                BitDeps t = IsHold(_whenTrue, first, held) ? null : _whenTrue.DependsHolding(first, held, gates);
+                BitDeps f = IsHold(_whenFalse, first, held) ? null : _whenFalse.DependsHolding(first, held, gates);
+                if (HoldsSomewhere(first, held))
+                {
+                    _condition.CollectReads(gates);
+                    return BitDeps.Bits(Width, routing: false, i => SourceSet.Union(
+                        (t?.Of(i) ?? SourceSet.Empty, Sense.Positive), (f?.Of(i) ?? SourceSet.Empty, Sense.Positive)));
+                }
+
                 SourceSet condition = _condition.Depends(first).Union;
-                BitDeps t = IsHold(_whenTrue, first, held) ? null : _whenTrue.DependsHolding(first, held);
-                BitDeps f = IsHold(_whenFalse, first, held) ? null : _whenFalse.DependsHolding(first, held);
                 return BitDeps.Bits(Width, routing: false, i => SourceSet.Union(
-                    (t?.Of(i) ?? SourceSet.Empty, Sense.Positive), (f?.Of(i) ?? SourceSet.Empty, Sense.Positive), (condition, Sense.Either)));
+                    (t.Of(i), Sense.Positive), (f.Of(i), Sense.Positive), (condition, Sense.Either)));
             }
         }
 

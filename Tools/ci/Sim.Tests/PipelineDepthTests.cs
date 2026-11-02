@@ -187,6 +187,28 @@ namespace BitSorter.Sim.Tests
                 "q's bits swapped are not q held: a value that goes round");
         }
 
+        /// <summary>
+        /// A ?: enable's condition decides as an if's does -- a way, never a stage's data (the M2 review): a pipeline of enabled
+        /// registers is as many stages written either way, and a register gated by the machine's own phase is sequenced, never
+        /// claimed as a pipeline. Counted as data, the enable was a one-register path into every stage, and the phase none.
+        /// </summary>
+        [Test]
+        public void AnEnablesCondition_IsAWayNotAStage_InAPipelineAndInAMachine()
+        {
+            const string Pipe = "module m (input logic clk, en, stall, input logic [7:0] d, output logic [7:0] q3); logic [7:0] q1, q2; always_ff @(posedge clk) begin ";
+            Assert.AreEqual(3, Depth(Pipe + "q1 <= en ? d : q1; q2 <= en ? q1 : q2; q3 <= en ? q2 : q3; end endmodule\n").Stages, "three enabled stages through ?:");
+            Assert.AreEqual(3, Depth(Pipe + "if (en) begin q1 <= d; q2 <= q1; q3 <= q2; end end endmodule\n").Stages, "as through if");
+            Assert.AreEqual(3, Depth(Pipe + "q1 <= stall ? q1 : d; q2 <= stall ? q2 : q1; q3 <= stall ? q3 : q2; end endmodule\n").Stages, "a stall that holds");
+            Assert.AreEqual(2, Depth("module m (input logic clk, en, input logic [7:0] d, output logic [7:0] q2); logic [7:0] q1; always_ff @(posedge clk) begin q1 <= d; q2 <= en ? q1 : q2; end endmodule\n").Stages,
+                "an enable on the second stage only");
+
+            const string Machine = "module m (input logic clk, input logic [7:0] d, output logic [7:0] q); logic phase; always_ff @(posedge clk) begin phase <= ~phase; ";
+            PipelineDepth phased = Depth(Machine + "q <= phase ? d : q; end endmodule\n");
+            Assert.IsNull(phased.Stages, "its phase decides when it takes d: a machine, never a 1-stage pipeline");
+            Assert.IsTrue(phased.Sequenced, "a decision that reads a register");
+            Assert.IsTrue(Depth(Machine + "if (phase) q <= d; end endmodule\n").Sequenced, "as through if");
+        }
+
         [Test]
         public void ABlockingVariable_IsFollowedInTheOrderWritten()
         {
