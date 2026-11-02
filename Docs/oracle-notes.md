@@ -397,11 +397,36 @@ Each slip BitSorter answers in a student's words, Icarus 12 refuses too -- but o
 
 | Slip | Icarus 12 | BitSorter |
 | --- | --- | --- |
-| `assign y = a & b;` inside an `always_comb`, `always_ff` or `initial` | takes it: a procedural continuous assignment, with "cannot be synthesized" in an `always_comb` or `always_ff`, and "not yet fully supported" -- its right side read once | refuses it: not run, and never what a course design wants |
+| `assign y = a & b;` inside an `always_comb`, `always_ff` or `initial` | takes it: a procedural continuous assignment, with "cannot be synthesized" in an `always_comb` or `always_ff`, and "not yet fully supported" -- its right side read once | runs it, as the standard has it, its right side followed (M4); in an `always`, with a warning (SV0406) saying what was likely meant |
 | `’` or `–` pasted into code | "syntax error" | reads it as `'` or `-` with a warning, and exports it so |
 | `logic s[1:0]` given `{a, b}` by an `assign` | stops on an internal assertion; in an `always_comb`, "sorry: ... not yet supported" | refuses it, saying to put the range before the name |
 
-The standard has the procedural `assign`, so BitSorter is the one short here; it is said in its answer.
+The standard has the procedural `assign`. BitSorter refused it until M4 (Ahmad's morning decision of 2026-11-02, #10),
+and runs it now, as ModelSim does -- below, "Procedural assign".
+
+## Procedural assign (M4, 2026-11-02)
+
+`assign` and `deassign` inside a process (IEEE 1800, 10.6.1), probed under both simulators before the engine was built.
+ModelSim follows the standard on every question; Icarus 12 says "sorry: procedural continuous assignments are not yet
+fully supported. The RHS of this assignment will only be evaluated once", and does just that:
+
+| Question | Icarus 12 | ModelSim, the standard, and BitSorter |
+| --- | --- | --- |
+| `assign y = a + b;`, then `a` changes | y keeps the sum it was given | y follows it |
+| `y = 9;` while y is assigned | ignored | ignored |
+| A second `assign y = a - b;` | takes the first one's place, read once | takes the first one's place |
+| `force` over an assign, then `release` | the assign's value as it was first read | the assign's value as it is now |
+| `deassign y;` | y keeps its value | y keeps its value until it is next written |
+| `deassign` under a force, then `release` | the forced value kept | the forced value kept |
+| `assign {r, s} = {a, b};`, then `b` changes | r and s keep what they were given | s follows b |
+| An `assign` inside `always @(posedge clk)` | read again at each edge | followed from the first edge on, and again at each |
+| `assign m[1] = a;`, a word of an array | takes it; refuses a word picked by a variable ("index must be a constant") | refuses it: "Slice of unpacked array not allowed in procedural continuous assignment" -- BitSorter too |
+
+`corpus/behavioural/procedural_assign.sv` asks each of these, and is held to ModelSim on every signal and line
+(`BehaviouralOracleTests.TheProceduralAssign_AgreesWithModelSim_OnEverySignal`) rather than to both: where CI runs, only
+Icarus is there, so `TestbenchControlTests` holds BitSorter to ModelSim's lines, to the character, and
+`Icarus12_ReadsAProceduralAssignsRightSideOnce` to Icarus's difference -- a later Icarus that follows the standard fails
+it, and the design can join the list both simulators run.
 
 ## Races (Part 15i-3, 2026-11-02)
 

@@ -641,7 +641,7 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
   the browser's stack. A missing `;` is reported on the line it is missing from. Classes, an interface
-  declared inside a module, `export`, concurrent and deferred assertions, `defparam`, `deassign`, drive strengths and the switch
+  declared inside a module, `export`, concurrent and deferred assertions, `defparam`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,
   connections one per line beyond three, `[N-1:0]` tight. Printing is a fixed point: print, read, print
@@ -4112,8 +4112,9 @@ extra", beside the course read, which gives both for a K-stage pipeline).
 word, and Icarus refuses the slip as well and takes it mended (`FriendlyErrorCases`, shared by `FriendlyErrorTests` and
 `FriendlyErrorOracleTests`). None of the corpus's designs nor the exercises' answers is answered so.
 - **`assign` inside an `always` or an `initial`**: a procedural continuous assignment -- the language has one, Icarus
-  runs it, BitSorter does not (`Docs/oracle-notes.md`) -- said so, with the assignment to write in its place, or the
-  `assign` moved out beside the `always`. It was "Expected a statement here, but found 'assign'".
+  runs it, BitSorter did not (`Docs/oracle-notes.md`) -- said so, with the assignment to write in its place, or the
+  `assign` moved out beside the `always`. It was "Expected a statement here, but found 'assign'". **Since M4 it runs**,
+  and the same words are a warning in an `always` (below, "As built in M4").
 - **A memory of 1-bit words read or written whole** (`logic s[1:0]` used as a bus): the memory message, and that with
   its range after its name it is separate 1-bit words -- for a bus, `logic [1:0] s`.
 - **An `if` or a `for` outside an `always` on a signal**: the constant needed says what for -- chosen once as the design
@@ -4284,6 +4285,30 @@ instance of X, written as SystemVerilog", and half its modules said nothing of w
   on any block, register, port or mux with no comment: 138, 188 and 360 parts, none without.
 - **Known limit.** An edit made on a drawing writes its module's code again from the drawing (15h-4g), which keeps the
   comment over the module and no other, so that module's line comments go.
+
+**As built in M4 (2026-11-02): `assign` and `deassign` inside a process** (Ahmad's morning decision #10: support it,
+where 15i-2 had refused it as a slip). The procedural continuous assignment of IEEE 1800, 10.6.1.
+- **Read** as a statement, a `ForceStatement` whose keyword is `assign` or `deassign` (`IsAssign`); the slip's refusal is
+  gone from the parser, and `deassign` is no longer skipped as unsupported.
+- **Elaborated** (`Elaborator.Force`) into two instructions beside `Force` and `Release`: `OpCode.ProceduralAssign` and
+  `Deassign`. The target is a whole variable or a concatenation of them; a wire ("which force overrides"), bits of a
+  variable, an event and a word of an array -- a select whole of its signal, since BitSorter keeps each word a signal of
+  its own -- are refused in those words, as is either inside a function ("A task can").
+- **Run on force's machinery** (`Simulator`): a `ForceRecord` marked `Assigned`. It follows its value as a force does, a
+  write underneath is kept but not seen, and a second assign replaces the first on its bits. Every force lies over every
+  assign (`Overlay` lays the assigns first), so a force wins until it is released and the assign shows again; `release`
+  takes away forces only, `deassign` assigns only. A deassigned variable keeps the assign's value as what was last
+  written, so it shows that until it is next written -- or, under a force, the force's.
+- **The slip is still said** (SV0406, `ElaborationCodes.ProceduralAssign`): an `assign` in any `always` -- a fork's branch
+  is its process's kind (`Proc.Kind`) -- warns that its variable follows its value and ignores every other write until a
+  deassign, and gives the assignment that was likely meant, or the `assign` moved out, or a missing `end`. In an
+  `initial`, a testbench's, it is what was meant and nothing is said. `FriendlyErrorCases` holds it as a warning now, and
+  `Lookalike` marks the two look-alike characters, which the export straightens.
+- **The drawing** boxes a process with one, saying it is no circuit's way of setting a value (`RtlProcess`), as it now
+  says of a force; TIMING follows one as it follows a force.
+- **The oracle**: Icarus 12 reads an assign's right side once ("not yet fully supported"); ModelSim follows the standard.
+  So `corpus/behavioural/procedural_assign.sv` is held to ModelSim, `TestbenchControlTests` holds BitSorter to ModelSim's
+  printed lines where CI runs, and a test holds Icarus's difference (`Docs/oracle-notes.md`, "Procedural assign").
 
 ---
 
