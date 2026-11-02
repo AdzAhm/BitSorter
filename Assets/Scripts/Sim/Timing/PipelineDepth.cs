@@ -17,7 +17,9 @@ namespace BitSorter.Sim
     /// bit it writes takes its next value from, through any blocking temporary as it stands at that point, so a shift
     /// register is a chain of stages and an accumulator kept in a blocking variable a loop. A bit written only on some ways
     /// through keeps its value on the others, which is no loop, and so does one given its own value back (<c>q &lt;= q</c>):
-    /// an enable's register is a stage. One kept through <c>en ? d : q</c> is read as a loop.
+    /// an enable's register is a stage. So is one kept through <c>en ? d : q</c> -- a ?: arm that is the register whole is
+    /// its hold (<see cref="Expr.DependsHolding"/>; it read as a loop until 2026-11-02), its condition a decision as an if's
+    /// is -- where <c>en ? d : q + 1</c> goes round.
     ///
     /// **A condition is no stage, and is still a way.** An <c>if</c>'s or a <c>case</c>'s condition decides what is
     /// written: counted towards a loop and towards reaching an output -- a state machine written in one process is a
@@ -251,6 +253,7 @@ namespace BitSorter.Sim
             var decisions = new HashSet<int>();
             var decidingSignals = new HashSet<int>();
             var reads = new List<int>();
+            var gates = new List<int>();
 
             for (int i = 0; i < code.Length; i++)
             {
@@ -278,7 +281,17 @@ namespace BitSorter.Sim
                     case OpCode.AssignLater:
                         if (ins.Target == null || ins.Value == null)
                             break;
-                        followed.Unfollowed |= Write(ins, sometimes[i], design, first, build, holds, written);
+                        gates.Clear();
+                        followed.Unfollowed |= Write(ins, sometimes[i], design, first, build, holds, written, gates);
+                        // An enable written through ?: decides as an if does (the M2 review): its condition a way, not data.
+                        foreach (int s in gates)
+                        {
+                            decidingSignals.Add(s);
+                            if (clocks.Contains(s) || s < 0 || s >= design.Signals.Count)
+                                continue;
+                            for (int b = first[s]; b < first[s + 1]; b++)
+                                decisions.UnionWith(Now(b, holds));
+                        }
                         break;
                 }
             }
@@ -333,10 +346,12 @@ namespace BitSorter.Sim
 
         /// <summary>One assignment's bits landed; whether any is at a place found as it runs.</summary>
         private static bool Write(Instruction ins, bool sometimes, Design design, int[] first, Builder build,
-            Dictionary<int, HashSet<int>> holds, HashSet<int> written)
+            Dictionary<int, HashSet<int>> holds, HashSet<int> written, ICollection<int> gates)
         {
-            BitDeps value = ins.Value.Depends(first);
             bool blocking = ins.Op == OpCode.Assign;
+            // A register written whole at the edge: a ?: arm giving it back is its hold, an enable, never a way round.
+            int held = !blocking && ins.Target != null && ins.Target.Length == 1 ? WholeSignal(ins.Target[0], design, first) : -1;
+            BitDeps value = held >= 0 ? ins.Value.DependsHolding(first, held, gates) : ins.Value.Depends(first);
             bool unfollowed = false;
             int offset = ins.TargetWidth;
             foreach (LPiece piece in ins.Target)
@@ -402,6 +417,11 @@ namespace BitSorter.Sim
             }
             return unfollowed;
         }
+
+        /// <summary>The signal <paramref name="piece"/> writes, when it writes all of it at a place fixed in the code; -1 otherwise.</summary>
+        private static int WholeSignal(LPiece piece, Design design, int[] first) =>
+            piece.Offset == null && piece.Word == null && piece.Signal >= 0 && piece.Signal < design.Signals.Count && piece.Lowest == 0
+            && piece.Width == first[piece.Signal + 1] - first[piece.Signal] ? piece.Signal : -1;
 
         private static HashSet<int> Expanded(SourceSet from, Dictionary<int, HashSet<int>> holds)
         {
