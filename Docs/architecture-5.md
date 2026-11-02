@@ -4071,12 +4071,19 @@ BitSorter's own fixed order hides it. The run now says so, once a pair, in the T
   change, and one woken by time or by an edge with its own. Two origins meeting are several, and several is never
   warned of.
 - **The race.** A process woken by an edge from a known value to a known one (`Fired`'s `edge` -- a clock's first edge
-  out of x at time 0 is none) is noted with where its edge came from. When the region ends (`CheckRaces`), a signal it
-  reads -- its code's reads, the signals it waits on an edge of left out -- that changed in the region from one process
-  that is neither it nor the edge's is a race: said with the signal the writer wrote, the one the flip-flop reads where
-  that is another name (a port, logic after it), and the three ways out -- the other edge, a moment later, or `<=`.
-  A nonblocking write lands in the NBA region, a later region, and never counts; so do the clock and an input changed by
-  one process in its own order.
+  out of x at time 0 is none) is noted with where its edge came from and where it took up. When the region ends
+  (`CheckRaces`, walking only the signals given an origin in the region), a signal it reads on its way to its next wait
+  (`ReadsFrom`, by process and counter) that changed in the region from one process is a race -- unless a chain of causes
+  orders the two (`Caused`, through what woke each process this region and the process that forked it): the writer made
+  the edge, however far back; the reader set the writer going; one forked the other. Said with the signal the writer
+  wrote, the one the reader reads where that is another name (a port, logic after it), and the three ways out -- the
+  other edge, a moment later, or `<=`. A nonblocking write lands in the NBA region, a later region, and never counts.
+  It is by signal, not by bit or memory word.
+- **The Sonnet review found five false warnings (2026-11-02), all fixed with tests**: a check a moment after the edge was
+  taken for one on it (the whole code's reads were used); a fork's parent and branches were warned of each other; a
+  writer that made the edge through another process, and a reader that set its writer going, were warned of; and a
+  cancelled process kept its wake. It also found the check walking every read at every edge -- four times slower on a
+  4,096-word memory -- and an asynchronous reset's release on the edge missed: both fixed.
 - **Found in the corpus**: `traffic_light.sv`'s testbench pressed its button with `=` straight after `@(posedge clk)`;
   Icarus happened to agree with BitSorter's order, so the oracle had passed it. It uses `<=` now
   (`Docs/oracle-notes.md`).

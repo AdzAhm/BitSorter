@@ -112,5 +112,91 @@ namespace BitSorter.Sim.Tests
                 "    initial begin d = 1'b0; #20 $finish; end\n" +
                 "endmodule\n"));
         }
+
+        // -----------------------------------------------------------------
+        // The review's cases (2026-11-02), each written for these tests
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void AReadAMomentAfterTheEdge_IsNoRace()
+        {
+            // The checker wakes on the edge but reads a one unit later, after the change: what one wake reads, not its code.
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, a = 1'b0, ok;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    always @(posedge clk) a = ~a;\n" +
+                "    always @(posedge clk) begin #1; ok = (a == 1'b1); end\n" +
+                "    initial #40 $finish;\n" +
+                "endmodule\n"));
+        }
+
+        [Test]
+        public void AForksBranches_AndTheProcessThatForksThem_AreNoRace()
+        {
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, a = 1'b0, b = 1'b0, r;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    initial begin\n" +
+                "        @(posedge clk);\n" +
+                "        fork begin a = 1'b1; end begin b = 1'b1; end join\n" +
+                "        r = a & b;\n" +
+                "        #20 $finish;\n" +
+                "    end\n" +
+                "endmodule\n"));
+        }
+
+        [Test]
+        public void AWriterThatMadeTheEdge_OrAReaderThatSetTheWriterGoing_IsNoRace()
+        {
+            // d, then go, then the clock: the flip-flop must see d's new value.
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, go = 1'b0, d = 1'b0, q;\n" +
+                "    flop dut (.clk(clk), .d(d), .q(q));\n" +
+                "    initial begin #10 d = 1'b1; go = 1'b1; #20 $finish; end\n" +
+                "    always @(posedge go) clk = 1'b1;\n" +
+                "endmodule\n"), "the writer made the edge, through another process");
+
+            // The flip-flop reads r, then toggles x, which wakes the process that writes r.
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, x = 1'b0, r = 1'b0, y;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    always @(posedge clk) begin y <= r; x = ~x; end\n" +
+                "    always @(posedge x) r = ~r;\n" +
+                "    initial #40 $finish;\n" +
+                "endmodule\n"), "the reader set the writer going");
+        }
+
+        [Test]
+        public void AWakeIsTheItemThatFired_NotTheChangeUnderWay()
+        {
+            // The clock falls as the reset rises, from two processes in one delta: the flip-flop is woken by the reset, whose
+            // own process set d -- no race. Taken for the clock's wake, it was one, in the start-from-nothing exercise's test.
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, rst = 1'b0, d = 1'b0, q;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    always_ff @(posedge clk, posedge rst) if (rst) q <= 1'b0; else q <= d;\n" +
+                "    initial begin #10 rst = 1'b1; d = 1'b1; #20 $finish; end\n" +
+                "endmodule\n"));
+        }
+
+        [Test]
+        public void AnAsynchronousResetReleasedOnTheClocksEdge_IsARace()
+        {
+            // Its body tests the reset, so a release from another process on the edge races the flip-flop's test of it.
+            string[] said = Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, rst_n = 1'b0, d = 1'b1, q;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    always_ff @(posedge clk or negedge rst_n) if (!rst_n) q <= 1'b0; else q <= d;\n" +
+                "    initial begin @(posedge clk); rst_n = 1'b1; #20 $finish; end\n" +
+                "endmodule\n");
+            Assert.AreEqual(1, said.Length, string.Join("\n", said));
+            StringAssert.Contains("changes tb.rst_n", said[0]);
+        }
     }
 }

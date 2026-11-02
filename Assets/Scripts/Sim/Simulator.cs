@@ -289,11 +289,22 @@ namespace BitSorter.Sim
         /// <summary>Per process woken by a change: the signal the change's origin wrote.</summary>
         private readonly int[] _wokenWrote;
 
-        /// <summary>Each process an edge woke this region: where the edge came from, and its signal.</summary>
-        private readonly List<(int Process, int Origin, int Clock)> _sampled = new List<(int, int, int)>();
+        /// <summary>Each process an edge woke this region: where the edge came from, its signal, and where it took up.</summary>
+        private readonly List<(int Process, int Origin, int Clock, int Pc)> _sampled = new List<(int, int, int, int)>();
 
-        /// <summary>Per process, the signals it reads but those it waits on an edge of; made when first needed.</summary>
-        private readonly int[][] _readsOf;
+        /// <summary>
+        /// What a process reads from where it takes up to where it next waits -- by its process and that counter -- the
+        /// reads one wake makes, never its whole code's (the 15i-3 review: a check a moment after the edge was taken for one
+        /// on it). Made when first needed.
+        /// </summary>
+        private readonly Dictionary<long, HashSet<int>> _readsFrom = new Dictionary<long, HashSet<int>>();
+
+        /// <summary>Per process: what woke it this region -- the change's origin -- kept for the race's chain of causes.</summary>
+        private readonly int[] _wakerOf;
+        private readonly long[] _wakerRegion;
+
+        /// <summary>The signals given an origin this region, for the race check to walk rather than every read.</summary>
+        private readonly List<int> _markedInRegion = new List<int>();
 
         /// <summary>Each race said, by its pair of processes: once a run.</summary>
         private readonly HashSet<long> _racesSaid = new HashSet<long>();
@@ -361,7 +372,8 @@ namespace BitSorter.Sim
             _wokenOrigin = new int[processes];
             _wokenSignal = new int[processes];
             _wokenWrote = new int[processes];
-            _readsOf = new int[processes][];
+            _wakerOf = new int[processes];
+            _wakerRegion = new long[processes];
             _drivers = new DriverInfo[drivers];
             _output = new LogicVec[drivers];
             _pendingToken = new long[drivers];
@@ -593,6 +605,7 @@ namespace BitSorter.Sim
             long events = 0;
             _region++;
             _sampled.Clear();
+            _markedInRegion.Clear();
 
             if (_time >= 0)
                 _values[_time] = _written[_time] = LogicVec.FromUInt64((ulong)time, 64);
@@ -1067,15 +1080,22 @@ namespace BitSorter.Sim
 
             foreach (Waiter w in _waitersOf[s])
             {
-                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, out bool edge))
+                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, out bool edge, out int by))
                 {
                     _waitingAt[w.Process] = -1;
                     _runnable.Add(w.Process);
+
+                    // Woken by what fired, which need not be the change under way: a clock falling as a reset rises, the
+                    // two in one delta, wakes @(posedge clk, posedge rst) by the reset (the 15i-3 review's exercise).
+                    int trigger = by >= 0 ? by : s;
+                    int from = _originRegion[trigger] == _region ? _origin[trigger] : NoOrigin;
                     _wokenRegion[w.Process] = _region;
                     _wokenByEdge[w.Process] = edge;
-                    _wokenOrigin[w.Process] = origin;
-                    _wokenSignal[w.Process] = s;
-                    _wokenWrote[w.Process] = origin != NoOrigin ? _written0[s] : -1;
+                    _wokenOrigin[w.Process] = from;
+                    _wokenSignal[w.Process] = trigger;
+                    _wakerOf[w.Process] = from;
+                    _wakerRegion[w.Process] = _region;
+                    _wokenWrote[w.Process] = from != NoOrigin ? _written0[trigger] : -1;
                 }
             }
         }
@@ -1093,7 +1113,7 @@ namespace BitSorter.Sim
             _writer = !woken || _wokenByEdge[p] ? p : _wokenOrigin[p];
             _writerWrote = !woken || _wokenByEdge[p] ? -1 : _wokenWrote[p];
             if (woken && _wokenByEdge[p])
-                _sampled.Add((p, _wokenOrigin[p], _wokenSignal[p]));
+                _sampled.Add((p, _wokenOrigin[p], _wokenSignal[p], _pc[p]));
             _wokenRegion[p] = 0;
             try
             {
@@ -1364,6 +1384,7 @@ namespace BitSorter.Sim
         /// <summary>Takes a process out of whatever it was waiting for, and out of the lists that would run it.</summary>
         private void Cancel(int p)
         {
+            _wokenRegion[p] = 0;   // a wake it never ran on is no wake (the 15i-3 review)
             _waitingAt[p] = -1;
             _joinPc[p] = -1;
             _generation[p]++;
@@ -1722,10 +1743,12 @@ namespace BitSorter.Sim
         /// Whether what woke it is an edge from a known value to a known one -- a clock's, as a flip-flop waits on -- for the
         /// race warning. An edge out of x, as a clock's first at time 0, is no clock's edge yet.
         /// </param>
-        private bool Fired(int p, int pc, out bool edge)
+        /// <param name="by">The signal of the item that fired, for the race warning; -1 when it is no one signal.</param>
+        private bool Fired(int p, int pc, out bool edge, out int by)
         {
             ref Instruction ins = ref _processes[p].Code[pc];
             edge = false;
+            by = -1;
 
             if (ins.Op == OpCode.WaitUntil)
                 return LogicVec.Truth(ins.Value.Evaluate(_values)) == Logic4.One;
@@ -1741,6 +1764,7 @@ namespace BitSorter.Sim
                 {
                     fired = true;
                     edge = items[i].Edge != EdgeKind.Any && !last[i].IsEmpty && last[i].IsKnown && now.IsKnown;
+                    by = items[i].Signal;
                 }
                 last[i] = now;
             }
@@ -1830,6 +1854,7 @@ namespace BitSorter.Sim
         {
             if (_originRegion[s] != _region)
             {
+                _markedInRegion.Add(s);
                 _originRegion[s] = _region;
                 _origin[s] = origin;
                 _written0[s] = written;
@@ -1876,22 +1901,50 @@ namespace BitSorter.Sim
         /// </summary>
         private void CheckRaces()
         {
-            foreach ((int p, int trigger, int clock) in _sampled)
+            if (_markedInRegion.Count > 0)
             {
-                if (trigger < 0)
-                    continue;
-                foreach (int r in ReadsOf(p))
+                foreach ((int p, int trigger, int clock, int pc) in _sampled)
                 {
-                    if (_originRegion[r] != _region)
+                    if (trigger < 0)
                         continue;
-                    int q = _origin[r];
-                    if (q < 0 || q == p || q == trigger)
-                        continue;
-                    if (_racesSaid.Add(((long)q << 32) | (uint)p))
-                        SayRace(p, q, r, clock);
+                    HashSet<int> reads = ReadsFrom(p, pc);
+                    foreach (int r in _markedInRegion)
+                    {
+                        if (!reads.Contains(r))
+                            continue;
+                        int q = _origin[r];
+                        if (q < 0 || q == p)
+                            continue;
+                        // Ordered after all, by a chain of causes (the 15i-3 review): the writer made the edge, however far
+                        // back; the reader, or what woke it, set the writer going; or one forked the other.
+                        if (Caused(q, trigger) || Caused(p, q) || Caused(q, p))
+                            continue;
+                        if (_racesSaid.Add(((long)q << 32) | (uint)p))
+                            SayRace(p, q, r, clock);
+                    }
                 }
             }
             _sampled.Clear();
+            _markedInRegion.Clear();
+        }
+
+        /// <summary>
+        /// Whether <paramref name="cause"/> set <paramref name="effect"/> going this region: is it, or what woke it, or the
+        /// process that forked it, and so on back.
+        /// </summary>
+        private bool Caused(int cause, int effect)
+        {
+            int at = effect;
+            for (int steps = 0; at >= 0 && steps < 64; steps++)
+            {
+                if (at == cause)
+                    return true;
+                if (_wakerRegion[at] == _region && _wakerOf[at] >= 0 && _wakerOf[at] != at)
+                    at = _wakerOf[at];
+                else
+                    at = _parent[at];
+            }
+            return false;
         }
 
         private void SayRace(int p, int q, int r, int clock)
@@ -1909,16 +1962,38 @@ namespace BitSorter.Sim
                 "on the other edge, or a moment after it -- or with <=. (Said once for these two.)");
         }
 
-        /// <summary>What <paramref name="p"/>'s code reads, the signals it waits on an edge of left out.</summary>
-        private int[] ReadsOf(int p)
+        /// <summary>
+        /// What <paramref name="p"/> reads from <paramref name="pc"/> on, every way its jumps may take, up to where it next
+        /// waits -- a delay, an event, a wait, a fork, a stop or its end -- as the wake that took up there runs. An asynchronous
+        /// reset its body tests is read like any value.
+        /// </summary>
+        private HashSet<int> ReadsFrom(int p, int pc)
         {
-            if (_readsOf[p] != null)
-                return _readsOf[p];
+            long key = ((long)p << 32) | (uint)pc;
+            if (_readsFrom.TryGetValue(key, out HashSet<int> known))
+                return known;
 
+            Instruction[] code = _processes[p].Code;
             var reads = new HashSet<int>();
-            var edges = new HashSet<int>();
-            foreach (Instruction ins in _processes[p].Code)
+            var seen = new HashSet<int>();
+            var todo = new Stack<int>();
+            todo.Push(pc);
+            while (todo.Count > 0)
             {
+                int at = todo.Pop();
+                if (at < 0 || at >= code.Length || !seen.Add(at))
+                    continue;
+                ref Instruction ins = ref code[at];
+                switch (ins.Op)
+                {
+                    case OpCode.Delay:
+                    case OpCode.WaitEvent:
+                    case OpCode.WaitUntil:
+                    case OpCode.Fork:
+                    case OpCode.Stop:
+                    case OpCode.Finish:
+                        continue;
+                }
                 ins.Value?.CollectReads(reads);
                 ins.Other?.CollectReads(reads);
                 foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
@@ -1926,15 +2001,24 @@ namespace BitSorter.Sim
                     piece.Offset?.CollectReads(reads);
                     piece.Word?.CollectReads(reads);
                 }
-                if (ins.Op == OpCode.WaitEvent && ins.Wait != null)
-                    foreach (EventItem item in ins.Wait.Items)
-                        if (item.Edge != EdgeKind.Any)
-                            item.Value?.CollectReads(edges);
+                switch (ins.Op)
+                {
+                    case OpCode.Jump:
+                        todo.Push(ins.Jump);
+                        break;
+                    case OpCode.JumpIf:
+                    case OpCode.JumpUnless:
+                    case OpCode.JumpIfMatch:
+                        todo.Push(ins.Jump);
+                        todo.Push(at + 1);
+                        break;
+                    default:
+                        todo.Push(at + 1);
+                        break;
+                }
             }
-            reads.ExceptWith(edges);
-            var list = new int[reads.Count];
-            reads.CopyTo(list);
-            return _readsOf[p] = list;
+            _readsFrom[key] = reads;
+            return reads;
         }
 
         /// <summary>A nonblocking write: the value and where it goes are worked out now; it lands in an NBA region.</summary>
