@@ -6,7 +6,7 @@ namespace BitSorter.Board.Tests
     /// The classic slips of a first SystemVerilog course (Part 15i-2), each written for these tests: what is typed, the line
     /// and the words BitSorter answers with, and the code as it should have been. <c>FriendlyErrorTests</c> holds the words
     /// and the mended code to BitSorter; <c>FriendlyErrorOracleTests</c> holds both to Icarus -- every slip refused there
-    /// too, but the procedural assign, which the language has and BitSorter does not run.
+    /// too, but the procedural assign, which the language has: BitSorter runs it, as Icarus does, and warns (M4).
     /// </summary>
     public sealed class FriendlyErrorCase
     {
@@ -21,8 +21,11 @@ namespace BitSorter.Board.Tests
         /// <summary>Words the answer has.</summary>
         public string Says;
 
-        /// <summary>Whether the answer is a warning -- a look-alike read and run -- rather than an error.</summary>
+        /// <summary>Whether the answer is a warning -- the code read and run -- rather than an error.</summary>
         public bool Warning;
+
+        /// <summary>Whether the slip is a look-alike character, read as the one it looks like, which the export straightens.</summary>
+        public bool Lookalike;
 
         /// <summary><c>m</c> mended.</summary>
         public string Mended;
@@ -49,14 +52,14 @@ namespace BitSorter.Board.Tests
             {
                 Name = "curly quote",
                 Typed = "module m (input logic a, output logic y);\n    assign y = a & 1’b1;\nendmodule\n",
-                Line = 2, Says = "curly quote, not an apostrophe", Warning = true,
+                Line = 2, Says = "curly quote, not an apostrophe", Warning = true, Lookalike = true,
                 Mended = "module m (input logic a, output logic y);\n    assign y = a & 1'b1;\nendmodule\n",
             };
             yield return new FriendlyErrorCase
             {
                 Name = "dash",
                 Typed = "module m (input logic [1:0] a, b, output logic [1:0] y);\n    assign y = a – b;\nendmodule\n",
-                Line = 2, Says = "is a dash, not a minus sign", Warning = true,
+                Line = 2, Says = "is a dash, not a minus sign", Warning = true, Lookalike = true,
                 Mended = "module m (input logic [1:0] a, b, output logic [1:0] y);\n    assign y = a - b;\nendmodule\n",
             };
             yield return new FriendlyErrorCase
@@ -167,7 +170,7 @@ namespace BitSorter.Board.Tests
             {
                 Name = "an assign inside an always",
                 Typed = "module m (input logic a, b, output logic y);\n    always_comb begin\n        assign y = a & b;\n    end\nendmodule\n",
-                Line = 3, Says = "a procedural continuous assignment, which BitSorter does not run",
+                Line = 3, Says = "a procedural continuous assignment: from the first time it runs, y follows a & b", Warning = true,
                 Mended = "module m (input logic a, b, output logic y);\n    always_comb begin\n        y = a & b;\n    end\nendmodule\n",
                 IcarusTakesIt = true,
             };

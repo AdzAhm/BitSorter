@@ -159,21 +159,22 @@ namespace BitSorter.SystemVerilog.Syntax
                     case "cover":
                         return ParseAssertion(null);
 
+                    // A procedural continuous assignment too (IEEE 1800, 10.6.1; M4): an assign inside a process, which 15i-2
+                    // refused as a slip. It runs now, and the elaborator says so where it is likely a slip -- in an always.
                     case "force":
                     case "release":
+                    case "assign":
+                    case "deassign":
                     {
                         Next();
                         var force = new ForceStatement { Location = t.Location, Keyword = t.Text, Target = ParseLValue() };
-                        if (t.Text == "force" && Expect("=", "after what force overrides"))
+                        if ((t.Text == "force" || t.Text == "assign") && Expect("=", $"after what {t.Text} {(t.Text == "force" ? "overrides" : "sets")}"))
                             force.Value = ParseExpression();
                         if (!Expect(";", $"after {t.Text}"))
                             SkipStatementEnd();
                         force.Comment = Previous.TrailingComment;
                         return force;
                     }
-
-                    case "deassign":
-                        return SkipUnsupportedStatement($"'{t.Text}' is not supported by BitSorter; use force and release", null);
 
                     case "void":
                         return SkipUnsupportedStatement("void'(...) is not supported by BitSorter; call the function as a statement", null);
@@ -252,22 +253,6 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (t.Kind == TokenKind.Identifier || t.Is("{"))
                 return ParseAssignmentOrCall();
-
-            // The classic slip (Part 15i-2): an assign written inside an always. The language has one -- a procedural continuous
-            // assignment, which Icarus runs -- but BitSorter does not, and a course design never wants it.
-            if (t.IsKeyword("assign"))
-            {
-                Error(t.Location, DiagnosticCodes.Expected,
-                    "An assign inside an always or an initial is a procedural continuous assignment, which BitSorter does not run. " +
-                    "Here write the assignment alone -- y = a & b; or, in an always_ff, q <= d; -- or move the assign out, beside " +
-                    "the always; if it was meant to be outside, an end above it may be missing.");
-
-                // What follows read as the assignment it was meant to be, so no second error says the opposite (the review).
-                Next();
-                if (Current.Kind == TokenKind.Identifier || Current.Is("{"))
-                    return ParseAssignmentOrCall();
-                return new NullStatement { Location = t.Location };
-            }
 
             Error(t.Location, DiagnosticCodes.Expected, $"Expected a statement here, but found {Describe(t)}.");
             if (!AtHardStop && !Current.IsKeyword("end"))

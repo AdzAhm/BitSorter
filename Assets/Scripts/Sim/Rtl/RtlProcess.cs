@@ -185,6 +185,14 @@ namespace BitSorter.Sim
                     case OpCode.WaitUntil:
                         why = "It waits inside its body, which no circuit does.";
                         return null;
+                    case OpCode.Force:
+                    case OpCode.Release:
+                        why = "It forces or releases a signal, which is a testbench's doing, not a circuit's.";
+                        return null;
+                    case OpCode.ProceduralAssign:
+                    case OpCode.Deassign:
+                        why = "It has an assign inside it -- a procedural continuous assignment -- which is no circuit's way of setting a value.";
+                        return null;
                     default:
                         why = "It does something a circuit does not: " + code[i].Op + ".";
                         return null;

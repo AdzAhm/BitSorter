@@ -60,6 +60,27 @@ namespace BitSorter.Ci.Oracle
         public void TheTestbench_AgreesWithModelSim_OnEverySignal(string file, string top, string ownDump, string data) =>
             Agrees("ModelSim", file, top, ownDump, data, null);
 
+        /// <summary>
+        /// The procedural continuous assignment (M4), held to ModelSim on every signal and every printed line: Icarus 12 reads
+        /// an assign's right side once, as it runs, where the standard has it followed (Docs/oracle-notes.md, "Procedural
+        /// assign"), so this design is not in the list both simulators run.
+        /// </summary>
+        [Test]
+        public void TheProceduralAssign_AgreesWithModelSim_OnEverySignal() =>
+            Agrees("ModelSim", "behavioural/procedural_assign.sv", "procedural_assign_tb", null, null, null);
+
+        /// <summary>
+        /// Icarus 12's difference, held so that a later Icarus that follows the standard is noticed -- and the design can join
+        /// the list both run: it reads <c>assign y = a + b;</c> once, so y stays 3 when a changes, where the standard has 7.
+        /// </summary>
+        [Test]
+        public void Icarus12_ReadsAProceduralAssignsRightSideOnce()
+        {
+            (_, string[] lines, _) = RunIcarus(Icarus.Require(), "behavioural/procedural_assign.sv", "procedural_assign_tb", null, new string[0]);
+            CollectionAssert.Contains(lines, "1 assigned: y=3", string.Join("\n", lines));
+            CollectionAssert.Contains(lines, "2 follows a: y=3", "Icarus 12 does not follow a; BitSorter and ModelSim give y=7");
+        }
+
         /// <summary>The images every processor's program needs: all three programs', each with what it should leave, and the data.</summary>
         private const string Programs =
             "processor/rv_sum.hex,processor/rv_sum_expected.hex,processor/rv_fib.hex,processor/rv_fib_expected.hex," +

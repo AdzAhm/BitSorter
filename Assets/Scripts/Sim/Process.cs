@@ -102,6 +102,15 @@ namespace BitSorter.Sim
         Release,
 
         /// <summary>
+        /// <c>assign</c> inside a process (M4): <see cref="Instruction.Value"/> laid over the variables of
+        /// <see cref="Instruction.Target"/>, following it, every write to them ignored, until deassigned -- under any force.
+        /// </summary>
+        ProceduralAssign,
+
+        /// <summary><c>deassign</c>: the variables of <see cref="Instruction.Target"/> keep the value they were assigned, and take writes again.</summary>
+        Deassign,
+
+        /// <summary>
         /// <c>$fopen</c> (Part L6): opens the file <see cref="Instruction.Value"/> names, in the mode
         /// <see cref="Instruction.Other"/> gives -- none for a channel of a multichannel descriptor -- and writes
         /// its descriptor into <see cref="Instruction.Target"/>.
@@ -349,11 +358,11 @@ namespace BitSorter.Sim
                     CollectAllReads(function.Code, reads, seen);
         }
 
-        /// <summary>What it forces (Part 14e, for lint): a force sets a signal, though it is none of its writes.</summary>
+        /// <summary>What it forces or assigns (Part 14e and M4, for lint): either sets a signal, though it is none of its writes.</summary>
         internal void CollectForced(ICollection<int> forced)
         {
             foreach (Instruction ins in Code)
-                if (ins.Op == OpCode.Force)
+                if (ins.Op == OpCode.Force || ins.Op == OpCode.ProceduralAssign)
                     foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
                         forced.Add(piece.Signal);
         }

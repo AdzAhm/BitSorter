@@ -81,6 +81,9 @@ namespace BitSorter.Sim
 
                 public readonly string Name;
 
+                /// <summary>What it is written as -- an initial, an always of a kind; a fork's branch is its process's (M4, for lint).</summary>
+                public ProcessKind Kind;
+
                 /// <summary>Where it begins (<see cref="ProcessInfo.At"/>), and the line of the statement being compiled, which each instruction takes (Part 15h-5).</summary>
                 public SourceLocation At;
 
@@ -151,7 +154,7 @@ namespace BitSorter.Sim
                     return null;
                 }
 
-                var p = new Proc($"{scope.Path}.{kind}@{block.Location.Line}") { At = block.Location, Line = block.Location.Line };
+                var p = new Proc($"{scope.Path}.{kind}@{block.Location.Line}") { At = block.Location, Line = block.Location.Line, Kind = block.Kind };
 
                 switch (block.Kind)
                 {
@@ -1132,7 +1135,7 @@ namespace BitSorter.Sim
                 var branches = new ProcessInfo[f.Branches.Count];
                 for (int i = 0; i < f.Branches.Count; i++)
                 {
-                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]") { At = f.Location, Line = f.Location.Line };
+                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]") { At = f.Location, Line = f.Location.Line, Kind = p.Kind };
                     Statement(branch, inner, f.Branches[i]);
                     branch.Emit(OpCode.End);
                     if (branch.Failed)
@@ -1245,7 +1248,9 @@ namespace BitSorter.Sim
 
             /// <summary>
             /// <c>force</c> and <c>release</c> (IEEE 1800, 10.6.2): a whole variable, or a wire or bits of one,
-            /// given a value that overrides every driver and every write until it is released.
+            /// given a value that overrides every driver and every write until it is released. And the procedural
+            /// continuous assignment, <c>assign</c> and <c>deassign</c> (10.6.1; M4): a whole variable, or a concatenation
+            /// of them, that follows a value and ignores every other write until it is deassigned -- under any force.
             /// </summary>
             private void Force(Proc p, Scope scope, ForceStatement f)
             {
@@ -1262,7 +1267,18 @@ namespace BitSorter.Sim
                 for (int i = 0; i < parts.Count; i++)
                 {
                     ExpressionBuilder.Part part = parts[i];
-                    if (part.Signal.IsEvent || part.Signal.Kind == SignalKind.Variable && (part.Lowest != 0 || part.Width != part.Signal.Width))
+                    bool bits = part.Lowest != 0 || part.Width != part.Signal.Width;
+                    if (f.IsAssign && (part.Signal.IsEvent || part.Signal.Kind != SignalKind.Variable || bits))
+                    {
+                        string what = part.Signal.IsEvent ? "an event"
+                            : part.Signal.Kind != SignalKind.Variable ? "a wire, which force overrides" : "bits of a variable";
+                        Error(f.Target.Location, ElaborationCodes.BadLValue,
+                            $"{f.Keyword} inside a process takes a whole variable, or a concatenation of whole variables, and {Printer.Print(f.Target)} is {what}.");
+                        p.Failed = true;
+                        return;
+                    }
+
+                    if (part.Signal.IsEvent || part.Signal.Kind == SignalKind.Variable && bits)
                     {
                         Error(f.Target.Location, ElaborationCodes.BadLValue,
                             $"{f.Keyword} takes a whole variable, or a wire or bits of one, and {Printer.Print(f.Target)} is {(part.Signal.IsEvent ? "an event" : "bits of a variable")}.");
@@ -1272,6 +1288,16 @@ namespace BitSorter.Sim
 
                     pieces[i] = new LPiece(part.Signal.Signal.Index, part.Lowest, part.Width, null);
                     width += part.Width;
+                }
+
+                // A select whole of its signal is a word of an array, which no procedural assign takes (10.6.1; ModelSim: "Slice
+                // of unpacked array not allowed"): BitSorter keeps a word as a signal of its own, so it is told by its shape.
+                if (f.IsAssign && SelectIn(f.Target) is Expression word)
+                {
+                    Error(word.Location, ElaborationCodes.BadLValue,
+                        $"{f.Keyword} inside a process takes a whole variable, or a concatenation of whole variables, and {Printer.Print(word)} is a word of an array.");
+                    p.Failed = true;
+                    return;
                 }
 
                 Expr value = null;
@@ -1285,7 +1311,46 @@ namespace BitSorter.Sim
                     }
                 }
 
-                p.Emit(new Instruction { Op = f.Keyword == "force" ? OpCode.Force : OpCode.Release, Target = pieces, TargetWidth = width, Value = value });
+                // The classic slip (Part 15i-2): an assign written inside an always, where the assignment alone was meant. It runs,
+                // as the language has it, and is said -- in an initial, a testbench's, it is what was meant.
+                if (f.Keyword == "assign" && p.Kind != ProcessKind.Initial)
+                {
+                    string target = Printer.Print(f.Target);
+                    Warning(f.Location, ElaborationCodes.ProceduralAssign,
+                        $"An assign inside an always is a procedural continuous assignment: from the first time it runs, {target} " +
+                        $"follows {Printer.Print(f.Value)} and ignores every other write to it, until a deassign. If the assignment " +
+                        $"alone was meant, write {target} = ...; -- or {target} <= ...; in an always_ff -- or move the assign out, " +
+                        "beside the always; if it was meant to be outside, an end above it may be missing.");
+                }
+
+                OpCode op = f.Keyword switch
+                {
+                    "force" => OpCode.Force,
+                    "release" => OpCode.Release,
+                    "assign" => OpCode.ProceduralAssign,
+                    _ => OpCode.Deassign,
+                };
+                p.Emit(new Instruction { Op = op, Target = pieces, TargetWidth = width, Value = value });
+            }
+
+            /// <summary>The first piece of a target that is a select, concatenations and parentheses opened; null for none.</summary>
+            private static Expression SelectIn(Expression target)
+            {
+                switch (target)
+                {
+                    case ParenthesizedExpression p:
+                        return SelectIn(p.Inner);
+                    case ConcatenationExpression c:
+                        foreach (Expression item in c.Items)
+                            if (SelectIn(item) is Expression select)
+                                return select;
+                        return null;
+                    case IndexExpression _:
+                    case RangeSelectExpression _:
+                        return target;
+                    default:
+                        return null;
+                }
             }
 
             /// <summary>

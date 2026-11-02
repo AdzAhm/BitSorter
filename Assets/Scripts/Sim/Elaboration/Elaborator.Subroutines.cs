@@ -314,6 +314,11 @@ namespace BitSorter.Sim
                             why = $"{name} forces or releases a signal, which a function cannot. A task can.";
                             break;
 
+                        case OpCode.ProceduralAssign:
+                        case OpCode.Deassign:
+                            why = $"{name} assigns or deassigns a variable with assign inside it, which a function cannot. A task can.";
+                            break;
+
                         default:
                             why = $"{name} calls a system task that cannot run inside an expression. Call it as a statement of its own, or make it a task.";
                             break;

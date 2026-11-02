@@ -731,15 +731,22 @@ namespace BitSorter.SystemVerilog.Syntax
         public Statement Fail { get; set; }
     }
 
-    /// <summary><c>force y = a &amp; b;</c> and <c>release y;</c>: a value laid over a signal's own until it is released.</summary>
+    /// <summary>
+    /// <c>force y = a &amp; b;</c> and <c>release y;</c>: a value laid over a signal's own until it is released; and the
+    /// procedural continuous assignment, <c>assign y = a &amp; b;</c> and <c>deassign y;</c> inside a process (M4): a variable
+    /// that follows a value, whatever else writes it, until it is deassigned.
+    /// </summary>
     public sealed class ForceStatement : Statement
     {
-        /// <summary><c>force</c> or <c>release</c>.</summary>
+        /// <summary><c>force</c>, <c>release</c>, <c>assign</c> or <c>deassign</c>.</summary>
         public string Keyword { get; set; }
         public Expression Target { get; set; }
 
-        /// <summary>The value forced; null for <c>release</c>.</summary>
+        /// <summary>The value forced or assigned; null for <c>release</c> and <c>deassign</c>.</summary>
         public Expression Value { get; set; }
+
+        /// <summary>Whether it is the procedural continuous assignment's, <c>assign</c> or <c>deassign</c>, rather than a force's.</summary>
+        public bool IsAssign => Keyword == "assign" || Keyword == "deassign";
     }
 
     /// <summary>A lone <c>;</c>, or nothing after a timing control.</summary>

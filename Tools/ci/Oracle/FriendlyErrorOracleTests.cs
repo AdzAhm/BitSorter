@@ -10,8 +10,8 @@ namespace BitSorter.Ci.Oracle
 {
     /// <summary>
     /// Part 15i-2: every slip BitSorter answers in a student's words is one Icarus refuses as well -- so the words never stand
-    /// in for a refusal the language would not make -- but the procedural assign, which the language has, Icarus runs, and
-    /// BitSorter does not (Docs/oracle-notes.md). Every slip mended, and every look-alike straightened as the export writes it,
+    /// in for a refusal the language would not make -- but the procedural assign, which the language has, and Icarus and
+    /// BitSorter run, BitSorter with a warning (M4; Docs/oracle-notes.md). Every slip mended, and every look-alike straightened as the export writes it,
     /// Icarus takes. And none of BitSorter's own designs is answered so: the corpus and the exercises' answers.
     /// </summary>
     public class FriendlyErrorOracleTests
@@ -44,7 +44,7 @@ namespace BitSorter.Ci.Oracle
             bool takesTyped = IcarusTakes(icarus, slip.Beside.Append(slip.Typed), out string typed);
             Assert.AreEqual(slip.IcarusTakesIt, takesTyped, typed);
             Assert.IsTrue(IcarusTakes(icarus, slip.Beside.Append(slip.Mended), out string mended), mended);
-            if (slip.Warning)
+            if (slip.Lookalike)
                 Assert.IsTrue(IcarusTakes(icarus, slip.Beside.Append(Lexer.Straightened(slip.Typed)), out string exported),
                     "what the export writes: " + exported);
         }

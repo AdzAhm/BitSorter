@@ -47,6 +47,9 @@ namespace BitSorter.Sim
         /// <summary>A plain value assigned to something narrower: its top bits are dropped (Part 14e).</summary>
         public const string Truncated = "SV0405";
 
+        /// <summary>An <c>assign</c> inside an always: a procedural continuous assignment, which runs, where the assignment alone was likely meant (M4).</summary>
+        public const string ProceduralAssign = "SV0406";
+
         // A gate library: errors, as a drawn gate off the library is refused.
 
         /// <summary>Written code held to a gate library that breaks it: a gate it has no cell for, off its delays, logic written with operators, or a constant where it takes none (Part 14g).</summary>

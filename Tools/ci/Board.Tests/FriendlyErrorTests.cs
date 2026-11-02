@@ -49,9 +49,9 @@ namespace BitSorter.Board.Tests
         [Test]
         public void ALookalike_IsStraightenedToTheMendedCode_AndNothingElseIs()
         {
-            foreach (FriendlyErrorCase slip in Cases().Where(c => c.Warning))
+            foreach (FriendlyErrorCase slip in Cases().Where(c => c.Lookalike))
                 Assert.AreEqual(slip.Mended, Lexer.Straightened(slip.Typed), slip.Name);
-            foreach (FriendlyErrorCase slip in Cases().Where(c => !c.Warning))
+            foreach (FriendlyErrorCase slip in Cases().Where(c => !c.Lookalike))
                 Assert.AreEqual(slip.Typed, Lexer.Straightened(slip.Typed), slip.Name);
 
             const string inComments = "// it’s “fine” – here\n/* and ‘here’ */\nmodule m; initial $display(\"it’s\"); endmodule\n";
@@ -97,12 +97,15 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
-        public void AnAssignInAnAlwaysWithNoBegin_IsOneError_AndAMissingEndIsNamed()
+        public void AnAssignInAnAlwaysWithNoBegin_RunsWithOneWarning_AndAMissingEndIsNamed()
         {
+            // It was one error until M4: the language has the procedural assign, and BitSorter runs it now, saying so.
             WrittenModule read = Read("module m (input logic a, b, output logic y);\n    always_comb\n        assign y = a & b;\nendmodule\n", new string[0]);
-            Diagnostic[] errors = read.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-            Assert.AreEqual(1, errors.Length, "no second error saying the opposite: " + string.Join("\n", errors.Select(e => e.Message)));
-            StringAssert.Contains("an end above it may be missing", errors[0].Message);
+            Assert.IsFalse(read.HasErrors, read.FirstError?.ToString());
+            Diagnostic[] said = read.Diagnostics.Where(d => d.Code == BitSorter.Sim.ElaborationCodes.ProceduralAssign).ToArray();
+            Assert.AreEqual(1, said.Length, string.Join("\n", read.Diagnostics));
+            Assert.AreEqual(DiagnosticSeverity.Warning, said[0].Severity);
+            StringAssert.Contains("an end above it may be missing", said[0].Message);
         }
 
         [Test]

@@ -199,6 +199,21 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
+        /// An assign inside an always (M4) runs now, and is no circuit: its variable follows a value whatever the process does
+        /// after, which no gate or flip-flop does. A box, saying so.
+        /// </summary>
+        [Test]
+        public void AnAssignInsideAnAlways_MakesItsProcessABox_SayingSo()
+        {
+            RtlNetlist netlist = Boxed(Elaborate(
+                "module slip (input logic clk, input logic [3:0] a, output logic [3:0] q);\n" +
+                "    always @(posedge clk) assign q = a;\n" +
+                "endmodule\n", "slip"), "slip", 10);
+
+            StringAssert.Contains("a procedural continuous assignment", Box(netlist).Why);
+        }
+
+        /// <summary>
         /// A process that reads a signal it does not wait on goes stale when that signal changes alone, which no circuit does: a
         /// box, saying which.
         /// </summary>
@@ -620,7 +635,8 @@ namespace BitSorter.Board.Tests
 
         /// <summary>
         /// Every process of every exercise's solution and of every corpus design is opened, but the ones listed: each initial,
-        /// two testbench clocks, and one @* that calls a function reading what it does not wait on.
+        /// two testbench clocks, one @* that calls a function reading what it does not wait on, and the slip of an assign inside
+        /// an always (M4).
         /// </summary>
         [Test]
         public void EveryProcessThatDescribesACircuit_IsOpened()
@@ -630,6 +646,7 @@ namespace BitSorter.Board.Tests
                 ["behavioural/function_sensitivity.sv: function_sensitivity.always@16"] = "does not wait on it",
                 ["behavioural/interfaces.sv: interfaces_tb.always@32"] = "A delay, #d",
                 ["behavioural/multiplier.sv: multiplier_tb.always@139"] = "A delay, #d",
+                ["behavioural/procedural_assign.sv: procedural_assign_tb.always@15"] = "a procedural continuous assignment",
             };
             var found = new Dictionary<string, string>();
             int initials = 0, opened = 0;

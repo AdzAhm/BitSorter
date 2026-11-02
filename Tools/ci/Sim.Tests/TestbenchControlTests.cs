@@ -184,6 +184,86 @@ endmodule"));
         }
 
         // -----------------------------------------------------------------
+        // assign and deassign inside a process (M4)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// IEEE 1800, 10.6.1, as ModelSim runs <c>corpus/behavioural/procedural_assign.sv</c> -- these lines are its, to the
+        /// character. Icarus 12 reads an assign's right side once, as it runs, so the oracle holds the design to ModelSim, and
+        /// this holds it here, where CI runs.
+        /// </summary>
+        [Test]
+        public void AProceduralAssign_FollowsItsValue_OverEveryWrite_UntilDeassigned_UnderAnyForce()
+        {
+            string text = System.IO.File.ReadAllText(Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus/behavioural/procedural_assign.sv"));
+            CollectionAssert.AreEqual(new[]
+            {
+                "1 assigned: y=3",
+                "2 follows a: y=7",
+                "3 a write ignored: y=7",
+                "4 assigned again: y=3",
+                "5 forced: y=15",
+                "6 still forced: y=15",
+                "7 released, the assign again: y=6",
+                "9 deassigned, kept: y=6",
+                "10 written: y=2",
+                "12 a concatenation: r=1 s=3",
+                "13 an assign under a force: y=4",
+                "14 shown on release: y=7",
+                "15 deassigned under a force: y=1",
+                "16 released, kept: y=1",
+                "17 deassigned: r=1 s=3",
+                "53 after the first edge: q=7",
+                "63 after the second edge: q=3",
+            }, Printed(text));
+        }
+
+        [Test]
+        public void AnAssignInAnAlways_IsSaid_AndOneInAnInitialIsNot()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    logic a, y, z, clk;
+    always @(posedge clk) assign y = a;
+    initial assign z = a;
+endmodule");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            Diagnostic[] said = e.Diagnostics.Where(d => d.Code == ElaborationCodes.ProceduralAssign).ToArray();
+            Assert.AreEqual(1, said.Length, string.Join("\n", e.Diagnostics));
+            Assert.AreEqual(4, said[0].Location.Line, "the always's, not the initial's: a testbench means it");
+            Assert.AreEqual(DiagnosticSeverity.Warning, said[0].Severity);
+            StringAssert.Contains("y follows a and ignores every other write to it, until a deassign", said[0].Message);
+        }
+
+        [TestCase("wire w; initial assign w = 1'b1;", "a wire, which force overrides")]
+        [TestCase("logic [3:0] v; initial assign v[1] = 1'b1;", "bits of a variable")]
+        [TestCase("logic [3:0] v; initial deassign v[3:2];", "bits of a variable")]
+        [TestCase("event e; initial assign e = 1'b1;", "an event")]
+        public void AProceduralAssign_TakesWholeVariables_AndSaysWhatElseItWasGiven(string items, string says)
+        {
+            Elaboration e = Elaborate("module t;\n    " + items + "\nendmodule");
+            Diagnostic refused = e.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.BadLValue);
+            Assert.IsNotNull(refused, string.Join("\n", e.Diagnostics));
+            StringAssert.Contains("takes a whole variable, or a concatenation of whole variables", refused.Message);
+            StringAssert.Contains(says, refused.Message);
+        }
+
+        [Test]
+        public void AMemorysWord_AndAFunction_AreRefusedAProceduralAssign()
+        {
+            Elaboration word = Elaborate("module t;\n    logic [3:0] m [4];\n    initial assign m[1] = 4'd1;\nendmodule");
+            Diagnostic said = word.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.BadLValue);
+            Assert.IsNotNull(said, "a word of an array, as ModelSim refuses one: " + string.Join("\n", word.Diagnostics));
+            StringAssert.Contains("m[1] is a word of an array", said.Message);
+
+            Elaboration function = Elaborate(
+                "module t;\n    logic y, q;\n    function logic f(input logic a); assign q = a; return a; endfunction\n    assign y = f(1'b1);\nendmodule");
+            Diagnostic refused = function.Diagnostics.FirstOrDefault(d => d.Code == ElaborationCodes.BadCall);
+            Assert.IsNotNull(refused, string.Join("\n", function.Diagnostics));
+            StringAssert.Contains("which a function cannot. A task can.", refused.Message);
+        }
+
+        // -----------------------------------------------------------------
         // Assertions
         // -----------------------------------------------------------------
 
@@ -230,8 +310,7 @@ endmodule";
         [TestCase("initial assert property (a);")]
         [TestCase("initial assert #0 (a);")]
         [TestCase("initial assert final (a);")]
-        [TestCase("initial deassign a;")]
-        public void AConcurrentOrDeferredAssertion_AndDeassign_AreRefusedAsTheyAreRead(string items)
+        public void AConcurrentOrDeferredAssertion_IsRefusedAsItIsRead(string items)
         {
             SyntaxTree tree = SyntaxReader.ReadText("module t;\n    logic a;\n    " + items + "\nendmodule", "test.sv");
             Assert.IsTrue(tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && d.Code == DiagnosticCodes.Unsupported), string.Join("\n", tree.Diagnostics));

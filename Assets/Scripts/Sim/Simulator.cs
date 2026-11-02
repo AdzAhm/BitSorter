@@ -222,16 +222,28 @@ namespace BitSorter.Sim
 
         private const int JoiningAll = -2;
 
-        /// <summary>The values <c>force</c> lays over each signal, and for each signal the forces that read it; null until there is one.</summary>
+        /// <summary>
+        /// The values <c>force</c> and a procedural <c>assign</c> lay over each signal, and for each signal the ones that read
+        /// it; null until there is one.
+        /// </summary>
         private List<ForceRecord>[] _forces, _forceReaders;
 
-        /// <summary>One <c>force</c>: its expression's bits from <see cref="Offset"/>, over the target's bits from <see cref="Lowest"/>.</summary>
+        /// <summary>
+        /// One <c>force</c>, or one procedural <c>assign</c> (<see cref="Assigned"/>, M4): its expression's bits from
+        /// <see cref="Offset"/>, over the target's bits from <see cref="Lowest"/>.
+        /// </summary>
         private sealed class ForceRecord
         {
             public int Signal, Lowest, Width, Offset, Total;
             public Expr Value;
             public int[] Reads;
             public LogicVec Current;
+
+            /// <summary>
+            /// A procedural continuous assignment's (IEEE 1800, 10.6.1): laid under every force -- a force wins until it is
+            /// released, and then the assign shows again -- and taken away by <c>deassign</c>, never by <c>release</c>.
+            /// </summary>
+            public bool Assigned;
         }
 
         /// <summary>For each signal, the waits that read it.</summary>
@@ -1265,7 +1277,17 @@ namespace BitSorter.Sim
                         break;
 
                     case OpCode.Force:
-                        Force(ref ins);
+                        Force(ref ins, assigned: false);
+                        pc++;
+                        break;
+
+                    case OpCode.ProceduralAssign:
+                        Force(ref ins, assigned: true);
+                        pc++;
+                        break;
+
+                    case OpCode.Deassign:
+                        Deassign(ins.Target);
                         pc++;
                         break;
 
@@ -1475,8 +1497,11 @@ namespace BitSorter.Sim
                 "before, and BitSorter runs one of each branch at a time. Wait for it first (join, wait fork), or end it (disable fork).");
         }
 
-        /// <summary><c>force</c> (IEEE 1800, 10.6.2): each piece of the target takes its bits of the value, and keeps following it.</summary>
-        private void Force(ref Instruction ins)
+        /// <summary>
+        /// <c>force</c> (IEEE 1800, 10.6.2), or with <paramref name="assigned"/> a procedural <c>assign</c> (10.6.1): each piece
+        /// of the target takes its bits of the value, and keeps following it. Either replaces one of its own kind on those bits.
+        /// </summary>
+        private void Force(ref Instruction ins, bool assigned)
         {
             int signals = _values.Length;
             if (_forces == null)
@@ -1494,7 +1519,7 @@ namespace BitSorter.Sim
             foreach (LPiece piece in ins.Target)
             {
                 offset -= piece.Width;
-                Unforce(piece.Signal, piece.Lowest, piece.Width);
+                Unforce(piece.Signal, piece.Lowest, piece.Width, assigned);
 
                 var force = new ForceRecord
                 {
@@ -1505,6 +1530,7 @@ namespace BitSorter.Sim
                     Total = ins.TargetWidth,
                     Value = ins.Value,
                     Reads = readList,
+                    Assigned = assigned,
                 };
 
                 (_forces[piece.Signal] ?? (_forces[piece.Signal] = new List<ForceRecord>())).Add(force);
@@ -1524,7 +1550,7 @@ namespace BitSorter.Sim
         {
             foreach (LPiece piece in target)
             {
-                if (!Unforce(piece.Signal, piece.Lowest, piece.Width))
+                if (!Unforce(piece.Signal, piece.Lowest, piece.Width, assigned: false))
                     continue;
 
                 int s = piece.Signal;
@@ -1536,8 +1562,33 @@ namespace BitSorter.Sim
             }
         }
 
-        /// <summary>Takes away every force on the bits given; whether there was one.</summary>
-        private bool Unforce(int s, int lowest, int width)
+        /// <summary>
+        /// <c>deassign</c> (IEEE 1800, 10.6.1): each variable keeps the value it was assigned until it is next written, and takes
+        /// writes again. A force over it stays until it is released.
+        /// </summary>
+        private void Deassign(LPiece[] target)
+        {
+            foreach (LPiece piece in target)
+            {
+                int s = piece.Signal;
+                List<ForceRecord> forces = _forces?[s];
+                if (forces == null)
+                    continue;
+
+                LogicVec kept = _written[s];
+                foreach (ForceRecord force in forces)
+                    if (force.Assigned && force.Lowest < piece.Lowest + piece.Width && force.Lowest + force.Width > piece.Lowest)
+                        kept = Splice(kept, force.Lowest, force.Current);
+                if (!Unforce(s, piece.Lowest, piece.Width, assigned: true))
+                    continue;
+
+                _written[s] = Shape(kept, _design.Signals[s]);
+                Refresh(s);
+            }
+        }
+
+        /// <summary>Takes away every force -- or, <paramref name="assigned"/>, every procedural assign -- on the bits given; whether there was one.</summary>
+        private bool Unforce(int s, int lowest, int width, bool assigned)
         {
             List<ForceRecord> forces = _forces?[s];
             if (forces == null)
@@ -1547,7 +1598,7 @@ namespace BitSorter.Sim
             for (int i = forces.Count - 1; i >= 0; i--)
             {
                 ForceRecord force = forces[i];
-                if (force.Lowest >= lowest + width || force.Lowest + force.Width <= lowest)
+                if (force.Assigned != assigned || force.Lowest >= lowest + width || force.Lowest + force.Width <= lowest)
                     continue;
 
                 forces.RemoveAt(i);
@@ -1562,7 +1613,7 @@ namespace BitSorter.Sim
         private void Evaluate(ForceRecord force) =>
             force.Current = Fit(force.Value.Evaluate(_values), force.Total).Slice(force.Offset, force.Width);
 
-        /// <summary>A signal's forces laid over its own value.</summary>
+        /// <summary>A signal's procedural assigns laid over its own value, and its forces over those.</summary>
         private LogicVec Overlay(int s, LogicVec value)
         {
             List<ForceRecord> forces = _forces?[s];
@@ -1570,7 +1621,11 @@ namespace BitSorter.Sim
                 return value;
 
             foreach (ForceRecord force in forces)
-                value = Splice(value, force.Lowest, force.Current);
+                if (force.Assigned)
+                    value = Splice(value, force.Lowest, force.Current);
+            foreach (ForceRecord force in forces)
+                if (!force.Assigned)
+                    value = Splice(value, force.Lowest, force.Current);
             return Shape(value, _design.Signals[s]);
         }
 
