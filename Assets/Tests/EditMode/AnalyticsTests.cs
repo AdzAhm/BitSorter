@@ -96,6 +96,19 @@ namespace BitSorter.LogicCore.Tests
             Assert.IsFalse(AnalyticsRules.ShouldReport(string.Empty, true, false));
         }
 
+        /// <summary>
+        /// A name no exercise has is not reported: the measurement is which exercise people stop at, and
+        /// <see cref="GameAnalytics"/> takes any string. The pair to the test below, which shows the guard lets
+        /// every real one through.
+        /// </summary>
+        [Test]
+        public void ANameNoExerciseHas_IsNotReported()
+        {
+            Assert.IsFalse(AnalyticsRules.ShouldReport("free-play", true, false), "the 4.x game's free play");
+            Assert.IsFalse(AnalyticsRules.ShouldReport("tutorial", true, false), "or its tutorial");
+            Assert.IsFalse(AnalyticsRules.ShouldReport("doc/my adder", true, false), "or a student's circuit");
+        }
+
         [Test]
         public void EveryExercise_IsReportable()
         {
