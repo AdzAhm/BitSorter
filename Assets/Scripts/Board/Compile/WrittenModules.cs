@@ -87,6 +87,15 @@ namespace BitSorter.Board
         private static readonly Dictionary<string, (SyntaxTree Tree, List<SourceLocation> TimeDeclarations)> Parsed =
             new Dictionary<string, (SyntaxTree, List<SourceLocation>)>(StringComparer.Ordinal);
 
+        // Each also kept by the very objects it was asked of (Part 15h-6d): a document is immutable, so the same project and
+        // module read the same, and the same text among the same files parses the same -- found without the key above, made
+        // of all their text, which every read made again, kept or not. Opening the pipelined processor made 1.6 GB of keys
+        // in a frame, and a browser, which frees memory only between frames, ran out of its 2 GB.
+        private static readonly Dictionary<(object, object, string), WrittenModule> KeptFor =
+            new Dictionary<(object, object, string), WrittenModule>(ProjectFiles.SameObjects.Instance);
+        private static readonly Dictionary<(object, object, string), (SyntaxTree Tree, List<SourceLocation> TimeDeclarations)> ParsedFor =
+            new Dictionary<(object, object, string), (SyntaxTree, List<SourceLocation>)>(ProjectFiles.SameObjects.Instance);
+
         /// <summary>The top a written module is checked under as an instance: not an identifier, so no module can be called it.</summary>
         private const string HostName = "written check";
 
@@ -225,14 +234,21 @@ namespace BitSorter.Board
             if (module == null || !module.IsWritten)
                 throw new ArgumentException("Only a written module is read.", nameof(module));
 
-            string key = Surroundings(project, module);
-            if (Kept.TryGetValue(key, out WrittenModule kept))
-                return kept;
+            if (KeptFor.TryGetValue((project, module, null), out WrittenModule same))
+                return same;
 
-            WrittenModule read = ReadAnew(project, module);
-            if (Kept.Count >= KeptResults)
-                Kept.Clear();
-            Kept[key] = read;
+            string key = Surroundings(project, module);
+            if (!Kept.TryGetValue(key, out WrittenModule read))
+            {
+                read = ReadAnew(project, module);
+                if (Kept.Count >= KeptResults)
+                    Kept.Clear();
+                Kept[key] = read;
+            }
+
+            if (KeptFor.Count >= KeptResults)
+                KeptFor.Clear();
+            KeptFor[(project, module, null)] = read;
             return read;
         }
 
@@ -442,21 +458,29 @@ namespace BitSorter.Board
         /// </summary>
         private static (SyntaxTree Tree, List<SourceLocation> TimeDeclarations) ParseText(string text, string file, IReadOnlyList<ProjectFile> files)
         {
+            if (ParsedFor.TryGetValue((text, files, file), out (SyntaxTree, List<SourceLocation>) same))
+                return same;
+
             string key = file + "\n" + text + ProjectFiles.KeyOf(files, text);
-            if (Parsed.TryGetValue(key, out (SyntaxTree, List<SourceLocation>) kept))
-                return kept;
+            if (!Parsed.TryGetValue(key, out (SyntaxTree Tree, List<SourceLocation> TimeDeclarations) kept))
+            {
+                MemorySourceFiles sources = files.Count == 0 ? null : ProjectFiles.Sources(files);
+                SyntaxTree tree = SyntaxReader.ReadText(text, file, sources);
+                var times = new List<SourceLocation>();
+                foreach (Token token in Preprocessor.Run(file, text ?? string.Empty, sources, new DiagnosticBag(), out _))
+                    if (token.IsKeyword("timeunit") || token.IsKeyword("timeprecision"))
+                        times.Add(token.Location);
 
-            MemorySourceFiles sources = files.Count == 0 ? null : ProjectFiles.Sources(files);
-            SyntaxTree tree = SyntaxReader.ReadText(text, file, sources);
-            var times = new List<SourceLocation>();
-            foreach (Token token in Preprocessor.Run(file, text ?? string.Empty, sources, new DiagnosticBag(), out _))
-                if (token.IsKeyword("timeunit") || token.IsKeyword("timeprecision"))
-                    times.Add(token.Location);
+                kept = (tree, times);
+                if (Parsed.Count >= KeptResults)
+                    Parsed.Clear();
+                Parsed[key] = kept;
+            }
 
-            if (Parsed.Count >= KeptResults)
-                Parsed.Clear();
-            Parsed[key] = (tree, times);
-            return (tree, times);
+            if (ParsedFor.Count >= KeptResults)
+                ParsedFor.Clear();
+            ParsedFor[(text, files, file)] = kept;
+            return kept;
         }
 
         /// <summary>A drawn module's header alone: its ports, and nothing inside.</summary>

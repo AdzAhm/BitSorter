@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog.Syntax;
@@ -73,6 +74,23 @@ namespace BitSorter.Board
             if (files.Count == 0 || string.IsNullOrEmpty(text))
                 return "";
 
+            if (KeysFor.TryGetValue((files, text, null), out string same))
+                return same;
+            string made = MakeKey(files, text);
+            if (KeysFor.Count >= KeptKeys)
+                KeysFor.Clear();
+            KeysFor[(files, text, null)] = made;
+            return made;
+        }
+
+        // What KeyOf said, by the very list and text it was asked of (Part 15h-6d): both are immutable, so the same two say
+        // the same -- and a read of a module asks it of every other module's text, every time.
+        private const int KeptKeys = 256;
+        private static readonly Dictionary<(object, object, string), string> KeysFor =
+            new Dictionary<(object, object, string), string>(SameObjects.Instance);
+
+        private static string MakeKey(IReadOnlyList<ProjectFile> files, string text)
+        {
             var key = new StringBuilder();
             var taken = new bool[files.Count];
             var reading = new List<string> { text };
@@ -89,6 +107,28 @@ namespace BitSorter.Board
             }
 
             return key.ToString();
+        }
+
+        /// <summary>
+        /// Two objects and a name, the objects compared as references: a cache's key for what is worked out from a document,
+        /// which is immutable, so the very same objects always give the same answer (Part 15h-6d).
+        /// </summary>
+        internal sealed class SameObjects : IEqualityComparer<(object, object, string)>
+        {
+            public static readonly SameObjects Instance = new SameObjects();
+
+            public bool Equals((object, object, string) x, (object, object, string) y) =>
+                ReferenceEquals(x.Item1, y.Item1) && ReferenceEquals(x.Item2, y.Item2) && string.Equals(x.Item3, y.Item3, StringComparison.Ordinal);
+
+            public int GetHashCode((object, object, string) key)
+            {
+                unchecked
+                {
+                    int hash = RuntimeHelpers.GetHashCode(key.Item1);
+                    hash = hash * 397 ^ RuntimeHelpers.GetHashCode(key.Item2);
+                    return hash * 397 ^ (key.Item3 == null ? 0 : StringComparer.Ordinal.GetHashCode(key.Item3));
+                }
+            }
         }
 
         /// <summary>A run's files by name, whatever the case: <c>$readmemh("ROM.hex")</c> finds rom.hex, as an include would.</summary>
