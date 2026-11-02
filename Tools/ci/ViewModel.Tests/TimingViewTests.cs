@@ -588,5 +588,74 @@ namespace BitSorter.ViewModel.Tests
             TimingLight light = TimingLight.Of(layout, critical.Signals.Take(1).Concat(new[] { "y" }).ToArray());
             Assert.AreEqual(2, light.Branches.Count(b => b.Net == a && layout.Nets[a].Loads[b.Branch].Part == and), "both wires into the AND");
         }
+
+        // -----------------------------------------------------------------
+        // Latency and throughput (Part 15i-1)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A 3-stage pipeline, written for this test: registered in, added (2), registered, registered out. Its clock period is
+        /// the adder's 2, its latency three of those, and it takes a new input every period.
+        /// </summary>
+        [Test]
+        public void APipeline_ItsLatency_IsItsStagesTimesThePeriod_AndItsThroughputOneAPeriod()
+        {
+            Project project = Written("pipe3", ("pipe3",
+                "module pipe3 (input logic clk, input logic [3:0] a, b, output logic [3:0] y);\n" +
+                "    logic [3:0] ra, rb, sum, s;\n" +
+                "    assign #2 sum = ra + rb;\n" +
+                "    always_ff @(posedge clk) begin\n" +
+                "        ra <= a; rb <= b;\n" +
+                "        s <= sum;\n" +
+                "        y <= s;\n" +
+                "    end\n" +
+                "endmodule\n"));
+            string unit = Unit(project);
+            TimingView view = TimingView.Of(project);
+
+            TimingLine latency = view.Lines.Single(l => l.Label == "LATENCY");
+            Assert.AreEqual("3 clock periods: every path from an input to an output passes 3 registers, a 3-stage pipeline", latency.Text);
+            Assert.AreEqual("6 " + unit, latency.Numbers);
+            TimingLine throughput = view.Lines.Single(l => l.Label == "THROUGHPUT");
+            Assert.AreEqual("1 per 2 " + unit, throughput.Numbers);
+            StringAssert.Contains(TimingView.Frequency(2, unit), throughput.Text);
+        }
+
+        /// <summary>The course's two pipelining exercises: each solution two clocks late, as their goals ask; one start not a pipeline.</summary>
+        [Test]
+        public void ThePipeliningExercises_SolvedAreTwoStagePipelines_AndKeepInStepsStart_IsNone()
+        {
+            foreach (string id in new[] { "cut-it-in-two", "keep-in-step" })
+            {
+                Project solution = Board.Tests.ExerciseFiles.Solution(Board.Tests.ExerciseFiles.Load(id));
+                TimingLine latency = TimingView.Of(solution).Lines.Single(l => l.Label == "LATENCY");
+                StringAssert.StartsWith("2 clock periods", latency.Text, id);
+                Assert.IsTrue(TimingView.Of(solution).Lines.Any(l => l.Label == "THROUGHPUT"), id);
+            }
+
+            var problems = new System.Collections.Generic.List<string>();
+            Project start = Board.Tests.ExerciseFiles.Load("keep-in-step").ToProject(problems);
+            Assert.IsNotNull(start, string.Join("; ", problems));
+            TimingView started = TimingView.Of(start);
+            Assert.AreEqual("none single: paths from an input to an output pass 0 to 2 registers, so one input's results come out " +
+                "over several periods; a pipeline's stages line up", started.Lines.Single(l => l.Label == "LATENCY").Text,
+                "a through two registers, b straight to the XOR");
+            Assert.IsFalse(started.Lines.Any(l => l.Label == "THROUGHPUT"), "no pipeline, no claim of one result a period");
+        }
+
+        /// <summary>A state machine and a counter are no pipeline, and say why; logic with no clock has neither line.</summary>
+        [Test]
+        public void AStateMachine_AndACounter_ClaimNoLatency_AndLogicWithNoClockShowsNone()
+        {
+            TimingLine detector = TimingView.Of(WorkbenchSamples.SequenceDetector()).Lines.Single(l => l.Label == "LATENCY");
+            StringAssert.StartsWith("none fixed: a path from an input to an output runs round a loop through a register", detector.Text);
+            Assert.AreEqual("", detector.Numbers);
+
+            TimingLine counter = TimingView.Of(WorkbenchSamples.Counter()).Lines.Single(l => l.Label == "LATENCY");
+            StringAssert.StartsWith("none: no input reaches what an output holds", counter.Text, "its enable only steers it");
+
+            TimingView adder = TimingView.Of(WorkbenchSamples.FullAdder());
+            Assert.IsFalse(adder.Lines.Any(l => l.Label == "LATENCY" || l.Label == "THROUGHPUT"), "no registers, no clock");
+        }
     }
 }

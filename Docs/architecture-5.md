@@ -4016,6 +4016,30 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
 
+**As built in Part 15i-1: latency and throughput in TIMING** (Ahmad, 2026-11-02: "a latency/throughput readout as a tiny
+extra", beside the course read, which gives both for a K-stage pipeline).
+- **`Sim/Timing/PipelineDepth`** counts the registers on every path from an input to an output, over the timing graph's
+  bits. A register is not the timing graph's one node for a whole process -- that would make a pipeline written as one
+  `always_ff` of stages a loop -- but, for each signal an edge-triggered process writes, a junction from the signals its
+  value reads, through any blocking temporary of the same process (`FlowOf`). Its `if`s and `case`s are left out: an
+  enable or a reset steers a stage and is no stage of its own, as the course counts one, so a counter's enable reaches
+  nothing. Only bits on some way from an input to an output count, so a counter beside a pipeline leaves it a pipeline.
+  In order (Kahn's), the fewest and the most registers each bit is reached through; what is left unordered is a loop.
+- A register is matched to its process by the process itself (`TimingRegister.Process`), never by name: a drawn module
+  prints every register's process on one line, `always_ff@0`, and the first version gave `cut-it-in-two`'s first
+  register the second one's flow, so no input reached its output.
+- **On the TIMING tab**, after the period lines of a design with registers: LATENCY -- "K clock periods: every path from
+  an input to an output passes K registers, a K-stage pipeline", with K times the clock period -- and THROUGHPUT, one
+  result each period whatever K is. Anything else says what it is: within the period, where no register stands on any
+  such path; none, where no input reaches what an output holds; none fixed, round a state machine's loop; none single,
+  where paths cross different numbers -- `keep-in-step` as it opens, 0 to 2. Throughput is claimed only for a pipeline.
+  A design without registers shows neither line.
+- **Tests**: `PipelineDepthTests` (logic alone, one and three stages in one process, paths of different depths, an
+  accumulator's loop, a counter's enable reaching nothing, a counter beside a pipeline, two processes of one name);
+  `TimingViewTests` (a written 3-stage pipeline's lines and numbers, both pipelining exercises' solutions two stages,
+  `keep-in-step`'s start none single, the sequence detector and the counter claiming none, the full adder showing
+  neither).
+
 ---
 
 ## 11. The parts

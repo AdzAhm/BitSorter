@@ -442,7 +442,10 @@ Once a circuit works, the workbench answers the questions the course asks of it:
   beside PATHS, and the arrow beside a path too long for its row shows all of it.
   For a circuit with registers, give
   each its clock-to-Q and setup in its inspector, and the tab gives the minimum
-  clock period and the frequency that allows. The tab also counts the gates.
+  clock period and the frequency that allows. For a pipeline, where every path
+  from an input to an output passes the same number of registers, it gives the
+  latency in clock periods and the throughput: one result each period. The tab
+  also counts the gates.
 - **The measured worst.** For a circuit of up to ten input bits and no registers,
   the TIMING tab steps every input up and down from every value of the others.
   It shows the slowest each output really changed, and the input values that
