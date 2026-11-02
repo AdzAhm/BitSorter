@@ -1637,7 +1637,11 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Shot72_WorkbenchSingleCycleControlTables() => Processor("Single-cycle RISC-V", 1500, "control", "72-workbench-single-cycle-control");
 
         /// <summary>A processor sample opened, stepped inside <paramref name="inside"/> where one is named, run to <paramref name="at"/> and fitted.</summary>
-        private IEnumerator Processor(string sample, double at, string inside, string shot)
+        /// <remarks>
+        /// Each runs TEST, every instruction (Part 15h-6c): the moments these shots show were chosen on the one demo program,
+        /// and the sum, which a processor opens on, has stopped by them.
+        /// </remarks>
+        private IEnumerator Processor(string sample, double at, string inside, string shot, string program = "TEST")
         {
             yield return LoadTheGame();
             yield return Frames(2);
@@ -1654,6 +1658,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.ShowSample(index);
             yield return Frames(2);
             workbench.Pause();
+            Assert.IsTrue(workbench.Session.Choose("PROGRAM", program).Done, program);
             workbench.Session.Finish();
             yield return Frames(2);
             Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing of its code");
@@ -2262,6 +2267,38 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(1, workbench.ListingView.Marked.Count, "sanity: its line marked");
             yield return Capture("73-workbench-drawing-and-code-linked");
+        }
+
+        /// <summary>
+        /// Part 15h-6c: the pipelined processor opened from the start page's RISC-V PROCESSORS on Fibonacci, its PROGRAM chip's
+        /// menu open over the run, the three programs listed and the one running marked.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot74_WorkbenchProgramChooser()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int index = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Pipelined RISC-V")
+                    index = i;
+            workbench.OpenProcessor(index, "FIBONACCI");
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.FitView();
+            workbench.Seek(450);
+            yield return Frames(30);
+            workbench.OpenChoiceMenu();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.ChoiceMenu.IsOpen, "sanity: the menu open");
+            yield return Capture("74-workbench-program-chooser");
         }
 
         private const string DrawnAlu =

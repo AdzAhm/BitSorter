@@ -49,6 +49,7 @@ namespace BitSorter.View
             BuildTimeline(palette);
             BuildControls(palette);
             BuildExerciseControls(palette);
+            BuildProgramChip(palette);
         }
 
         /// <summary>A strip across the top of the window, in from its edges (<see cref="FitToolbar"/>).</summary>

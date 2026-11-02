@@ -34,6 +34,38 @@ namespace BitSorter.View
         /// <summary>The name of SAMPLES' item for <see cref="WorkbenchSamples.All"/>[<paramref name="index"/>].</summary>
         public static string SampleItem(int index) => StartItem + "sample " + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
+        /// <summary>
+        /// The name of RISC-V PROCESSORS' button that opens the processor <see cref="WorkbenchSamples.All"/>[<paramref name="index"/>]
+        /// running <paramref name="program"/> (Part 15h-6c).
+        /// </summary>
+        public static string ProcessorItem(int index, string program) =>
+            StartItem + "processor " + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + program;
+
+        /// <summary>
+        /// The three processors, each a section's card of its own on the start page (Ahmad, 2026-11-02: "a main section ...
+        /// for the 3 RISC-V samples"), with what each shows in a line, rather than three more rows of SAMPLES.
+        /// </summary>
+        private static readonly (string Name, string Line)[] Processors =
+        {
+            ("Single-cycle RISC-V", "every instruction in one long clock cycle"),
+            ("Multicycle RISC-V", "three to five short cycles, a state machine its control"),
+            ("Pipelined RISC-V", "five stages at once, forwarding, stalls and flushes"),
+        };
+
+        /// <summary>The programs every processor runs, as its PROGRAM names them, and as its buttons say them.</summary>
+        private static readonly (string Member, string Caption)[] Programs =
+        {
+            ("SUM", "SUM"), ("FIBONACCI", "FIBONACCI"), ("TEST", "TEST"),
+        };
+
+        private static bool IsProcessor(string sample)
+        {
+            foreach ((string name, string _) in Processors)
+                if (name == sample)
+                    return true;
+            return false;
+        }
+
         /// <summary>How many circuits RECENT lists: OPEN has the rest.</summary>
         public const int RecentShown = 8;
 
@@ -341,11 +373,14 @@ namespace BitSorter.View
             VisualElement samples = Column(columns, "SAMPLES", palette, first: false);
             for (int i = 0; i < WorkbenchSamples.All.Count; i++)
             {
+                if (IsProcessor(WorkbenchSamples.All[i].Name))
+                    continue;   // a card of its own, under RISC-V PROCESSORS (Part 15h-6c)
                 int chip = i + 1;
                 Item(samples, SampleItem(i), WorkbenchSamples.All[i].Name.ToUpperInvariant(), () => ShowSample(chip), palette);
             }
 
-            BuildStartExercises(columns, palette);
+            VisualElement exercises = BuildStartExercises(columns, palette);
+            BuildStartProcessors(exercises, palette);
 
             _homeNotice = ShellTheme.Label("notice", "", UiType.Body, palette.Accent, TextAnchor.MiddleCenter);
             _homeNotice.style.whiteSpace = WhiteSpace.Normal;
@@ -393,6 +428,57 @@ namespace BitSorter.View
             item.style.paddingLeft = 14f;
             column.Add(item);
             return item;
+        }
+
+        /// <summary>
+        /// RISC-V PROCESSORS (Part 15h-6c), under EXERCISES: a card for each processor -- its name, which opens it as SAMPLES
+        /// would, what it shows in a line, and its three programs, each opening it running that one, PROGRAM chosen as its chip
+        /// chooses it.
+        /// </summary>
+        private void BuildStartProcessors(VisualElement column, SchematicPalette palette)
+        {
+            Heading(column, "RISC-V PROCESSORS", palette, 28f);
+            for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+            {
+                string name = WorkbenchSamples.All[i].Name;
+                int processor = System.Array.FindIndex(Processors, p => p.Name == name);
+                if (processor < 0)
+                    continue;
+                int chip = i + 1;
+
+                var card = new VisualElement { name = "processor", pickingMode = PickingMode.Ignore };
+                card.style.marginBottom = 12f;
+                column.Add(card);
+                Item(card, SampleItem(i), name.ToUpperInvariant(), () => ShowSample(chip), palette).style.marginBottom = 4f;
+
+                Label line = ShellTheme.Label("says", Processors[processor].Line, UiType.Caption, palette.TextDim);
+                line.style.marginLeft = 14f;
+                line.style.marginBottom = 6f;
+                card.Add(line);
+
+                var row = new VisualElement { name = "programs", pickingMode = PickingMode.Ignore };
+                row.style.flexDirection = FlexDirection.Row;
+                card.Add(row);
+                const float gap = 8f;
+                float width = (HomeColumnWidth - 2f * gap) / Programs.Length;
+                for (int p = 0; p < Programs.Length; p++)
+                {
+                    string member = Programs[p].Member;
+                    ShellButton program = ShellTheme.Button(ProcessorItem(i, member), Programs[p].Caption, palette, () => OpenProcessor(chip, member), UiType.Caption);
+                    program.style.width = width;
+                    program.style.height = 28f;
+                    program.style.marginLeft = p == 0 ? 0f : gap;
+                    row.Add(program);
+                }
+            }
+        }
+
+        /// <summary>The processor sample <paramref name="chip"/> opened, running <paramref name="program"/>: one step of its document.</summary>
+        public void OpenProcessor(int chip, string program)
+        {
+            ShowSample(chip);
+            if (_session != null && _session.Choices.Count > 0)
+                Said(_session.Choose(_session.Choices[0].Name, program));
         }
 
         /// <summary>RECENT made again from the save: the circuits the latest opened first, as many as it shows.</summary>

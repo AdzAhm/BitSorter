@@ -1559,6 +1559,7 @@ namespace BitSorter.View
             TickCode();
             TickDrawingSwitch();
             TickController();
+            RefreshProgramChip();
             TickLock();
             TickRewriteQuestion();
             TickZoomSliders();
@@ -1903,6 +1904,7 @@ namespace BitSorter.View
             _exportMenu.Close();
             _fileMenu.Close();
             _openMenu?.Close();
+            _choiceMenu?.Close();
             _circuitName?.Close();
             _helpMenu?.Close();
             _exerciseCard?.Close();

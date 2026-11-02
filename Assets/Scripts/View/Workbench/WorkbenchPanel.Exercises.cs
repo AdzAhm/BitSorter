@@ -208,7 +208,7 @@ namespace BitSorter.View
             if (_codeButton != null)
                 _codeButton.style.display = code ? DisplayStyle.Flex : DisplayStyle.None;
             if (Chip != null)
-                Chip.style.right = !shown ? 0f : ExerciseControlsWidth + RowGap + (code ? CodeWidth + RowGap : 0f);
+                Chip.style.right = !shown ? ProgramChipRoom() : ExerciseControlsWidth + RowGap + (code ? CodeWidth + RowGap : 0f);
             RefreshCodeButton();
         }
 
@@ -529,13 +529,14 @@ namespace BitSorter.View
             _exercise != null && !solved(_exercise.Id) ? _exercise : ExerciseRun.Next(ExerciseCatalog.Run, solved, after: _exercise?.Id);
 
         /// <summary>The start page's EXERCISES column: carry on with the next, the whole list, and how far the student is.</summary>
-        private void BuildStartExercises(VisualElement columns, SchematicPalette palette)
+        private VisualElement BuildStartExercises(VisualElement columns, SchematicPalette palette)
         {
             VisualElement column = Column(columns, "EXERCISES", palette, first: false);
             _startContinue = Item(column, StartContinueItem, "", ContinueExercises, palette);
             Item(column, StartExercisesItem, "ALL EXERCISES", ShowExercises, palette);
             _startProgress = ShellTheme.Label("progress", "", UiType.Label, palette.Muted);
             column.Add(_startProgress);
+            return column;
         }
 
         /// <summary>CONTINUE on the start page: the next exercise to do, after the one open last.</summary>

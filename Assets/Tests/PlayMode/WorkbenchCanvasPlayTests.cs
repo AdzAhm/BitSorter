@@ -3459,6 +3459,43 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(chip, workbench.ChipText, "and says nothing");
         }
 
+        /// <summary>
+        /// Part 15h-6c: the start page opens a processor on the program asked for, its PROGRAM chip says it, and the chip's
+        /// menu runs another, as one undo step.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AProcessor_OpensOnTheProgramAskedFor_AndItsChipRunsAnother()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int index = -1;
+            for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+                if (WorkbenchSamples.All[i].Name == "Single-cycle RISC-V")
+                    index = i;
+            workbench.ShowHome();
+            yield return null;
+            yield return Click(WorkbenchPanel.ProcessorItem(index, "FIBONACCI"));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "opened on Fibonacci");
+            Assert.AreEqual("PROGRAM: FIBONACCI", workbench.ProgramChoice != null ? "PROGRAM: " + BenchChoice.Said(workbench.ProgramChoice.Chosen).ToUpperInvariant() : null);
+            Assert.AreEqual(UnityEngine.UIElements.DisplayStyle.Flex, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.ProgramButton).resolvedStyle.display);
+
+            yield return Click(WorkbenchPanel.ProgramButton);
+            yield return null;
+            Assert.IsTrue(workbench.ChoiceMenu.IsOpen, "the chip opens its menu");
+            yield return Click(ChoiceMenu.SlotName(2));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("TEST", workbench.Session.Choices.Single().Chosen, "TEST chosen from the menu");
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.Undo(), "one step");
+            yield return null;
+            Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen);
+        }
+
         private static Rect WorldRect(RectTransform rect)
         {
             var corners = new Vector3[4];
