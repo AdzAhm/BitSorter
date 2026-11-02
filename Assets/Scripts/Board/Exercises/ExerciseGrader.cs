@@ -96,7 +96,10 @@ namespace BitSorter.Board
         private static readonly Regex Failed = new Regex(@"^FAIL (\S+) at (\d+): (\S+), wanted (\S+)$", RegexOptions.CultureInvariant);
         private static readonly Regex Summary = new Regex(@"^(\d+) of (\d+) checks failed$", RegexOptions.CultureInvariant);
 
-        public static Grade Grade(Exercise exercise, Project project)
+        public static Grade Grade(Exercise exercise, Project project) => Grade(exercise, project, StartOrder.ModelSim);
+
+        /// <summary><see cref="Grade(Exercise, Project)"/>, its run begun at time 0 as <paramref name="start"/> says (M5).</summary>
+        public static Grade Grade(Exercise exercise, Project project, StartOrder start)
         {
             if (exercise == null)
                 throw new ArgumentNullException(nameof(exercise));
@@ -151,7 +154,7 @@ namespace BitSorter.Board
                 }
                 else
                 {
-                    var sim = new Simulator(elaboration.Design);
+                    var sim = new Simulator(elaboration.Design, null, new SimOptions { StartOrder = start });
                     sim.RunTo(graded.Stimulus.StopTime + 1);
                     var asked = new HashSet<(string, long)>();
                     foreach (Check check in graded.Stimulus.Checks)

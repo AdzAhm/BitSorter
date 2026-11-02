@@ -144,10 +144,7 @@ endmodule"), 20);
             CollectionAssert.AreEqual(new[] { "0 x", "10 0" }, Changes(sim, "gout"));
         }
 
-        [Test]
-        public void AtTimeZero_AnInstancesProcessesStartFirst_AndAModulesOwnRunAsWritten()
-        {
-            Simulator sim = Run(Clean(@"
+        private const string StartingTogether = @"
 module waiter (input logic r, output logic q);
     always @(posedge r) q = 1;
 endmodule
@@ -155,35 +152,103 @@ endmodule
 module t;
     logic ra, qa;
     initial ra = 1;
-    always @(posedge ra) qa = 1;     // starts too late to see ra rise
+    always @(posedge ra) qa = 1;     // written after the initial
 
     logic rb, qb;
-    always @(posedge rb) qb = 1;     // already waiting
-    initial rb = 1;
+    always @(posedge rb) qb = 1;     // written before it
 
+    initial rb = 1;
     logic r2, q2;
     initial r2 = 1;
-    waiter w (.r(r2), .q(q2));       // after the initial, but an instance: it starts first
-endmodule"), 10);
+    waiter w (.r(r2), .q(q2));       // after the initial, in an instance
+endmodule";
 
-            Assert.AreEqual("x", Now(sim, "qa"));
+        /// <summary>
+        /// M5, as ModelSim begins time 0 (Docs/oracle-notes.md, "Time 0"): every always that begins with an event control is
+        /// waiting before anything runs, so each sees the edge an initial makes, wherever either is written.
+        /// </summary>
+        [Test]
+        public void AtTimeZero_AsModelSimBegins_EveryAlwaysWaitingOnAnEdge_SeesIt()
+        {
+            Simulator sim = Run(Clean(StartingTogether), 10);
+            Assert.AreEqual("1", Now(sim, "qa"), "written after the initial, and waiting all the same");
             Assert.AreEqual("1", Now(sim, "qb"));
             Assert.AreEqual("1", Now(sim, "q2"));
         }
 
+        /// <summary>M5: the other processes start as written, depth first -- an instance's at its instance statement's place.</summary>
         [Test]
-        public void AtTimeZero_ProcessesStart_OnceWhatHasNoDelayHasSettled()
+        public void AtTimeZero_AsModelSimBegins_InitialsRunAsWritten_AnInstancesInItsPlace()
+        {
+            CollectionAssert.AreEqual(new[] { "top before", "child before", "grandchild", "child after", "top after" },
+                Run(Clean(@"
+module g;
+    initial $display(""grandchild"");
+endmodule
+module c;
+    initial $display(""child before"");
+    g v ();
+    initial $display(""child after"");
+endmodule
+module t;
+    initial $display(""top before"");
+    c u ();
+    initial $display(""top after"");
+endmodule", "t"), 10).History.Messages.Where(m => !m.Text.StartsWith("$")).Select(m => m.Text).ToArray());
+        }
+
+        [Test]
+        public void AtTimeZero_AsIcarusBegins_AnInstancesProcessesStartFirst_AndAModulesOwnRunAsWritten()
+        {
+            Simulator icarus = Run(Clean(StartingTogether), 10, new SimOptions { StartOrder = StartOrder.Icarus });
+            Assert.AreEqual("x", Now(icarus, "qa"), "starts too late to see ra rise");
+            Assert.AreEqual("1", Now(icarus, "qb"), "already waiting");
+            Assert.AreEqual("1", Now(icarus, "q2"), "an instance: it starts first");
+        }
+
+        private const string ReadingAWireAtZero = @"
+module t;
+    logic [3:0] a = 4'd5, seen, later;
+    wire [3:0] y = a + 4'd1;
+    initial begin seen = y; #0 later = y; end
+    always @(y) $display(""y changed to %0d"", y);
+endmodule";
+
+        [Test]
+        public void AtTimeZero_AsIcarusBegins_ProcessesStart_OnceWhatHasNoDelayHasSettled()
         {
             // As Icarus starts them: an initial reading a wire at time 0 sees it worked out from the
             // starting values, not the x it has before its assign has run.
+            Simulator sim = Run(Clean(ReadingAWireAtZero), 10, new SimOptions { StartOrder = StartOrder.Icarus });
+            CollectionAssert.AreEqual(new[] { "0 0110" }, Changes(sim, "seen"));
+            CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Text.StartsWith("y changed")), "and no always sees it settle");
+        }
+
+        /// <summary>
+        /// M5, as ModelSim begins: continuous logic settles after the processes start, as changes of its own -- an initial
+        /// reading a wire at once sees x and after #0 the value, and an always waiting on it sees it change.
+        /// </summary>
+        [Test]
+        public void AtTimeZero_AsModelSimBegins_AWireSettlesAfterTheProcessesStart_AsAChange()
+        {
+            Simulator sim = Run(Clean(ReadingAWireAtZero), 10);
+            CollectionAssert.AreEqual(new[] { "0 xxxx" }, Changes(sim, "seen"));
+            CollectionAssert.AreEqual(new[] { "0 0110" }, Changes(sim, "later"));
+            CollectionAssert.AreEqual(new[] { "y changed to 6" }, sim.History.Messages.Where(m => m.Text.StartsWith("y changed")).Select(m => m.Text));
+        }
+
+        /// <summary>M5: an always_comb makes its first run after the other processes have started, as the standard has it (9.2.2.2.2).</summary>
+        [Test]
+        public void AtTimeZero_AsModelSimBegins_AnAlwaysCombsFirstRun_ComesAfterTheInitials()
+        {
             Simulator sim = Run(Clean(@"
 module t;
-    logic [3:0] a = 4'd5, seen;
-    wire [3:0] y = a + 4'd1;
+    logic a = 1, y, seen;
+    always_comb y = a;
     initial seen = y;
 endmodule"), 10);
-
-            CollectionAssert.AreEqual(new[] { "0 0110" }, Changes(sim, "seen"));
+            CollectionAssert.AreEqual(new[] { "0 x" }, Changes(sim, "seen"));
+            Assert.AreEqual("1", Now(sim, "y"));
         }
 
         [Test]
@@ -682,8 +747,9 @@ endmodule");
             Assert.AreEqual(1005, clock.NextEventTime, "a free-running clock always has a next edge");
         }
 
-        [Test]
-        public void ProcessesStartedIn_IsTheRoundOfTimeZeroAnInitialsFirstAssignmentIsMadeIn()
+        [TestCase(StartOrder.ModelSim)]
+        [TestCase(StartOrder.Icarus)]
+        public void ProcessesStartedIn_IsTheRoundOfTimeZeroAnInitialsFirstAssignmentIsMadeIn(StartOrder start)
         {
             Design design = Clean(
                 "module t;\n" +
@@ -693,12 +759,15 @@ endmodule");
                 "    initial x = 1;\n" +
                 "    initial x <= 0;\n" +
                 "endmodule\n");
-            var sim = new Simulator(design);
+            var sim = new Simulator(design, null, new SimOptions { StartOrder = start });
             Assert.AreEqual(-1, sim.ProcessesStartedIn, "before the run");
 
             sim.RunTo(1);
             SignalId x = design.Find("t.x");
-            Assert.Greater(sim.ProcessesStartedIn, 0, "after the two assigns had settled from a's starting value");
+            if (start == StartOrder.Icarus)
+                Assert.Greater(sim.ProcessesStartedIn, 0, "after the two assigns had settled from a's starting value");
+            else
+                Assert.AreEqual(0, sim.ProcessesStartedIn, "in the first round, before the assigns' first values arrive (M5)");
             Assert.AreEqual(sim.ProcessesStartedIn, sim.History.Change(x, 1).Delta, "x = 1, made as the processes start");
             Assert.Greater(sim.History.Change(x, 2).Delta, sim.ProcessesStartedIn, "x <= 0, made after them");
         }

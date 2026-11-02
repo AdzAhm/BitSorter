@@ -48,7 +48,7 @@ namespace BitSorter.Ci.Oracle
             Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             Design design = elaboration.Design;
-            var sim = new Simulator(design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
+            var sim = new Simulator(design, null, new SimOptions { Files = ProjectFiles.ForRun(project), StartOrder = StartOrder.Icarus });
             RunResult result = sim.RunTo(1_000_000);
             Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
             Assert.AreEqual(result.Time, project.Stimulus.End, "the import ran the testbench to where it stops");

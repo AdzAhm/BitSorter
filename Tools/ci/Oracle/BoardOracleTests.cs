@@ -27,7 +27,7 @@ namespace BitSorter.Ci.Oracle
             Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             Design design = elaboration.Design;
-            var sim = new Simulator(design);
+            var sim = new Simulator(design, null, new SimOptions { StartOrder = StartOrder.Icarus });
             RunResult result = sim.RunTo(1_000_000);
             Assert.AreEqual(RunStatus.Suspended, result.Status, string.Join("\n", sim.History.Messages));
 

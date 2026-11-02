@@ -33,6 +33,28 @@ namespace BitSorter.Board.Tests
                 (grade.PeriodMet ? "" : $"\n  its period is {grade.MinimumPeriod}, past {exercise.Period}"));
         }
 
+        /// <summary>
+        /// M5: no exercise's CHECK depends on how time 0 begins. Each answer, and each circuit an exercise opens on, is graded
+        /// as ModelSim begins time 0 and as Icarus does, and the two grades agree check for check.
+        /// </summary>
+        [TestCaseSource(nameof(Ids))]
+        public void NoExercisesGrade_DependsOnHowTimeZeroBegins(string id)
+        {
+            Exercise exercise = ExerciseFiles.Load(id);
+            var projects = new List<Project> { ExerciseFiles.Solution(exercise) };
+            if (!string.IsNullOrWhiteSpace(exercise.Start))
+                projects.Add(exercise.ToProject(new List<string>()));
+
+            foreach (Project project in projects)
+            {
+                Grade modelSim = ExerciseGrader.Grade(exercise, project, BitSorter.Sim.StartOrder.ModelSim);
+                Grade icarus = ExerciseGrader.Grade(exercise, project, BitSorter.Sim.StartOrder.Icarus);
+                Assert.AreEqual(icarus.Solved, modelSim.Solved, id);
+                Assert.AreEqual(icarus.Checks, modelSim.Checks, id);
+                CollectionAssert.AreEqual(icarus.Failures.Select(f => f.ToString()), modelSim.Failures.Select(f => f.ToString()), id);
+            }
+        }
+
         [TestCaseSource(nameof(Ids))]
         public void EveryStartingCircuit_FailsAsItOpens(string id)
         {

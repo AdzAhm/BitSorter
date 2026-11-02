@@ -14,7 +14,7 @@ namespace BitSorter.Ci.Oracle
     /// COMPARE WITH MODELSIM held to ModelSim itself (Part 15i-5): every sample on the start page exported exactly as EXPORT
     /// PROJECT writes it, unzipped, its own run.do run under ModelSim as a student types <c>do run.do</c>, and BitSorter's
     /// run held to the modelsim.vcd it writes by the comparison the workbench uses -- agreeing on every signal, by the names
-    /// the two elaborate the testbench with, the traffic light and the sequence detector after their start. Skipped where
+    /// the two elaborate the testbench with, from t = 0 since M5 began time 0 as ModelSim does. Skipped where
     /// ModelSim is not installed, as on CI.
     /// </summary>
     public class ModelSimCompareOracleTests
@@ -49,6 +49,7 @@ namespace BitSorter.Ci.Oracle
                 TestContext.WriteLine($"{name}: {comparison.Compared} signals compared to t = {comparison.Until}, {comparison.Missing.Count} missing, " +
                     $"differing at the start: {string.Join(", ", comparison.DifferAtStart)}");
                 Assert.IsTrue(comparison.Agree, $"{comparison.Signal} at {comparison.Time}: {comparison.Ours} here, {comparison.Theirs} in ModelSim");
+                CollectionAssert.IsEmpty(comparison.DifferAtStart, "from t = 0, now that time 0 begins as ModelSim begins it (M5)");
                 Assert.Greater(comparison.Compared, 2);
                 CollectionAssert.IsEmpty(comparison.Missing, "every signal of the run in ModelSim's dump, by the same name");
             }

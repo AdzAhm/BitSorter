@@ -256,7 +256,7 @@ endmodule
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             Assert.IsEmpty(elaboration.Diagnostics, string.Join("\n", elaboration.Diagnostics));
 
-            var sim = new Simulator(elaboration.Design, null, null);
+            var sim = new Simulator(elaboration.Design, null, new SimOptions { StartOrder = StartOrder.Icarus });
             Assert.AreEqual(RunStatus.Finished, sim.RunTo(100).Status);
             return sim;
         }

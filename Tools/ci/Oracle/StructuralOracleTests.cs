@@ -48,7 +48,7 @@ namespace BitSorter.Ci.Oracle
             foreach ((long time, ElaboratedPort port, LogicVec value) in writes)
                 stimulus.Set(time, port.Signal, value);
 
-            var sim = new Simulator(design, stimulus);
+            var sim = new Simulator(design, stimulus, new SimOptions { StartOrder = StartOrder.Icarus });
             sim.RunTo(end);
 
             Dictionary<string, VcdTrace> theirs = RunIcarus(icarus, file, top, elaboration, writes, end);

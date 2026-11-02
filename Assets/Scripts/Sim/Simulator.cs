@@ -76,6 +76,12 @@ namespace BitSorter.Sim
         /// <summary>Whether every value change is recorded. Off, only the starting values are.</summary>
         public bool RecordChanges { get; set; } = true;
 
+        /// <summary>
+        /// How time 0 begins (M5): ModelSim's way wherever BitSorter runs, Icarus's for the Icarus oracle. The standard leaves
+        /// it open; see <see cref="Sim.StartOrder"/>.
+        /// </summary>
+        public StartOrder StartOrder { get; set; } = StartOrder.ModelSim;
+
         /// <summary>Whether transitions in flight are recorded, for the look to draw.</summary>
         public bool RecordTransitions { get; set; } = true;
 
@@ -135,9 +141,12 @@ namespace BitSorter.Sim
     ///
     /// **Time 0.** Every variable starts at x, or at the value it was declared with; every net with a
     /// driver at x, every net without one at z. In the first delta every driver evaluates once, as the
-    /// standard has gates and continuous assignments do; once what has no delay has settled, every
-    /// process starts. Icarus does the same, so an <c>initial</c> that prints a wire at time 0 sees it
-    /// worked out from the starting values rather than x.
+    /// standard has gates and continuous assignments do. Then it begins as <see cref="SimOptions.StartOrder"/>
+    /// says (M5). ModelSim's way, the default: in that first delta every <c>always</c> that begins with an event
+    /// control sets itself waiting, then the other processes run as written, <c>always_comb</c> and
+    /// <c>always_latch</c> last -- so an <c>initial</c> that prints a wire at once sees x, and the drivers' first
+    /// values arrive a delta later as changes the waiting processes see. Icarus's: once what has no delay has
+    /// settled, every process starts in the design's order, so an <c>initial</c> sees the wire worked out.
     ///
     /// **Allocation.** Events live in a heap array and lists that grow and then stay; once they have
     /// grown, a run with recording off allocates nothing on values of 64 bits or fewer (a test holds
@@ -335,6 +344,9 @@ namespace BitSorter.Sim
         private long _tokens;
         private bool _started;
         private bool _processesStarted;
+
+        /// <summary>The processes in the order they start at time 0, under <see cref="StartOrder.ModelSim"/>; null under Icarus's.</summary>
+        private readonly int[] _startOrder;
         private bool _finishing;
         private long _now;
         private int _delta;
@@ -424,6 +436,7 @@ namespace BitSorter.Sim
                     fanout[s].Add(d);
             }
 
+            _startOrder = _options.StartOrder == StartOrder.ModelSim ? ModelSimStart.Of(design) : null;
             _processes = new ProcessInfo[processes];
             _pc = new int[processes];
             _waitingAt = new int[processes];
@@ -778,13 +791,25 @@ namespace BitSorter.Sim
                 _toEvaluate.Clear();
                 _evalEpoch++;
 
+                // ModelSim's time 0 (M5): the processes start in the first delta, in its order, before the drivers' first values
+                // arrive -- each always that begins with an event control waiting first, so it sees them and every other change.
+                bool starting = false;
+                if (_startOrder != null && !_processesStarted)
+                {
+                    _runnable.AddRange(_startOrder);
+                    _processesStarted = true;
+                    ProcessesStartedIn = delta;
+                    starting = true;
+                }
+
                 // Phase 3: every process woken runs, in the design's order, until it waits.
                 if (_runnable.Count > 0)
                 {
                     List<int> run = _runnable;
                     _runnable = _running;
                     _running = run;
-                    _running.Sort();
+                    if (!starting)
+                        _running.Sort();
 
                     for (int i = 0; i < _running.Count && !Stopped; i++)
                     {

@@ -54,7 +54,7 @@ endmodule
 
             Elaboration elaboration = Elaborator.Elaborate(tree, "binary_nand_nor");
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
-            var sim = new Simulator(elaboration.Design, null, null);
+            var sim = new Simulator(elaboration.Design, null, new SimOptions { StartOrder = StartOrder.Icarus });
             sim.RunTo(100);
             string[] ours = sim.History.Messages.Where(m => m.Severity == Severity.Info).Select(m => m.Text).ToArray();
 

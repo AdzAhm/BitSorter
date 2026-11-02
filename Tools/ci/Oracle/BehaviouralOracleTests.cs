@@ -126,22 +126,20 @@ namespace BitSorter.Ci.Oracle
         }
 
         /// <summary>
-        /// Where ModelSim settles what the standard leaves open another way than Icarus -- whom BitSorter follows -- or prints
-        /// a value in its own style (Part 15i-4): by testbench, the signals and the printed lines (counted from 1) not held to
-        /// it, each written in Docs/oracle-notes.md, "ModelSim". Nothing else is let through.
+        /// Where ModelSim settles what the standard leaves open another way than BitSorter, or prints a value in its own style
+        /// (Part 15i-4): by testbench, the signals and the printed lines (counted from 1) not held to it, each written in
+        /// Docs/oracle-notes.md, "ModelSim". Nothing else is let through. Since M5 BitSorter begins time 0 as ModelSim does when
+        /// held to it, so the start order is in this list no more.
         /// </summary>
         private static readonly Dictionary<string, (string[] Signals, int[] Lines)> ModelSimDiffers =
             new Dictionary<string, (string[], int[])>(StringComparer.Ordinal)
             {
-                // Which of an initial and an always written before it starts first at time 0 (S1): ModelSim, the always.
-                ["scheduling"] = (new[] { "scheduling.q1" }, new int[0]),
                 // $random with no seed: each simulator's own first seed.
                 ["expressions_tb"] = (new string[0], new[] { 13, 14, 15 }),
                 // A real printed with no format, and %d's width beside one: each simulator's own style.
                 ["reals_tb"] = (new string[0], new[] { 1, 2 }),
-                // %05d, %3h and %8b's padding; and a value read through the hierarchy at time 0, before or after the logic
-                // under it has settled -- which the standard leaves open.
-                ["printing"] = (new string[0], new[] { 7, 10 }),
+                // %05d, %3h and %8b's padding.
+                ["printing"] = (new string[0], new[] { 7 }),
             };
 
         /// <summary>The testbench run here and under <paramref name="with"/> -- Icarus or ModelSim -- and every signal, every printed line and every file it writes compared.</summary>
@@ -157,7 +155,7 @@ namespace BitSorter.Ci.Oracle
                 files.Add(Path.GetFileName(path), File.ReadAllText(path));
 
             Design design = Elaborate(file, top, program?.Ours);
-            var sim = new Simulator(design, null, new SimOptions { Files = files });
+            var sim = new Simulator(design, null, new SimOptions { Files = files, StartOrder = icarus != null ? StartOrder.Icarus : StartOrder.ModelSim });
             RunResult result = sim.RunTo(1_000_000);
             Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
 

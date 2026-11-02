@@ -34,7 +34,7 @@ namespace BitSorter.Ci.Oracle
                 icarusTraces = VcdReader.Read(vcd);
 
             (Design design, Stimulus stimulus) = Probes.Build();
-            var sim = new Simulator(design, stimulus);
+            var sim = new Simulator(design, stimulus, new SimOptions { StartOrder = StartOrder.Icarus });
             sim.RunTo(40);
 
             var wrong = new List<string>();

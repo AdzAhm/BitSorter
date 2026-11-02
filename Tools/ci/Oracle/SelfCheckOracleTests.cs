@@ -30,7 +30,7 @@ namespace BitSorter.Ci.Oracle
 
             Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
-            var sim = new Simulator(elaboration.Design);
+            var sim = new Simulator(elaboration.Design, null, new SimOptions { StartOrder = StartOrder.Icarus });
             sim.RunTo(project.Stimulus.StopTime + 10);
             string[] ours = sim.History.Messages.Select(m => m.Text).Where(t => !t.StartsWith("$stop", StringComparison.Ordinal)).ToArray();
 
@@ -51,7 +51,7 @@ namespace BitSorter.Ci.Oracle
 
             CompiledProject compiled = BoardCompiler.Compile(project);
             Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
-            var sim = new Simulator(elaboration.Design);
+            var sim = new Simulator(elaboration.Design, null, new SimOptions { StartOrder = StartOrder.Icarus });
             sim.RunTo(project.Stimulus.StopTime + 10);
             string[] ours = sim.History.Messages.Select(m => m.Text).Where(t => !t.StartsWith("$stop", StringComparison.Ordinal)).ToArray();
 
