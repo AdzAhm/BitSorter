@@ -6,8 +6,9 @@
 // jalr, every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
 // immediate. No bytes or halfwords, no system instructions. Its datapath is drawn as the textbook draws one: the PC,
 // the register file, an immediate generator and a branch comparator as blocks of their own, the ALU, and a mux for
-// each choice -- the next PC, the ALU's a and b, what is written back. scpu_tb runs rv_program.hex on rv_data.hex
-// until the program stores to 0x7fc, then checks its results against rv_expected.hex. Written for
+// each choice -- the next PC, the ALU's a and b, what is written back. scpu_tb runs one of three programs on rv_data.hex
+// -- its PROGRAM: rv_sum.hex, rv_fib.hex or rv_isa.hex -- until the program stores to 0x7fc, then checks its
+// results against the program's own expected image. Written for
 // BitSorter's oracle from the published RISC-V specification; not taken from any course material.
 
 `include "rv32i.svh"
@@ -57,7 +58,7 @@ module scpu_regfile (
 endmodule
 
 module scpu_memory #(
-    parameter IMAGE = "rv_program.hex"   // the image loaded at time 0
+    parameter IMAGE = "rv_sum.hex"   // the image loaded at time 0
 ) (
     input  logic        clk,
     input  logic        we,       // write wdata on the rising edge
@@ -270,7 +271,7 @@ module scpu_datapath (
 endmodule
 
 module scpu #(
-    parameter PROGRAM = "rv_program.hex",   // the instruction memory's image
+    parameter PROGRAM = "rv_sum.hex",   // the instruction memory's image
     parameter DATA    = "rv_data.hex"       // the data memory's image
 ) (
     input  logic clk,
@@ -305,6 +306,16 @@ module scpu #(
 endmodule
 
 module scpu_tb;
+    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
+    parameter rv_program_t PROGRAM = SUM;
+
+    // The program's images. Their names are of one length, so a ?: between them is a file name in every simulator:
+    // Icarus pads a shorter one with a NUL it does not strip.
+    localparam IMAGE    = PROGRAM == SUM ? "rv_sum.hex" : PROGRAM == FIBONACCI ? "rv_fib.hex" : "rv_isa.hex";
+    localparam EXPECTED = PROGRAM == SUM ? "rv_sum_expected.hex" : PROGRAM == FIBONACCI ? "rv_fib_expected.hex"
+                                         : "rv_isa_expected.hex";
+
     logic        clk = 1'b0;
     logic        rst;
     integer      cycles = 0;
@@ -312,13 +323,13 @@ module scpu_tb;
     integer      i;
     logic [31:0] expected [0:63];
 
-    scpu dut (.clk(clk), .rst(rst));
+    scpu #(.PROGRAM(IMAGE), .DATA("rv_data.hex")) dut (.clk(clk), .rst(rst));
 
     always #5 clk = ~clk;
     always @(posedge clk) cycles <= cycles + 1;
 
     initial begin
-        $readmemh("rv_expected.hex", expected);
+        $readmemh(EXPECTED, expected);
         rst = 1'b1;
         repeat (2) @(posedge clk);
         @(negedge clk) rst = 1'b0;
@@ -328,12 +339,18 @@ module scpu_tb;
     always @(negedge clk)
         if (dut.mem_we && dut.data_addr == 32'h0000_07fc) begin
             $display("done after %0d cycles, at %0t", cycles, $time);
-            $display("the sum of 1 to 10: %0d", dut.dmem.mem[64]);
-            $write("ten Fibonacci numbers:");
-            for (i = 0; i < 10; i++)
-                $write(" %0d", dut.dmem.mem[65 + i]);
-            $display;
-            $display("every instruction once: %0d of 41 checks held", dut.dmem.mem[126]);
+            case (PROGRAM)
+                SUM:
+                    $display("the sum of 1 to 10: %0d", dut.dmem.mem[64]);
+                FIBONACCI: begin
+                    $write("ten Fibonacci numbers:");
+                    for (i = 0; i < 10; i++)
+                        $write(" %0d", dut.dmem.mem[65 + i]);
+                    $display;
+                end
+                default:
+                    $display("every instruction once: %0d of 41 checks held", dut.dmem.mem[126]);
+            endcase
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin

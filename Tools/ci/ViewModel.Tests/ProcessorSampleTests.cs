@@ -9,8 +9,9 @@ namespace BitSorter.ViewModel.Tests
 {
     /// <summary>
     /// The start page's three RV32I processors (Part 15h-6): their text the corpus's to the character, which the oracle
-    /// holds to Icarus on every signal; each running the demo program to PASS in the cycles its line on the start page
-    /// says; the multicycle one without the oracle's own testbench; and each opening as the drawing of its code.
+    /// holds to Icarus on every signal; each running each of its three programs (Part 15h-6c) to PASS in the cycles its line
+    /// on the start page says; the multicycle one without the oracle's own testbench; and each opening as the drawing of
+    /// its code.
     /// </summary>
     public class ProcessorSampleTests
     {
@@ -20,40 +21,61 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void EveryFile_IsTheCorpusFile_ToTheCharacter()
         {
-            Assert.AreEqual(7, WorkbenchProcessors.Files.Count);
+            Assert.AreEqual(11, WorkbenchProcessors.Files.Count, "the code, the definitions, three programs and what each leaves, and the data");
             foreach ((string file, string text) in WorkbenchProcessors.Files)
                 Assert.AreEqual(Corpus(file), text.Replace("\r\n", "\n"),
                     $"{file} differs from the corpus's: copy the corpus file into WorkbenchProcessors.cs");
         }
 
-        [TestCase("Single-cycle RISC-V", "scpu_tb", 408)]
-        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", 1568)]
-        [TestCase("Pipelined RISC-V", "pcpu_tb", 482)]
-        public void AProcessor_RunsTheDemo_ToPass_InTheCyclesItsLineSays(string name, string bench, int cycles)
+        /// <summary>
+        /// Each processor running each program, chosen as PROGRAM's chip chooses it -- one step of the document -- to PASS in
+        /// the cycles its line on the start page says, the run shown to where that program stops, measured again for it.
+        /// </summary>
+        [TestCase("Single-cycle RISC-V", "scpu_tb", null, 37)]
+        [TestCase("Single-cycle RISC-V", "scpu_tb", "FIBONACCI", 61)]
+        [TestCase("Single-cycle RISC-V", "scpu_tb", "TEST", 316)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", null, 135)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", "FIBONACCI", 247)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", "TEST", 1204)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", null, 58)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", "FIBONACCI", 90)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", "TEST", 346)]
+        public void AProcessor_RunsEachProgram_ToPass_InTheCyclesItsLineSays(string name, string bench, string program, int cycles)
         {
             (string Name, string Says, System.Func<Project> Build) sample = WorkbenchSamples.All.Single(s => s.Name == name);
             StringAssert.Contains(cycles.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), sample.Says,
-                "the line under its name says how many cycles it takes");
+                "the line under its name says how many cycles each program takes");
             Project project = sample.Build();
             Assert.AreEqual(bench, project.Bench);
             if (bench == "mcpu_demo_tb")
                 Assert.IsNull(project.Find("mcpu_tb"), "mcpu.sv's other testbench, the oracle's, is left out");
             Assert.AreSame(project, sample.Build(), "imported once, and shared");
 
+            BenchChoice choice = BenchChoices.Of(BoardCompiler.Compile(project), project.Settings).Single();
+            Assert.AreEqual("PROGRAM", choice.Name);
+            CollectionAssert.AreEqual(new[] { "SUM", "FIBONACCI", "TEST" }, choice.Members.ToArray());
+            Assert.AreEqual("SUM", choice.Chosen, "each opens on the sum");
+            if (program != null)
+            {
+                var editor = new BoardEditor(project);
+                Assert.IsTrue(editor.SetBenchParameter("PROGRAM", program).Done);
+                project = editor.Project;
+                Assert.AreEqual(program, BenchChoices.Of(BoardCompiler.Compile(project), project.Settings).Single().Chosen);
+            }
+
             CompiledProject compiled = BoardCompiler.Compile(project);
             Assert.IsTrue(compiled.Succeeded, string.Join("\n", compiled.Diagnostics));
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             var sim = new Simulator(elaboration.Design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
             RunResult result = sim.RunTo(1_000_000);
             string said = string.Join("\n", sim.History.Messages.Select(m => m.Text));
             Assert.AreEqual(RunStatus.Finished, result.Status, said);
             StringAssert.Contains($"done after {cycles} cycles", said);
-            StringAssert.Contains("the sum of 1 to 10: 55", said);
-            StringAssert.Contains("ten Fibonacci numbers: 0 1 1 2 3 5 8 13 21 34", said);
-            StringAssert.Contains("every instruction once: 41 of 41 checks held", said);
+            StringAssert.Contains(program == null ? "the sum of 1 to 10: 55" : program == "FIBONACCI" ? "ten Fibonacci numbers: 0 1 1 2 3 5 8 13 21 34"
+                : "every instruction once: 41 of 41 checks held", said);
             StringAssert.Contains("PASS: every result as expected", said);
-            Assert.AreEqual(result.Time, project.Stimulus.End, "the run is shown to where the testbench stops");
+            Assert.AreEqual(result.Time, project.Stimulus.End, "the run is shown to where this program stops");
         }
 
         /// <summary>

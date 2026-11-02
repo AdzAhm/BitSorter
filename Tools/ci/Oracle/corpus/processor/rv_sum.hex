@@ -1,0 +1,14 @@
+// rv_sum, one of the three programs BitSorter's RV32I processors run: the sum of 1 to 10, in a
+// loop of add, addi and blt, left at 0x100.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
+// Written for BitSorter's oracle; not taken from any course material.
+00000413  // 000: addi s0, zero, 0          1. the sum of 1 to 10
+00100293  // 004: addi t0, zero, 1          i
+00b00313  // 008: addi t1, zero, 11         one past the last
+00540433  // 00c: add s0, s0, t0            <- sum_loop
+00128293  // 010: addi t0, t0, 1
+fe62cce3  // 014: blt t0, t1, sum_loop
+10802023  // 018: sw s0, 0x100(zero)        55
+00100293  // 01c: addi t0, zero, 1
+7e502e23  // 020: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 024: jal zero, end             and wait (end)

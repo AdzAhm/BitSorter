@@ -1,0 +1,23 @@
+// rv_fib, one of the three programs BitSorter's RV32I processors run: the first ten Fibonacci
+// numbers, each loaded back from the two before it, left from 0x104 -- a load used at once.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
+// Written for BitSorter's oracle; not taken from any course material.
+10400513  // 000: addi a0, zero, 0x104      2. ten Fibonacci numbers, from 0x104
+00a00593  // 004: addi a1, zero, 10
+010000ef  // 008: jal ra, fib
+00100293  // 00c: addi t0, zero, 1
+7e502e23  // 010: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 014: jal zero, end             and wait (end)
+00052023  // 018: sw zero, 0(a0)            F0 = 0 (fib)
+00100293  // 01c: addi t0, zero, 1
+00552223  // 020: sw t0, 4(a0)              F1 = 1
+00850393  // 024: addi t2, a0, 8            the next word
+00259e13  // 028: slli t3, a1, 2
+01c50e33  // 02c: add t3, a0, t3            one past the last
+ff83ae83  // 030: lw t4, -8(t2)             the two before it, from memory (fib_loop)
+ffc3af03  // 034: lw t5, -4(t2)
+01ee8fb3  // 038: add t6, t4, t5            needs the load just before it
+01f3a023  // 03c: sw t6, 0(t2)
+00438393  // 040: addi t2, t2, 4
+ffc3e6e3  // 044: bltu t2, t3, fib_loop
+00008067  // 048: jalr zero, 0(ra)          return

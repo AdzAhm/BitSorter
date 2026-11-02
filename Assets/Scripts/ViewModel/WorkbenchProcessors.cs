@@ -45,9 +45,13 @@ namespace BitSorter.ViewModel
             ("mcpu.sv", Mcpu),
             ("pcpu.sv", Pcpu),
             ("rv32i.svh", Defs),
-            ("rv_program.hex", Program),
+            ("rv_sum.hex", SumProgram),
+            ("rv_sum_expected.hex", SumExpected),
+            ("rv_fib.hex", FibProgram),
+            ("rv_fib_expected.hex", FibExpected),
+            ("rv_isa.hex", TestProgram),
+            ("rv_isa_expected.hex", TestExpected),
             ("rv_data.hex", Data),
-            ("rv_expected.hex", Expected),
         };
 
         /// <summary>
@@ -60,10 +64,11 @@ namespace BitSorter.ViewModel
             {
                 new SourceFile(processor.File, processor.Text),
                 new SourceFile("rv32i.svh", Defs),
-                new SourceFile("rv_program.hex", Program),
-                new SourceFile("rv_data.hex", Data),
-                new SourceFile("rv_expected.hex", Expected),
             };
+            // Every program's images, so the testbench's PROGRAM can choose any of them (Part 15h-6c).
+            foreach ((string name, string text) in Files)
+                if (name.EndsWith(".hex", StringComparison.Ordinal))
+                    sources.Add(new SourceFile(name, text));
             ProjectImport import = ProjectImporter.Import(sources, bench);
             if (!import.Succeeded || import.Project.Bench != bench)
                 throw new InvalidOperationException("a processor sample did not import: " + string.Join("; ", import.Notes));
@@ -204,8 +209,9 @@ namespace BitSorter.ViewModel
 // jalr, every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
 // immediate. No bytes or halfwords, no system instructions. Its datapath is drawn as the textbook draws one: the PC,
 // the register file, an immediate generator and a branch comparator as blocks of their own, the ALU, and a mux for
-// each choice -- the next PC, the ALU's a and b, what is written back. scpu_tb runs rv_program.hex on rv_data.hex
-// until the program stores to 0x7fc, then checks its results against rv_expected.hex. Written for
+// each choice -- the next PC, the ALU's a and b, what is written back. scpu_tb runs one of three programs on rv_data.hex
+// -- its PROGRAM: rv_sum.hex, rv_fib.hex or rv_isa.hex -- until the program stores to 0x7fc, then checks its
+// results against the program's own expected image. Written for
 // BitSorter's oracle from the published RISC-V specification; not taken from any course material.
 
 `include ""rv32i.svh""
@@ -255,7 +261,7 @@ module scpu_regfile (
 endmodule
 
 module scpu_memory #(
-    parameter IMAGE = ""rv_program.hex""   // the image loaded at time 0
+    parameter IMAGE = ""rv_sum.hex""   // the image loaded at time 0
 ) (
     input  logic        clk,
     input  logic        we,       // write wdata on the rising edge
@@ -468,7 +474,7 @@ module scpu_datapath (
 endmodule
 
 module scpu #(
-    parameter PROGRAM = ""rv_program.hex"",   // the instruction memory's image
+    parameter PROGRAM = ""rv_sum.hex"",   // the instruction memory's image
     parameter DATA    = ""rv_data.hex""       // the data memory's image
 ) (
     input  logic clk,
@@ -503,6 +509,16 @@ module scpu #(
 endmodule
 
 module scpu_tb;
+    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
+    parameter rv_program_t PROGRAM = SUM;
+
+    // The program's images. Their names are of one length, so a ?: between them is a file name in every simulator:
+    // Icarus pads a shorter one with a NUL it does not strip.
+    localparam IMAGE    = PROGRAM == SUM ? ""rv_sum.hex"" : PROGRAM == FIBONACCI ? ""rv_fib.hex"" : ""rv_isa.hex"";
+    localparam EXPECTED = PROGRAM == SUM ? ""rv_sum_expected.hex"" : PROGRAM == FIBONACCI ? ""rv_fib_expected.hex""
+                                         : ""rv_isa_expected.hex"";
+
     logic        clk = 1'b0;
     logic        rst;
     integer      cycles = 0;
@@ -510,13 +526,13 @@ module scpu_tb;
     integer      i;
     logic [31:0] expected [0:63];
 
-    scpu dut (.clk(clk), .rst(rst));
+    scpu #(.PROGRAM(IMAGE), .DATA(""rv_data.hex"")) dut (.clk(clk), .rst(rst));
 
     always #5 clk = ~clk;
     always @(posedge clk) cycles <= cycles + 1;
 
     initial begin
-        $readmemh(""rv_expected.hex"", expected);
+        $readmemh(EXPECTED, expected);
         rst = 1'b1;
         repeat (2) @(posedge clk);
         @(negedge clk) rst = 1'b0;
@@ -526,12 +542,18 @@ module scpu_tb;
     always @(negedge clk)
         if (dut.mem_we && dut.data_addr == 32'h0000_07fc) begin
             $display(""done after %0d cycles, at %0t"", cycles, $time);
-            $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
-            $write(""ten Fibonacci numbers:"");
-            for (i = 0; i < 10; i++)
-                $write("" %0d"", dut.dmem.mem[65 + i]);
-            $display;
-            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            case (PROGRAM)
+                SUM:
+                    $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
+                FIBONACCI: begin
+                    $write(""ten Fibonacci numbers:"");
+                    for (i = 0; i < 10; i++)
+                        $write("" %0d"", dut.dmem.mem[65 + i]);
+                    $display;
+                end
+                default:
+                    $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            endcase
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -979,10 +1001,20 @@ module mcpu_tb;
     end
 endmodule
 
-// mcpu running rv_demo, the program scpu and pcpu run too -- the sum of 1 to 10, ten Fibonacci numbers and
-// every instruction once -- so the three processors can be compared on one program: the start page's
-// multicycle sample (Part 15h-6).
+// mcpu running the programs scpu and pcpu run too -- its PROGRAM: the sum of 1 to 10, ten Fibonacci numbers, or
+// every instruction once -- so the three processors can be compared on each: the start page's multicycle sample
+// (Part 15h-6, the three programs Part 15h-6c).
 module mcpu_demo_tb;
+    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
+    parameter rv_program_t PROGRAM = SUM;
+
+    // The program's images. Their names are of one length, so a ?: between them is a file name in every simulator:
+    // Icarus pads a shorter one with a NUL it does not strip.
+    localparam IMAGE    = PROGRAM == SUM ? ""rv_sum.hex"" : PROGRAM == FIBONACCI ? ""rv_fib.hex"" : ""rv_isa.hex"";
+    localparam EXPECTED = PROGRAM == SUM ? ""rv_sum_expected.hex"" : PROGRAM == FIBONACCI ? ""rv_fib_expected.hex""
+                                         : ""rv_isa_expected.hex"";
+
     logic        clk = 1'b0;
     logic        rst;
     integer      cycles = 0;
@@ -990,13 +1022,13 @@ module mcpu_demo_tb;
     integer      i;
     logic [31:0] expected [0:63];
 
-    mcpu #(.PROGRAM(""rv_program.hex""), .DATA(""rv_data.hex"")) dut (.clk(clk), .rst(rst));
+    mcpu #(.PROGRAM(IMAGE), .DATA(""rv_data.hex"")) dut (.clk(clk), .rst(rst));
 
     always #5 clk = ~clk;
     always @(posedge clk) cycles <= cycles + 1;
 
     initial begin
-        $readmemh(""rv_expected.hex"", expected);
+        $readmemh(EXPECTED, expected);
         rst = 1'b1;
         repeat (2) @(posedge clk);
         @(negedge clk) rst = 1'b0;
@@ -1007,12 +1039,18 @@ module mcpu_demo_tb;
     always @(negedge clk)
         if (dut.mem_we && dut.data_addr == 32'h0000_07fc) begin
             $display(""done after %0d cycles, at %0t"", cycles, $time);
-            $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
-            $write(""ten Fibonacci numbers:"");
-            for (i = 0; i < 10; i++)
-                $write("" %0d"", dut.dmem.mem[65 + i]);
-            $display;
-            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            case (PROGRAM)
+                SUM:
+                    $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
+                FIBONACCI: begin
+                    $write(""ten Fibonacci numbers:"");
+                    for (i = 0; i < 10; i++)
+                        $write("" %0d"", dut.dmem.mem[65 + i]);
+                    $display;
+                end
+                default:
+                    $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            endcase
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -1051,8 +1089,9 @@ endmodule
 // reads a register the instruction leaving write-back is about to change. Separate instruction and data memories of 1,024 words each, loaded
 // from images with $readmemh. It runs the RV32I instructions a program needs: lui, auipc, jal, jalr,
 // every branch, lw and sw, and every arithmetic, logic and shift operation, by register and by
-// immediate. No bytes or halfwords, no system instructions. pcpu_tb runs rv_program.hex on rv_data.hex
-// until the program stores to 0x7fc, then checks its results against rv_expected.hex. Written for
+// immediate. No bytes or halfwords, no system instructions. pcpu_tb runs one of three programs on rv_data.hex
+// -- its PROGRAM: rv_sum.hex, rv_fib.hex or rv_isa.hex -- until the program stores to 0x7fc, then checks its
+// results against the program's own expected image. Written for
 // BitSorter's oracle from the published RISC-V specification; not taken from any course material.
 
 `include ""rv32i.svh""
@@ -1103,7 +1142,7 @@ module pcpu_regfile (
 endmodule
 
 module pcpu_memory #(
-    parameter IMAGE = ""rv_program.hex""   // the image loaded at time 0
+    parameter IMAGE = ""rv_sum.hex""   // the image loaded at time 0
 ) (
     input  logic        clk,
     input  logic        we,       // write wdata on the rising edge
@@ -1620,7 +1659,7 @@ endmodule
 
 // The processor: the two memories, the three stages that do the work, and the four registers between the five.
 module pcpu #(
-    parameter PROGRAM = ""rv_program.hex"",   // the instruction memory's image
+    parameter PROGRAM = ""rv_sum.hex"",   // the instruction memory's image
     parameter DATA    = ""rv_data.hex""       // the data memory's image
 ) (
     input  logic clk,
@@ -1819,6 +1858,16 @@ module pcpu #(
 endmodule
 
 module pcpu_tb;
+    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
+    parameter rv_program_t PROGRAM = SUM;
+
+    // The program's images. Their names are of one length, so a ?: between them is a file name in every simulator:
+    // Icarus pads a shorter one with a NUL it does not strip.
+    localparam IMAGE    = PROGRAM == SUM ? ""rv_sum.hex"" : PROGRAM == FIBONACCI ? ""rv_fib.hex"" : ""rv_isa.hex"";
+    localparam EXPECTED = PROGRAM == SUM ? ""rv_sum_expected.hex"" : PROGRAM == FIBONACCI ? ""rv_fib_expected.hex""
+                                         : ""rv_isa_expected.hex"";
+
     logic        clk = 1'b0;
     logic        rst;
     integer      cycles = 0;
@@ -1826,13 +1875,13 @@ module pcpu_tb;
     integer      i;
     logic [31:0] expected [0:63];
 
-    pcpu dut (.clk(clk), .rst(rst));
+    pcpu #(.PROGRAM(IMAGE), .DATA(""rv_data.hex"")) dut (.clk(clk), .rst(rst));
 
     always #5 clk = ~clk;
     always @(posedge clk) cycles <= cycles + 1;
 
     initial begin
-        $readmemh(""rv_expected.hex"", expected);
+        $readmemh(EXPECTED, expected);
         rst = 1'b1;
         repeat (2) @(posedge clk);
         @(negedge clk) rst = 1'b0;
@@ -1842,12 +1891,18 @@ module pcpu_tb;
     always @(negedge clk)
         if (dut.mem_we && dut.data_addr == 32'h0000_07fc) begin
             $display(""done after %0d cycles, at %0t"", cycles, $time);
-            $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
-            $write(""ten Fibonacci numbers:"");
-            for (i = 0; i < 10; i++)
-                $write("" %0d"", dut.dmem.mem[65 + i]);
-            $display;
-            $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            case (PROGRAM)
+                SUM:
+                    $display(""the sum of 1 to 10: %0d"", dut.dmem.mem[64]);
+                FIBONACCI: begin
+                    $write(""ten Fibonacci numbers:"");
+                    for (i = 0; i < 10; i++)
+                        $write("" %0d"", dut.dmem.mem[65 + i]);
+                    $display;
+                end
+                default:
+                    $display(""every instruction once: %0d of 41 checks held"", dut.dmem.mem[126]);
+            endcase
 
             for (i = 0; i < 64; i++)
                 if (dut.dmem.mem[64 + i] !== expected[i]) begin
@@ -1877,6 +1932,10 @@ endmodule
 `ifndef RV32I_SVH
 `define RV32I_SVH
 
+// The programs a processor's testbench can run, its PROGRAM (Part 15h-6c): the sum of 1 to 10, the first ten
+// Fibonacci numbers, or every instruction once, checking itself.
+typedef enum {SUM, FIBONACCI, TEST} rv_program_t;
+
 localparam logic [6:0] OP_LUI    = 7'b0110111;
 localparam logic [6:0] OP_AUIPC  = 7'b0010111;
 localparam logic [6:0] OP_JAL    = 7'b1101111;
@@ -1902,10 +1961,9 @@ localparam logic [3:0] ALU_PASSB = 4'd10;
 `endif
 ";
 
-        private const string Program = @"// rv_demo, the program BitSorter's RV32I processors run: the sum of 1 to 10, the first ten
-// Fibonacci numbers, and every instruction the processors run once -- each branch both ways --
-// checking itself. Assembled from the listing beside each word; word n is the instruction at
-// byte address 4n.
+        private const string SumProgram = @"// rv_sum, one of the three programs BitSorter's RV32I processors run: the sum of 1 to 10, in a
+// loop of add, addi and blt, left at 0x100.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
 // Written for BitSorter's oracle; not taken from any course material.
 00000413  // 000: addi s0, zero, 0          1. the sum of 1 to 10
 00100293  // 004: addi t0, zero, 1          i
@@ -1914,351 +1972,581 @@ localparam logic [3:0] ALU_PASSB = 4'd10;
 00128293  // 010: addi t0, t0, 1
 fe62cce3  // 014: blt t0, t1, sum_loop
 10802023  // 018: sw s0, 0x100(zero)        55
-10400513  // 01c: addi a0, zero, 0x104      2. ten Fibonacci numbers, from 0x104
-00a00593  // 020: addi a1, zero, 10
-018000ef  // 024: jal ra, fib
-048000ef  // 028: jal ra, every             3. every instruction once, from 0x140
-1fb02c23  // 02c: sw s11, 0x1f8(zero)       how many of the checks held
-00100293  // 030: addi t0, zero, 1
-7e502e23  // 034: sw t0, 0x7fc(zero)        done: the testbench watches for this store
-0000006f  // 038: jal zero, end             and wait (end)
-00052023  // 03c: sw zero, 0(a0)            F0 = 0 (fib)
-00100293  // 040: addi t0, zero, 1
-00552223  // 044: sw t0, 4(a0)              F1 = 1
-00850393  // 048: addi t2, a0, 8            the next word
-00259e13  // 04c: slli t3, a1, 2
-01c50e33  // 050: add t3, a0, t3            one past the last
-ff83ae83  // 054: lw t4, -8(t2)             the two before it, from memory (fib_loop)
-ffc3af03  // 058: lw t5, -4(t2)
-01ee8fb3  // 05c: add t6, t4, t5            needs the load just before it
-01f3a023  // 060: sw t6, 0(t2)
-00438393  // 064: addi t2, t2, 4
-ffc3e6e3  // 068: bltu t2, t3, fib_loop
-00008067  // 06c: jalr zero, 0(ra)          return
-14000493  // 070: addi s1, zero, 0x140      where the results go (every)
-00000d93  // 074: addi s11, zero, 0         checks held
-f0f01637  // 078: lui a2, 0xf0f01           a negative word
-23460613  // 07c: addi a2, a2, 564
-0a500693  // 080: addi a3, zero, 165        a small positive one
-00500713  // 084: addi a4, zero, 5          a shift
-abcde2b7  // 088: lui t0, 0xabcde
-0054a023  // 08c: sw t0, 0(s1)              lui
-00448493  // 090: addi s1, s1, 4
-abcdefb7  // 094: lui t6, 0xabcde
-01f29463  // 098: bne t0, t6, skip1
-001d8d93  // 09c: addi s11, s11, 1
-00001297  // 0a0: auipc t0, 0x1             <- here
-0054a023  // 0a4: sw t0, 0(s1)              auipc
-00448493  // 0a8: addi s1, s1, 4
-00001fb7  // 0ac: lui t6, 0x1
-0a0f8f93  // 0b0: addi t6, t6, 160
-01f29463  // 0b4: bne t0, t6, skip2
-001d8d93  // 0b8: addi s11, s11, 1
-00d602b3  // 0bc: add t0, a2, a3
-0054a023  // 0c0: sw t0, 0(s1)              add
-00448493  // 0c4: addi s1, s1, 4
-f0f01fb7  // 0c8: lui t6, 0xf0f01
-2d9f8f93  // 0cc: addi t6, t6, 729
-01f29463  // 0d0: bne t0, t6, skip3
-001d8d93  // 0d4: addi s11, s11, 1
-40d602b3  // 0d8: sub t0, a2, a3
-0054a023  // 0dc: sw t0, 0(s1)              sub
-00448493  // 0e0: addi s1, s1, 4
-f0f01fb7  // 0e4: lui t6, 0xf0f01
-18ff8f93  // 0e8: addi t6, t6, 399
-01f29463  // 0ec: bne t0, t6, skip4
-001d8d93  // 0f0: addi s11, s11, 1
-00e692b3  // 0f4: sll t0, a3, a4
-0054a023  // 0f8: sw t0, 0(s1)              sll
-00448493  // 0fc: addi s1, s1, 4
-00001fb7  // 100: lui t6, 0x1
-4a0f8f93  // 104: addi t6, t6, 1184
-01f29463  // 108: bne t0, t6, skip5
-001d8d93  // 10c: addi s11, s11, 1
-00d622b3  // 110: slt t0, a2, a3
-0054a023  // 114: sw t0, 0(s1)              slt: the negative one is less
-00448493  // 118: addi s1, s1, 4
-00100f93  // 11c: addi t6, zero, 1
-01f29463  // 120: bne t0, t6, skip6
-001d8d93  // 124: addi s11, s11, 1
-00d632b3  // 128: sltu t0, a2, a3
-0054a023  // 12c: sw t0, 0(s1)              sltu: but not without its sign
-00448493  // 130: addi s1, s1, 4
-00000f93  // 134: addi t6, zero, 0
-01f29463  // 138: bne t0, t6, skip7
-001d8d93  // 13c: addi s11, s11, 1
-00d642b3  // 140: xor t0, a2, a3
-0054a023  // 144: sw t0, 0(s1)              xor
-00448493  // 148: addi s1, s1, 4
-f0f01fb7  // 14c: lui t6, 0xf0f01
-291f8f93  // 150: addi t6, t6, 657
-01f29463  // 154: bne t0, t6, skip8
-001d8d93  // 158: addi s11, s11, 1
-00e652b3  // 15c: srl t0, a2, a4
-0054a023  // 160: sw t0, 0(s1)              srl
-00448493  // 164: addi s1, s1, 4
-07878fb7  // 168: lui t6, 0x7878
-091f8f93  // 16c: addi t6, t6, 145
-01f29463  // 170: bne t0, t6, skip9
-001d8d93  // 174: addi s11, s11, 1
-40e652b3  // 178: sra t0, a2, a4
-0054a023  // 17c: sw t0, 0(s1)              sra
-00448493  // 180: addi s1, s1, 4
-ff878fb7  // 184: lui t6, 0xff878
-091f8f93  // 188: addi t6, t6, 145
-01f29463  // 18c: bne t0, t6, skip10
-001d8d93  // 190: addi s11, s11, 1
-00d662b3  // 194: or t0, a2, a3
-0054a023  // 198: sw t0, 0(s1)              or
-00448493  // 19c: addi s1, s1, 4
-f0f01fb7  // 1a0: lui t6, 0xf0f01
-2b5f8f93  // 1a4: addi t6, t6, 693
-01f29463  // 1a8: bne t0, t6, skip11
-001d8d93  // 1ac: addi s11, s11, 1
-00d672b3  // 1b0: and t0, a2, a3
-0054a023  // 1b4: sw t0, 0(s1)              and
-00448493  // 1b8: addi s1, s1, 4
-02400f93  // 1bc: addi t6, zero, 36
-01f29463  // 1c0: bne t0, t6, skip12
-001d8d93  // 1c4: addi s11, s11, 1
-f9c60293  // 1c8: addi t0, a2, -100
-0054a023  // 1cc: sw t0, 0(s1)              addi
-00448493  // 1d0: addi s1, s1, 4
-f0f01fb7  // 1d4: lui t6, 0xf0f01
-1d0f8f93  // 1d8: addi t6, t6, 464
-01f29463  // 1dc: bne t0, t6, skip13
-001d8d93  // 1e0: addi s11, s11, 1
-0c86a293  // 1e4: slti t0, a3, 200
-0054a023  // 1e8: sw t0, 0(s1)              slti
-00448493  // 1ec: addi s1, s1, 4
-00100f93  // 1f0: addi t6, zero, 1
-01f29463  // 1f4: bne t0, t6, skip14
-001d8d93  // 1f8: addi s11, s11, 1
-0646b293  // 1fc: sltiu t0, a3, 100
-0054a023  // 200: sw t0, 0(s1)              sltiu
-00448493  // 204: addi s1, s1, 4
-00000f93  // 208: addi t6, zero, 0
-01f29463  // 20c: bne t0, t6, skip15
-001d8d93  // 210: addi s11, s11, 1
-fff6c293  // 214: xori t0, a3, -1
-0054a023  // 218: sw t0, 0(s1)              xori: not
-00448493  // 21c: addi s1, s1, 4
-f5a00f93  // 220: addi t6, zero, -166
-01f29463  // 224: bne t0, t6, skip16
-001d8d93  // 228: addi s11, s11, 1
-7006e293  // 22c: ori t0, a3, 0x700
-0054a023  // 230: sw t0, 0(s1)              ori
-00448493  // 234: addi s1, s1, 4
-7a500f93  // 238: addi t6, zero, 1957
-01f29463  // 23c: bne t0, t6, skip17
-001d8d93  // 240: addi s11, s11, 1
-3f067293  // 244: andi t0, a2, 0x3f0
-0054a023  // 248: sw t0, 0(s1)              andi
-00448493  // 24c: addi s1, s1, 4
-23000f93  // 250: addi t6, zero, 560
-01f29463  // 254: bne t0, t6, skip18
-001d8d93  // 258: addi s11, s11, 1
-00769293  // 25c: slli t0, a3, 7
-0054a023  // 260: sw t0, 0(s1)              slli
-00448493  // 264: addi s1, s1, 4
-00005fb7  // 268: lui t6, 0x5
-280f8f93  // 26c: addi t6, t6, 640
-01f29463  // 270: bne t0, t6, skip19
-001d8d93  // 274: addi s11, s11, 1
-00965293  // 278: srli t0, a2, 9
-0054a023  // 27c: sw t0, 0(s1)              srli
-00448493  // 280: addi s1, s1, 4
-00788fb7  // 284: lui t6, 0x788
-809f8f93  // 288: addi t6, t6, -2039
-01f29463  // 28c: bne t0, t6, skip20
-001d8d93  // 290: addi s11, s11, 1
-40965293  // 294: srai t0, a2, 9
-0054a023  // 298: sw t0, 0(s1)              srai
-00448493  // 29c: addi s1, s1, 4
-fff88fb7  // 2a0: lui t6, 0xfff88
-809f8f93  // 2a4: addi t6, t6, -2039
-01f29463  // 2a8: bne t0, t6, skip21
-001d8d93  // 2ac: addi s11, s11, 1
-00002283  // 2b0: lw t0, 0(zero)
-0054a023  // 2b4: sw t0, 0(s1)              lw
-00448493  // 2b8: addi s1, s1, 4
-5a5a1fb7  // 2bc: lui t6, 0x5a5a1
-f0ff8f93  // 2c0: addi t6, t6, -241
-01f29463  // 2c4: bne t0, t6, skip22
-001d8d93  // 2c8: addi s11, s11, 1
-1ec02823  // 2cc: sw a2, 0x1f0(zero)
-1f002283  // 2d0: lw t0, 0x1f0(zero)        read back at once
-0054a023  // 2d4: sw t0, 0(s1)              sw
-00448493  // 2d8: addi s1, s1, 4
-f0f01fb7  // 2dc: lui t6, 0xf0f01
-234f8f93  // 2e0: addi t6, t6, 564
-01f29463  // 2e4: bne t0, t6, skip23
-001d8d93  // 2e8: addi s11, s11, 1
-00000293  // 2ec: addi t0, zero, 0
-00d68463  // 2f0: beq a3, a3, over_beq_a3_a3  taken
-00128293  // 2f4: addi t0, t0, 1            skipped when taken
-00228293  // 2f8: addi t0, t0, 2            <- over_beq_a3_a3
-0054a023  // 2fc: sw t0, 0(s1)              beq, taken
-00448493  // 300: addi s1, s1, 4
-00200f93  // 304: addi t6, zero, 2
-01f29463  // 308: bne t0, t6, skip24
-001d8d93  // 30c: addi s11, s11, 1
-00000293  // 310: addi t0, zero, 0
-00d60463  // 314: beq a2, a3, over_beq_a2_a3  not taken
-00128293  // 318: addi t0, t0, 1            skipped when taken
-00228293  // 31c: addi t0, t0, 2            <- over_beq_a2_a3
-0054a023  // 320: sw t0, 0(s1)              beq, not taken
-00448493  // 324: addi s1, s1, 4
-00300f93  // 328: addi t6, zero, 3
-01f29463  // 32c: bne t0, t6, skip25
-001d8d93  // 330: addi s11, s11, 1
-00000293  // 334: addi t0, zero, 0
-00d69463  // 338: bne a3, a3, over_bne_a3_a3  not taken
-00128293  // 33c: addi t0, t0, 1            skipped when taken
-00228293  // 340: addi t0, t0, 2            <- over_bne_a3_a3
-0054a023  // 344: sw t0, 0(s1)              bne, not taken
-00448493  // 348: addi s1, s1, 4
-00300f93  // 34c: addi t6, zero, 3
-01f29463  // 350: bne t0, t6, skip26
-001d8d93  // 354: addi s11, s11, 1
-00000293  // 358: addi t0, zero, 0
-00d61463  // 35c: bne a2, a3, over_bne_a2_a3  taken
-00128293  // 360: addi t0, t0, 1            skipped when taken
-00228293  // 364: addi t0, t0, 2            <- over_bne_a2_a3
-0054a023  // 368: sw t0, 0(s1)              bne, taken
-00448493  // 36c: addi s1, s1, 4
-00200f93  // 370: addi t6, zero, 2
-01f29463  // 374: bne t0, t6, skip27
-001d8d93  // 378: addi s11, s11, 1
-00000293  // 37c: addi t0, zero, 0
-00d64463  // 380: blt a2, a3, over_blt_a2_a3  taken
-00128293  // 384: addi t0, t0, 1            skipped when taken
-00228293  // 388: addi t0, t0, 2            <- over_blt_a2_a3
-0054a023  // 38c: sw t0, 0(s1)              blt, taken
-00448493  // 390: addi s1, s1, 4
-00200f93  // 394: addi t6, zero, 2
-01f29463  // 398: bne t0, t6, skip28
-001d8d93  // 39c: addi s11, s11, 1
-00000293  // 3a0: addi t0, zero, 0
-00c6c463  // 3a4: blt a3, a2, over_blt_a3_a2  not taken
-00128293  // 3a8: addi t0, t0, 1            skipped when taken
-00228293  // 3ac: addi t0, t0, 2            <- over_blt_a3_a2
-0054a023  // 3b0: sw t0, 0(s1)              blt, not taken
-00448493  // 3b4: addi s1, s1, 4
-00300f93  // 3b8: addi t6, zero, 3
-01f29463  // 3bc: bne t0, t6, skip29
-001d8d93  // 3c0: addi s11, s11, 1
-00000293  // 3c4: addi t0, zero, 0
-00d65463  // 3c8: bge a2, a3, over_bge_a2_a3  not taken
-00128293  // 3cc: addi t0, t0, 1            skipped when taken
-00228293  // 3d0: addi t0, t0, 2            <- over_bge_a2_a3
-0054a023  // 3d4: sw t0, 0(s1)              bge, not taken
-00448493  // 3d8: addi s1, s1, 4
-00300f93  // 3dc: addi t6, zero, 3
-01f29463  // 3e0: bne t0, t6, skip30
-001d8d93  // 3e4: addi s11, s11, 1
-00000293  // 3e8: addi t0, zero, 0
-00c6d463  // 3ec: bge a3, a2, over_bge_a3_a2  taken
-00128293  // 3f0: addi t0, t0, 1            skipped when taken
-00228293  // 3f4: addi t0, t0, 2            <- over_bge_a3_a2
-0054a023  // 3f8: sw t0, 0(s1)              bge, taken
-00448493  // 3fc: addi s1, s1, 4
-00200f93  // 400: addi t6, zero, 2
-01f29463  // 404: bne t0, t6, skip31
-001d8d93  // 408: addi s11, s11, 1
-00000293  // 40c: addi t0, zero, 0
-00d66463  // 410: bltu a2, a3, over_bltu_a2_a3  not taken
-00128293  // 414: addi t0, t0, 1            skipped when taken
-00228293  // 418: addi t0, t0, 2            <- over_bltu_a2_a3
-0054a023  // 41c: sw t0, 0(s1)              bltu, not taken
-00448493  // 420: addi s1, s1, 4
-00300f93  // 424: addi t6, zero, 3
-01f29463  // 428: bne t0, t6, skip32
-001d8d93  // 42c: addi s11, s11, 1
-00000293  // 430: addi t0, zero, 0
-00c6e463  // 434: bltu a3, a2, over_bltu_a3_a2  taken
-00128293  // 438: addi t0, t0, 1            skipped when taken
-00228293  // 43c: addi t0, t0, 2            <- over_bltu_a3_a2
-0054a023  // 440: sw t0, 0(s1)              bltu, taken
-00448493  // 444: addi s1, s1, 4
-00200f93  // 448: addi t6, zero, 2
-01f29463  // 44c: bne t0, t6, skip33
-001d8d93  // 450: addi s11, s11, 1
-00000293  // 454: addi t0, zero, 0
-00d67463  // 458: bgeu a2, a3, over_bgeu_a2_a3  taken
-00128293  // 45c: addi t0, t0, 1            skipped when taken
-00228293  // 460: addi t0, t0, 2            <- over_bgeu_a2_a3
-0054a023  // 464: sw t0, 0(s1)              bgeu, taken
-00448493  // 468: addi s1, s1, 4
-00200f93  // 46c: addi t6, zero, 2
-01f29463  // 470: bne t0, t6, skip34
-001d8d93  // 474: addi s11, s11, 1
-00000293  // 478: addi t0, zero, 0
-00c6f463  // 47c: bgeu a3, a2, over_bgeu_a3_a2  not taken
-00128293  // 480: addi t0, t0, 1            skipped when taken
-00228293  // 484: addi t0, t0, 2            <- over_bgeu_a3_a2
-0054a023  // 488: sw t0, 0(s1)              bgeu, not taken
-00448493  // 48c: addi s1, s1, 4
-00300f93  // 490: addi t6, zero, 3
-01f29463  // 494: bne t0, t6, skip35
-001d8d93  // 498: addi s11, s11, 1
-00002283  // 49c: lw t0, 0(zero)
-00128313  // 4a0: addi t1, t0, 1            the word just loaded, at once
-0064a023  // 4a4: sw t1, 0(s1)              lw, then used at once
-00448493  // 4a8: addi s1, s1, 4
-5a5a1fb7  // 4ac: lui t6, 0x5a5a1
-f10f8f93  // 4b0: addi t6, t6, -240
-01f31463  // 4b4: bne t1, t6, skip36
-001d8d93  // 4b8: addi s11, s11, 1
-00000293  // 4bc: addi t0, zero, 0
-1f002383  // 4c0: lw t2, 0x1f0(zero)
-00c38463  // 4c4: beq t2, a2, over_loaded   compares the word just loaded
-00128293  // 4c8: addi t0, t0, 1            skipped
-00228293  // 4cc: addi t0, t0, 2            <- over_loaded
-0054a023  // 4d0: sw t0, 0(s1)              a branch on a word just loaded
-00448493  // 4d4: addi s1, s1, 4
-00200f93  // 4d8: addi t6, zero, 2
-01f29463  // 4dc: bne t0, t6, skip37
-001d8d93  // 4e0: addi s11, s11, 1
-00000293  // 4e4: addi t0, zero, 0
-1f002383  // 4e8: lw t2, 0x1f0(zero)
-00c39463  // 4ec: bne t2, a2, over_unequal  not taken: the word just loaded is a2
-00128293  // 4f0: addi t0, t0, 1
-00228293  // 4f4: addi t0, t0, 2            <- over_unequal
-0054a023  // 4f8: sw t0, 0(s1)              a branch on a word just loaded, not taken
-00448493  // 4fc: addi s1, s1, 4
-00300f93  // 500: addi t6, zero, 3
-01f29463  // 504: bne t0, t6, skip38
-001d8d93  // 508: addi s11, s11, 1
-0080036f  // 50c: jal t1, after_jal         <- the_jal
-f9cd8d93  // 510: addi s11, s11, -100       never runs
-0064a023  // 514: sw t1, 0(s1)              jal links (after_jal)
-00448493  // 518: addi s1, s1, 4
-00000fb7  // 51c: lui t6, 0x0
-510f8f93  // 520: addi t6, t6, 1296
-01f31463  // 524: bne t1, t6, skip39
-001d8d93  // 528: addi s11, s11, 1
-00000397  // 52c: auipc t2, 0               <- the_auipc
-01138367  // 530: jalr t1, 17(t2)           an odd target: bit 0 cleared
-f9cd8d93  // 534: addi s11, s11, -100       never runs
-f9cd8d93  // 538: addi s11, s11, -100       never runs
-00000e17  // 53c: auipc t3, 0               where it landed, which must be even (landed)
-0064a023  // 540: sw t1, 0(s1)              jalr links
-00448493  // 544: addi s1, s1, 4
-00000fb7  // 548: lui t6, 0x0
-534f8f93  // 54c: addi t6, t6, 1332
-01f31463  // 550: bne t1, t6, skip40
-001d8d93  // 554: addi s11, s11, 1
-01c4a023  // 558: sw t3, 0(s1)              jalr lands with bit 0 cleared
-00448493  // 55c: addi s1, s1, 4
-00000fb7  // 560: lui t6, 0x0
-53cf8f93  // 564: addi t6, t6, 1340
-01fe1463  // 568: bne t3, t6, skip41
-001d8d93  // 56c: addi s11, s11, 1
-00008067  // 570: jalr zero, 0(ra)          return
+00100293  // 01c: addi t0, zero, 1
+7e502e23  // 020: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 024: jal zero, end             and wait (end)
 ";
 
-        private const string Data = @"// rv_demo's data: word 0 for its lw, and words 1 to 127 cleared, so every result word starts at 0.
+        private const string SumExpected = @"// What rv_sum leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): 55 at 0x100, the rest 0.
+// Worked out by an emulator written from the RISC-V specification.
+// Written for BitSorter's oracle; not taken from any course material.
+00000037  // 100
+00000000  // 104
+00000000  // 108
+00000000  // 10c
+00000000  // 110
+00000000  // 114
+00000000  // 118
+00000000  // 11c
+00000000  // 120
+00000000  // 124
+00000000  // 128
+00000000  // 12c
+00000000  // 130
+00000000  // 134
+00000000  // 138
+00000000  // 13c
+00000000  // 140
+00000000  // 144
+00000000  // 148
+00000000  // 14c
+00000000  // 150
+00000000  // 154
+00000000  // 158
+00000000  // 15c
+00000000  // 160
+00000000  // 164
+00000000  // 168
+00000000  // 16c
+00000000  // 170
+00000000  // 174
+00000000  // 178
+00000000  // 17c
+00000000  // 180
+00000000  // 184
+00000000  // 188
+00000000  // 18c
+00000000  // 190
+00000000  // 194
+00000000  // 198
+00000000  // 19c
+00000000  // 1a0
+00000000  // 1a4
+00000000  // 1a8
+00000000  // 1ac
+00000000  // 1b0
+00000000  // 1b4
+00000000  // 1b8
+00000000  // 1bc
+00000000  // 1c0
+00000000  // 1c4
+00000000  // 1c8
+00000000  // 1cc
+00000000  // 1d0
+00000000  // 1d4
+00000000  // 1d8
+00000000  // 1dc
+00000000  // 1e0
+00000000  // 1e4
+00000000  // 1e8
+00000000  // 1ec
+00000000  // 1f0
+00000000  // 1f4
+00000000  // 1f8
+00000000  // 1fc
+";
+
+        private const string FibProgram = @"// rv_fib, one of the three programs BitSorter's RV32I processors run: the first ten Fibonacci
+// numbers, each loaded back from the two before it, left from 0x104 -- a load used at once.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
+// Written for BitSorter's oracle; not taken from any course material.
+10400513  // 000: addi a0, zero, 0x104      2. ten Fibonacci numbers, from 0x104
+00a00593  // 004: addi a1, zero, 10
+010000ef  // 008: jal ra, fib
+00100293  // 00c: addi t0, zero, 1
+7e502e23  // 010: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 014: jal zero, end             and wait (end)
+00052023  // 018: sw zero, 0(a0)            F0 = 0 (fib)
+00100293  // 01c: addi t0, zero, 1
+00552223  // 020: sw t0, 4(a0)              F1 = 1
+00850393  // 024: addi t2, a0, 8            the next word
+00259e13  // 028: slli t3, a1, 2
+01c50e33  // 02c: add t3, a0, t3            one past the last
+ff83ae83  // 030: lw t4, -8(t2)             the two before it, from memory (fib_loop)
+ffc3af03  // 034: lw t5, -4(t2)
+01ee8fb3  // 038: add t6, t4, t5            needs the load just before it
+01f3a023  // 03c: sw t6, 0(t2)
+00438393  // 040: addi t2, t2, 4
+ffc3e6e3  // 044: bltu t2, t3, fib_loop
+00008067  // 048: jalr zero, 0(ra)          return
+";
+
+        private const string FibExpected = @"// What rv_fib leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): the first ten Fibonacci
+// numbers from 0x104, the rest 0.
+// Worked out by an emulator written from the RISC-V specification.
+// Written for BitSorter's oracle; not taken from any course material.
+00000000  // 100
+00000000  // 104
+00000001  // 108
+00000001  // 10c
+00000002  // 110
+00000003  // 114
+00000005  // 118
+00000008  // 11c
+0000000d  // 120
+00000015  // 124
+00000022  // 128
+00000000  // 12c
+00000000  // 130
+00000000  // 134
+00000000  // 138
+00000000  // 13c
+00000000  // 140
+00000000  // 144
+00000000  // 148
+00000000  // 14c
+00000000  // 150
+00000000  // 154
+00000000  // 158
+00000000  // 15c
+00000000  // 160
+00000000  // 164
+00000000  // 168
+00000000  // 16c
+00000000  // 170
+00000000  // 174
+00000000  // 178
+00000000  // 17c
+00000000  // 180
+00000000  // 184
+00000000  // 188
+00000000  // 18c
+00000000  // 190
+00000000  // 194
+00000000  // 198
+00000000  // 19c
+00000000  // 1a0
+00000000  // 1a4
+00000000  // 1a8
+00000000  // 1ac
+00000000  // 1b0
+00000000  // 1b4
+00000000  // 1b8
+00000000  // 1bc
+00000000  // 1c0
+00000000  // 1c4
+00000000  // 1c8
+00000000  // 1cc
+00000000  // 1d0
+00000000  // 1d4
+00000000  // 1d8
+00000000  // 1dc
+00000000  // 1e0
+00000000  // 1e4
+00000000  // 1e8
+00000000  // 1ec
+00000000  // 1f0
+00000000  // 1f4
+00000000  // 1f8
+00000000  // 1fc
+";
+
+        private const string TestProgram = @"// rv_isa, one of the three programs BitSorter's RV32I processors run: every instruction they run
+// once -- each branch both ways -- checking itself, the results from 0x140 and at 0x1f8 how many
+// of its checks held.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
+// Written for BitSorter's oracle; not taken from any course material.
+014000ef  // 000: jal ra, every             3. every instruction once, from 0x140
+1fb02c23  // 004: sw s11, 0x1f8(zero)       how many of the checks held
+00100293  // 008: addi t0, zero, 1
+7e502e23  // 00c: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 010: jal zero, end             and wait (end)
+14000493  // 014: addi s1, zero, 0x140      where the results go (every)
+00000d93  // 018: addi s11, zero, 0         checks held
+f0f01637  // 01c: lui a2, 0xf0f01           a negative word
+23460613  // 020: addi a2, a2, 564
+0a500693  // 024: addi a3, zero, 165        a small positive one
+00500713  // 028: addi a4, zero, 5          a shift
+abcde2b7  // 02c: lui t0, 0xabcde
+0054a023  // 030: sw t0, 0(s1)              lui
+00448493  // 034: addi s1, s1, 4
+abcdefb7  // 038: lui t6, 0xabcde
+01f29463  // 03c: bne t0, t6, skip1
+001d8d93  // 040: addi s11, s11, 1
+00001297  // 044: auipc t0, 0x1             <- here
+0054a023  // 048: sw t0, 0(s1)              auipc
+00448493  // 04c: addi s1, s1, 4
+00001fb7  // 050: lui t6, 0x1
+044f8f93  // 054: addi t6, t6, 68
+01f29463  // 058: bne t0, t6, skip2
+001d8d93  // 05c: addi s11, s11, 1
+00d602b3  // 060: add t0, a2, a3
+0054a023  // 064: sw t0, 0(s1)              add
+00448493  // 068: addi s1, s1, 4
+f0f01fb7  // 06c: lui t6, 0xf0f01
+2d9f8f93  // 070: addi t6, t6, 729
+01f29463  // 074: bne t0, t6, skip3
+001d8d93  // 078: addi s11, s11, 1
+40d602b3  // 07c: sub t0, a2, a3
+0054a023  // 080: sw t0, 0(s1)              sub
+00448493  // 084: addi s1, s1, 4
+f0f01fb7  // 088: lui t6, 0xf0f01
+18ff8f93  // 08c: addi t6, t6, 399
+01f29463  // 090: bne t0, t6, skip4
+001d8d93  // 094: addi s11, s11, 1
+00e692b3  // 098: sll t0, a3, a4
+0054a023  // 09c: sw t0, 0(s1)              sll
+00448493  // 0a0: addi s1, s1, 4
+00001fb7  // 0a4: lui t6, 0x1
+4a0f8f93  // 0a8: addi t6, t6, 1184
+01f29463  // 0ac: bne t0, t6, skip5
+001d8d93  // 0b0: addi s11, s11, 1
+00d622b3  // 0b4: slt t0, a2, a3
+0054a023  // 0b8: sw t0, 0(s1)              slt: the negative one is less
+00448493  // 0bc: addi s1, s1, 4
+00100f93  // 0c0: addi t6, zero, 1
+01f29463  // 0c4: bne t0, t6, skip6
+001d8d93  // 0c8: addi s11, s11, 1
+00d632b3  // 0cc: sltu t0, a2, a3
+0054a023  // 0d0: sw t0, 0(s1)              sltu: but not without its sign
+00448493  // 0d4: addi s1, s1, 4
+00000f93  // 0d8: addi t6, zero, 0
+01f29463  // 0dc: bne t0, t6, skip7
+001d8d93  // 0e0: addi s11, s11, 1
+00d642b3  // 0e4: xor t0, a2, a3
+0054a023  // 0e8: sw t0, 0(s1)              xor
+00448493  // 0ec: addi s1, s1, 4
+f0f01fb7  // 0f0: lui t6, 0xf0f01
+291f8f93  // 0f4: addi t6, t6, 657
+01f29463  // 0f8: bne t0, t6, skip8
+001d8d93  // 0fc: addi s11, s11, 1
+00e652b3  // 100: srl t0, a2, a4
+0054a023  // 104: sw t0, 0(s1)              srl
+00448493  // 108: addi s1, s1, 4
+07878fb7  // 10c: lui t6, 0x7878
+091f8f93  // 110: addi t6, t6, 145
+01f29463  // 114: bne t0, t6, skip9
+001d8d93  // 118: addi s11, s11, 1
+40e652b3  // 11c: sra t0, a2, a4
+0054a023  // 120: sw t0, 0(s1)              sra
+00448493  // 124: addi s1, s1, 4
+ff878fb7  // 128: lui t6, 0xff878
+091f8f93  // 12c: addi t6, t6, 145
+01f29463  // 130: bne t0, t6, skip10
+001d8d93  // 134: addi s11, s11, 1
+00d662b3  // 138: or t0, a2, a3
+0054a023  // 13c: sw t0, 0(s1)              or
+00448493  // 140: addi s1, s1, 4
+f0f01fb7  // 144: lui t6, 0xf0f01
+2b5f8f93  // 148: addi t6, t6, 693
+01f29463  // 14c: bne t0, t6, skip11
+001d8d93  // 150: addi s11, s11, 1
+00d672b3  // 154: and t0, a2, a3
+0054a023  // 158: sw t0, 0(s1)              and
+00448493  // 15c: addi s1, s1, 4
+02400f93  // 160: addi t6, zero, 36
+01f29463  // 164: bne t0, t6, skip12
+001d8d93  // 168: addi s11, s11, 1
+f9c60293  // 16c: addi t0, a2, -100
+0054a023  // 170: sw t0, 0(s1)              addi
+00448493  // 174: addi s1, s1, 4
+f0f01fb7  // 178: lui t6, 0xf0f01
+1d0f8f93  // 17c: addi t6, t6, 464
+01f29463  // 180: bne t0, t6, skip13
+001d8d93  // 184: addi s11, s11, 1
+0c86a293  // 188: slti t0, a3, 200
+0054a023  // 18c: sw t0, 0(s1)              slti
+00448493  // 190: addi s1, s1, 4
+00100f93  // 194: addi t6, zero, 1
+01f29463  // 198: bne t0, t6, skip14
+001d8d93  // 19c: addi s11, s11, 1
+0646b293  // 1a0: sltiu t0, a3, 100
+0054a023  // 1a4: sw t0, 0(s1)              sltiu
+00448493  // 1a8: addi s1, s1, 4
+00000f93  // 1ac: addi t6, zero, 0
+01f29463  // 1b0: bne t0, t6, skip15
+001d8d93  // 1b4: addi s11, s11, 1
+fff6c293  // 1b8: xori t0, a3, -1
+0054a023  // 1bc: sw t0, 0(s1)              xori: not
+00448493  // 1c0: addi s1, s1, 4
+f5a00f93  // 1c4: addi t6, zero, -166
+01f29463  // 1c8: bne t0, t6, skip16
+001d8d93  // 1cc: addi s11, s11, 1
+7006e293  // 1d0: ori t0, a3, 0x700
+0054a023  // 1d4: sw t0, 0(s1)              ori
+00448493  // 1d8: addi s1, s1, 4
+7a500f93  // 1dc: addi t6, zero, 1957
+01f29463  // 1e0: bne t0, t6, skip17
+001d8d93  // 1e4: addi s11, s11, 1
+3f067293  // 1e8: andi t0, a2, 0x3f0
+0054a023  // 1ec: sw t0, 0(s1)              andi
+00448493  // 1f0: addi s1, s1, 4
+23000f93  // 1f4: addi t6, zero, 560
+01f29463  // 1f8: bne t0, t6, skip18
+001d8d93  // 1fc: addi s11, s11, 1
+00769293  // 200: slli t0, a3, 7
+0054a023  // 204: sw t0, 0(s1)              slli
+00448493  // 208: addi s1, s1, 4
+00005fb7  // 20c: lui t6, 0x5
+280f8f93  // 210: addi t6, t6, 640
+01f29463  // 214: bne t0, t6, skip19
+001d8d93  // 218: addi s11, s11, 1
+00965293  // 21c: srli t0, a2, 9
+0054a023  // 220: sw t0, 0(s1)              srli
+00448493  // 224: addi s1, s1, 4
+00788fb7  // 228: lui t6, 0x788
+809f8f93  // 22c: addi t6, t6, -2039
+01f29463  // 230: bne t0, t6, skip20
+001d8d93  // 234: addi s11, s11, 1
+40965293  // 238: srai t0, a2, 9
+0054a023  // 23c: sw t0, 0(s1)              srai
+00448493  // 240: addi s1, s1, 4
+fff88fb7  // 244: lui t6, 0xfff88
+809f8f93  // 248: addi t6, t6, -2039
+01f29463  // 24c: bne t0, t6, skip21
+001d8d93  // 250: addi s11, s11, 1
+00002283  // 254: lw t0, 0(zero)
+0054a023  // 258: sw t0, 0(s1)              lw
+00448493  // 25c: addi s1, s1, 4
+5a5a1fb7  // 260: lui t6, 0x5a5a1
+f0ff8f93  // 264: addi t6, t6, -241
+01f29463  // 268: bne t0, t6, skip22
+001d8d93  // 26c: addi s11, s11, 1
+1ec02823  // 270: sw a2, 0x1f0(zero)
+1f002283  // 274: lw t0, 0x1f0(zero)        read back at once
+0054a023  // 278: sw t0, 0(s1)              sw
+00448493  // 27c: addi s1, s1, 4
+f0f01fb7  // 280: lui t6, 0xf0f01
+234f8f93  // 284: addi t6, t6, 564
+01f29463  // 288: bne t0, t6, skip23
+001d8d93  // 28c: addi s11, s11, 1
+00000293  // 290: addi t0, zero, 0
+00d68463  // 294: beq a3, a3, over_beq_a3_a3  taken
+00128293  // 298: addi t0, t0, 1            skipped when taken
+00228293  // 29c: addi t0, t0, 2            <- over_beq_a3_a3
+0054a023  // 2a0: sw t0, 0(s1)              beq, taken
+00448493  // 2a4: addi s1, s1, 4
+00200f93  // 2a8: addi t6, zero, 2
+01f29463  // 2ac: bne t0, t6, skip24
+001d8d93  // 2b0: addi s11, s11, 1
+00000293  // 2b4: addi t0, zero, 0
+00d60463  // 2b8: beq a2, a3, over_beq_a2_a3  not taken
+00128293  // 2bc: addi t0, t0, 1            skipped when taken
+00228293  // 2c0: addi t0, t0, 2            <- over_beq_a2_a3
+0054a023  // 2c4: sw t0, 0(s1)              beq, not taken
+00448493  // 2c8: addi s1, s1, 4
+00300f93  // 2cc: addi t6, zero, 3
+01f29463  // 2d0: bne t0, t6, skip25
+001d8d93  // 2d4: addi s11, s11, 1
+00000293  // 2d8: addi t0, zero, 0
+00d69463  // 2dc: bne a3, a3, over_bne_a3_a3  not taken
+00128293  // 2e0: addi t0, t0, 1            skipped when taken
+00228293  // 2e4: addi t0, t0, 2            <- over_bne_a3_a3
+0054a023  // 2e8: sw t0, 0(s1)              bne, not taken
+00448493  // 2ec: addi s1, s1, 4
+00300f93  // 2f0: addi t6, zero, 3
+01f29463  // 2f4: bne t0, t6, skip26
+001d8d93  // 2f8: addi s11, s11, 1
+00000293  // 2fc: addi t0, zero, 0
+00d61463  // 300: bne a2, a3, over_bne_a2_a3  taken
+00128293  // 304: addi t0, t0, 1            skipped when taken
+00228293  // 308: addi t0, t0, 2            <- over_bne_a2_a3
+0054a023  // 30c: sw t0, 0(s1)              bne, taken
+00448493  // 310: addi s1, s1, 4
+00200f93  // 314: addi t6, zero, 2
+01f29463  // 318: bne t0, t6, skip27
+001d8d93  // 31c: addi s11, s11, 1
+00000293  // 320: addi t0, zero, 0
+00d64463  // 324: blt a2, a3, over_blt_a2_a3  taken
+00128293  // 328: addi t0, t0, 1            skipped when taken
+00228293  // 32c: addi t0, t0, 2            <- over_blt_a2_a3
+0054a023  // 330: sw t0, 0(s1)              blt, taken
+00448493  // 334: addi s1, s1, 4
+00200f93  // 338: addi t6, zero, 2
+01f29463  // 33c: bne t0, t6, skip28
+001d8d93  // 340: addi s11, s11, 1
+00000293  // 344: addi t0, zero, 0
+00c6c463  // 348: blt a3, a2, over_blt_a3_a2  not taken
+00128293  // 34c: addi t0, t0, 1            skipped when taken
+00228293  // 350: addi t0, t0, 2            <- over_blt_a3_a2
+0054a023  // 354: sw t0, 0(s1)              blt, not taken
+00448493  // 358: addi s1, s1, 4
+00300f93  // 35c: addi t6, zero, 3
+01f29463  // 360: bne t0, t6, skip29
+001d8d93  // 364: addi s11, s11, 1
+00000293  // 368: addi t0, zero, 0
+00d65463  // 36c: bge a2, a3, over_bge_a2_a3  not taken
+00128293  // 370: addi t0, t0, 1            skipped when taken
+00228293  // 374: addi t0, t0, 2            <- over_bge_a2_a3
+0054a023  // 378: sw t0, 0(s1)              bge, not taken
+00448493  // 37c: addi s1, s1, 4
+00300f93  // 380: addi t6, zero, 3
+01f29463  // 384: bne t0, t6, skip30
+001d8d93  // 388: addi s11, s11, 1
+00000293  // 38c: addi t0, zero, 0
+00c6d463  // 390: bge a3, a2, over_bge_a3_a2  taken
+00128293  // 394: addi t0, t0, 1            skipped when taken
+00228293  // 398: addi t0, t0, 2            <- over_bge_a3_a2
+0054a023  // 39c: sw t0, 0(s1)              bge, taken
+00448493  // 3a0: addi s1, s1, 4
+00200f93  // 3a4: addi t6, zero, 2
+01f29463  // 3a8: bne t0, t6, skip31
+001d8d93  // 3ac: addi s11, s11, 1
+00000293  // 3b0: addi t0, zero, 0
+00d66463  // 3b4: bltu a2, a3, over_bltu_a2_a3  not taken
+00128293  // 3b8: addi t0, t0, 1            skipped when taken
+00228293  // 3bc: addi t0, t0, 2            <- over_bltu_a2_a3
+0054a023  // 3c0: sw t0, 0(s1)              bltu, not taken
+00448493  // 3c4: addi s1, s1, 4
+00300f93  // 3c8: addi t6, zero, 3
+01f29463  // 3cc: bne t0, t6, skip32
+001d8d93  // 3d0: addi s11, s11, 1
+00000293  // 3d4: addi t0, zero, 0
+00c6e463  // 3d8: bltu a3, a2, over_bltu_a3_a2  taken
+00128293  // 3dc: addi t0, t0, 1            skipped when taken
+00228293  // 3e0: addi t0, t0, 2            <- over_bltu_a3_a2
+0054a023  // 3e4: sw t0, 0(s1)              bltu, taken
+00448493  // 3e8: addi s1, s1, 4
+00200f93  // 3ec: addi t6, zero, 2
+01f29463  // 3f0: bne t0, t6, skip33
+001d8d93  // 3f4: addi s11, s11, 1
+00000293  // 3f8: addi t0, zero, 0
+00d67463  // 3fc: bgeu a2, a3, over_bgeu_a2_a3  taken
+00128293  // 400: addi t0, t0, 1            skipped when taken
+00228293  // 404: addi t0, t0, 2            <- over_bgeu_a2_a3
+0054a023  // 408: sw t0, 0(s1)              bgeu, taken
+00448493  // 40c: addi s1, s1, 4
+00200f93  // 410: addi t6, zero, 2
+01f29463  // 414: bne t0, t6, skip34
+001d8d93  // 418: addi s11, s11, 1
+00000293  // 41c: addi t0, zero, 0
+00c6f463  // 420: bgeu a3, a2, over_bgeu_a3_a2  not taken
+00128293  // 424: addi t0, t0, 1            skipped when taken
+00228293  // 428: addi t0, t0, 2            <- over_bgeu_a3_a2
+0054a023  // 42c: sw t0, 0(s1)              bgeu, not taken
+00448493  // 430: addi s1, s1, 4
+00300f93  // 434: addi t6, zero, 3
+01f29463  // 438: bne t0, t6, skip35
+001d8d93  // 43c: addi s11, s11, 1
+00002283  // 440: lw t0, 0(zero)
+00128313  // 444: addi t1, t0, 1            the word just loaded, at once
+0064a023  // 448: sw t1, 0(s1)              lw, then used at once
+00448493  // 44c: addi s1, s1, 4
+5a5a1fb7  // 450: lui t6, 0x5a5a1
+f10f8f93  // 454: addi t6, t6, -240
+01f31463  // 458: bne t1, t6, skip36
+001d8d93  // 45c: addi s11, s11, 1
+00000293  // 460: addi t0, zero, 0
+1f002383  // 464: lw t2, 0x1f0(zero)
+00c38463  // 468: beq t2, a2, over_loaded   compares the word just loaded
+00128293  // 46c: addi t0, t0, 1            skipped
+00228293  // 470: addi t0, t0, 2            <- over_loaded
+0054a023  // 474: sw t0, 0(s1)              a branch on a word just loaded
+00448493  // 478: addi s1, s1, 4
+00200f93  // 47c: addi t6, zero, 2
+01f29463  // 480: bne t0, t6, skip37
+001d8d93  // 484: addi s11, s11, 1
+00000293  // 488: addi t0, zero, 0
+1f002383  // 48c: lw t2, 0x1f0(zero)
+00c39463  // 490: bne t2, a2, over_unequal  not taken: the word just loaded is a2
+00128293  // 494: addi t0, t0, 1
+00228293  // 498: addi t0, t0, 2            <- over_unequal
+0054a023  // 49c: sw t0, 0(s1)              a branch on a word just loaded, not taken
+00448493  // 4a0: addi s1, s1, 4
+00300f93  // 4a4: addi t6, zero, 3
+01f29463  // 4a8: bne t0, t6, skip38
+001d8d93  // 4ac: addi s11, s11, 1
+0080036f  // 4b0: jal t1, after_jal         <- the_jal
+f9cd8d93  // 4b4: addi s11, s11, -100       never runs
+0064a023  // 4b8: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 4bc: addi s1, s1, 4
+00000fb7  // 4c0: lui t6, 0x0
+4b4f8f93  // 4c4: addi t6, t6, 1204
+01f31463  // 4c8: bne t1, t6, skip39
+001d8d93  // 4cc: addi s11, s11, 1
+00000397  // 4d0: auipc t2, 0               <- the_auipc
+01138367  // 4d4: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 4d8: addi s11, s11, -100       never runs
+f9cd8d93  // 4dc: addi s11, s11, -100       never runs
+00000e17  // 4e0: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 4e4: sw t1, 0(s1)              jalr links
+00448493  // 4e8: addi s1, s1, 4
+00000fb7  // 4ec: lui t6, 0x0
+4d8f8f93  // 4f0: addi t6, t6, 1240
+01f31463  // 4f4: bne t1, t6, skip40
+001d8d93  // 4f8: addi s11, s11, 1
+01c4a023  // 4fc: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 500: addi s1, s1, 4
+00000fb7  // 504: lui t6, 0x0
+4e0f8f93  // 508: addi t6, t6, 1248
+01fe1463  // 50c: bne t3, t6, skip41
+001d8d93  // 510: addi s11, s11, 1
+00008067  // 514: jalr zero, 0(ra)          return
+";
+
+        private const string TestExpected = @"// What rv_isa leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): 41 results of every
+// instruction the processors run from 0x140, the word it stored to 0x1f0, and at 0x1f8 how many of
+// its checks held.
+// Worked out by an emulator written from the RISC-V specification.
+// Written for BitSorter's oracle; not taken from any course material.
+00000000  // 100
+00000000  // 104
+00000000  // 108
+00000000  // 10c
+00000000  // 110
+00000000  // 114
+00000000  // 118
+00000000  // 11c
+00000000  // 120
+00000000  // 124
+00000000  // 128
+00000000  // 12c
+00000000  // 130
+00000000  // 134
+00000000  // 138
+00000000  // 13c
+abcde000  // 140
+00001044  // 144
+f0f012d9  // 148
+f0f0118f  // 14c
+000014a0  // 150
+00000001  // 154
+00000000  // 158
+f0f01291  // 15c
+07878091  // 160
+ff878091  // 164
+f0f012b5  // 168
+00000024  // 16c
+f0f011d0  // 170
+00000001  // 174
+00000000  // 178
+ffffff5a  // 17c
+000007a5  // 180
+00000230  // 184
+00005280  // 188
+00787809  // 18c
+fff87809  // 190
+5a5a0f0f  // 194
+f0f01234  // 198
+00000002  // 19c
+00000003  // 1a0
+00000003  // 1a4
+00000002  // 1a8
+00000002  // 1ac
+00000003  // 1b0
+00000003  // 1b4
+00000002  // 1b8
+00000003  // 1bc
+00000002  // 1c0
+00000002  // 1c4
+00000003  // 1c8
+5a5a0f10  // 1cc
+00000002  // 1d0
+00000003  // 1d4
+000004b4  // 1d8
+000004d8  // 1dc
+000004e0  // 1e0
+00000000  // 1e4
+00000000  // 1e8
+00000000  // 1ec
+f0f01234  // 1f0
+00000000  // 1f4
+00000029  // 1f8
+00000000  // 1fc
+";
+
+        private const string Data = @"// The data BitSorter's RV32I programs start from: word 0 for the test's lw, and words 1 to 127
+// cleared, so every result word starts at 0.
 // Written for BitSorter's oracle; not taken from any course material.
 5a5a0f0f
 00000000
@@ -2388,77 +2676,6 @@ f9cd8d93  // 538: addi s11, s11, -100       never runs
 00000000
 00000000
 00000000
-";
-
-        private const string Expected = @"// What rv_demo leaves in data words 64 to 127 (bytes 0x100 to 0x1fc): the sum, ten Fibonacci
-// numbers, 41 results of every instruction the processors run, the word it stored to 0x1f0,
-// and at 0x1f8 how many of its checks held. Worked out by an emulator written from the RISC-V
-// specification.
-// Written for BitSorter's oracle; not taken from any course material.
-00000037  // 100
-00000000  // 104
-00000001  // 108
-00000001  // 10c
-00000002  // 110
-00000003  // 114
-00000005  // 118
-00000008  // 11c
-0000000d  // 120
-00000015  // 124
-00000022  // 128
-00000000  // 12c
-00000000  // 130
-00000000  // 134
-00000000  // 138
-00000000  // 13c
-abcde000  // 140
-000010a0  // 144
-f0f012d9  // 148
-f0f0118f  // 14c
-000014a0  // 150
-00000001  // 154
-00000000  // 158
-f0f01291  // 15c
-07878091  // 160
-ff878091  // 164
-f0f012b5  // 168
-00000024  // 16c
-f0f011d0  // 170
-00000001  // 174
-00000000  // 178
-ffffff5a  // 17c
-000007a5  // 180
-00000230  // 184
-00005280  // 188
-00787809  // 18c
-fff87809  // 190
-5a5a0f0f  // 194
-f0f01234  // 198
-00000002  // 19c
-00000003  // 1a0
-00000003  // 1a4
-00000002  // 1a8
-00000002  // 1ac
-00000003  // 1b0
-00000003  // 1b4
-00000002  // 1b8
-00000003  // 1bc
-00000002  // 1c0
-00000002  // 1c4
-00000003  // 1c8
-5a5a0f10  // 1cc
-00000002  // 1d0
-00000003  // 1d4
-00000510  // 1d8
-00000534  // 1dc
-0000053c  // 1e0
-00000000  // 1e4
-00000000  // 1e8
-00000000  // 1ec
-f0f01234  // 1f0
-00000000  // 1f4
-00000029  // 1f8
-00000000  // 1fc
 ";
     }
 }

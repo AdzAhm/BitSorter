@@ -1,4 +1,5 @@
-// rv_demo's data: word 0 for its lw, and words 1 to 127 cleared, so every result word starts at 0.
+// The data BitSorter's RV32I programs start from: word 0 for the test's lw, and words 1 to 127
+// cleared, so every result word starts at 0.
 // Written for BitSorter's oracle; not taken from any course material.
 5a5a0f0f
 00000000

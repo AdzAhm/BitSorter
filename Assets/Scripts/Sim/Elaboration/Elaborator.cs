@@ -84,6 +84,18 @@ namespace BitSorter.Sim
             return new Run(tree, rules).Elaborate(top);
         }
 
+        /// <summary>
+        /// <paramref name="tree"/> elaborated from <paramref name="top"/> with <paramref name="parameters"/> given to the top's
+        /// own parameters, as an instantiation's #( ) gives an instance's (Part 15h-6c: a testbench run with another value of
+        /// its PROGRAM, as a simulator's command line sets one). Each is worked out in the top's own scope, so an enum member
+        /// is named as the top names it; one the top has not got is an error, as it is for an instance.
+        /// </summary>
+        public static Elaboration Elaborate(SyntaxTree tree, string top, IReadOnlyDictionary<string, Expression> parameters, GateLevelRules rules = null)
+        {
+            if (tree == null) throw new ArgumentNullException(nameof(tree));
+            return new Run(tree, rules) { TopParameters = parameters }.Elaborate(top);
+        }
+
         private readonly struct Shape
         {
             public readonly int Width;
@@ -122,6 +134,9 @@ namespace BitSorter.Sim
 
         private sealed partial class Run
         {
+            /// <summary>What the top's own parameters are given (<see cref="Elaborate(SyntaxTree, string, IReadOnlyDictionary{string, Expression}, GateLevelRules)"/>).</summary>
+            public IReadOnlyDictionary<string, Expression> TopParameters { get; set; }
+
             private readonly SyntaxTree _tree;
             private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
             private readonly Dictionary<string, ModuleDeclaration> _modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
@@ -208,7 +223,11 @@ namespace BitSorter.Sim
                     DeclareUnitItems();
 
                     _builder = new NetlistBuilder(root.Name);
-                    Scope scope = ElaborateModule(root, root.Name, new Dictionary<string, Expression>(), null, root.Location, isTop: true, depth: 0, within: null);
+                    var given = new Dictionary<string, Expression>(StringComparer.Ordinal);
+                    if (TopParameters != null)
+                        foreach (KeyValuePair<string, Expression> parameter in TopParameters)
+                            given[parameter.Key] = parameter.Value;
+                    Scope scope = ElaborateModule(root, root.Name, given, null, root.Location, isTop: true, depth: 0, within: null);
 
                     // What each disable names, now that every process it may reach is compiled.
                     ResolveDisables();

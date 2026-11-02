@@ -121,6 +121,9 @@ namespace BitSorter.Board
         /// <summary>The project's other files (Part 13b): includes and memory images. Absent in an older file, which had none.</summary>
         public FileRecord[] files = new FileRecord[0];
 
+        /// <summary>What the testbench's own parameters are given (Part 15h-6c): a processor's PROGRAM. Absent, so none, in every older file.</summary>
+        public NameValueRecord[] benchParameters = new NameValueRecord[0];
+
         public static ProjectRecord From(Project project)
         {
             var file = new ProjectRecord
@@ -135,6 +138,7 @@ namespace BitSorter.Board
                 library = LibraryRecord.From(project.Settings.Library),
                 exercise = project.Settings.Exercise,
                 registerStart = project.Settings.RegisterStart is LogicVec start ? Text(start) : null,
+                benchParameters = NameValueRecord.From(project.Settings.BenchParameters),
             };
 
             var modules = new List<ModuleRecord>();
@@ -196,6 +200,7 @@ namespace BitSorter.Board
                     Library = hasLibrary ? library?.ToLibrary(problems) : null,
                     Exercise = string.IsNullOrEmpty(exercise) ? null : exercise,
                     RegisterStart = string.IsNullOrEmpty(registerStart) ? (LogicVec?)null : Value(registerStart, problems, "where a register starts"),
+                    BenchParameters = NameValueRecord.ToDictionary(benchParameters),
                 },
                 Files = kept,
             };
@@ -212,6 +217,38 @@ namespace BitSorter.Board
                 return read.Value;
             problems.Add($"{what} is \"{text}\", which is not a value: {read.Error}");
             return null;
+        }
+    }
+
+    /// <summary>A name and its value, as saved: a testbench parameter and what it is given (Part 15h-6c).</summary>
+    [Serializable]
+    public sealed class NameValueRecord
+    {
+        public string name;
+        public string value;
+
+        public static NameValueRecord[] From(IReadOnlyDictionary<string, string> values)
+        {
+            if (values == null || values.Count == 0)
+                return new NameValueRecord[0];
+            var names = new List<string>(values.Keys);
+            names.Sort(StringComparer.Ordinal);
+            var records = new NameValueRecord[names.Count];
+            for (int i = 0; i < names.Count; i++)
+                records[i] = new NameValueRecord { name = names[i], value = values[names[i]] };
+            return records;
+        }
+
+        /// <summary>The values saved, or null for none -- as an older file, which has none, reads.</summary>
+        public static IReadOnlyDictionary<string, string> ToDictionary(NameValueRecord[] records)
+        {
+            if (records == null || records.Length == 0)
+                return null;
+            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (NameValueRecord record in records)
+                if (record != null && !string.IsNullOrEmpty(record.name) && record.value != null)
+                    values[record.name] = record.value;
+            return values.Count == 0 ? null : values;
         }
     }
 

@@ -42,10 +42,38 @@ namespace BitSorter.Ci.Oracle
         [TestCase("system/printing.sv", "printing", null, null)]
         [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
         [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]
-        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
-        [TestCase("processor/scpu.sv", "scpu_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
-        [TestCase("processor/pcpu.sv", "pcpu_tb", null, "processor/rv_program.hex,processor/rv_data.hex,processor/rv_expected.hex")]
-        public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data)
+        public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data) =>
+            AgreesWithIcarus(file, top, ownDump, data, null);
+
+        /// <summary>The images every processor's program needs: all three programs', each with what it should leave, and the data.</summary>
+        private const string Programs =
+            "processor/rv_sum.hex,processor/rv_sum_expected.hex,processor/rv_fib.hex,processor/rv_fib_expected.hex," +
+            "processor/rv_isa.hex,processor/rv_isa_expected.hex,processor/rv_data.hex";
+
+        /// <summary>
+        /// Each processor running each of its three programs (Part 15h-6c), its testbench's PROGRAM given as a simulator's
+        /// command line gives it -- here by <see cref="Elaborator.Elaborate(SyntaxTree, string, IReadOnlyDictionary{string, Expression}, GateLevelRules)"/>,
+        /// Icarus's by -P with the member's value -- and held to Icarus on every signal and every printed line, its own PASS
+        /// among them.
+        /// </summary>
+        [TestCase("processor/scpu.sv", "scpu_tb", "SUM", 0)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "FIBONACCI", 1)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "TEST", 2)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "SUM", 0)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "FIBONACCI", 1)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "TEST", 2)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "SUM", 0)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "FIBONACCI", 1)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "TEST", 2)]
+        public void EachProcessor_RunsEachProgram_AsIcarusDoes(string file, string top, string program, int value)
+        {
+            var name = new NameExpression();
+            name.Path.Add(program);
+            AgreesWithIcarus(file, top, null, Programs, (new Dictionary<string, Expression> { ["PROGRAM"] = name }, $"{top}.PROGRAM={value}"));
+        }
+
+        private static void AgreesWithIcarus(string file, string top, string ownDump, string data,
+            (Dictionary<string, Expression> Ours, string Theirs)? program)
         {
             Icarus icarus = Icarus.Require();
             string[] dataFiles = data == null ? new string[0] : data.Split(',').Select(Corpus.File).ToArray();
@@ -54,12 +82,12 @@ namespace BitSorter.Ci.Oracle
             foreach (string path in dataFiles)
                 files.Add(Path.GetFileName(path), File.ReadAllText(path));
 
-            Design design = Elaborate(file, top);
+            Design design = Elaborate(file, top, program?.Ours);
             var sim = new Simulator(design, null, new SimOptions { Files = files });
             RunResult result = sim.RunTo(1_000_000);
             Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
 
-            (Dictionary<string, VcdTrace> theirs, string printed, Dictionary<string, string> theirFiles) = RunIcarus(icarus, file, top, ownDump, dataFiles);
+            (Dictionary<string, VcdTrace> theirs, string printed, Dictionary<string, string> theirFiles) = RunIcarus(icarus, file, top, ownDump, dataFiles, program?.Theirs);
 
             // A $stop suspends the run here, and ends it under vvp -n, so the two agree up to it. Icarus's
             // dump loses the time step a $stop ends the run in (Docs/oracle-notes.md); with $finish it
@@ -141,14 +169,16 @@ namespace BitSorter.Ci.Oracle
             Assert.Greater(compared, 0);
         }
 
-        private static Design Elaborate(string file, string top)
+        private static Design Elaborate(string file, string top, Dictionary<string, Expression> parameters = null)
         {
             string root = RepoRoot.Combine(Corpus.Folder);
             var files = new MemorySourceFiles();
             foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 files.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
 
-            Elaboration elaboration = Elaborator.Elaborate(SyntaxReader.Read(file, files), top);
+            Elaboration elaboration = parameters != null
+                ? Elaborator.Elaborate(SyntaxReader.Read(file, files), top, parameters)
+                : Elaborator.Elaborate(SyntaxReader.Read(file, files), top);
             Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
             return elaboration.Design;
         }
@@ -157,7 +187,8 @@ namespace BitSorter.Ci.Oracle
         /// Icarus's dump of the design -- the one it writes itself, named <paramref name="ownDump"/>, or one
         /// asked for beside it -- and what it printed.
         /// </summary>
-        private static (Dictionary<string, VcdTrace>, string, Dictionary<string, string>) RunIcarus(Icarus icarus, string file, string top, string ownDump, string[] dataFiles)
+        private static (Dictionary<string, VcdTrace>, string, Dictionary<string, string>) RunIcarus(Icarus icarus, string file, string top, string ownDump, string[] dataFiles,
+            string parameter = null)
         {
             string folder = Path.Combine(Path.GetTempPath(), "bitsorter-oracle-generated", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
@@ -174,7 +205,8 @@ namespace BitSorter.Ci.Oracle
                 string[] sources = ownDump != null ? new[] { design } : new[] { design, dump };
                 // Only the testbench asked for, and the dump: a file may hold another, as mcpu.sv does (Part 15h-6).
                 string tops = ownDump != null ? top : top + ",oracle_dump";
-                using IcarusRun run = icarus.Simulate(sources, tops, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2), dataFiles);
+                using IcarusRun run = icarus.Simulate(sources, tops, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(2), dataFiles,
+                    parameter != null ? new[] { parameter } : null);
                 Assert.IsTrue(run.Succeeded, run.Explain());
 
                 var written = new Dictionary<string, string>(StringComparer.Ordinal);

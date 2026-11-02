@@ -75,13 +75,13 @@ namespace BitSorter.ViewModel
                     "A hex digit to a seven-segment display, written as one case: four inputs, seven outputs -- LOGIC gives each segment its K-map.",
                     SevenSegments),
                 ("Single-cycle RISC-V",
-                    "An RV32I processor that runs each instruction in one long clock cycle: its program sums 1 to 10, works out ten Fibonacci numbers and tries every instruction it runs, in 408 cycles. Double-click datapath to step inside.",
+                    "An RV32I processor that runs each instruction in one long clock cycle. PROGRAM picks what it runs: the sum of 1 to 10 in 37 cycles, ten Fibonacci numbers in 61, every instruction in 316. Double-click datapath to step inside.",
                     WorkbenchProcessors.SingleCycle),
                 ("Multicycle RISC-V",
-                    "The same program on an RV32I processor whose state machine takes each instruction through three to five short cycles: 1,568 of them. Double-click control or datapath to step inside.",
+                    "The same programs on an RV32I processor whose state machine takes each instruction through three to five short cycles: 135 for the sum, 247 for Fibonacci, 1,204 for every instruction. Double-click control or datapath to step inside.",
                     WorkbenchProcessors.Multicycle),
                 ("Pipelined RISC-V",
-                    "The same program on five stages at once, drawn a block a stage and a block a register between them: results forwarded, a cycle's stall after a load, two bubbles after a jump -- 482 cycles. Double-click execute to see the forwarding.",
+                    "The same programs on five stages at once, drawn a block a stage and a block a register between them: results forwarded, a cycle's stall after a load, two bubbles after a jump -- 58, 90 and 346 cycles. Double-click execute to see the forwarding.",
                     WorkbenchProcessors.Pipelined),
             });
 
