@@ -66,9 +66,9 @@ namespace BitSorter.ViewModel
                 new SourceFile("rv32i.svh", Defs),
             };
             // Every program's images, so the testbench's PROGRAM can choose any of them (Part 15h-6c).
-            foreach ((string File, string Text) image in Files)
-                if (image.File.EndsWith(".hex", StringComparison.Ordinal))
-                    sources.Add(new SourceFile(image.File, image.Text));
+            foreach ((string name, string text) in Files)
+                if (name.EndsWith(".hex", StringComparison.Ordinal))
+                    sources.Add(new SourceFile(name, text));
             ProjectImport import = ProjectImporter.Import(sources, bench);
             if (!import.Succeeded || import.Project.Bench != bench)
                 throw new InvalidOperationException("a processor sample did not import: " + string.Join("; ", import.Notes));
