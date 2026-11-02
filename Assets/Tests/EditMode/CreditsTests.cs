@@ -40,7 +40,7 @@ namespace BitSorter.LogicCore.Tests
 
             foreach (Credits.Line line in roll)
             {
-                if (line.Kind == Credits.Kind.Role && line.Text == "MAIN MENU MUSIC")
+                if (line.Kind == Credits.Kind.Role && line.Text == Credits.MusicHeading)
                     headed = true;
             }
 

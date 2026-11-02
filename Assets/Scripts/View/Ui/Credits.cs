@@ -7,14 +7,19 @@ namespace BitSorter.View
     /// Who made the game and what it borrows: the one place those facts are written down.
     /// </summary>
     /// <remarks>
-    /// The main menu's music line and the credits roll both read from here, so a track's author,
-    /// its licence and the change made to it cannot say one thing on the menu and another in the
-    /// credits. The CC BY licence asks for all four wherever the music is used, and the licence's
-    /// address with every copy -- a browser build ships without the README, so the game itself is
-    /// where it has to be.
+    /// The credits roll reads the music's credit from here -- the 4.x main menu's music line did too, until a playtest
+    /// took it away -- so a track's author, its licence and the change made to it are written once. The CC BY licence
+    /// asks for all four wherever the music is used, and the licence's address with every copy -- a browser build ships
+    /// without the README, so the game itself is where it has to be.
     /// </remarks>
     public static class Credits
     {
+        /// <summary>
+        /// The heading the recordings are credited under. MAIN MENU MUSIC until Part 16a: they play under Settings and the
+        /// credits now, and there is no main menu.
+        /// </summary>
+        public const string MusicHeading = "MUSIC";
+
         /// <summary>The line at the top of the credits, under the title. The 4.x title screen showed it too, until Part 16a.</summary>
         public const string Tagline = "bits fall through logic. sort them.";
 
@@ -201,7 +206,7 @@ namespace BitSorter.View
                 roll.Add(new Line(Kind.Gap));
             }
 
-            roll.Add(new Line(Kind.Role, "MAIN MENU MUSIC"));
+            roll.Add(new Line(Kind.Role, MusicHeading));
 
             foreach (Track track in MenuMusic)
             {

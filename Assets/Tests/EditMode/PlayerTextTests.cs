@@ -120,7 +120,7 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
 
         /// <summary>The key that opens the keyboard map, as <c>WorkbenchKeys</c> shows it.</summary>
-        private const string KeyMapSymbol = "?";
+        private static string KeyMapSymbol => BitSorter.ViewModel.WorkbenchKeys.For(BitSorter.ViewModel.WorkbenchCommand.Keys).Cap;
 
         /// <summary>"press X", and "press X or Y", however it is capitalised.</summary>
         private static readonly Regex Press =
