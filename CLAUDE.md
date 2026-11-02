@@ -1162,9 +1162,10 @@ failure side.
   process -- the if's or the case's for the mux joining its ways -- and a register's
   always (`RtlCell.At`, `RtlDrawing.LineOf`, `PartsOn`). **And it says first what the code
   says of it** (M3, asked 2026-11-02): the `//` comment at the end of that line, else the
-  `//` lines right above it -- a blank line or code ends them, a divider is none, and an
-  import's `include` and the blank line after it are passed over -- as a sentence before
-  the rest; a block with none of its own takes the comment over its module
+  `//` lines right above it -- a blank line, code, a banner or a line of code commented out
+  ends them, and an import's `include` right over the line, with the blank line after it,
+  is passed over -- its first sentence before the rest, since the bar is one line; a block
+  with none of its own takes the comment over its module
   (`CodeComments`, `WorkbenchSession.CommentOfPart`). Every block, register, port and mux
   of the three processors has one (`ProcessorDescriptionTests`). An edit made on a
   drawing writes its module's code again and keeps only the comment over the module, so

@@ -58,6 +58,58 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void ADrawnBlock_TakesItsDrawnModulesComment()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Assert.IsTrue(editor.AddModule("half").Done);
+            Project project = editor.Project.WithModule(editor.Project.Find("half") with { Comment = "adds two bits" });
+            editor = new BoardEditor(project);
+            Assert.IsTrue(editor.Add("top", new BlockPart { Name = "h", Module = "half" }, new Placement(5, 5)).Done);
+            double now = 0;
+            var session = new WorkbenchSession(editor.Project, () => now += 0.01);
+            Assert.IsFalse(session.ShowsDrawingOfCode, "sanity: a drawn circuit");
+            int block = session.DrawnModule.Parts.OfType<BlockPart>().Single().Id;
+            Assert.AreEqual("adds two bits", session.CommentOfPart(block));
+            Inspection inspected = Inspector.Of(session.DrawnProject, session.Module, new CanvasTarget(CanvasTargetKind.Part, part: block),
+                session.DescribePart, session.LineOfPart, session.CommentOfPart);
+            StringAssert.StartsWith("Adds two bits. ", inspected.Says, "as a sentence, first");
+        }
+
+        /// <summary>
+        /// The words are the ones written for each part, not a neighbour's: a block, a port and a mux of each processor, each
+        /// held to the start of its comment, and the inspector's line to the comment's first sentence (the M3 review).
+        /// </summary>
+        [TestCase("Single-cycle RISC-V", "scpu", "control", "The control: turns the instruction, and a branch's comparison, into")]
+        [TestCase("Multicycle RISC-V", "mcpu_control", "rst", "asynchronous, active high: the machine goes back to FETCH")]
+        [TestCase("Multicycle RISC-V", "mcpu_datapath", null, "The ALU's a: register A (0), the PC (1, to step it by four in FETCH)")]
+        [TestCase("Pipelined RISC-V", "pcpu", "if_id", "The IF/ID register: carries the fetched instruction and its address into decode")]
+        [TestCase("Pipelined RISC-V", "pcpu_decode", "hazard", "The hazard unit: a stall if the instruction in execute is a load")]
+        [TestCase("Pipelined RISC-V", "pcpu_execute", "forward", "The forwarding unit: finds, for each register operand, whether")]
+        public void APart_IsDescribedByTheCommentWrittenForIt(string sample, string module, string part, string starts)
+        {
+            Project project = WorkbenchSamples.All.Single(x => x.Name == sample).Build();
+            double now = 0;
+            var session = new WorkbenchSession(project, () => now += 0.01);
+            if (session.Module != module)
+                Assert.IsTrue(session.StepInto(session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == module).Id), "into " + module);
+            if (session.ShowsController)
+                session.DrawController(false);
+
+            // A mux has no name of its own: the one whose comment it is, found among them.
+            Part found = part != null
+                ? session.DrawnModule.FindPart(part)
+                : session.DrawnModule.Parts.OfType<MuxPart>().FirstOrDefault(m => session.CommentOfPart(m.Id)?.StartsWith(starts) == true);
+            Assert.IsNotNull(found, $"{part ?? "a mux"} in {module}");
+            StringAssert.StartsWith(starts, session.CommentOfPart(found.Id));
+
+            Inspection inspected = Inspector.Of(session.DrawnProject, session.Module, new CanvasTarget(CanvasTargetKind.Part, part: found.Id),
+                session.DescribePart, session.LineOfPart, session.CommentOfPart);
+            string first = CodeComments.FirstSentence(session.CommentOfPart(found.Id));
+            StringAssert.StartsWith(char.ToUpperInvariant(first[0]) + first.Substring(1).TrimEnd(',', ';'), inspected.Says);
+            StringAssert.EndsWith($"From line {session.LineOfPart(found.Id)}.", inspected.Says);
+        }
+
+        [Test]
         public void TheSingleCycleDatapathsALU_SaysWhatItIsFor()
         {
             Project project = WorkbenchSamples.All.Single(x => x.Name == "Single-cycle RISC-V").Build();

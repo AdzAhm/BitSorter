@@ -541,7 +541,7 @@ module pcpu_execute (
     input  logic [31:0] wb_value,    // the value it writes: a loaded word, else its result
     output logic        redirect,    // fetch takes target, and the two instructions behind are flushed
     output logic [31:0] target,      // where a taken branch or a jump goes
-    output logic [31:0] result,      // what the instruction writes back, a load's address or the PC and four
+    output logic [31:0] result,      // the ALU's result (a load's or store's address), or for a jump the PC and four
     output logic [31:0] store_data   // what a store writes
 );
     logic [1:0]  forward_a, forward_b;
@@ -701,7 +701,7 @@ module pcpu #(
     logic [4:0]  wb_rd;
     logic [31:0] wb_value;
 
-    // The memory stage's store, which the testbench watches.
+    // The data memory's address in the memory stage, where the testbench watches for the store that ends a program.
     assign data_addr = mem_result;
 
     // The instruction memory: read at the PC fetch holds, so the instruction at that address arrives in the same cycle.

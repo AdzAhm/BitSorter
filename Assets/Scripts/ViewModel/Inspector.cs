@@ -280,9 +280,10 @@ namespace BitSorter.ViewModel
 
             if (describe?.Invoke(part.Id) is string described)
                 says = described;
-            // What the code says of it, first: the designer's words, then what the drawing makes of it (2026-11-02).
+            // What the code says of it, first: the designer's words, then what the drawing makes of it (2026-11-02). Its first
+            // sentence, as the bar is one line: the whole comment is in CODE, on the line the part comes from (the M3 review).
             if (commentOf?.Invoke(part.Id) is string comment && comment.Length > 0)
-                says = Sentence(comment) + (says.Length > 0 ? " " + says : "");
+                says = Sentence(CodeComments.FirstSentence(comment)) + (says.Length > 0 ? " " + says : "");
             if (lineOf?.Invoke(part.Id) is int line && line > 0)
                 says = (says.Length > 0 ? says + " " : "") + "From line " + line.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".";
             // A part the drawing of code makes up goes by what it is: OPERATOR, never OPERATOR $p4.
@@ -616,6 +617,8 @@ namespace BitSorter.ViewModel
             if (s.Length == 0)
                 return s;
             s = char.ToUpperInvariant(s[0]) + s.Substring(1);
+            if (s.Length > 1 && (s.EndsWith(",", StringComparison.Ordinal) || s.EndsWith(";", StringComparison.Ordinal)))
+                s = s.Substring(0, s.Length - 1);
             char last = s[s.Length - 1];
             return last == '.' || last == '!' || last == '?' || last == ':' || last == ')' ? s : s + ".";
         }
