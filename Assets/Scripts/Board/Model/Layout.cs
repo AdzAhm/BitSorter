@@ -21,14 +21,25 @@ namespace BitSorter.Board
         public override string ToString() => $"({X}, {Y})";
     }
 
-    /// <summary>Where a part stands: its position, turned a number of quarter turns, and mirrored or not.</summary>
+    /// <summary>
+    /// Where a part stands: its position, turned a number of quarter turns, and mirrored or not -- and, for a block, the size
+    /// it was dragged to (Part 16, resizable blocks).
+    /// </summary>
+    /// <remarks>
+    /// **The size is the part's own**, width along its pins' sides and height down them, as it stands facing right and
+    /// unturned, in cells: 0 is its natural size, which every part but a block always has (<see cref="PartGeometry.Local"/>).
+    /// Kept here, beside the module and never in it, so resizing a block can never change what the circuit does. Every edit
+    /// that moves, turns or mirrors a part keeps it, through the helpers below.
+    /// </remarks>
     public readonly struct Placement : IEquatable<Placement>
     {
-        public Placement(Point position, int quarterTurns = 0, bool flipped = false)
+        public Placement(Point position, int quarterTurns = 0, bool flipped = false, double width = 0, double height = 0)
         {
             Position = position;
             QuarterTurns = ((quarterTurns % 4) + 4) % 4;
             Flipped = flipped;
+            Width = Math.Max(0, width);
+            Height = Math.Max(0, height);
         }
 
         public Placement(double x, double y) : this(new Point(x, y)) { }
@@ -37,9 +48,28 @@ namespace BitSorter.Board
         public readonly int QuarterTurns;
         public readonly bool Flipped;
 
-        public bool Equals(Placement other) => Position.Equals(other.Position) && QuarterTurns == other.QuarterTurns && Flipped == other.Flipped;
+        /// <summary>The part's width and height as it was resized, in its own cells; 0 for natural.</summary>
+        public readonly double Width, Height;
+
+        /// <summary>Whether it was resized at all.</summary>
+        public bool HasSize => Width > 0 || Height > 0;
+
+        /// <summary>The same placement at <paramref name="position"/>.</summary>
+        public Placement WithPosition(Point position) => new Placement(position, QuarterTurns, Flipped, Width, Height);
+
+        /// <summary>The same placement moved by <paramref name="dx"/>, <paramref name="dy"/> cells.</summary>
+        public Placement Moved(double dx, double dy) => WithPosition(new Point(Position.X + dx, Position.Y + dy));
+
+        /// <summary>The same placement, turned to <paramref name="quarterTurns"/> and mirrored or not, at <paramref name="position"/>.</summary>
+        public Placement Turned(Point position, int quarterTurns, bool flipped) => new Placement(position, quarterTurns, flipped, Width, Height);
+
+        /// <summary>The same placement at a size of its own; 0 for natural.</summary>
+        public Placement WithSize(double width, double height) => new Placement(Position, QuarterTurns, Flipped, width, height);
+
+        public bool Equals(Placement other) => Position.Equals(other.Position) && QuarterTurns == other.QuarterTurns && Flipped == other.Flipped
+            && Width.Equals(other.Width) && Height.Equals(other.Height);
         public override bool Equals(object obj) => obj is Placement other && Equals(other);
-        public override int GetHashCode() => Position.GetHashCode() * 31 + QuarterTurns * 2 + (Flipped ? 1 : 0);
+        public override int GetHashCode() => ((Position.GetHashCode() * 31 + QuarterTurns * 2 + (Flipped ? 1 : 0)) * 397) ^ Width.GetHashCode() * 17 ^ Height.GetHashCode();
     }
 
     /// <summary>How a wire is drawn: its bends, whether it is drawn smooth through them, and for a tap, how far along the tapped wire it joins.</summary>

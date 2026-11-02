@@ -102,7 +102,7 @@ namespace BitSorter.ViewModel
             {
                 foreach ((Part part, Placement at) in clip.Parts)
                 {
-                    var moved = new Placement(new BoardPoint(at.Position.X + dx, at.Position.Y + dy), at.QuarterTurns, at.Flipped);
+                    var moved = at.Moved(dx, dy);
                     EditResult added = editor.Add(module, part with { Name = null }, moved);
                     if (!added.Done)
                         return added;
@@ -258,7 +258,7 @@ namespace BitSorter.ViewModel
             var moved = new BoardPoint(CanvasSnap.Snap(at.Position.X + dx), CanvasSnap.Snap(at.Position.Y + dy));
             if (Math.Abs(moved.X - at.Position.X) < 1e-9 && Math.Abs(moved.Y - at.Position.Y) < 1e-9)
                 return;
-            to[id] = new Placement(moved, at.QuarterTurns, at.Flipped);
+            to[id] = at.WithPosition(moved);
         }
     }
 

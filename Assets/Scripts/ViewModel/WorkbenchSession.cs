@@ -1346,7 +1346,7 @@ namespace BitSorter.ViewModel
                 if (mirror)
                 {
                     // Mirrored on screen, however it was turned: the document mirrors before it turns.
-                    to[part] = new Placement(new Board.Point(cx - x, cy + y), 4 - was.QuarterTurns, !was.Flipped);
+                    to[part] = was.Turned(new Board.Point(cx - x, cy + y), 4 - was.QuarterTurns, !was.Flipped);
                     continue;
                 }
 
@@ -1358,7 +1358,7 @@ namespace BitSorter.ViewModel
                     x = turned;
                 }
 
-                to[part] = new Placement(new Board.Point(cx + x, cy + y), was.QuarterTurns + quarterTurns, was.Flipped);
+                to[part] = was.Turned(new Board.Point(cx + x, cy + y), was.QuarterTurns + quarterTurns, was.Flipped);
             }
 
             return Move(to);

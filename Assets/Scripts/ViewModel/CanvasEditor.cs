@@ -384,7 +384,7 @@ namespace BitSorter.ViewModel
                     MoveTo(command.At, command.From, command.Free);
                     var to = new Dictionary<int, Placement>();
                     foreach (KeyValuePair<int, Placement> part in _start)
-                        to[part.Key] = new Placement(new BoardPoint(part.Value.Position.X + _dx, part.Value.Position.Y + _dy), part.Value.QuarterTurns, part.Value.Flipped);
+                        to[part.Key] = part.Value.Moved(_dx, _dy);
                     bool moved = _dx != 0 || _dy != 0;
                     _start = null;
                     _guides.Clear();
@@ -1245,7 +1245,7 @@ namespace BitSorter.ViewModel
                 // are (Part 15g) -- every wire routed again at each step was a third of a second a step on a 1,000-part drawing.
                 Layout moved = module.Layout;
                 foreach (KeyValuePair<int, Placement> part in _start)
-                    moved = moved.WithPart(part.Key, new Placement(new BoardPoint(part.Value.Position.X + _dx, part.Value.Position.Y + _dy), part.Value.QuarterTurns, part.Value.Flipped));
+                    moved = moved.WithPart(part.Key, part.Value.Moved(_dx, _dy));
                 Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
                     _session.RoutesOf(Drawn, module), _start.Keys);
                 foreach (Wire wire in module.Wires)

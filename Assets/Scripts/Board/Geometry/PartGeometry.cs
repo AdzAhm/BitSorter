@@ -73,10 +73,26 @@ namespace BitSorter.Board
         /// <summary>The space between neighbouring pins on one side.</summary>
         public const double Pitch = 0.5;
 
+        /// <summary>The most a resized block may be along either side, in cells.</summary>
+        public const double MaxSize = 64;
+
+        /// <summary>The step a resized block's width and height take, in cells: half a cell, so every pin stays on the quarter grid.</summary>
+        public const double SizeStep = 0.5;
+
+        /// <summary>Whether a part can be resized (Part 16): a block, or a box of a drawing of code.</summary>
+        public static bool Resizable(Part part) => part is BlockPart || part is BoxPart;
+
+        /// <summary>A part's natural width and height, unturned, in cells: what it is drawn at with no size of its own.</summary>
+        public static (double Width, double Height) NaturalSize(Project project, Part part)
+        {
+            PartOutline local = Local(project, part);
+            return (local.Right - local.Left, local.Top - local.Bottom);
+        }
+
         /// <summary>The part's outline and pins as placed: mirrored, turned and moved to where it stands.</summary>
         public static PartOutline Placed(Project project, Part part, Placement placement)
         {
-            PartOutline local = Local(project, part);
+            PartOutline local = Local(project, part, placement);
             var pins = new List<PinSpot>(local.Pins.Count);
             foreach (PinSpot pin in local.Pins)
                 pins.Add(new PinSpot(pin.Pin, Transform(placement, pin.At), Turn(placement, pin.Facing)));
@@ -130,8 +146,20 @@ namespace BitSorter.Board
             }
         }
 
-        /// <summary>The part centred on the origin, facing right.</summary>
-        public static PartOutline Local(Project project, Part part)
+        /// <summary>The part centred on the origin, facing right, at its natural size.</summary>
+        public static PartOutline Local(Project project, Part part) => Local(project, part, default);
+
+        /// <summary>
+        /// The part centred on the origin, facing right, at the size <paramref name="placement"/> gives it: a block's or a box's,
+        /// never smaller than its natural size nor larger than <see cref="MaxSize"/> (Part 16); every other part at its own.
+        /// </summary>
+        /// <remarks>
+        /// A resized block's pins stand on its sides, at x = ±width/2, and down them at one pitch for both sides, centred: half a
+        /// cell, as at natural size, and as the box grows taller the largest half-cell step its side with the most pins fits in
+        /// it -- so a natural block is drawn as it always was, a side with fewer pins never jumps apart, and every pin stays on
+        /// the quarter grid placement snaps to.
+        /// </remarks>
+        public static PartOutline Local(Project project, Part part, Placement placement)
         {
             var pins = new List<PinSpot>();
             void Left(string pin, double y, double x) => pins.Add(new PinSpot(pin, new Point(x, y), Facing.Left));
@@ -260,12 +288,17 @@ namespace BitSorter.Board
                     outputs.AddRange(inouts);
 
                     int most = Math.Max(1, Math.Max(inputs.Count, outputs.Count));
-                    double half = Half(most);
+                    double half = Half(most), wide = BlockHalfWidth;
+                    if (placement.Width > 0)
+                        wide = Math.Max(wide, Math.Min(MaxSize, placement.Width) / 2);
+                    if (placement.Height > 0)
+                        half = Math.Max(half, Math.Min(MaxSize, placement.Height) / 2);
+                    double pitch = SidePitch(2 * half, most);
                     for (int i = 0; i < inputs.Count; i++)
-                        Left(inputs[i].Name, Row(i, inputs.Count), -1.5);
+                        Left(inputs[i].Name, Row(i, inputs.Count, pitch), -wide);
                     for (int i = 0; i < outputs.Count; i++)
-                        Right(outputs[i].Name, Row(i, outputs.Count), 1.5);
-                    return new PartOutline(-1.5, -half, 1.5, half, pins);
+                        Right(outputs[i].Name, Row(i, outputs.Count, pitch), wide);
+                    return new PartOutline(-wide, -half, wide, half, pins);
                 }
 
                 default:
@@ -277,7 +310,25 @@ namespace BitSorter.Board
         public static double Half(int pins) => Math.Max(0.5, (pins - 1) * Pitch / 2 + 0.25);
 
         /// <summary>Pin <paramref name="index"/> of <paramref name="count"/> on one side, the first at the top.</summary>
-        public static double Row(int index, int count) => ((count - 1) / 2.0 - index) * Pitch;
+        public static double Row(int index, int count) => Row(index, count, Pitch);
+
+        /// <summary>Pin <paramref name="index"/> of <paramref name="count"/> on one side, <paramref name="pitch"/> apart, the first at the top.</summary>
+        public static double Row(int index, int count, double pitch) => ((count - 1) / 2.0 - index) * pitch;
+
+        /// <summary>Half a block's natural width, in cells: its pins a cell and a half out from its middle.</summary>
+        public const double BlockHalfWidth = 1.5;
+
+        /// <summary>
+        /// The pitch a block <paramref name="height"/> cells tall spreads its pins at, <paramref name="most"/> on its fuller side:
+        /// <see cref="Pitch"/> at natural height, and the largest half-cell step that fits, its outermost pins a quarter cell in.
+        /// </summary>
+        public static double SidePitch(double height, int most)
+        {
+            if (most <= 1)
+                return Pitch;
+            double fits = (height - 0.5) / (most - 1);
+            return Math.Max(Pitch, Math.Floor(fits / SizeStep + 1e-9) * SizeStep);
+        }
 
         /// <summary>How wide a port's box is: room for its name, and its width when it is a bus.</summary>
         public static double PortWidth(PortPart port)

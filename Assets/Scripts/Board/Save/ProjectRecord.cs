@@ -325,7 +325,8 @@ namespace BitSorter.Board
             var placements = new List<PlacementRecord>();
             foreach (Part part in module.Parts)
                 if (module.Layout.Parts.TryGetValue(part.Id, out Placement p))
-                    placements.Add(new PlacementRecord { part = part.Id, x = p.Position.X, y = p.Position.Y, turns = p.QuarterTurns, flipped = p.Flipped });
+                    placements.Add(new PlacementRecord { part = part.Id, x = p.Position.X, y = p.Position.Y, turns = p.QuarterTurns, flipped = p.Flipped,
+                        width = p.Width, height = p.Height });
             file.placements = placements.ToArray();
 
             var routes = new List<RouteRecord>();
@@ -340,7 +341,8 @@ namespace BitSorter.Board
             foreach (string key in keys)
             {
                 Placement p = module.Arrangement[key];
-                arranged.Add(new ArrangedRecord { key = key, x = p.Position.X, y = p.Position.Y, turns = p.QuarterTurns, flipped = p.Flipped });
+                arranged.Add(new ArrangedRecord { key = key, x = p.Position.X, y = p.Position.Y, turns = p.QuarterTurns, flipped = p.Flipped,
+                    width = p.Width, height = p.Height });
             }
             file.arranged = arranged.ToArray();
             file.arrangedFor = module.ArrangedFor;
@@ -364,7 +366,7 @@ namespace BitSorter.Board
 
             var places = new Dictionary<int, Placement>();
             foreach (PlacementRecord p in placements ?? new PlacementRecord[0])
-                places[p.part] = new Placement(new Point(p.x, p.y), p.turns, p.flipped);
+                places[p.part] = new Placement(new Point(p.x, p.y), p.turns, p.flipped, p.width, p.height);
 
             var routed = new Dictionary<int, Route>();
             foreach (RouteRecord r in routes ?? new RouteRecord[0])
@@ -390,7 +392,7 @@ namespace BitSorter.Board
             var arrangement = new Dictionary<string, Placement>(StringComparer.Ordinal);
             foreach (ArrangedRecord a in arranged ?? new ArrangedRecord[0])
                 if (!string.IsNullOrEmpty(a.key))
-                    arrangement[a.key] = new Placement(new Point(a.x, a.y), a.turns, a.flipped);
+                    arrangement[a.key] = new Placement(new Point(a.x, a.y), a.turns, a.flipped, a.width, a.height);
             return arrangement;
         }
     }
@@ -404,6 +406,12 @@ namespace BitSorter.Board
         public double y;
         public int turns;
         public bool flipped;
+
+        /// <summary>The size it was dragged to (Part 16); absent, so 0 -- natural -- in a file from before.</summary>
+        public double width;
+
+        /// <inheritdoc cref="width"/>
+        public double height;
     }
 
     /// <summary>One part: its <see cref="kind"/> says which of the other fields it uses.</summary>
@@ -619,6 +627,12 @@ namespace BitSorter.Board
         public double y;
         public int turns;
         public bool flipped;
+
+        /// <summary>The size a block was dragged to (Part 16); absent, so 0 -- natural -- in a file from before.</summary>
+        public double width;
+
+        /// <inheritdoc cref="width"/>
+        public double height;
     }
 
     [Serializable]
