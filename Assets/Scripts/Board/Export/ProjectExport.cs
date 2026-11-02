@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.Board
 {
@@ -35,7 +36,7 @@ namespace BitSorter.Board
 
             // Its other files beside them (Part 13b), where an include and a $readmemh of a bare name find them.
             foreach (ProjectFile file in project.Files)
-                entries.Add(new ZipEntry(folder + "/" + file.Name, utf8.GetBytes(file.Text ?? "")));
+                entries.Add(new ZipEntry(folder + "/" + file.Name, utf8.GetBytes(IsCode(file.Name) ? Lexer.Straightened(file.Text ?? "") : file.Text ?? "")));
             entries.Add(new ZipEntry(folder + "/" + RunScript, utf8.GetBytes(RunDo(project, compiled, files))));
             return ZipWriter.Write(entries, when);
         }
@@ -44,6 +45,11 @@ namespace BitSorter.Board
         /// The folder inside the zip: the project's name when it is a SystemVerilog name, and so a safe one for a folder, and
         /// "project" otherwise -- a save edited by hand could say <c>../outside</c>, and no path may leave the folder.
         /// </summary>
+        /// <summary>Whether a project file is read as code -- a header or a source an include reads -- not data, as an image is.</summary>
+        private static bool IsCode(string name) =>
+            name.EndsWith(".sv", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".svh", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".v", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".vh", StringComparison.OrdinalIgnoreCase);
+
         public static string FolderOf(Project project) =>
             BoardRules.WhyNotAName(project?.Name) == null ? project.Name : "project";
 

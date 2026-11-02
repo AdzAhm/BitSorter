@@ -93,7 +93,8 @@ namespace BitSorter.Board
                     return Refused($"{module.Name} was changed outside the template's markers, its code or its comments. The submission hands in " +
                         $"{file} as the course gave it, with only what is between the markers yours: move the change between them.");
 
-                string code = WithoutWhatTheImportAdded(region, template.Region, given.Region);
+                // What ran here, a look-alike pasted from a slide as what it was read as (Part 15i-2).
+                string code = Lexer.Straightened(WithoutWhatTheImportAdded(region, template.Region, given.Region));
                 entries.Add(new ZipEntry(folder + "/" + file, utf8.GetBytes(template.Fill(code))));
                 names.Add(file);
                 handedIn.Add(module);

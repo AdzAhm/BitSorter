@@ -85,8 +85,9 @@ namespace BitSorter.Sim
     /// <summary>A register as the timing sees it: an edge-triggered process, what it captures and what it launches.</summary>
     public sealed class TimingRegister
     {
-        internal TimingRegister(string name, int[] captures, int[] launches, RegisterTiming timing)
+        internal TimingRegister(string name, int[] captures, int[] launches, RegisterTiming timing, ProcessInfo process = null)
         {
+            Process = process;
             Name = name;
             Captures = captures;
             Launches = launches;
@@ -103,6 +104,9 @@ namespace BitSorter.Sim
         public IReadOnlyList<int> Launches { get; }
 
         public RegisterTiming Timing { get; }
+
+        /// <summary>The process itself: names are not unique -- a drawn module's registers are each <c>always_ff@0</c>.</summary>
+        internal ProcessInfo Process { get; }
     }
 
     /// <summary>
@@ -439,7 +443,7 @@ namespace BitSorter.Sim
                             break;
                         }
 
-                registers.Add(new TimingRegister(process.Name, captures.ToArray(), launches.ToArray(), timing));
+                registers.Add(new TimingRegister(process.Name, captures.ToArray(), launches.ToArray(), timing, process));
             }
 
             Registers = registers;

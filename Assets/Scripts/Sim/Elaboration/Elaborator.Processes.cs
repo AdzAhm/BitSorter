@@ -174,7 +174,8 @@ namespace BitSorter.Sim
                         if (p.Waits)
                         {
                             Error(block.Location, ElaborationCodes.NeverWaits,
-                                $"An {kind} may not wait: it runs whenever what it reads changes. Take the delay or the event control out.");
+                                $"An {kind} may not wait: it runs whenever what it reads changes. Take the delay or the event control out" +
+                                " -- or, to wait on a list of your own, write always @(...).");
                             return null;
                         }
 
