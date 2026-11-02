@@ -108,6 +108,17 @@ namespace BitSorter.Sim
         internal virtual BitDeps Depends(int[] first) => BitDeps.Unknown(this, first);
 
         /// <summary>
+        /// <see cref="Depends"/> for a value written to the whole of <paramref name="held"/>: a ?: arm that reads all of it is its
+        /// hold -- the register keeping its value, an enable -- and adds nothing, as an else that gives it back adds nothing
+        /// (Ahmad, 2026-11-02: written <c>q &lt;= en ? d : q</c>, the flip-flop read as a loop).
+        /// </summary>
+        internal virtual BitDeps DependsHolding(int[] first, int held) => Depends(first);
+
+        /// <summary>Whether <paramref name="e"/> reads the whole of <paramref name="held"/> and nothing else.</summary>
+        private static bool IsHold(Expr e, int[] first, int held) =>
+            e.TryRead(out SignalId read) && read.Index == held && e.Width == first[held + 1] - first[held];
+
+        /// <summary>
         /// Whether its value can be z, so a driver of it can let go of a bus (Part 14e, for lint): a z written in it, or a
         /// signal read, selected or joined that <paramref name="floats"/> says can be z -- a net passed on, as a port is.
         /// </summary>
@@ -860,6 +871,16 @@ namespace BitSorter.Sim
                 SourceSet condition = _condition.Depends(first).Union;
                 BitDeps t = _whenTrue.Depends(first), f = _whenFalse.Depends(first);
                 return BitDeps.Bits(Width, routing: false, i => SourceSet.Union((t.Of(i), Sense.Positive), (f.Of(i), Sense.Positive), (condition, Sense.Either)));
+            }
+
+            /// <summary>The same, an arm that is the register's hold adding nothing; one inside an arm found as deep as it is.</summary>
+            internal override BitDeps DependsHolding(int[] first, int held)
+            {
+                SourceSet condition = _condition.Depends(first).Union;
+                BitDeps t = IsHold(_whenTrue, first, held) ? null : _whenTrue.DependsHolding(first, held);
+                BitDeps f = IsHold(_whenFalse, first, held) ? null : _whenFalse.DependsHolding(first, held);
+                return BitDeps.Bits(Width, routing: false, i => SourceSet.Union(
+                    (t?.Of(i) ?? SourceSet.Empty, Sense.Positive), (f?.Of(i) ?? SourceSet.Empty, Sense.Positive), (condition, Sense.Either)));
             }
         }
 
