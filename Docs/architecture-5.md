@@ -618,7 +618,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
 
 - **Lexer** (`Lexer`): a sized literal is one token however it is spaced (`8 'h FF`); a `//` comment
   later on a line is kept on the token before it, so a port's comment survives; characters copied out of
-  a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning.
+  a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning, and
+  written so in an export (`Lexer.Straightened`, Part 15i-2).
 - **Preprocessor** (`Preprocessor`): `` `include `` through `ISourceFiles` (never the disk), looked for
   beside the including file and then as written, with cycles and depth caught; `` `define ``, with
   arguments and their defaults from Part L6 -- a use's arguments may run over lines, ``` `` ``` joins two
@@ -4015,6 +4016,30 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the question asked once, answered either way, one undo step, refused locked, with GATES on, where the drawing is not
   the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
+
+**As built in Part 15i-2: the classic slips answered in a student's words** (Ahmad, 2026-11-02: "yeah do these 2", with
+"make sure there is no bugs with it / wrong errors"). Every answer rewords a refusal or a warning BitSorter already gave
+-- none is new -- and each is held three ways: the slip is answered on its own line, the slip mended is taken without a
+word, and Icarus refuses the slip as well and takes it mended (`FriendlyErrorCases`, shared by `FriendlyErrorTests` and
+`FriendlyErrorOracleTests`). None of the corpus's designs nor the exercises' answers is answered so.
+- **`assign` inside an `always` or an `initial`**: a procedural continuous assignment -- the language has one, Icarus
+  runs it, BitSorter does not (`Docs/oracle-notes.md`) -- said so, with the assignment to write in its place, or the
+  `assign` moved out beside the `always`. It was "Expected a statement here, but found 'assign'".
+- **A memory of 1-bit words read or written whole** (`logic s[1:0]` used as a bus): the memory message, and that with
+  its range after its name it is separate 1-bit words -- for a bus, `logic [1:0] s`.
+- **An `if` or a `for` outside an `always` on a signal**: the constant needed says what for -- chosen once as the design
+  is built, so put the `if` in an `always_comb` or write `?:` -- through `ExpressionBuilder`'s `need`, set only for a
+  generate's condition. **A `case` outside an `always`** -- a case-generate, which BitSorter does not support -- says the
+  same, where it said "use if-generate".
+- **An instance with parameters and no name** is answered as the one without parameters already was, with the example.
+  **`always_comb @(...)`** adds that `always @(...)` names its own list.
+- **Curly quotes and dashes** were already read as what they look like, with a warning; the export wrote them as typed,
+  so ModelSim and Icarus refused the file that ran here. The lexer records where it read each one as code, and
+  `Lexer.Straightened` writes those characters, and only those, as what they were read as -- one for one, every line and
+  column in place, a comment and a string's own text as written -- in the export (`BoardPrinter`) and a submission's
+  filled region. A red test came first.
+- Left as they were, already in the student's words: an instance with no name, `always_ff` with no event control. Left
+  out as unsafe to answer: `&` for `&&` and a blocking `=` in an `always_ff`, both legal and sometimes meant.
 
 ---
 

@@ -390,3 +390,15 @@ narrower (SV0405). Icarus 12 is a quieter judge, so the oracle checks the lint o
 
 The corpus is held to none of the four (`DesignLintTests.TheCorpus_RaisesNone`): every one of its designs is
 driven, read, driven once and sized to fit, which is the course's style.
+
+## The classic slips (Part 15i-2, probed 2026-11-02)
+
+Each slip BitSorter answers in a student's words, Icarus 12 refuses too -- but one:
+
+| Slip | Icarus 12 | BitSorter |
+| --- | --- | --- |
+| `assign y = a & b;` inside an `always_comb`, `always_ff` or `initial` | takes it: a procedural continuous assignment, with "cannot be synthesized" in an `always_comb` or `always_ff`, and "not yet fully supported" -- its right side read once | refuses it: not run, and never what a course design wants |
+| `’` or `–` pasted into code | "syntax error" | reads it as `'` or `-` with a warning, and exports it so |
+| `logic s[1:0]` assigned `{a, b}` | stops on an internal assertion | refuses it, saying to put the range before the name |
+
+The standard has the procedural `assign`, so BitSorter is the one short here; it is said in its answer.

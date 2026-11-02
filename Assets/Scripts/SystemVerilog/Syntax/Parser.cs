@@ -1057,7 +1057,9 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
 
                 case "case":
-                    into.Add(SkipUnsupported("A case in a module (a case-generate) is not supported by BitSorter; use if-generate", "endcase"));
+                    into.Add(SkipUnsupported("A case outside an always is a case-generate, chosen once as the design is built, which " +
+                        "BitSorter does not support. To choose while it runs, put the case in an always_comb; to choose as it is built, " +
+                        "use an if", "endcase"));
                     return;
 
                 case "initial":
@@ -1493,7 +1495,13 @@ namespace BitSorter.SystemVerilog.Syntax
             do
             {
                 var instance = new ModuleInstance { Location = Current.Location };
-                instance.Name = ExpectIdentifier($"a name for this {instantiation.Module}") ?? "?";
+                // Its parameters given and no name after them (Part 15i-2): said as the one without parameters is.
+                if (Current.Is("(") && instantiation.Parameters.Count > 0)
+                    Error(Current.Location, DiagnosticCodes.Expected,
+                        $"After {instantiation.Module} #(...), expected an instance name -- '{instantiation.Module} #(...) u1 (...);' -- but found '('.");
+                instance.Name = Current.Is("(") && instantiation.Parameters.Count > 0 ? null
+                    : ExpectIdentifier($"a name for this {instantiation.Module}");
+                instance.Name ??= "?";
 
                 if (Current.Is("["))
                     instance.Array = ParseDimension();

@@ -253,7 +253,14 @@ namespace BitSorter.SystemVerilog.Syntax
             if (t.Kind == TokenKind.Identifier || t.Is("{"))
                 return ParseAssignmentOrCall();
 
-            Error(t.Location, DiagnosticCodes.Expected, $"Expected a statement here, but found {Describe(t)}.");
+            // The classic slip (Part 15i-2): an assign written inside an always. The language has one -- a procedural continuous
+            // assignment, which Icarus runs -- but BitSorter does not, and a course design never wants it.
+            if (t.IsKeyword("assign"))
+                Error(t.Location, DiagnosticCodes.Expected,
+                    "An assign inside an always or an initial is a procedural continuous assignment, which BitSorter does not run. " +
+                    "Here write the assignment alone -- y = a & b; or, in an always_ff, q <= d; -- or move the assign out, beside the always.");
+            else
+                Error(t.Location, DiagnosticCodes.Expected, $"Expected a statement here, but found {Describe(t)}.");
             if (!AtHardStop && !Current.IsKeyword("end"))
                 Next();
             return new NullStatement { Location = t.Location };
