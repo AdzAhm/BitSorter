@@ -461,7 +461,7 @@ namespace BitSorter.Board
             if (ParsedFor.TryGetValue((text, files, file), out (SyntaxTree, List<SourceLocation>) same))
                 return same;
 
-            string key = file + "\n" + text + ProjectFiles.KeyOf(files, text);
+            string key = file + "\n" + ProjectFiles.IdOf(text) + ProjectFiles.KeyOf(files, text);
             if (!Parsed.TryGetValue(key, out (SyntaxTree Tree, List<SourceLocation> TimeDeclarations) kept))
             {
                 MemorySourceFiles sources = files.Count == 0 ? null : ProjectFiles.Sources(files);
@@ -496,7 +496,7 @@ namespace BitSorter.Board
         private static string Surroundings(Project project, Module module)
         {
             var key = new StringBuilder();
-            key.Append(module.Name).Append('\u0001').Append(module.Source).Append(ProjectFiles.KeyOf(project.Files, module.Source));
+            key.Append(module.Name).Append('\u0001').Append(ProjectFiles.IdOf(module.Source)).Append(ProjectFiles.KeyOf(project.Files, module.Source));
             // The library it is held to, and whether it is the testbench, which is not (Part 14g).
             if (project.Settings?.Library is GateLibrary library)
                 key.Append('\u0005').Append(module.Name == project.Bench ? "bench" : library.Key());
@@ -507,7 +507,7 @@ namespace BitSorter.Board
                 key.Append('\u0002').Append(other.Name);
                 if (other.IsWritten)
                 {
-                    key.Append('\u0003').Append(other.Source).Append(ProjectFiles.KeyOf(project.Files, other.Source));
+                    key.Append('\u0003').Append(ProjectFiles.IdOf(other.Source)).Append(ProjectFiles.KeyOf(project.Files, other.Source));
                     continue;
                 }
 

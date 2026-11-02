@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using BitSorter.Sim;
@@ -101,13 +102,46 @@ namespace BitSorter.Board
                     if (taken[i] || string.IsNullOrEmpty(files[i].Name) || reading[r].IndexOf(files[i].Name, StringComparison.OrdinalIgnoreCase) < 0)
                         continue;
                     taken[i] = true;
-                    key.Append('\u0005').Append(files[i].Name).Append('\u0006').Append(files[i].Text);
+                    key.Append('\u0005').Append(files[i].Name).Append('\u0006').Append(IdOf(files[i].Text));
                     reading.Add(files[i].Text ?? "");
                 }
             }
 
             return key.ToString();
         }
+
+        /// <summary>
+        /// A number for <paramref name="text"/>: the same for every text of the same characters while it is kept, and never
+        /// given to another (Part 15h-6d). What a cache's key is made of in place of the text, which made every key as long
+        /// as the whole project. Once the numbers are let go, a text is given a new one: a key made after that misses what
+        /// was kept under the old, and never finds another text's.
+        /// </summary>
+        internal static string IdOf(string text)
+        {
+            if (text == null)
+                return "-";
+            if (IdsFor.TryGetValue((text, null, null), out string same))
+                return same;
+
+            if (!Ids.TryGetValue(text, out string id))
+            {
+                if (Ids.Count >= KeptIds)
+                    Ids.Clear();
+                id = "#" + (++_lastId).ToString(CultureInfo.InvariantCulture);
+                Ids[text] = id;
+            }
+
+            if (IdsFor.Count >= KeptIds)
+                IdsFor.Clear();
+            IdsFor[(text, null, null)] = id;
+            return id;
+        }
+
+        private const int KeptIds = 4096;
+        private static long _lastId;
+        private static readonly Dictionary<string, string> Ids = new Dictionary<string, string>(StringComparer.Ordinal);
+        private static readonly Dictionary<(object, object, string), string> IdsFor =
+            new Dictionary<(object, object, string), string>(SameObjects.Instance);
 
         /// <summary>
         /// Two objects and a name, the objects compared as references: a cache's key for what is worked out from a document,
