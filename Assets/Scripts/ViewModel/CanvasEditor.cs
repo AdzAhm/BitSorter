@@ -38,6 +38,9 @@ namespace BitSorter.ViewModel
         /// <summary>The corners of every selected wire, where a drag moves one (Part 10b-2).</summary>
         public readonly List<Vec2> Handles = new List<Vec2>();
 
+        /// <summary>The handles round a selected block, where a drag resizes it (Part 16).</summary>
+        public readonly List<Vec2> ResizeHandles = new List<Vec2>();
+
         /// <summary>
         /// The timing path picked in the TIMING tab (Part 14b), as this drawing has it (<see cref="TimingLight"/>): the wires
         /// it takes, the parts it passes through, and the ports it starts and ends at.
@@ -65,6 +68,7 @@ namespace BitSorter.ViewModel
             PinLit = null;
             PinEnds.Clear();
             Handles.Clear();
+            ResizeHandles.Clear();
             PathWires.Clear();
             PathParts.Clear();
             PathPorts.Clear();
@@ -125,6 +129,11 @@ namespace BitSorter.ViewModel
         private CanvasTarget _reshapeBy;
         private List<BoardPoint> _reshaped;
 
+        // A selected block being resized by a handle (Part 16): which, by which handle, where it stood, and where it would now.
+        private int _resizing = -1;
+        private int _resizeHandle;
+        private Placement _resizeFrom, _resizeTo;
+
         public CanvasEditor(WorkbenchSession session)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -156,6 +165,25 @@ namespace BitSorter.ViewModel
 
         /// <summary>Whether a selected wire is being reshaped (Part 10b-2).</summary>
         public bool Reshaping => _reshaping >= 0;
+
+        /// <summary>Whether a selected block is being resized by one of its handles (Part 16).</summary>
+        public bool Resizing => _resizing >= 0;
+
+        /// <summary>
+        /// The block that shows its handles (Part 16): the one part selected, when it is a block or a box of the drawing of
+        /// code; -1 for none. Handles round several parts at once would be a resize nothing does.
+        /// </summary>
+        public int HandledPart
+        {
+            get
+            {
+                if (Selection.Parts.Count != 1)
+                    return -1;
+                foreach (int part in Selection.Parts)
+                    return Module?.FindPart(part) is Part found && PartGeometry.Resizable(found) && _hit.OutlineOf(part) != null ? part : -1;
+                return -1;
+            }
+        }
 
         /// <summary>The wire being drawn; null for none.</summary>
         public WireDraft Draft => _draft;
@@ -200,6 +228,8 @@ namespace BitSorter.ViewModel
             // place, and every click would be refused (the 14g review).
             if (InHand != null && InHand.Kind == CatalogKind.Block && _session.Project.Find(InHand.Module) == null)
                 PutDown();
+            if (_resizing >= 0 && Module?.FindPart(_resizing) == null)
+                _resizing = -1;
             _draftAround = null;
             _endsFor = null;   // where it may end moved with the edit (the 15g-3 review)
             _checkedOver = CanvasTarget.Nothing;
@@ -219,8 +249,28 @@ namespace BitSorter.ViewModel
             BoardPoint at = ToBoard(stage);
             double reach = ReachPixels / Arith.Max(zoom, 1e-3f) / _layout.Board.Cell;
 
-            // A selected wire's corners before anything: they are drawn over everything, and only while it is selected.
+            // A selected block's handles before anything (Part 16): drawn over everything, and only while it is selected.
             double best = reach * reach;
+            int handled = HandledPart;
+            if (handled >= 0)
+            {
+                CanvasTarget handle = CanvasTarget.Nothing;
+                PartOutline outline = _hit.OutlineOf(handled);
+                for (int i = 0; i < BlockResize.Handles; i++)
+                {
+                    BoardPoint h = BlockResize.At(outline, i, SelectedRoom);
+                    double squared = (h.X - at.X) * (h.X - at.X) + (h.Y - at.Y) * (h.Y - at.Y);
+                    if (squared <= best)
+                    {
+                        best = squared;
+                        handle = new CanvasTarget(CanvasTargetKind.Handle, part: handled, segment: i);
+                    }
+                }
+                if (handle.Kind != CanvasTargetKind.Nothing)
+                    return handle;
+            }
+
+            // A selected wire's corners next: they are drawn over everything, and only while it is selected.
             CanvasTarget corner = CanvasTarget.Nothing;
             foreach (int wire in Selection.Wires)
             {
@@ -292,30 +342,35 @@ namespace BitSorter.ViewModel
             // Asked again only when the pointer, the zoom or the drawing has changed: the view points every frame, and a hit
             // test of every pin each frame was a cost a big design paid standing still (the 15g-3 review).
             CanvasTarget pin = CanvasTarget.Nothing;
-            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0
+            bool handle = false;
+            if (pins && stage.HasValue && InHand == null && _draft == null && _start == null && !_boxing && _reshaping < 0 && _resizing < 0
                 && (!_session.ShowsDrawingOfCode || _session.EditsDrawingOfCode))
             {
-                if (stage.Value.Equals(_pinAskedAt) && zoom == _pinAskedZoom && ReferenceEquals(_hit, _pinAskedOf))
+                if (stage.Value.Equals(_pinAskedAt) && zoom == _pinAskedZoom && ReferenceEquals(_hit, _pinAskedOf) && Selection.Version == _pinAskedPicked)
                 {
                     pin = _pinOver;
+                    handle = _handleOver;
                 }
                 else
                 {
                     _pinAskedAt = stage.Value;
                     _pinAskedZoom = zoom;
                     _pinAskedOf = _hit;
+                    _pinAskedPicked = Selection.Version;
                     CanvasTarget under = TargetAt(stage.Value, zoom);
                     if (under.Kind == CanvasTargetKind.Pin)
                         pin = under;
+                    handle = under.Kind == CanvasTargetKind.Handle;
                 }
             }
             else
             {
                 _pinAskedOf = null;
             }
-            if (!pin.Equals(_pinOver))
+            if (!pin.Equals(_pinOver) || handle != _handleOver)
             {
                 _pinOver = pin;
+                _handleOver = handle;
                 Version++;
             }
 
@@ -354,7 +409,8 @@ namespace BitSorter.ViewModel
             // refused where it ends: any, locked (Part 15h-4d); on the drawing of code, a reshape -- it routes its own wires; a
             // move arranges it by hand (Part 15h-4f) -- and a wire with GATES on (Part 15h-4g). A click, a box, a double-click
             // and the menu still work.
-            bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape;
+            bool drag = command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginWire || command.Gesture == CanvasGesture.BeginReshape
+                || command.Gesture == CanvasGesture.BeginResize;
             if (drag && _session.Locked)
                 return EditResult.Refused(WorkbenchSession.LockedRefusal);
             if (drag && _session.ShowsDrawingOfCode && command.Gesture == CanvasGesture.BeginReshape)
@@ -454,12 +510,33 @@ namespace BitSorter.ViewModel
                     BeginReshape(command.Target);
                     return null;
 
+                case CanvasGesture.BeginResize:
+                    BeginResize(command.Target);
+                    return null;
+
+                case CanvasGesture.ResizeTo:
+                    ResizeTo(command.At, command.From);
+                    return null;
+
+                case CanvasGesture.EndResize:
+                {
+                    if (_resizing < 0)
+                        return null;
+                    ResizeTo(command.At, command.From);
+                    int part = _resizing;
+                    Placement to = _resizeTo;
+                    bool changed = !to.Equals(_resizeFrom);
+                    _resizing = -1;
+                    Version++;
+                    return changed ? Said(_session.Move(new Dictionary<int, Placement> { [part] = to })) : (EditResult?)null;
+                }
+
                 case CanvasGesture.Menu:
                 {
                     // A right-click on something not selected selects it alone, as a click would; on the selection, or on
                     // nothing, it keeps what is selected for the menu to act on.
                     CanvasTarget on = command.Target;
-                    if (on.Kind == CanvasTargetKind.Pin)
+                    if (on.Kind == CanvasTargetKind.Pin || on.Kind == CanvasTargetKind.Handle)
                         on = new CanvasTarget(CanvasTargetKind.Part, part: on.Part);
                     else if (on.Kind == CanvasTargetKind.Bend)
                         on = new CanvasTarget(CanvasTargetKind.Wire, wire: on.Wire);
@@ -477,6 +554,7 @@ namespace BitSorter.ViewModel
                     AbandonWire();
                     Selection.Clear();
                     Selection.Pick(command.Target.Kind == CanvasTargetKind.Pin || command.Target.Kind == CanvasTargetKind.Part
+                                   || command.Target.Kind == CanvasTargetKind.Handle
                         ? new CanvasTarget(CanvasTargetKind.Part, part: command.Target.Part)
                         : new CanvasTarget(CanvasTargetKind.Wire, wire: command.Target.Wire), extend: false, toggle: false);
                     Version++;
@@ -546,12 +624,13 @@ namespace BitSorter.ViewModel
         /// <summary>Lets go of a drag or a box without making it: Escape mid-drag.</summary>
         public void Abandon()
         {
-            if (_start == null && !_boxing && _reshaping < 0)
+            if (_start == null && !_boxing && _reshaping < 0 && _resizing < 0)
                 return;
             _start = null;
             _boxing = false;
             _reshaping = -1;
             _reshaped = null;
+            _resizing = -1;
             _guides.Clear();
             Version++;
         }
@@ -603,6 +682,32 @@ namespace BitSorter.ViewModel
                 _reshaped = WireShape.MoveSegment(_reshapeFrom, _reshapeBy.Segment, x - a.X, y - a.Y);
             }
 
+            Version++;
+        }
+
+        // -----------------------------------------------------------------
+        // A selected block resized by a handle (Part 16)
+        // -----------------------------------------------------------------
+
+        private void BeginResize(CanvasTarget target)
+        {
+            if (target.Kind != CanvasTargetKind.Handle || target.Part != HandledPart)
+                return;
+            _resizing = target.Part;
+            _resizeHandle = target.Segment;
+            _resizeFrom = _resizeTo = Module.Layout.PlacementOf(target.Part);
+            Version++;
+        }
+
+        /// <summary>The handle taken hold of at <paramref name="from"/>, dragged to <paramref name="at"/>: the sides it is on moved by half cells.</summary>
+        private void ResizeTo(BoardPoint at, BoardPoint from)
+        {
+            if (_resizing < 0 || !(Module.FindPart(_resizing) is Part part))
+                return;
+            Placement to = BlockResize.Resized(Drawn, part, _resizeFrom, _resizeHandle, at.X - from.X, at.Y - from.Y);
+            if (to.Equals(_resizeTo))
+                return;
+            _resizeTo = to;
             Version++;
         }
 
@@ -745,6 +850,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>The pin under the pointer that a press would wire from (Part 15g): what the status line names, and the circle lit.</summary>
         public CanvasTarget PinOver => _pinOver;
+
+        /// <summary>Whether the pointer is on a selected block's handle, where a drag resizes it (Part 16): what the status line names.</summary>
+        public bool HandleOver => _handleOver;
+
+        private bool _handleOver;
+        private int _pinAskedPicked = -1;
 
         private CanvasTarget _pinOver = CanvasTarget.Nothing;
 
@@ -1231,6 +1342,30 @@ namespace BitSorter.ViewModel
 
             if (_reshaping >= 0 && _reshaped != null)
                 overlay.GhostWires.Add(Stage(frame, _reshaped));
+
+            int handled = HandledPart;
+            if (handled >= 0 && _start == null)
+            {
+                PartOutline outline = _resizing == handled && module.FindPart(handled) is Part sized
+                    ? PartGeometry.Placed(Drawn, sized, _resizeTo)
+                    : _hit.OutlineOf(handled);
+                for (int i = 0; i < BlockResize.Handles; i++)
+                    overlay.ResizeHandles.Add(frame.ToStage(BlockResize.At(outline, i, SelectedRoom)));
+            }
+
+            if (_resizing >= 0 && module.FindPart(_resizing) is Part resized)
+            {
+                overlay.Ghosts.Add(Stage(frame, PartGeometry.Placed(Drawn, resized, _resizeTo), SelectedRoom, 0, 0));
+                var only = new HashSet<int> { _resizing };
+                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn,
+                    module with { Layout = module.Layout.WithPart(_resizing, _resizeTo) }, _session.RoutesOf(Drawn, module), only);
+                foreach (Wire wire in module.Wires)
+                {
+                    bool follows = (!wire.From.IsTap && wire.From.Pin.Part == _resizing) || (!wire.To.IsTap && wire.To.Pin.Part == _resizing);
+                    if (follows && routes.TryGetValue(wire.Id, out IReadOnlyList<BoardPoint> points) && points.Count >= 2)
+                        overlay.GhostWires.Add(Stage(frame, points));
+                }
+            }
 
             if (_start != null)
             {

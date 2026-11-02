@@ -59,6 +59,15 @@ namespace BitSorter.ViewModel
 
         /// <summary>A right-click at <see cref="CanvasCommand.At"/>, on <see cref="CanvasCommand.Target"/> or on nothing: the canvas's menu opens (Part 10d).</summary>
         Menu,
+
+        /// <summary>A selected block's handle (<see cref="CanvasCommand.Target"/>) taken hold of at <see cref="CanvasCommand.From"/> to resize it (Part 16).</summary>
+        BeginResize,
+
+        /// <summary>The handle being dragged is at <see cref="CanvasCommand.At"/>.</summary>
+        ResizeTo,
+
+        /// <summary>The handle let go at <see cref="CanvasCommand.At"/>: the block is resized.</summary>
+        EndResize,
     }
 
     /// <summary>One thing a gesture on the canvas asks for.</summary>
@@ -108,6 +117,8 @@ namespace BitSorter.ViewModel
             CanvasGesture.Inspect => $"Inspect {Target}",
             CanvasGesture.Menu => $"Menu {Target}",
             CanvasGesture.ReshapeTo or CanvasGesture.EndReshape => $"{Gesture} {At.X},{At.Y}{(Free ? " free" : "")}",
+            CanvasGesture.BeginResize => $"BeginResize {Target}",
+            CanvasGesture.ResizeTo or CanvasGesture.EndResize => $"{Gesture} {At.X},{At.Y}",
             _ => Gesture.ToString(),
         };
     }
@@ -162,6 +173,7 @@ namespace BitSorter.ViewModel
     /// - **On a wire**, a click selects it, and a drag draws a new wire out of it, tapping it where the drag
     ///   began; Alt and a press adds its signal to the waveform instead. **On a selected wire** a drag moves the
     ///   piece it began on across itself, and a drag on one of its corners moves the corner (Part 10b-2).
+    /// - **On a selected block's handle**, a drag resizes it (Part 16); a click does nothing.
     /// - **On nothing**, a drag draws a box that selects what it touches, Shift adding to the selection; a
     ///   click without a drag clears the selection.
     /// - **The middle button, or Space with the left, pans**, wherever it is pressed.
@@ -184,14 +196,15 @@ namespace BitSorter.ViewModel
         private Vec2 _clickWhere;
         private bool _clickPlain;
 
-        private enum Hold { None, OnPart, Moving, OnNothing, Boxing, Panning, OnPin, OnWire, Wiring, OnBend, Reshaping }
+        private enum Hold { None, OnPart, Moving, OnNothing, Boxing, Panning, OnPin, OnWire, Wiring, OnBend, Reshaping, OnHandle, Resizing }
 
         private Hold _hold;
         private CanvasPress _press;
         private Vec2 _last;
 
-        /// <summary>Whether a press is being dragged: moving the selection, drawing a box or a wire, or panning.</summary>
-        public bool Dragging => _hold == Hold.Moving || _hold == Hold.Boxing || _hold == Hold.Panning || _hold == Hold.Wiring || _hold == Hold.Reshaping;
+        /// <summary>Whether a press is being dragged: moving the selection, drawing a box or a wire, panning, or resizing a block.</summary>
+        public bool Dragging => _hold == Hold.Moving || _hold == Hold.Boxing || _hold == Hold.Panning || _hold == Hold.Wiring || _hold == Hold.Reshaping
+            || _hold == Hold.Resizing;
 
         /// <summary>Whether a press is held at all, dragged yet or not.</summary>
         public bool Held => _hold != Hold.None;
@@ -268,6 +281,16 @@ namespace BitSorter.ViewModel
             {
                 _hold = Hold.OnBend;
                 return;
+            }
+
+            if (press.Target.Kind == CanvasTargetKind.Handle)
+            {
+                if (!press.Ctrl && !press.Shift && !press.Alt)
+                {
+                    _hold = Hold.OnHandle;
+                    return;
+                }
+                press.Target = new CanvasTarget(CanvasTargetKind.Part, part: press.Target.Part);   // Shift or Ctrl on it: its block, as on its body
             }
 
             if (press.Target.Kind == CanvasTargetKind.Pin && !press.Ctrl && !press.Shift)
@@ -380,6 +403,18 @@ namespace BitSorter.ViewModel
                 case Hold.Reshaping:
                     into.Add(new CanvasCommand(CanvasGesture.ReshapeTo, board, _press.Board, free: alt));
                     break;
+
+                case Hold.OnHandle:
+                    if (Vec2.Distance(window, _press.Window) < DragPixels)
+                        return;
+                    _hold = Hold.Resizing;
+                    into.Add(new CanvasCommand(CanvasGesture.BeginResize, from: _press.Board, target: _press.Target));
+                    into.Add(new CanvasCommand(CanvasGesture.ResizeTo, board, _press.Board));
+                    break;
+
+                case Hold.Resizing:
+                    into.Add(new CanvasCommand(CanvasGesture.ResizeTo, board, _press.Board));
+                    break;
             }
 
             _last = window;
@@ -403,6 +438,10 @@ namespace BitSorter.ViewModel
 
                 case Hold.Reshaping:
                     into.Add(new CanvasCommand(CanvasGesture.EndReshape, board, _press.Board, free: alt));
+                    break;
+
+                case Hold.Resizing:
+                    into.Add(new CanvasCommand(CanvasGesture.EndResize, board, _press.Board));
                     break;
 
                 case Hold.Moving:

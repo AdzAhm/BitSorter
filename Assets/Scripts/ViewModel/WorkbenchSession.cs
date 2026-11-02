@@ -1364,6 +1364,42 @@ namespace BitSorter.ViewModel
             return Move(to);
         }
 
+        /// <summary>What RESET SIZE says with no resized block among the parts it was given (Part 16).</summary>
+        public const string NothingResized = "No block selected has a size of its own: drag a selected block's handles to resize it.";
+
+        /// <summary>
+        /// RESET SIZE (Part 16): every block of <paramref name="parts"/> that was resized back to its natural size, where it
+        /// stands -- one step, on a drawn circuit or the drawing of code alike, through <see cref="Move"/>. Refused when none
+        /// of them has a size of its own.
+        /// </summary>
+        public EditResult ResetSize(IReadOnlyCollection<int> parts)
+        {
+            if (Untouchable is EditResult locked)
+                return locked;
+            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);
+            var to = new Dictionary<int, Placement>();
+            if (module != null && parts != null)
+                foreach (int part in parts)
+                {
+                    Placement was = module.Layout.PlacementOf(part);
+                    if (was.HasSize)
+                        to[part] = was.WithSize(0, 0);
+                }
+            return to.Count == 0 ? EditResult.Refused(NothingResized) : Move(to);
+        }
+
+        /// <summary>Whether RESET SIZE would do something: a part of <paramref name="parts"/> was resized.</summary>
+        public bool AnyResized(IReadOnlyCollection<int> parts)
+        {
+            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);
+            if (module == null || parts == null)
+                return false;
+            foreach (int part in parts)
+                if (module.Layout.PlacementOf(part).HasSize)
+                    return true;
+            return false;
+        }
+
         /// <summary>A circuit edit made: drawn over the run there is, and replayed from <paramref name="from"/>.</summary>
         private EditResult Edited(EditResult result, long from = 0)
         {

@@ -21,6 +21,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>A corner of a selected wire, by its point (<see cref="CanvasTarget.Segment"/>): what a drag reshapes it by (Part 10b-2).</summary>
         Bend,
+
+        /// <summary>
+        /// One of the handles round a selected block (<see cref="CanvasTarget.Part"/>), which of them in
+        /// <see cref="CanvasTarget.Segment"/> (<see cref="BlockResize.Sides"/>): what a drag resizes it by (Part 16).
+        /// </summary>
+        Handle,
     }
 
     /// <summary>What a point of the canvas is on: a part, one of its pins, a wire -- and where along it -- or nothing.</summary>
@@ -70,6 +76,7 @@ namespace BitSorter.ViewModel
             CanvasTargetKind.Pin => "pin " + Part + "." + Pin,
             CanvasTargetKind.Wire => "wire " + Wire + " segment " + Segment,
             CanvasTargetKind.Bend => "wire " + Wire + " corner " + Segment,
+            CanvasTargetKind.Handle => "part " + Part + " handle " + Segment,
             _ => "nothing",
         };
     }
