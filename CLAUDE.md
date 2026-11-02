@@ -1008,7 +1008,8 @@ failure side.
   menu (Part 13a) with OPEN's list of circuits (Part 15a) and COMPARE WITH MODELSIM'S
   RUN (Part 15i-5: the `modelsim.vcd` an exported run.do has ModelSim write, held to
   the run by `RunComparison` -- the first moment and signal they differ at, at the
-  TRANSCRIPT's head and the run taken there, a difference from t = 0 said apart), the question asked before a
+  TRANSCRIPT's head and the run taken there, a difference from t = 0 that ends said apart, and only as far as the
+  dump goes), the question asked before a
   testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
   and 15a), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's

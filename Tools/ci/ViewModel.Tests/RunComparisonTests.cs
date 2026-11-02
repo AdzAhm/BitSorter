@@ -72,6 +72,39 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void ADifferenceFromTheStart_ThatNeverEnds_IsADifferenceAtTimeZero()
+        {
+            // Every value of one bus inverted, from t = 0 on: the two never agree on it, so it is no start, as a reset taken
+            // at once is, but a difference -- shown as the run agreeing, the review found.
+            WorkbenchSession session = Counter();
+            Dictionary<string, VcdTrace> theirs = OwnDump(session);
+            VcdTrace changed = theirs.Values.First(t => t.Width > 1 && t.Changes.Count > 2 && t.Changes[0].Bits.All(c => c == '0' || c == '1'));
+            for (int i = 0; i < changed.Changes.Count; i++)
+                changed.Changes[i] = (changed.Changes[i].Time, new string(changed.Changes[i].Bits.Select(c => c == '0' ? '1' : '0').ToArray()));
+
+            RunComparison comparison = Compare(session, theirs);
+            Assert.IsFalse(comparison.Agree);
+            Assert.AreEqual(0, comparison.Time);
+            CollectionAssert.DoesNotContain(comparison.DifferAtStart, changed.Name, "never once the same: no start");
+        }
+
+        [Test]
+        public void ARunPlayedOnPastItsStop_IsComparedOnlyAsFarAsTheDumpGoes()
+        {
+            // ModelSim's dump ends at the $stop; PLAY carries the run on past it. Compared to t = 119, the first moment past
+            // the stop read as a difference.
+            WorkbenchSession session = Counter();
+            Dictionary<string, VcdTrace> theirs = OwnDump(session);
+            long stop = session.Run.Model.End;
+            Assert.IsTrue(session.Run.RunOn(stop * 3), "sanity: the Counter's testbench stops on $stop");
+            session.Run.Finish();
+
+            RunComparison comparison = Compare(session, theirs);
+            Assert.IsTrue(comparison.Agree, comparison.Signal + " at " + comparison.Time);
+            Assert.Less(comparison.Until, stop);
+        }
+
+        [Test]
         public void ASignalTheDumpHasNot_IsListed_NeverTakenForADifference()
         {
             WorkbenchSession session = Counter();
@@ -83,6 +116,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(comparison.Agree);
             CollectionAssert.AreEqual(new[] { gone }, comparison.Missing);
             StringAssert.Contains(gone, comparison.Lines(session.Unit).Last().Text);
+            StringAssert.EndsWith("; 1 signal not in its dump", comparison.Verdict(session.Unit), "the chip says so too");
         }
     }
 }

@@ -18,7 +18,11 @@ namespace BitSorter.ViewModel
     /// BitSorter and Icarus start the <c>initial</c> first -- the standard leaves it open -- so a reset set at time 0 may be
     /// seen at once in one and at the first clock in the other. A signal that differs from time 0 is said apart
     /// (<see cref="DifferAtStart"/>) and followed from the moment the two first agree on it: the first difference after
-    /// that is <see cref="Time"/>.
+    /// that is <see cref="Time"/>. One that never agrees is no start: it differs at time 0 (the 15i-5 review).
+    ///
+    /// **Up to the dump's own end.** It stops before the dump's last moment as well as the run's: a run played on past
+    /// its <c>$stop</c> goes further than ModelSim's dump, which ends there with that moment half made, and a dump cut
+    /// short would read as a difference at its end (the 15i-5 review).
     /// </summary>
     public sealed class RunComparison
     {
@@ -75,7 +79,11 @@ namespace BitSorter.ViewModel
             if (history == null) throw new ArgumentNullException(nameof(history));
             if (theirs == null) throw new ArgumentNullException(nameof(theirs));
 
-            long until = end - 1;
+            long last = -1;
+            foreach (VcdTrace trace in theirs.Values)
+                if (trace.Changes.Count > 0)
+                    last = Math.Max(last, trace.Changes[trace.Changes.Count - 1].Time);
+            long until = Math.Max(0, Math.Min(end - 1, last - 1));
             var missing = new List<string>();
             var atStart = new List<string>();
             int compared = 0;
@@ -124,7 +132,7 @@ namespace BitSorter.ViewModel
             int width, long until, out bool fromStart)
         {
             string unknown = new string('x', Math.Max(1, width));
-            string here = unknown, there = unknown;
+            string here = unknown, there = unknown, startHere = null, startThere = null;
             fromStart = false;
             bool starting = true;
             int i = 0, j = 0;
@@ -145,11 +153,20 @@ namespace BitSorter.ViewModel
                 if (next == 0)
                 {
                     fromStart = true;
+                    startHere = here;
+                    startThere = there;
                     continue;
                 }
                 if (fromStart && starting)
                     continue;
                 return (next, here, there);
+            }
+
+            // Never once the same: no start, but a difference from time 0.
+            if (fromStart && starting)
+            {
+                fromStart = false;
+                return (0, startHere, startThere);
             }
             return null;
         }
@@ -166,10 +183,11 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The verdict, for the chip: in a few words.</summary>
-        public string Verdict(string unit) => Agree
+        public string Verdict(string unit) => (Agree
             ? $"ModelSim agrees: {Count(Compared, "signal")} the same up to {Moment(Until, unit)}" +
               (DifferAtStart.Count > 0 ? $", but {Count(DifferAtStart.Count, "signal")} as they start" : "")
-            : $"ModelSim differs first at {Moment(Time.Value, unit)}, on {Short(Signal)}";
+            : $"ModelSim differs first at {Moment(Time.Value, unit)}, on {Short(Signal)}")
+            + (Missing.Count > 0 ? $"; {Count(Missing.Count, "signal")} not in its dump" : "");
 
         /// <summary>What the TRANSCRIPT says of it: the difference at its moment, with each value, or the agreement; then what was left out.</summary>
         public IReadOnlyList<TranscriptLine> Lines(string unit)

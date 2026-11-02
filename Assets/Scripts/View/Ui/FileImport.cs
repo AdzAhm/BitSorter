@@ -117,8 +117,11 @@ namespace BitSorter.View
 #endif
         }
 
-        /// <summary>The largest dump COMPARE WITH MODELSIM reads (Part 15i-5): a VCD of a long run is far larger than a project's code.</summary>
-        public const long MaxDumpSize = 64L << 20;
+        /// <summary>
+        /// The largest dump COMPARE WITH MODELSIM reads (Part 15i-5): a VCD of a long run is far larger than a project's code,
+        /// and reading one takes about twenty times its size in memory -- 16 MB about 315 MB, measured in the 15i-5 review.
+        /// </summary>
+        public const long MaxDumpSize = 16L << 20;
 
         /// <summary>Asks the page for one file, a dump to compare with, which <see cref="TryTake"/> has once it is read.</summary>
         public static void PickDump()
@@ -128,7 +131,10 @@ namespace BitSorter.View
 #endif
         }
 
-        /// <summary>The newest .vcd in the Import folder or a folder in it, or null: where a desktop finds ModelSim's dump.</summary>
+        /// <summary>
+        /// The newest .vcd in the Import folder or a folder in it, or null: where a desktop finds ModelSim's dump. Too large a
+        /// one is still the newest, for COMPARE to say so rather than reach past it to an older one.
+        /// </summary>
         public static string NewestDump()
         {
             string folder = Folder;
@@ -139,7 +145,7 @@ namespace BitSorter.View
             foreach (string path in Directory.GetFiles(folder, "*.vcd", SearchOption.AllDirectories))
             {
                 var info = new FileInfo(path);
-                if (info.Length > MaxDumpSize || IsHidden(Path.GetRelativePath(folder, path).Replace('\\', '/')))
+                if (IsHidden(Path.GetRelativePath(folder, path).Replace('\\', '/')))
                     continue;
                 if (info.LastWriteTimeUtc > when)
                 {

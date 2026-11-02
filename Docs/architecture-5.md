@@ -4187,7 +4187,7 @@ with/against modelsim?").
 - **The run.do dumps.** An exported run.do has ModelSim write every signal to `modelsim.vcd` (`vcd file`, `vcd add -r /*`,
   and `vcd flush` after `run -all`) beside the wave window it opens as before.
 - **FILE, COMPARE WITH MODELSIM'S RUN** reads it back -- the newest `.vcd` in the Import folder on a desktop
-  (`FileImport.NewestDump`), one the player picks in a browser (`FileImport.PickDump`, up to 64 MB) -- and holds the run to
+  (`FileImport.NewestDump`), one the player picks in a browser (`FileImport.PickDump`, up to 16 MB) -- and holds the run to
   it (`RunComparison`, the view-model's): every signal of the run but a process's own variables, a memory's words, a string
   and a real, matched by full name, up to the moment before the run's end. The first moment and signal they differ at
   goes at the TRANSCRIPT's head at its moment, with both values, and the run is taken there; or the agreement is said.
@@ -4196,11 +4196,19 @@ with/against modelsim?").
   Icarus the `initial` first; the standard leaves it open (`Docs/oracle-notes.md`). So a reset set at time 0 is seen at
   once in ModelSim and at the first clock here, and the traffic light and the sequence detector differ from t = 0 until
   their first clock. Such a signal is followed from where the two first agree on it; the first difference after that is
-  the one reported.
-- **Held to ModelSim itself** (`ModelSimCompareOracleTests`, skipped without ModelSim): every start-page sample exported,
-  run under ModelSim with the same dump, and compared by the same comparison -- all thirteen agree, those two only
-  after their start. `RunComparisonTests` (the run's own dump agrees, a changed value found at its moment, a missing
-  signal listed) and a Play Mode test through FILE's action.
+  the one reported. One that never agrees is no start but a difference at time 0.
+- **As far as the dump goes**: up to the moment before its last, as well as the run's -- a run played on past its `$stop`
+  goes further than ModelSim's dump, which ends at the stop with that moment half made.
+- **Held to ModelSim itself** (`ModelSimCompareOracleTests`, skipped without ModelSim): every start-page sample exported
+  by `ProjectExport.Zip`, unzipped, its own run.do run as `do run.do` (`ModelSim.RunDo`), and the modelsim.vcd it writes
+  compared by the same comparison -- all thirteen agree, those two only after their start. `RunComparisonTests` (the
+  run's own dump agrees, a changed value found at its moment, a missing signal listed and on the chip, a difference that
+  never ends, a run played past its stop) and a Play Mode test through FILE's action.
+- **The Sonnet review (2026-11-02) found, all fixed**: a difference from t = 0 that never ended read as agreement; a run
+  played past its `$stop` gave a false difference; a cancelled browser pick left COMPARE waiting, so the next import's
+  files were taken for a dump; a crafted VCD could throw out of the reader into the frame (VcdReader guards it now, and
+  COMPARE catches the rest); 64 MB was past what the reader takes in a browser (16 MB now, and a dump past it named rather
+  than passed over); and the chip said nothing of signals the dump had not got.
 
 ---
 

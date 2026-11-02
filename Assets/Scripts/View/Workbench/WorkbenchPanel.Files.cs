@@ -87,6 +87,7 @@ namespace BitSorter.View
                     break;
                 case FileAction.ImportFiles:
                 case FileAction.ImportPickedFolder:
+                    _comparing = false;   // a COMPARE whose picker was cancelled never said so (the 15i-5 review)
                     FileImport.Pick(action == FileAction.ImportPickedFolder);
                     break;
                 case FileAction.ConvertTestbench:
@@ -120,16 +121,24 @@ namespace BitSorter.View
                 return;
             }
 
-            string path = FileImport.NewestDump();
-            if (path == null)
-            {
-                Notice("put the " + ProjectExport.ModelSimDump + " ModelSim wrote in " + FileImport.Folder + ", then FILE, COMPARE WITH MODELSIM'S RUN");
-                return;
-            }
-
+            string path;
+            long size;
             string text;
             try
             {
+                path = FileImport.NewestDump();
+                if (path == null)
+                {
+                    Notice("put the " + ProjectExport.ModelSimDump + " ModelSim wrote in " + FileImport.Folder + ", then FILE, COMPARE WITH MODELSIM'S RUN");
+                    return;
+                }
+                size = new System.IO.FileInfo(path).Length;
+                if (size > FileImport.MaxDumpSize)
+                {
+                    Notice(System.IO.Path.GetFileName(path) + " is " + (size >> 20) + " MB, more than COMPARE reads (" + (FileImport.MaxDumpSize >> 20) +
+                        " MB): run to an earlier moment, or dump fewer signals");
+                    return;
+                }
                 text = System.IO.File.ReadAllText(path);
             }
             catch (System.Exception e) when (e is System.IO.IOException || e is System.UnauthorizedAccessException)
@@ -137,24 +146,25 @@ namespace BitSorter.View
                 Notice("the dump could not be read: " + e.Message);
                 return;
             }
-            Compare(text);
+            Compare(text, System.IO.Path.GetFileName(path));
         }
 
         /// <summary>
         /// <paramref name="dump"/>, a VCD, held to this run (<see cref="RunComparison"/>): the verdict on the chip, the first
         /// difference at the TRANSCRIPT's head at its moment, and the run taken there -- or the agreement said.
         /// </summary>
-        public void Compare(string dump)
+        public void Compare(string dump, string name = null)
         {
             if (_session == null || dump == null)
                 return;
 
+            // Whatever a file made to break the reader throws is the file's, never the workbench's (the 15i-5 review).
             Dictionary<string, BitSorter.Sim.VcdTrace> theirs;
             try
             {
                 theirs = BitSorter.Sim.VcdReader.Read(new System.IO.StringReader(dump));
             }
-            catch (System.Exception e) when (e is System.FormatException || e is System.IndexOutOfRangeException || e is System.OverflowException)
+            catch (System.Exception e) when (!(e is System.OutOfMemoryException))
             {
                 Notice("that is not a VCD ModelSim wrote: " + e.Message);
                 return;
@@ -175,7 +185,7 @@ namespace BitSorter.View
             _transcript.Notes = comparison.Lines(unit);
             _notesAbout = _session.Project;
             _transcriptDrawn = -1;
-            Notice(comparison.Verdict(unit));
+            Notice(comparison.Verdict(unit) + (name != null ? " (" + name + ")" : ""));
             ShowDockTab(DockTab.Transcript);
             if (!comparison.Agree)
             {
@@ -200,7 +210,7 @@ namespace BitSorter.View
             foreach (SourceFile file in files)
                 if (file.Path.EndsWith(".vcd", System.StringComparison.OrdinalIgnoreCase) && file.Text != null)
                 {
-                    Compare(file.Text);
+                    Compare(file.Text, file.Path);
                     return;
                 }
             Notice("pick the " + ProjectExport.ModelSimDump + " ModelSim wrote to compare with");

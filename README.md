@@ -413,9 +413,10 @@ gives them back out:
   `modelsim.vcd`. Put that file in the Import folder (in a browser, pick it), and
   FILE, COMPARE WITH MODELSIM'S RUN holds BitSorter's run to ModelSim's: it says
   they agree, or takes the waves to the first moment they differ and names the
-  signal and both values in the TRANSCRIPT. A difference right at t = 0 is said
-  apart: ModelSim starts an `always` before an `initial` at time 0, BitSorter the
-  `initial` first, and the standard leaves it open.
+  signal and both values in the TRANSCRIPT. A difference right at t = 0 that ends
+  at the first clock is said apart: ModelSim starts an `always` before an
+  `initial` at time 0, BitSorter the `initial` first, and the standard leaves it
+  open.
 - **Hand in.** Import a homework file that says `// Put your code here`, and its
   module keeps the file's markers: write your code between them. FILE, EXPORT FOR
   SUBMISSION then saves the file exactly as the course gave it, with your code
