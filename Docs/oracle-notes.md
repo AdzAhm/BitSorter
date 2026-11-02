@@ -390,3 +390,11 @@ narrower (SV0405). Icarus 12 is a quieter judge, so the oracle checks the lint o
 
 The corpus is held to none of the four (`DesignLintTests.TheCorpus_RaisesNone`): every one of its designs is
 driven, read, driven once and sized to fit, which is the course's style.
+
+## Races (Part 15i-3, 2026-11-02)
+
+The traffic light's testbench changed `walk` with `=` straight after `@(posedge clk)`, so the state's flip-flop and the
+testbench woke on one edge, and the state it took depended on which ran first. BitSorter runs a design's processes in a
+fixed order -- an instance's before its parent's -- and Icarus 12 happened to agree on every signal, so the oracle
+passed it. The race warning found it; it drives `walk` with `<=` now, which every simulator settles the same way, and
+every corpus testbench is held to no race as the oracle runs it.

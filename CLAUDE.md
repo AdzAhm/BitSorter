@@ -260,6 +260,18 @@ failure side.
   fork's branches (Part L5) start straight after the process that forks
   them, in the order written, once it waits; Icarus 12 starts them last
   first, and the standard leaves it open (`Docs/oracle-notes.md`).
+  **Where that order decides a value, the run says so** (Part 15i-3): a
+  flip-flop woken by its clock's edge -- 0 to 1 or 1 to 0, never out of x --
+  that reads a signal another process changed by a blocking write in the same
+  region of the same moment, neither it nor the clock's maker, gets one
+  TRANSCRIPT warning for the pair. Each change carries the process it came from
+  through drivers of no delay and through logic it woke (`Simulator`'s
+  origins); a nonblocking write lands in the NBA region and never counts, nor
+  does a change made by the clock's own process in its order, nor one from
+  several processes at once -- it cannot be told which came first. No sample,
+  exercise answer or corpus testbench races (`RaceFreeRunsTests`, and the
+  corpus checked as Icarus runs it): the traffic light's testbench did, and
+  drives its button with `<=` now.
 
 - **SourceNode plays a scripted sequence from tick 0**, then goes silent.
   It needs no special casing: a source has no inputs, so the

@@ -4060,6 +4060,32 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
 
+**As built in Part 15i-3: the race warning** (Ahmad, 2026-11-02: "add these 2", the race warning and COMPARE). The course's
+testbenches change inputs with `=` and step with `@(posedge clk)`, and a flip-flop that takes such an input on that edge
+is the classic race: the standard runs the two in either order, and ModelSim and Icarus may settle it differently.
+BitSorter's own fixed order hides it. The run now says so, once a pair, in the TRANSCRIPT.
+- **Origins.** Within one region of one moment -- moved on at every moment and before its inactive and NBA regions --
+  each change of value carries the process it came from (`Simulator._origin`): a blocking write marks its signal with
+  the running process; a driver of no delay carries what it read on to what it drives (`DriverReads`, `Arrive`, taken
+  only if the value changes); a process woken by a change of value -- an `always_comb` -- writes with the origin of that
+  change, and one woken by time or by an edge with its own. Two origins meeting are several, and several is never
+  warned of.
+- **The race.** A process woken by an edge from a known value to a known one (`Fired`'s `edge` -- a clock's first edge
+  out of x at time 0 is none) is noted with where its edge came from. When the region ends (`CheckRaces`), a signal it
+  reads -- its code's reads, the signals it waits on an edge of left out -- that changed in the region from one process
+  that is neither it nor the edge's is a race: said with the signal the writer wrote, the one the flip-flop reads where
+  that is another name (a port, logic after it), and the three ways out -- the other edge, a moment later, or `<=`.
+  A nonblocking write lands in the NBA region, a later region, and never counts; so do the clock and an input changed by
+  one process in its own order.
+- **Found in the corpus**: `traffic_light.sv`'s testbench pressed its button with `=` straight after `@(posedge clk)`;
+  Icarus happened to agree with BitSorter's order, so the oracle had passed it. It uses `<=` now
+  (`Docs/oracle-notes.md`).
+- **Tests**: `RaceWarningTests` -- an input changed on the edge it is taken at, said once over four edges; one changed by
+  time at the edge's moment; two `always @(posedge clk)` written with `=`; and none for the other edge, a moment after, `<=`,
+  one process making both, a flip-flop feeding another, and a clock's first edge out of x. `RaceFreeRunsTests` -- every
+  sample and every exercise's answer run by its own test, none racing; and the oracle holds every corpus testbench to none
+  as it runs it.
+
 ---
 
 ## 11. The parts

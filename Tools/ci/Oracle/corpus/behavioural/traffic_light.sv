@@ -84,10 +84,12 @@ module traffic_light_tb;
         reset = 1'b1;
         walk = 1'b0;
         #12 reset = 1'b0;
+        // Changed with <= on the edge the light takes it at: with =, the state's flip-flop and this block run in either
+        // order, and two simulators may disagree on the cycle the press is seen (BitSorter's race warning, Part 15i-3).
         repeat (8) @(posedge clk);
-        walk = 1'b1;
+        walk <= 1'b1;
         @(posedge clk);
-        walk = 1'b0;
+        walk <= 1'b0;
         repeat (6) @(posedge clk);
         $stop;
     end
