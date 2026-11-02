@@ -166,7 +166,7 @@ namespace BitSorter.Board
 
             return new CompiledProject(tree, testbench ?? project.Top, testbench, designPath, compiled, new List<string>(cells), diagnostics)
             {
-                TopParameters = BenchChoices.Values(tree, testbench ?? project.Top, project.Settings?.BenchParameters),
+                TopParameters = testbench != null ? BenchChoices.Values(tree, testbench, project.Settings?.BenchParameters) : new Dictionary<string, Expression>(),
             };
         }
 

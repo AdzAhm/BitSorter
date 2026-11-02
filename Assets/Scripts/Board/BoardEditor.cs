@@ -709,14 +709,20 @@ namespace BitSorter.Board
                 values[name] = value;
             Project next = Project with { Settings = settings with { BenchParameters = values.Count == 0 ? null : values } };
 
-            // A written testbench's run is shown to where it stops, and each program stops at its own time: measured again.
-            if (next.Bench != null && next.Stimulus != null)
+            // What does not elaborate with it is refused in the code's own words, before it is a step (the review: the run
+            // made with it threw); and a written testbench's run is shown to where it stops, each program at its own time.
+            CompiledProject compiled = BoardCompiler.Compile(next);
+            if (!compiled.Succeeded)
+                return EditResult.Refused("With " + name + " = " + value + " the project does not compile.");
+            Sim.Elaboration elaboration = compiled.Elaborate();
+            if (elaboration.HasErrors)
             {
-                CompiledProject compiled = BoardCompiler.Compile(next);
-                Sim.Elaboration elaboration = compiled.Succeeded ? compiled.Elaborate() : null;
-                if (elaboration != null && !elaboration.HasErrors)
-                    next = next with { Stimulus = next.Stimulus with { End = ProjectImporter.RunEnd(next, elaboration, out _) } };
+                foreach (Diagnostic d in elaboration.Diagnostics)
+                    if (d.Severity == DiagnosticSeverity.Error)
+                        return EditResult.Refused("With " + name + " = " + value + ": " + d.Message);
             }
+            if (next.Bench != null && next.Stimulus != null)
+                next = next with { Stimulus = next.Stimulus with { End = ProjectImporter.RunEnd(next, elaboration, out _) } };
             return Commit(next);
         }
 

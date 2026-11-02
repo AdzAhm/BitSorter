@@ -3903,10 +3903,18 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
   again (`ProjectImporter.RunEnd`), since each program stops at its own time.
 - **On the workbench**: the PROGRAM chip at the controls' row's right end (`WorkbenchPanel.Program.cs`, `ChoiceMenu`),
   the first such parameter's, while no exercise holds the row's end; `WorkbenchSession.Choices` and `Choose`, one undo
-  step, not refused by the lock -- it changes what is run, never the circuit or its code. The start page's RISC-V
+  step, not refused by the lock -- it changes what is run, never the circuit or its code. The program running chosen
+  again is no step; a name or member the testbench has not got is refused, and so is a choice the design cannot be
+  elaborated with, in the elaborator's words (`SetBenchParameter`). The run it makes is its own length: a replay goes
+  as far as the run it replaces only when that one was carried on past a `$stop` (`RunSession.RanOn`) -- an undo of a
+  choice, or SUM after TEST, was run on to the longer program's end until the review. The drawing of code is made again
+  with the choice (keyed on `BenchParameters` as well as the modules). A sample is made afresh each time it is opened,
+  so its choice is not kept from one launch to the next: it opens on SUM. Only a testbench's parameters are a choice:
+  a design run without one is elaborated as written. The start page's RISC-V
   PROCESSORS, under EXERCISES: a card for each, its name opening it, a line, and SUM, FIBONACCI and TEST opening it on
   that program; the three leave SAMPLES.
-- **To ModelSim**: an exported run.do gives each chosen parameter `-G` its member's value. ModelSim ASE 20.1 reads
+- **To ModelSim**: an exported run.do gives each chosen parameter `-G` its member's value -- or, for a member whose value
+  only elaboration works out (`LOW = BASE`), a comment saying to add it, rather than another number. ModelSim ASE 20.1 reads
   `-GPROGRAM=FIBONACCI` as a string of characters, 1094927177, and runs the instruction test without a word; the value,
   `-GPROGRAM=1`, runs Fibonacci (measured, 2026-11-02).
 - **Tests**: `BenchParameterTests` (the pattern in the engine, the override, a wrong name); `BenchChoicesTests` (the

@@ -62,12 +62,21 @@ namespace BitSorter.Board
             // a string of characters, and would run another program without a word (measured, 2026-11-02).
             var given = new StringBuilder();
             foreach (BenchChoice choice in BenchChoices.Of(compiled, project.Settings))
-                if (project.Settings?.BenchParameters != null && project.Settings.BenchParameters.ContainsKey(choice.Name)
-                    && choice.ChosenValue is long value)
+            {
+                if (project.Settings?.BenchParameters == null || !project.Settings.BenchParameters.ContainsKey(choice.Name))
+                    continue;
+                if (choice.ChosenValue is long value)
                 {
                     script.Append("# ").Append(choice.Name).Append(" is ").Append(choice.Chosen).Append(", given as its value\n");
                     given.Append(" -G").Append(choice.Name).Append('=').Append(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
+                else
+                {
+                    // Its value only elaboration works out: said, rather than ModelSim running another program unseen (the review).
+                    script.Append("# ").Append(choice.Name).Append(" is ").Append(choice.Chosen)
+                        .Append(", whose value the code works out: add -G").Append(choice.Name).Append("=<its value> to vsim\n");
+                }
+            }
             script.Append("vsim -voptargs=+acc").Append(given).Append(' ').Append(Tcl("work." + compiled.Top)).Append('\n');
             script.Append("add wave -r /*\n");
             script.Append("run -all\n");

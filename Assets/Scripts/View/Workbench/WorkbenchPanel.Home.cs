@@ -477,8 +477,8 @@ namespace BitSorter.View
         public void OpenProcessor(int chip, string program)
         {
             ShowSample(chip);
-            if (_session != null && _session.Choices.Count > 0)
-                Choose(_session.Choices[0].Name, program);
+            if (_session != null && _session.Choices.Count > 0 && _session.Choices[0].Chosen != program)
+                Choose(_session.Choices[0].Name, program);   // SUM, which it opens on, is no step
         }
 
         /// <summary>RECENT made again from the save: the circuits the latest opened first, as many as it shows.</summary>

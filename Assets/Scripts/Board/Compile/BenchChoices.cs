@@ -72,7 +72,9 @@ namespace BitSorter.Board
         public static IReadOnlyList<BenchChoice> Of(CompiledProject compiled, ProjectSettings settings)
         {
             var result = new List<BenchChoice>();
-            if (compiled == null || !compiled.Succeeded)
+            // A testbench's alone: a design run without one is run by the bench made from its stimulus, and what elaborates
+            // it by itself -- LOGIC, STATES, TIMING -- takes no choice (the review of 15h-6c).
+            if (compiled == null || !compiled.Succeeded || compiled.Testbench == null)
                 return result;
             ModuleDeclaration top = Find(compiled.Tree, compiled.Top);
             if (top == null)

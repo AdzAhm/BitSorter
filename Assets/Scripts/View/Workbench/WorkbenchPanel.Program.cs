@@ -54,7 +54,7 @@ namespace BitSorter.View
             Said(result);
             // The run the choice makes is shown whole when it takes over, its own length: the last program's window would
             // leave the playhead off its end (the 15h-6c shots: TEST's moment 6000 under SUM's 1,350).
-            if (result.Done)
+            if (result.Done && _session.Replay != null)   // the program running chosen again makes no run
                 _fitWavesOnSwitch = true;
         }
 
@@ -79,7 +79,7 @@ namespace BitSorter.View
                 _shownChoice = choice;
                 _programButton.style.display = choice != null ? DisplayStyle.Flex : DisplayStyle.None;
                 if (choice != null)
-                    SetText(_programButton, choice.Name + ": " + BenchChoice.Said(choice.Chosen ?? "").ToUpperInvariant());
+                    SetText(_programButton, choice.Name + ": " + (choice.Chosen != null ? BenchChoice.Said(choice.Chosen).ToUpperInvariant() : "AS WRITTEN"));
                 if (!ExerciseControlsShown && Chip != null)
                     Chip.style.right = ProgramChipRoom();
             }

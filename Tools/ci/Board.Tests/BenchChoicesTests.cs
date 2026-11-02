@@ -75,6 +75,33 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AChoiceTheDesignCannotBeMadeWith_IsRefused_InTheCodesWords_AndLeavesNoStep()
+        {
+            // Only the second member widens past what the design takes: refused before it is a step, never a run that throws.
+            const string bench =
+                "module tb;\n" +
+                "    typedef enum {NARROW, TOO_WIDE} size_t;\n" +
+                "    parameter size_t SIZE = NARROW;\n" +
+                "    logic a = 1'b0, y;\n" +
+                "    if (SIZE == TOO_WIDE) begin : wide\n" +
+                "        nowhere u (.a(a));\n" +
+                "    end\n" +
+                "    inv dut (.a(a), .y(y));\n" +
+                "    initial #10 $finish;\n" +
+                "endmodule\n";
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("inv.sv", Design), new SourceFile("tb.sv", bench) }, "tb");
+            Assert.IsTrue(import.Succeeded, string.Join("; ", import.Notes));
+            var editor = new BoardEditor(import.Project);
+
+            EditResult result = editor.SetBenchParameter("SIZE", "TOO_WIDE");
+            Assert.IsFalse(result.Done);
+            StringAssert.StartsWith("With SIZE = TOO_WIDE", result.Refusal);
+            StringAssert.Contains("nowhere", result.Refusal, "the elaborator's own words");
+            Assert.IsFalse(editor.CanUndo);
+            Assert.AreEqual("NARROW", ChoiceOf(editor.Project).Chosen);
+        }
+
+        [Test]
         public void TheChoice_IsKeptInTheSave_AndAnOlderFileReadsNone()
         {
             var editor = new BoardEditor(Imported());
@@ -113,6 +140,30 @@ namespace BitSorter.Board.Tests
             string script = ProjectExport.RunDo(editor.Project, compiled, BoardPrinter.Print(compiled));
             StringAssert.Contains("vsim -voptargs=+acc -GPROGRAM=1 work.tb", script);
             StringAssert.Contains("# PROGRAM is FIBONACCI, given as its value", script);
+        }
+
+        [Test]
+        public void AMemberWhoseValueTheCodeWorksOut_IsSaidInTheRunDo_NotGivenAsAnotherNumber()
+        {
+            const string bench =
+                "module tb;\n" +
+                "    localparam int BASE = 4;\n" +
+                "    typedef enum int {LOW = BASE, HIGH = BASE * 2} level_t;\n" +
+                "    parameter level_t LEVEL = LOW;\n" +
+                "    logic a = 1'b0, y;\n" +
+                "    inv dut (.a(a), .y(y));\n" +
+                "    initial #5 $finish;\n" +
+                "endmodule\n";
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("inv.sv", Design), new SourceFile("tb.sv", bench) }, "tb");
+            Assert.IsTrue(import.Succeeded, string.Join("; ", import.Notes));
+            var editor = new BoardEditor(import.Project);
+            Assert.IsTrue(editor.SetBenchParameter("LEVEL", "HIGH").Done);
+            Assert.IsNull(ChoiceOf(editor.Project).ChosenValue, "sanity: a value the code works out");
+
+            CompiledProject compiled = BoardCompiler.Compile(editor.Project);
+            string script = ProjectExport.RunDo(editor.Project, compiled, BoardPrinter.Print(compiled));
+            StringAssert.Contains("vsim -voptargs=+acc work.tb", script, "nothing given for it");
+            StringAssert.Contains("# LEVEL is HIGH, whose value the code works out: add -GLEVEL=<its value> to vsim", script);
         }
 
         [Test]
