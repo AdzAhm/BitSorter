@@ -588,5 +588,119 @@ namespace BitSorter.ViewModel.Tests
             TimingLight light = TimingLight.Of(layout, critical.Signals.Take(1).Concat(new[] { "y" }).ToArray());
             Assert.AreEqual(2, light.Branches.Count(b => b.Net == a && layout.Nets[a].Loads[b.Branch].Part == and), "both wires into the AND");
         }
+
+        // -----------------------------------------------------------------
+        // Latency and throughput (Part 15i-1)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A 3-stage pipeline, written for this test: registered in, added (2), registered, registered out. Its clock period is
+        /// the adder's 2, its latency three of those, and it takes a new input every period.
+        /// </summary>
+        [Test]
+        public void APipeline_ItsLatency_IsItsStagesTimesThePeriod_AndItsThroughputOneAPeriod()
+        {
+            Project project = Written("pipe3", ("pipe3",
+                "module pipe3 (input logic clk, input logic [3:0] a, b, output logic [3:0] y);\n" +
+                "    logic [3:0] ra, rb, sum, s;\n" +
+                "    assign #2 sum = ra + rb;\n" +
+                "    always_ff @(posedge clk) begin\n" +
+                "        ra <= a; rb <= b;\n" +
+                "        s <= sum;\n" +
+                "        y <= s;\n" +
+                "    end\n" +
+                "endmodule\n"));
+            string unit = Unit(project);
+            TimingView view = TimingView.Of(project);
+
+            TimingLine latency = view.Lines.Single(l => l.Label == "LATENCY");
+            Assert.AreEqual("3 clock periods: every path from an input to an output passes 3 registers, a 3-stage pipeline", latency.Text);
+            Assert.AreEqual("6 " + unit, latency.Numbers);
+            TimingLine throughput = view.Lines.Single(l => l.Label == "THROUGHPUT");
+            Assert.AreEqual("1 per 2 " + unit, throughput.Numbers);
+            StringAssert.Contains(TimingView.Frequency(2, unit), throughput.Text);
+        }
+
+        /// <summary>The course's two pipelining exercises: each solution two clocks late, as their goals ask; one start not a pipeline.</summary>
+        [Test]
+        public void ThePipeliningExercises_SolvedAreTwoStagePipelines_AndKeepInStepsStart_IsNone()
+        {
+            foreach (string id in new[] { "cut-it-in-two", "keep-in-step" })
+            {
+                Project solution = Board.Tests.ExerciseFiles.Solution(Board.Tests.ExerciseFiles.Load(id));
+                TimingLine latency = TimingView.Of(solution).Lines.Single(l => l.Label == "LATENCY");
+                StringAssert.StartsWith("2 clock periods", latency.Text, id);
+                Assert.IsTrue(TimingView.Of(solution).Lines.Any(l => l.Label == "THROUGHPUT"), id);
+            }
+
+            var problems = new System.Collections.Generic.List<string>();
+            Project start = Board.Tests.ExerciseFiles.Load("keep-in-step").ToProject(problems);
+            Assert.IsNotNull(start, string.Join("; ", problems));
+            TimingView started = TimingView.Of(start);
+            Assert.AreEqual("none single: paths from an input to an output pass 0 to 2 registers, so one input's results come out " +
+                "over several periods; a pipeline's stages line up", started.Lines.Single(l => l.Label == "LATENCY").Text,
+                "a through two registers, b straight to the XOR");
+            Assert.IsFalse(started.Lines.Any(l => l.Label == "THROUGHPUT"), "no pipeline, no claim of one result a period");
+        }
+
+        /// <summary>A state machine and a counter are no pipeline, and say why; logic with no clock has neither line.</summary>
+        [Test]
+        public void AStateMachine_AndACounter_ClaimNoLatency_AndLogicWithNoClockShowsNone()
+        {
+            TimingLine detector = TimingView.Of(WorkbenchSamples.SequenceDetector()).Lines.Single(l => l.Label == "LATENCY");
+            StringAssert.StartsWith("none fixed: a path from an input to an output runs round a loop -- a state machine's", detector.Text);
+            Assert.AreEqual("", detector.Numbers);
+
+            TimingLine counter = TimingView.Of(WorkbenchSamples.Counter()).Lines.Single(l => l.Label == "LATENCY");
+            StringAssert.StartsWith("none", counter.Text, "a counter is no pipeline, however its inputs reach it");
+            Assert.IsFalse(TimingView.Of(WorkbenchSamples.Counter()).Lines.Any(l => l.Label == "THROUGHPUT"));
+
+            TimingView adder = TimingView.Of(WorkbenchSamples.FullAdder());
+            Assert.IsFalse(adder.Lines.Any(l => l.Label == "LATENCY" || l.Label == "THROUGHPUT"), "no registers, no clock");
+        }
+
+        private const string WorkbenchMulticycle =
+            "module m (input logic clk, rst, input logic [3:0] x, output logic [3:0] y);\n" +
+            "    logic [1:0] state;\n" +
+            "    logic [3:0] a, b;\n" +
+            "    always_ff @(posedge clk)\n" +
+            "        if (rst) state <= 2'd0;\n" +
+            "        else case (state)\n" +
+            "            2'd0: begin a <= x; state <= 2'd1; end\n" +
+            "            2'd1: begin b <= a + 4'd1; state <= 2'd2; end\n" +
+            "            default: begin y <= b + 4'd1; state <= 2'd0; end\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// The first review's two wrong claims, as the tab words them (2026-11-02): a multicycle machine is no pipeline, and a
+        /// processor with no outputs says it has none rather than that its outputs follow its state.
+        /// </summary>
+        [Test]
+        public void AMulticycleMachine_AndADesignWithNoOutputs_SayWhatTheyAre()
+        {
+            Project multicycle = Written("m", ("m",
+                "module m (input logic clk, input logic [3:0] x, output logic [3:0] y);\n" +
+                "    logic [1:0] state = 2'd0;\n" +
+                "    logic [3:0] a, b;\n" +
+                "    always_ff @(posedge clk)\n" +
+                "        case (state)\n" +
+                "            2'd0: begin a <= x; state <= 2'd1; end\n" +
+                "            2'd1: begin b <= a + 4'd1; state <= 2'd2; end\n" +
+                "            default: begin y <= b + 4'd1; state <= 2'd0; end\n" +
+                "        endcase\n" +
+                "endmodule\n"));
+            TimingView view = TimingView.Of(multicycle);
+            StringAssert.StartsWith("none fixed: a register on its paths is loaded only when another register's value says so",
+                view.Lines.Single(l => l.Label == "LATENCY").Text, "its sequencer runs by itself, reached by no input");
+            Assert.IsFalse(view.Lines.Any(l => l.Label == "THROUGHPUT"), "never one result a period");
+
+            // With a reset reaching its sequencer, the way runs round the sequencer's loop: no pipeline either way.
+            Project reset = Written("m", ("m", WorkbenchMulticycle));
+            StringAssert.StartsWith("none fixed", TimingView.Of(reset).Lines.Single(l => l.Label == "LATENCY").Text);
+
+            Project processor = WorkbenchSamples.All.Single(s => s.Name == "Single-cycle RISC-V").Build();
+            Assert.AreEqual("none: it has no outputs", TimingView.Of(processor).Lines.Single(l => l.Label == "LATENCY").Text);
+        }
     }
 }

@@ -58,7 +58,7 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The left column, in capitals: MINIMUM PERIOD, MAXIMUM FREQUENCY, CRITICAL PATH, INPUT TO REGISTER, REGISTER TO
-        /// OUTPUT, GATE COUNT, LOOP, PATHS; empty for a path of the list.
+        /// OUTPUT, CLOCK PERIOD, LATENCY, THROUGHPUT, GATE COUNT, LOOP, PATHS; empty for a path of the list.
         /// </summary>
         public string Label { get; }
 
@@ -340,6 +340,18 @@ namespace BitSorter.ViewModel
                     lines.Add(new TimingLine(TimingLineKind.Fact, "CLOCK PERIOD",
                         "the shortest clock all three paths meet, inputs changing on one edge and outputs read on the next; " +
                         Frequency(clock, unit) + ". CHECK holds an exercise's period to this", Time(clock, unit)));
+
+                // Latency and throughput as the course gives them (Part 15i-1, asked 2026-11-02): a design whose every way from
+                // an input to an output passes K registers is a K-stage pipeline, a result K periods after its inputs and one
+                // a period whatever K is. Anything else is said for what it is, never given a latency it has not got.
+                long? period = timing.ClockPeriod ?? timing.MinimumPeriod;
+                PipelineDepth depth = PipelineDepth.Of(graph);
+                lines.Add(LatencyLine(depth, period, unit));
+                if (depth.Stages is int stages && stages > 0)
+                    lines.Add(new TimingLine(TimingLineKind.Fact, "THROUGHPUT",
+                        "one result each clock period however many stages: a new input goes in every period"
+                        + (period is long each && each > 0 ? ", " + Frequency(each, unit) + " at the clock period" : ""),
+                        period is long every && every > 0 ? "1 per " + Time(every, unit) : "1 a period"));
             }
             else if (paths.Worst is TimingPath worst)
             {
@@ -550,6 +562,64 @@ namespace BitSorter.ViewModel
         private static string Delay(long delay) => delay == PathDelays.Never ? "never" : Number(delay);
 
         private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>LATENCY: K periods for a K-stage pipeline; for anything else, why it has no one latency.</summary>
+        private static TimingLine LatencyLine(PipelineDepth depth, long? period, string unit)
+        {
+            string text;
+            string numbers = "";
+            if (!depth.HasOutputs)
+            {
+                text = "none: it has no outputs";
+            }
+            else if (depth.Unfollowed)
+            {
+                text = "not worked out: a register on its paths is written at a place found as it runs -- r[i] <= ... -- "
+                    + "which this does not follow";
+            }
+            else if (depth.Loop)
+            {
+                text = "none fixed: a path from an input to an output runs round a loop -- a state machine's, or logic fed "
+                    + "back -- so an output follows its inputs by no set number of periods";
+            }
+            else if (depth.Sequenced)
+            {
+                text = "none fixed: a register on its paths is loaded only when another register's value says so, as a "
+                    + "multicycle machine's is, so a result takes several periods and the next does not follow one period on";
+            }
+            else if (depth.MixedClocks)
+            {
+                text = "none single: the registers on its paths take different clocks, or different edges of one";
+            }
+            else if (!depth.Reaches)
+            {
+                text = "none: no input reaches what an output holds, so its outputs follow its own state alone";
+            }
+            else if (depth.Stages is int stages)
+            {
+                if (stages == 0)
+                {
+                    text = "within the period: no register stands on any path from an input to an output";
+                }
+                else
+                {
+                    text = Periods(stages) + ": every path from an input to an output passes " + Registers(stages)
+                        + ", a " + Number(stages) + "-stage pipeline";
+                    if (period is long each && each > 0)
+                        numbers = Time(stages * each, unit);
+                }
+            }
+            else
+            {
+                text = "none single: paths from an input to an output pass " + Number(depth.Fewest) + " to " + Registers(depth.Most)
+                    + ", so one input's results come out over several periods; a pipeline's stages line up";
+            }
+            return new TimingLine(TimingLineKind.Fact, "LATENCY", text, numbers);
+        }
+
+        private static string Periods(int count) => Number(count) + (count == 1 ? " clock period" : " clock periods");
+
+        private static string Registers(int count) => Number(count) + (count == 1 ? " register" : " registers");
 
         private static string Time(long value, string unit) => Number(value) + " " + unit;
 

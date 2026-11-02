@@ -196,7 +196,11 @@ workbench in 14b's TIMING tab): a design's minimum period -- the slowest
 register-to-register path, clock to Q and setup included -- and the frequency
 it gives are worked out and shown, so cutting a long path with a register
 shortens the period and raises the rate, which Part 15's pipelining Exercises
-are built on. It is a fact about the student's own circuit, never a ranking
+are built on. Since Part 15i-1 throughput is shown too, as the course gives it --
+one result a clock period -- beside a K-stage pipeline's latency, K periods; a
+design whose paths from its inputs to its outputs cross different numbers of
+registers, or run round a state machine's loop, is said to have no one latency.
+It is a fact about the student's own circuit, never a ranking
 (see "Still off limits" below).
 
 **Hazards are not expressible.** Static and dynamic hazards need a
@@ -742,7 +746,10 @@ failure side.
   library the design is held to, 14d; and the CLOCK PERIOD CHECK holds an exercise
   to, where an input's or an output's path is slower than register to register,
   15g; and PATHS folding under an arrow, shut to begin with past eight, and a line
-  too long for its row opening onto the rows under it, 15h, `TimingFold`) and LOGIC (Part 15g, for logic without registers of up to ten input bits:
+  too long for its row opening onto the rows under it, 15h, `TimingFold`; and
+  LATENCY and THROUGHPUT, 15i-1, `PipelineDepth`: a design whose every path from an
+  input to an output crosses K registers is a K-stage pipeline, K periods late and
+  one result a period, and any other says why it has no one latency) and LOGIC (Part 15g, for logic without registers of up to ten input bits:
   the truth table found by running the engine through every combination, a
   slice a frame as the measured worst is, `LogicTable`; for eight input bits or
   fewer each output as a minimal sum of products, the textbook's way and
