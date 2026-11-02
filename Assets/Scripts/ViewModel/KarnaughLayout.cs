@@ -6,8 +6,9 @@ namespace BitSorter.ViewModel
     /// <summary>
     /// An output's Karnaugh map (Part 15g): its truth table laid out for grouping by eye, rows and columns in Gray order so
     /// that neighbours differ in one variable, x where the output reads x. Up to <see cref="MostVariables"/> variables: the
-    /// first half of them down the side, the rest across. **No groups are drawn**: the expression is beside it
-    /// (<see cref="Minimizer"/>), and finding the groups is the exercise.
+    /// first half of them across the top, the rest down the side, as the course draws it -- ab across and cd down, ab across
+    /// and c down (it was the other way until the course's lectures and tutorials were read, 2026-11-02). **No groups are
+    /// drawn**: the expression is beside it (<see cref="Minimizer"/>), and finding the groups is the exercise.
     /// </summary>
     public sealed class KarnaughLayout
     {
@@ -23,10 +24,10 @@ namespace BitSorter.ViewModel
             Cells = cells;
         }
 
-        /// <summary>The variables down the side, as one label: <c>ab</c>; empty for a map of one row.</summary>
+        /// <summary>The variables down the side, as one label: <c>cd</c>; empty for a map of one row.</summary>
         public string Down { get; }
 
-        /// <summary>The variables across the top: <c>cd</c>.</summary>
+        /// <summary>The variables across the top: <c>ab</c>.</summary>
         public string Across { get; }
 
         /// <summary>Each row's values of <see cref="Down"/>, in Gray order: 00, 01, 11, 10.</summary>
@@ -47,17 +48,19 @@ namespace BitSorter.ViewModel
             if (n < 1 || n > MostVariables)
                 return null;
 
-            int down = n / 2, across = n - down;
+            // The first variables across, the more of them when they are odd: a cell's row of the table is its column's bits,
+            // then its row's.
+            int across = (n + 1) / 2, down = n - across;
             string[] rows = Gray(down), columns = Gray(across);
             var cells = new char[rows.Length, columns.Length];
             for (int r = 0; r < rows.Length; r++)
                 for (int c = 0; c < columns.Length; c++)
                 {
-                    int row = (Bits(rows[r]) << across) | Bits(columns[c]);
+                    int row = (Bits(columns[c]) << down) | Bits(rows[r]);
                     cells[r, c] = values[row];
                 }
 
-            return new KarnaughLayout(Join(names, 0, down), Join(names, down, across), rows, columns, cells);
+            return new KarnaughLayout(Join(names, across, down), Join(names, 0, across), rows, columns, cells);
         }
 
         /// <summary>The <paramref name="bits"/>-bit Gray code, as text: 0 bits is one empty label.</summary>
