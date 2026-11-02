@@ -1,7 +1,11 @@
 # BitSorter
 
-2D Unity puzzle game. Bits (0/1) fall through logic components into bins.
-Teaching digital logic: gates, flip-flops, adders, FSMs.
+A SystemVerilog simulator for the Digital Systems and Computer Structure course,
+built in Unity: draw a circuit or write it, run it on a 4-state event-driven
+engine, read its waves, and check it against thirty-five Exercises. It began as
+BitSorter 4.x, a puzzle game in which bits fell through logic gates into bins;
+4.0.0 is still played on Unity Play, and its thirty levels are the first thirty
+Exercises.
 
 ## This document
 This file is authoritative, and it drifts silently — nothing recompiles
@@ -10,36 +14,26 @@ longer matches the code, say so and correct it in the same change. Do not
 quietly work around a stale paragraph, and do not treat one as binding
 just because it is written down here.
 
-## 5.0 is being built (branch `v5`)
-BitSorter is being re-founded as a SystemVerilog simulator for the course,
-with the thirty levels kept as side *Exercises* (the brief's decisions,
-2026-10-11). **`Docs/architecture-5.md` is the architecture, the data model
-and the parts -- read it before any 5.0 work.** 5.0 is built *beside* the
-4.x game, which stays playable until Part 15 replaces it and Part 16 deletes
-it, so most of this file still describes 4.x and is still true of it. Each
-part rewrites the paragraphs here that it makes stale, in the same change.
+## 5.0 (branch `v5`)
+BitSorter was re-founded as a SystemVerilog simulator for the course, with the
+thirty levels kept as side *Exercises* (the brief's decisions, 2026-10-11).
+**`Docs/architecture-5.md` is the architecture, the data model and the parts --
+read it before any 5.0 work.** 5.0 was built beside the 4.x game, which Part 15
+replaced and **Part 16a deleted**: its token engine (LogicCore), its board and
+HUD, its levels, free play, its tutorial, its title screen and its save's boards
+are gone, and an old save's 4.x keys are not read (Ahmad, 2026-11-02: "a new
+phase in the project"). Part 16 continues in `Docs/architecture-5.md`'s plan.
 
-**Since Part 15a BitSorter opens as a simulator** (`AppLaunch`): on the last
-thing that was open -- a circuit, an exercise (Part 15d) or a sample -- and with
-nothing, on the workbench's start page. HOME, FILE, EXERCISES, HELP and SETTINGS
-head the workbench, and there is no BACK: Escape closes what is on top and
-nothing more. **An exercise is a document kept under its id**, the 4.x level's
-name for the thirty, so the board a student left in a level opens in its
-exercise (`Exercise.Adopt`, `SaveMigration.MigrateOne`), and a solve marks the
-same name complete. The 4.x game
-is one quiet row down, THE 4.x GAME beside CREDITS in Settings, which opens its
-title screen. **The way back is the title screen's first and largest button,
-BACK TO THE SIMULATOR, a 4.x board's SIMULATOR beside MENU, or Escape on the
-title screen** (Part 15g): it was a row of the menu like any other, and Escape
-there showed the board under it, so a player inside the game found no way out
-(2026-10-28). The music is off until switched on. The 4.x paragraphs below hold of that game as it runs once
-entered.
+**BitSorter opens as a simulator**: on the last thing that was open -- a circuit,
+an exercise or a sample -- and with nothing, on the workbench's start page. HOME,
+FILE, EXERCISES, HELP and SETTINGS head the workbench, and there is no BACK:
+Escape closes what is on top and nothing more. **An exercise is a document kept
+under its id**, the 4.x level's name for the thirty, and a solve marks that name
+complete -- the name analytics reports it under too. The music is off until
+switched on.
 
 ## Architecture rule (do not break this)
-- Assets/Scripts/LogicCore/ = pure C#, NO UnityEngine imports.
-  Deterministic tick-based simulator. Has its own asmdef. The 4.x token
-  engine: frozen, and deleted in 5.0's Part 16.
-- Assets/Scripts/SystemVerilog/, Sim/, Board/ and ViewModel/ = 5.0's four pure
+- Assets/Scripts/SystemVerilog/, Sim/, Board/ and ViewModel/ = the four pure
   layers -- SystemVerilog, the engine, the document and the workbench's
   view-model -- each with its own asmdef: C# 9, no engine references, no
   reflection, no threads, no file access of their own, so they run unchanged
@@ -51,108 +45,50 @@ entered.
   view-model. **The view-model's points are `Vec2`, not Unity's `Vector2` nor
   `System.Numerics`'**: Unity's arithmetic to the bit, held by an Edit Mode test
   against the real thing, so a test under dotnet speaks for what is drawn.
-- Assets/Scripts/View/ = Unity MonoBehaviours. Reads sim state, renders it.
-- State flows LogicCore -> View only. The view never mutates the sim.
-- No Rigidbody2D for bits. Physics is decoration only (sparks, debris).
+- Assets/Scripts/View/ = Unity MonoBehaviours. Reads the engine and the
+  document, renders them, and changes them only through their commands.
 
 ## Conventions
-- Every LogicCore component gets a unit test with its truth table. In the
-  5.0 layers every construct gets a test, and a comparison against Icarus
-  Verilog wherever the oracle can run it (`Tools/ci/Oracle`, the
-  `oracle-compare` skill). Where Icarus and the language standard disagree,
-  the standard wins and the difference is written down.
-- **5.0's Exercises are JSON in Assets/Resources/Exercises/** (Part 15c), each
-  with its reference solution in Tools/ci/Exercises/solutions/, held under dotnet
-  by `ExerciseCurriculumTests` and, against Icarus, `ExerciseOracleTests`. The
+- Every construct gets a test, and a comparison against Icarus Verilog
+  wherever the oracle can run it (`Tools/ci/Oracle`, the `oracle-compare`
+  skill). Where Icarus and the language standard disagree, the standard wins
+  and the difference is written down.
+- **Exercises are JSON in Assets/Resources/Exercises/** (Part 15c), each with
+  its reference solution in Tools/ci/Exercises/solutions/, held under dotnet by
+  `ExerciseCurriculumTests` and, against Icarus, `ExerciseOracleTests`. The
   thirty keep their levels' file names as ids; five more are new (share the
-  wire, start from nothing, find the slow path, cut it in two, keep in step). The levels below stay the 4.x
-  game's until Part 16, and the rules of this section that name them are theirs.
-- Levels are JSON in Assets/Resources/Levels/, and each one names its own
-  `order` — play order is authored, not the ordinal sort of file names.
-  Two levels claiming the same place are an error: `LevelCatalog` names them,
-  the game logs it, and `CurriculumTests` fails. It does not refuse them --
-  both still load, in file-name order, which this line once said it did.
-- **A level may open on a circuit** -- `start`, its gates and wires, for a
-  level about finding what is wrong with one. `LevelLoader` holds it to every
-  rule a player's board is held to, its parts count against the budget like any
-  placed, and its wires spend the delay budget from the moment the level opens.
-- **`goal` states the objective and may name gates outright. `hint` may
-  not.** The no-giveaway rules in `CurriculumTests` apply to the hint
-  alone. Before `goal` existed the hint had to carry both jobs, which is
-  how the half adder ended up with a hint that named both its gates and
-  said which output each produced.
-- A mechanic is taught before it is required. `CurriculumTests` enforces
-  that the delay tutorial precedes every level that budgets delay.
+  wire, start from nothing, find the slow path, cut it in two, keep in step).
+  Each names its own `order` and `chapter` -- play order is authored -- and the
+  run goes chapter by chapter, the combinational chapters before the clocked
+  ones; two exercises in one place is an error.
+- **An exercise may open on a circuit** -- `start` -- for one about finding what
+  is wrong with it. It must fail as it opens, and for the reason its goal gives
+  (`ExerciseCurriculumTests`).
+- **`goal` states the objective and may name parts outright. `hint` may not**:
+  a hint names at most one of the parts it stocks, and never says which part
+  makes which output. Before `goal` existed the 4.x hint had to carry both
+  jobs, which is how the half adder ended up with a hint that named both its
+  gates and said which output each produced.
+- A thing is taught before it is required: the first exercise to ask each
+  thing says so in its goal (`ExerciseCurriculumTests`).
 - **A don't-care is written one of two ways** (`Docs/level-roadmap.md`, "On
-  `x`"). A combination that can never happen is left out of the streams, which
+  `x`"). A combination that can never happen is left out of the inputs, which
   is why `dont-care` has ten rows and not sixteen. An answer that matters to one
-  bin and not another is an `x` in that bin's expectation, since vectors are
-  shared by every bin and one bin cannot drop a vector alone. Both show as `x`
-  on the K-map. `dont-care` teaches the idea, and
-  `TheDontCareLevel_ComesBeforeEveryLevelThatLeavesAnAnswerFree` keeps every
-  level that uses it after it.
-- **There are four kinds of teaching, and they must stay apart.** `goal` states
-  the objective, `hint` nudges towards *this level's* answer, and a hint in
-  `HintRules` explains a *mechanic*, once ever, the first time the player
-  meets it. Four of them: a gate stalling, a collision, the fact that a
-  wire's delay can be scrolled at all, and what the bit inside a register
-  means. They are fired by what happens, not by which level is loaded, and
-  `hintsSeen` in the save remembers them.
-
-  **5.0 keeps the four apart the same way** (Part 15f): an exercise's `goal` and
-  `hint`; the simulator's first-time hints (`SimulatorHints`, the view-model's) --
-  a gate's delay, a clock, a z, a glitch on an output, an x at a check -- fired by
-  what the run shows, each once, kept in `hintsSeen` under ids of their own and
-  marked as they go up, on a strip along the circuit window's foot; and the guided
-  tutorial (`GuidedTutorial`), on the first exercise, from the start page and
-  HELP, which teaches which input does what, reads its step off the document,
-  lights the control it means and is skipped with SKIP. `SimulatorHintTests` holds
-  every hint and tutorial step to the four-word rule against each other and every
-  exercise's goal and hint. What follows is the 4.x game's.
-
-  **The wire-delay hint is the one that stays.** It is up until the player
-  re-times a wire, and only then counts as seen, where every other one is
-  marked as it goes up and then timed. It explains a verb rather than something
-  that just happened, and it comes up as the first wire goes in -- the middle of
-  wiring -- so the click that began the next wire took it down unread, and the
-  save never offered it again; a playtester took a long while to find re-timing
-  (2026-09-28). A collision or a stall still cuts in over it and it comes back
-  after them, and leaving the level leaves it for the next one that budgets
-  delay. `balance-the-paths`' goal says it as well, and the tutorial asks for it.
-  On a level that opens on a circuit its wires are already in, so it comes up
-  as the level loads -- as the register hint does on one that opens with a
-  register -- which is when a player jumping there first needs it.
-
-  The jobs must stay apart. `balance-the-paths`' hint already covers stalling
-  and collision *for that level*, so a first-time hint reaching for the same
-  words would be a second copy the player also has to read twice.
-  `CurriculumTests` refuses any four-word run shared between the two.
-
-  The fourth is the **guided tutorial**, which teaches *which input does what*
-  and nothing else. It asks for a wire to be scrolled -- that is an input, and
-  the one nothing on the board shows until it is used; a playtester took a long
-  while to find it (2026-09-28) -- but does not say what a longer wire does to
-  arrival order, which is `wireDelay`'s job on the level where it matters.
-  Finishing it marks no hint as seen, and `CurriculumTests` holds tutorial text
-  to the same four-word rule.
-
-  **The level's `hint` is shown in one place: the help panel, behind the `?`
-  badge.** It used to be on the status banner *as well*, so the same sentence was
-  on screen twice at once, in the same size and colour -- and a player who pressed
-  `?` to "see the hint" was handed a line already in front of them, which teaches
-  that the button is not worth pressing. The banner carries the title and the goal
-  and nothing else. Asking for a nudge is a decision; the brief is not.
-
-  There is deliberately **no hint for a bin that must stay empty**:
-  `route-the-bit`'s goal says it on the first level, and the sink readout and
-  the fail verdict both name it afterwards.
-
-  **The stall hint fires on a duration, never on a port filling.** A gate is
-  never seen holding one input mid-delivery — see the tick-order decision
-  below — but a one-tick imbalance is a real stall on a circuit that works,
-  and explaining it would teach the player about a mistake they did not make.
-  It fires when the run settles with a gate still stalled, or after four
-  consecutive ticks.
+  output and not another is an `x` in that output's values, since rows are
+  shared by every output. `dont-care` teaches the idea, and
+  `AnAnswerLeftFree_ComesAfterTheDontCareExercise` keeps every exercise that
+  uses it after it.
+- **There are three kinds of teaching, and they must stay apart** (Part 15f): an
+  exercise's `goal` and `hint`; the simulator's first-time hints
+  (`SimulatorHints`, the view-model's) -- a gate's delay, a clock, a z, a glitch
+  on an output, an x at a check -- fired by what the run shows, each once, kept
+  in `hintsSeen` under ids of their own and marked as they go up, on a strip
+  along the circuit window's foot; and the guided tutorial (`GuidedTutorial`),
+  on the first exercise, from the start page and HELP, which teaches which input
+  does what, reads its step off the document, lights the control it means and is
+  skipped with SKIP. `SimulatorHintTests` holds every hint and tutorial step to
+  the four-word rule against each other and every exercise's goal and hint: no
+  run of four words shared, so nothing is read twice.
 
 ## My level
 I'm a 3rd-semester CE student, new to Unity and git.
@@ -161,9 +97,7 @@ Explain things as you go and tell me when I'm about to do something dumb.
 ## Syllabus scope
 
 What BitSorter teaches, what it only simulates or shows, and what it leaves
-alone. 5.0 changed this (the brief's D1, D10 and D11, 2026-10-11); the three
-paragraphs under the next heading are the 4.x token model's, and stay true of
-the 4.x game until it is retired.
+alone (the brief's D1, D10 and D11, 2026-10-11).
 
 **Taught, in the Exercises:** boolean algebra, K-map minimization, functional
 completeness, propagation delay, combinational components, adders,
@@ -171,110 +105,47 @@ flip-flops, FSMs, critical path, pipelining.
 
 **Simulated, not taught:** the course's RISC-V hardware, multicycle included,
 with its memories and `$readmemh` (D10). The simulator has to run it; no
-Exercise has to teach it. This reverses what this section said until 5.0.
+Exercise has to teach it.
 
-**Shown, not taught:** hazards. In 5.0's 4-state model with gate delays a
-glitch is real and appears on screen, but no Exercise sets out to teach
-static or dynamic hazards (D1, reconfirmed after the syllabus listed them;
-the course's own simulation work does not ask students to guard against
-them).
+**Shown, not taught:** hazards. In the 4-state model with gate delays a glitch
+is real and appears on screen, but no Exercise sets out to teach static or
+dynamic hazards (D1, reconfirmed after the syllabus listed them; the course's
+own simulation work does not ask students to guard against them).
 
 **Displayed, not taught:** number representation. A signal reads in binary,
 hex, or unsigned or signed decimal (D11); what two's complement *is* stays a
 different game.
 
+**Timing is a fact about the student's own circuit, never a ranking.** Static
+timing (Part 14a, on the workbench in 14b's TIMING tab) works out a design's
+minimum period -- the slowest register-to-register path, clock to Q and setup
+included -- and the frequency it gives, so cutting a long path with a register
+shortens the period and raises the rate, which the pipelining Exercises are
+built on. Since Part 15i-1 throughput is shown as the course gives it -- one
+result a clock period -- beside a K-stage pipeline's latency, K periods; a
+design whose paths from its inputs to its outputs cross different numbers of
+registers, or run round a state machine's loop, is said to have no one latency
+(see "Still off limits" below).
+
 **Out of scope:** assembly programming and memory addressing -- software,
 not hardware. Don't reach for them even when an Exercise looks like it could
 stretch that way.
 
-### Under the 4.x token engine
-
-True of the token model, and so of the 4.x game until Part 16. In 5.0's
-engine the first is reversed and the second becomes a real clock signal. The
-third is reversed as well now that static timing has arrived (Part 14a, on the
-workbench in 14b's TIMING tab): a design's minimum period -- the slowest
-register-to-register path, clock to Q and setup included -- and the frequency
-it gives are worked out and shown, so cutting a long path with a register
-shortens the period and raises the rate, which Part 15's pipelining Exercises
-are built on. Since Part 15i-1 throughput is shown too, as the course gives it --
-one result a clock period -- beside a K-stage pipeline's latency, K periods; a
-design whose paths from its inputs to its outputs cross different numbers of
-registers, or run round a state machine's loop, is said to have no one latency.
-It is a fact about the student's own circuit, never a ranking
-(see "Still off limits" below).
-
-**Hazards are not expressible.** Static and dynamic hazards need a
-continuous signal model; bits here are discrete tokens, so a glitch has
-nowhere to live. The related lesson this game *can* teach is
-unbalanced-path corruption: two paths of different total delay into one
-gate, where the early bit waits and the next arrival collides with it.
-Reach for that whenever the subject would otherwise be hazards.
-
-**Setup time has an honest substitute; the rest of clock timing does
-not.** The clock here is still not a wire — it is the spacing between
-vectors, global and exact, so skew and hold time have nothing to be
-measured against and a latch and a flip-flop remain the same object. What
-*is* expressible, and is what the sequential levels are built on, is the
-constraint setup time exists to express: **everything must settle within
-one clock period**, and a loop that takes longer is not slow but broken.
-Reach for the period whenever the subject would otherwise be clock
-timing — and note that a level's clock is chosen to be exactly its
-intended loop, so the constraint bites.
-
-**Throughput is not a meaningful score.** A balanced circuit sustains
-exactly one vector per tick whatever its depth. Every gate consumes its
-inputs, emits, and hands the result to an edge of at least one tick, so
-every circuit is already pipelined at gate granularity, and depth buys
-latency rather than throughput. An unbalanced circuit does not run slower
-— it loses bits: sources have no input ports, so they emit every tick
-regardless of what is stalled downstream. There is no backpressure, so
-the next bit arrives into a port that is still occupied and the collision
-destroys it. Throughput therefore has two states, one vector per tick or
-a failed run, with nothing in between to rank. **Score gate count and
-latency only.** This also means the classical latency-versus-throughput
-pipelining trade has nowhere to live here; the lesson that survives is
-stage balancing, which is the same requirement arrived at from the
-failure side.
-
 ## Core decisions
 
-- **Bit** is `enum Bit { Zero, One }`, never a raw int. Port state is `Bit?`,
-  where null means empty. One field expresses zero / one / empty.
-
-- **Edge delay must be >= 1.** The constructor throws
-  ArgumentOutOfRangeException below that. Zero-delay edges would force
-  node evaluation into topological order, which breaks the rule that
-  evaluation order within a tick cannot affect the result. Feedback loops
-  also need a real time step to resolve — but note that latches come from
-  RegisterNode, not from cross-coupled gates. See the sequential-logic
-  decision below.
-
-- **Order-independence is a hard invariant.** Nodes within a single tick
-  must be evaluatable in any order with the same outcome. Do not add
-  anything that breaks this. 5.0's engine keeps the same promise another
-  way: each delta cycle applies everything due before any driver is
-  evaluated, so the order drivers are visited in cannot change the history
-  (`Docs/architecture-5.md`, sections 5 and 9; a test shuffles it).
-  Processes are the one place the language itself allows a race -- a
-  blocking write is seen at once -- so they run in a fixed order instead:
-  an instance's processes before its parent's own, then as written --
-  except that a scope's interfaces are made before its modules, which may
-  be given one through a port (Part L8). Never let that order depend on
-  anything else. **Time 0 begins as ModelSim begins it** (M5, Ahmad's
-  morning decision of 2026-11-02, to be decided again after Part 16's
-  sweep; `SimOptions.StartOrder`, `ModelSimStart`): every `always` headed
-  by an event control is waiting before anything runs, the other processes
-  then start as written, depth first -- an instance's at its instance
-  statement's place, as the elaborator's walk meets them
-  (`ProcessInfo.Written`) -- `always_comb` and `always_latch` last, and the
-  continuous logic and a stimulus's time-0 writes arrive after them, as
-  changes. Icarus's
-  start -- the logic settled first, then every process in the fixed order
-  -- is one setting away, and the Icarus oracle runs it, so both oracles
-  stay exact (`Docs/oracle-notes.md`, "Time 0"). A
-  fork's branches (Part L5) start straight after the process that forks
-  them, in the order written, once it waits; Icarus 12 starts them last
-  first, and the standard leaves it open (`Docs/oracle-notes.md`).
+- **The order drivers are visited in can never change a run.** Each delta cycle
+  applies everything due before any driver is evaluated, so the history is the
+  same in any order (`Docs/architecture-5.md`, sections 5 and 9; a test shuffles
+  it). Processes are the one place the language itself allows a race -- a
+  blocking write is seen at once -- so they run in a fixed order instead: an
+  instance's processes before its parent's own, then as written, as Icarus
+  starts them -- except that a scope's interfaces are made before its modules,
+  which may be given one through a port (Part L8). Never let that order depend
+  on anything else. A fork's branches (Part L5) start straight after the process
+  that forks them, in the order written, once it waits; Icarus 12 starts them
+  last first, and the standard leaves it open (`Docs/oracle-notes.md`). Time 0
+  begins as ModelSim begins it, Icarus's way one setting away (M5,
+  `SimOptions.StartOrder`).
   **Where that order decides a value, the run says so** (Part 15i-3): a
   process woken by an edge -- 0 to 1 or 1 to 0, never out of x -- that reads,
   on its way to its next wait, a signal another process changed by a blocking
@@ -290,224 +161,27 @@ failure side.
   oracle runs it): the traffic light's testbench did, and drives its button
   with `<=` now.
 
-- **SourceNode plays a scripted sequence from tick 0**, then goes silent.
-  It needs no special casing: a source has no inputs, so the
-  "all inputs filled" rule is vacuously true and it fires every tick.
-  The sequence is `Bit?[]`, exactly as this entry said it would be if sparse
-  streams were ever needed, and a null is a tick with no bit on it. What
-  needed them is the **clock**: a level spaces its vectors out with
-  `clockPeriod`, `CircuitBuilder` puts the gaps in, and no stream may
-  ask for one by hand — every source has to keep the same beat, and a gap
-  written into one of them would put that source out of step silently.
-  Gaps go between vectors, never after the last: a source is exhausted
-  only once its whole sequence has played, and the grader waits for that
-  before it calls a run settled.
+- **An id is given once and never again.** A module gives a part or a wire an id
+  from `Module.NextId`, and a deleted one's id is retired, never reissued, so a
+  layout, an undo step or a picked signal keyed by id never lands on something
+  else (`Docs/architecture-5.md`, section 5). The 4.x engine kept the same
+  promise for its nodes and edges, and the reason has not changed.
 
-- **Collisions never throw.** A bit delivered to an occupied input port is
-  destroyed, not thrown on. If the two values match, the port keeps its
-  value and only the arrival is destroyed. If they differ the result is
-  ambiguous, so neither bit survives: the port is cleared and stays
-  poisoned for the rest of that tick's delivery phase, so a later arrival
-  in the same tick cannot refill it. A mixed-value collision never leaves
-  a survivor.
+- **Undo is a stack of whole documents, not inverse operations** (`BoardEditor`).
+  The document is immutable, so a snapshot is a reference rather than a copy,
+  and every edit is checked by building the document it would make -- one that
+  adds an error is refused with that error, and leaves no step. A drag is one
+  step, as a run of scroll notches on one wire was in 4.x. Inverses were
+  rejected there because the edits that remove things take wires with them, so
+  their inverses are snapshots of part of the board anyway.
 
-- **CorruptedCount counts destroyed bits, not collision events.** A
-  matching-value collision adds 1. A mixed-value collision adds 2, since
-  both bits are destroyed.
-
-- **Between ticks, an occupied input port always belongs to a stalled
-  gate.** `Tick` runs advance, deliver, evaluate in that order, so a node
-  whose ports are all full is evaluated in the tick that filled them and
-  never survives to the next frame holding them. "Holding a bit" and "could
-  not fire" are therefore the same observable condition, which is why the
-  view needs no separate stall computation. Mid-tick is the exception the
-  code still has to handle: a node can be momentarily ready and about to
-  fire, and that must not read as stuck. `PortState.IsStalled` is the one
-  place this is decided.
-
-- **An imminent collision is predictable exactly, not heuristically.**
-  Delivery is phase 2 and evaluation is phase 3, so nothing can empty a
-  port between now and an arrival one tick out: if the port is occupied and
-  a bit has one tick left, they meet. Comparing that bit's value to
-  `Pending` says in advance which outcome `Deliver` will pick. This is what
-  lets the board warn before the bang rather than only mark the damage
-  after, and it is why the warning can never be a false alarm.
-
-- **A bit is identified by `(Edge.Id, BitInTransit.Serial)`, never by
-  `TicksRemaining`.** The serial is assigned in `Edge.Accept` and never
-  reused. Deterministic despite being assigned as bits are emitted: an edge
-  has one source port and a node evaluates at most once per tick, so an
-  edge accepts at most one bit per tick and the sequence is tick order
-  whatever order the nodes were visited in.
-
-  `TicksRemaining` separates the bits on one edge *at one instant*, which
-  is all a single frame's drawing needs, and `BitInTransit` used to
-  recommend it for following a bit *between* frames as well. Those are
-  different claims. Across a tick boundary the count a departing bit
-  vacates is taken by the bit behind it, so on a delay-1 edge — every wire
-  until the player lengthens one — a whole stream reads as one bit that
-  never arrives. `BitRenderer` diffed frames on it, so no spark fired after
-  the first and the gate and landing cues stopped with them.
-
-  **Two collision facts, and they are not the same.**
-  `InputPort.LastCorruptedTick` is the poison flag: simulation state, read
-  by the tick loop to refuse later arrivals, and set only where a port is
-  actually emptied. `LastCollisionTick` is observational, set wherever a bit
-  is destroyed, and nothing in the loop reads it. A matching-value
-  collision loses a bit without emptying the port, so it sets the second
-  and not the first — and widening the first to cover it would poison a
-  port that still legitimately holds its value, changing both
-  `CorruptedCount` and the port's contents.
-
-- **NodeCount and EdgeCount are id bounds, not populations.** Removing
-  leaves a tombstone: the slot becomes null and the id is retired, never
-  reissued, so every surviving id keeps meaning the same node. Use
-  LiveNodeCount / LiveEdgeCount for the population, and null-check
-  anything GetNode / GetEdge returns — the id range is not dense. A
-  removed node or edge reports Id -1, so capture an id before removing
-  rather than reading it back off the object. Bits lost to a removal are
-  not corruption and must never touch CorruptedCount.
-  5.0's document keeps the same promise for its own ids: a module gives a
-  part or a wire an id once, from `Module.NextId`, and never again, so a
-  layout, an undo step or a picked signal keyed by id never lands on
-  something else (`Docs/architecture-5.md`, section 5).
-
-- **Undo is a stack of whole-board snapshots, not inverse operations.**
-  `BlueprintSnapshot` copies the blueprint's three lists -- gates, blocks
-  and wires; all hold only readonly structs, and a block's definition is
-  immutable, so a snapshot shares nothing that can change with the live
-  board and is correct by construction rather than by argument. Inverses were
-  rejected because two of the six edits — removing a gate, and CLEAR ALL —
-  take wires with them, so their inverses are subgraph snapshots anyway.
-  The undo unit is one committed edit, recorded after validation so a
-  refused edit leaves no step behind. The exception is wire delay: a run
-  of scroll notches on **one** wire coalesces into a single step, because
-  scrolling 1→4 and pressing Ctrl+Z should land on 1, not 3. History is
-  capped, gated on `CanEdit`, and cleared on every level load — before
-  `LevelLoaded`, so the board `ProgressTracker` restores is the baseline
-  rather than a step the player can reverse past, and on a level that opens
-  on a circuit with nothing saved, that circuit is.
-  **5.0's document takes the idea further** (`BoardEditor`): the whole
-  document is immutable, so a snapshot is a reference rather than a copy,
-  and every edit is checked by building the document it would make --
-  one that adds an error is refused with that error, and leaves no step.
-  A drag is one step, as a run of scroll notches is here.
-
-- **START OVER is CLEAR ALL on a level that opens on a circuit**, and it puts
-  that circuit back rather than leaving an empty board -- one undo step, like
-  CLEAR ALL. The session places the start in the call that installs the level
-  (`LevelSession.PutTheStartingBoard`), never on `LevelLoaded`, where
-  `ProgressTracker` restores a saved board that must win and two listeners run
-  in no promised order. Whether there is anything to start over is "is the
-  board still the start?" (`LevelSession.IsAtStart`) where it used to be "is it
-  empty?", and `BlueprintSnapshot.DescribesBoard` answers it in any order and
-  without allocating, because the run controls ask every frame. The first visit
-  saves the start as the player's board, so a start changed in a later version
-  reaches a returning player only through START OVER.
-
-- **A finished run is left by editing it.** Once a run passes, fails or
-  finishes, the board keeps showing how it went -- the verdict, the scorch
-  marks, the stranded bits -- and the first edit puts it back to editing at
-  tick 0 (`LevelSession.LeaveTheFinishedRun`, called after validation, so a
-  refused edit leaves all of it standing). RESET still does that without an
-  edit, and RUN still runs straight after a verdict. Every edit used to be
-  refused until RESET, and playtesters took the board for locked (2026-09-27).
-
-  **Except for two frames.** In the frame a run ends and the next, an edit is
-  judged as though the run were still going (`EditState`). Everything that
-  notices a pass -- the solved card, the tutorial, the celebration, the chime
-  -- watches `State` in its own Update, in no defined order, and the wiring
-  controller updates before all of them; an edit in either frame could end the
-  run before some had looked, and the solved card would never come up. From
-  the second frame on, each has had a whole Update with the verdict in place.
-
-- **Sequential logic uses a stateful RegisterNode, not gate-built latches.**
-  Consume semantics destroys a value on use, so a cross-coupled NOR latch
-  deadlocks at startup (each gate waits on the other's first output) and
-  stalls after one firing (its external input port is never refilled).
-  Memory cannot emerge from gate feedback here, which is why the register
-  is a primitive. **Built**, with the tick loop unchanged.
-
-  **It emits before it is given anything**, on the first tick, and hands on
-  every bit it receives in the tick it arrives. That first bit is what
-  breaks the startup deadlock: a loop then has one bit circulating in it
-  from the beginning, and that bit is the machine's state. This entry used
-  to call for "edges that start with bits already in transit" instead —
-  same arithmetic, worse game, because a bit sitting on a wire belongs to
-  nothing the player can point at. Seeded edges were never built and are
-  not needed.
-
-  **Every register starts at 0**, like a reset, and nothing can author it
-  otherwise. A machine that wants to start elsewhere encodes its states so
-  the reset state is the zero one, which keeps the level format, the save
-  file and the palette out of it entirely.
-
-  **A register costs no time of its own, and shifts the stream.** Its *k*-th
-  output is the bit it was given on cycle *k-1*, so it hands that bit on one
-  clock **earlier** than a plain wire would. That is the whole of the
-  arithmetic: a circuit comparing a bit with the one before it balances with
-  no padding at all, and the direct path around a register is the one that
-  needs lengthening.
-
-- **A loop needs a clock, and this is not a tuning choice.** A state machine
-  is a loop, the shortest loop is two wires, and a dense source sends a bit
-  every tick — so the next input lands before the state is back, waits in a
-  port, and the one after it collides. Sequential levels therefore set
-  `clockPeriod`, and the rule the player learns is the real one: everything
-  must settle inside one period. Two consequences:
-
-  **Balancing relaxes exactly as clocked design does.** Two paths into a
-  gate no longer have to arrive together, only within one period of each
-  other, because the next vector is a period away. Skew of a period or more
-  still collides.
-
-  **A loop must close within one period.** Longer and the state comes back
-  late, the inputs queue, and the run corrupts — this game's own way of
-  saying a circuit missed its clock.
-
-- **A block's boundary is spliced, so a block costs exactly its contents.**
-  A block (4.0.0, Part E) is a small board in a box: its sources are the
-  box's inputs and its sinks its outputs. Delay lives on wires, at least a
-  tick each, so a node on each port would make the way in two wires where
-  the same gate placed directly takes one, and every block crossed would add
-  a tick each way. That is a delay no hardware has, and it would teach
-  "modules make circuits slower" in the one level built to compare critical
-  paths. So `CircuitBuilder` joins the wire drawn to a port and the block's
-  own wire from it into one edge, of the two delays less one; the way out the
-  same, and block to block all three. LogicCore is unchanged and every edge
-  is still at least a tick. `BlockBuildTests` runs the shipped levels'
-  reference circuits both ways and holds them identical tick for tick,
-  collisions included.
-
-  **The view keeps its two identities through anchors and shapes.** A port
-  the player sees is a real port, and a wire they see is one edge -- the
-  splice breaks both, so each block port is an inert `PassThroughNode` with
-  no edges (a *port anchor*), standing on the box's face, and
-  `BuiltCircuit.Shapes` says how each edge is drawn: between which ports,
-  for how many of its ticks, as which drawn wire. One drawn wire into an
-  input two gates read is two edges; only the first draws.
-
-  **What the splice needs is `BlockRules`**, for a level's blocks and free
-  play's alike: every input leads somewhere inside, every output is fed by
-  exactly one wire, no input runs straight to an output, no register, no
-  block inside a block, one to five ports a face. Blocks expand after the
-  gates -- anchors in, anchors out, gates -- and their inside wires come
-  after every drawn one, which keeps the id contract. A second wire into a
-  block's input is allowed, as into a gate's, and a collision there loses a
-  bit at each gate inside that reads it, as the contents placed directly
-  would; a block scores the gates inside it, for the same reason (both
-  Ahmad's choice, 2026-10-04).
-
-  **A block is saved whole wherever it stands.** `SavedBoard.blocks` keeps a
-  copy with each placement, so a free-play board survives its block being
-  deleted from the library or made again under the same name. A level's board
-  is restored from the level's own block of that name instead, as it takes the
-  level's current budget. Free play's library is `ProgressFile.blocks`. Every
-  key is new, so an older save reads them as absent; `WholeSaveMigrationTests`
-  takes a 3.0.2 file the whole way to now, and `Release400MigrationTests` a
-  4.0.0 one. 4.x had no version field; **5.0 writes `format: 5`** and keeps its
-  documents in `projects`, beside these keys rather than instead of them, since
-  the 4.x game reads them until Part 16 (`Docs/architecture-5.md`, section 8).
+- **The save is `progress.json`, `format: 5`** (`ProgressStore`): the documents
+  under `projects`, what is open and recent, the solves and first-time hints by
+  name, the bests, the locked and the imported, and each sample's program
+  (`Docs/architecture-5.md`, section 8). Every key added later is read as absent
+  by an older file. 4.x had no version field, and its boards, free play and
+  blocks are no longer read -- its solves and hints still are, being the same
+  names.
 
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**
@@ -517,15 +191,15 @@ failure side.
   editor serves every session on this machine**, and a compile during another
   session's test run kills it (2026-09-28), so agree who drives first.
 - **Everything that does not need Unity runs with `dotnet test
-  Tools/ci/BitSorter.Ci.slnx`**, as CI runs it: the 4.x simulator's tests,
-  5.0's pure layers built against netstandard2.1 (Unity's profile, so an API
-  Unity lacks fails here first), the repository rules, and the Icarus oracle.
-  CI installs Icarus and sets `BITSORTER_REQUIRE_ICARUS`, so a skipped oracle
-  there is a failure rather than a quiet pass. **ModelSim is the second oracle**
-  (Part 15i-4, `Tools/ci/Oracle/ModelSim.cs`): every corpus testbench runs under
-  it too where it is installed -- this machine's Intel Starter Edition -- and is
-  skipped where it is not, CI among them, since it is licensed and no runner has
-  it. What it settles otherwise than Icarus is named, each case written in
+  Tools/ci/BitSorter.Ci.slnx`**, as CI runs it: the pure layers built against
+  netstandard2.1 (Unity's profile, so an API Unity lacks fails here first) and
+  their tests, the repository rules, and the Icarus oracle. CI installs Icarus
+  and sets `BITSORTER_REQUIRE_ICARUS`, so a skipped oracle there is a failure
+  rather than a quiet pass. **ModelSim is the second oracle** (Part 15i-4,
+  `Tools/ci/Oracle/ModelSim.cs`): every corpus testbench runs under it too where
+  it is installed -- this machine's Intel Starter Edition -- and is skipped where
+  it is not, CI among them, since it is licensed and no runner has it. What it
+  settles otherwise than Icarus is named, each case written in
   `Docs/oracle-notes.md`, and nothing else is let through.
 - **Nothing from the course comes into this repository.** Its files hold
   student ID numbers and the university's own code, the repository is public,
@@ -535,8 +209,6 @@ failure side.
   all of history against the course folder itself, and is run before every
   push. A number it finds in a commit is a stop: ask before pushing anything.
 - Use Plan mode for anything touching more than one file.
-- Every new LogicCore component ships with its Edit Mode tests in the
-  same change. No component without a truth-table test.
 - After editing scripts, recompile and run the tests yourself, and don't ask
   me to click anything. An `AssetDatabase.Refresh` plus
   `CompilationPipeline.RequestScriptCompilation` through the MCP server
@@ -570,68 +242,51 @@ failure side.
   and run it through the editor's own Roslyn. That catches compile errors in
   seconds and is independent of whatever state the editor is in.
 - **Play Mode tests load the real scene, and must put it back.** `TestScene.Load`
-  and `TestScene.Clear` are the only way in and out. `Load` boots as 4.x did, its
-  title screen up over the board, which every fixture written before Part 15a
-  expects; `LoadSimulator` boots as the game does since then (`AppLaunch.Classic`,
-  set only by the tests). A fixture that loads the game
-  and simply finishes leaves it loaded for whatever runs next, and NUnit orders
-  fixtures alphabetically -- `AudioPlayTests` ran first and handed a fully built
-  game to `PointerArbitrationPlayTests`, which builds its own canvas and assumes
-  nothing else is on screen. Two of its four tests went red with none of its own
-  code changed, because the main menu is a full-screen panel and the pointer was
-  therefore over UI at every coordinate. A test leaking into another test is worse
-  than either failing: the red lands in the fixture that is still correct.
+  and `TestScene.Clear` are the only way in and out. `LoadSimulator` boots as the
+  game does, on the start page with a fresh save; `Load` boots the same and then
+  opens the reference circuit, the first sample -- where every workbench fixture
+  written before Part 16a begins, since the 4.x title screen's button opened the
+  workbench there on a fresh save. A fixture that loads the game and simply
+  finishes leaves it loaded for whatever runs next, and NUnit orders fixtures
+  alphabetically -- `AudioPlayTests` once ran first and handed a fully built game
+  to a fixture that built its own canvas and assumed nothing else was on screen.
+  Two of its four tests went red with none of its own code changed. A test
+  leaking into another test is worse than either failing: the red lands in the
+  fixture that is still correct.
 
   **`TestScene.Clear` takes the save with the game**, deleting it after the
-  unload, because the game writes the save until it is gone. `ProgressTracker`
-  writes the board half a second after it last changed, by real time, so a board
-  from one load reaches the next whenever a frame runs slow. A fixture's own
+  unload, because the game writes the save until it is gone: the workbench
+  writes MY CIRCUIT half a second after its last edit, by real time, so a circuit
+  from one load would reach the next whenever a frame ran slow. A fixture's own
   `[TearDown]` cannot do it: Unity Test Framework runs it before the
   `[UnityTearDown]` that unloads, with the game still loaded. And a test that
-  loads the game more than once clears it between loads too. The register
-  contrast test loads once per look, and from the day there were three looks it
-  failed once in four full runs, on a register restored where it was about to
-  place one (2026-10-15).
+  loads the game more than once clears it between loads too.
 
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
   the save, the PlayerPrefs settings, the workbench's exports (`FileSaver`, Part
   9b-4) and its Import folder (`FileImport`, Part 13d) at scratch copies before the
-  scene loads
-  (see "Never move the player's save" below), and every fixture then turns
-  analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad and would otherwise
-  post real `levelStarted` events from a test run, into the one measurement the
-  game collects. This paragraph used to say `SaveGuard` moved the real file aside
-  and put it back, the design the paragraph below explains was replaced.
+  scene loads (see "Never move the player's save" below), and every fixture then
+  turns analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad, and an
+  exercise opened or solved would otherwise post real events from a test run,
+  into the one measurement the game collects.
 
-  **Drive the clock, do not wait for it.** `SimulationRunner.StepOneTick` advances
-  exactly one tick. The first version of the cue tests called `Run()` and waited
-  ninety frames for the two-per-second clock to produce something; it produced
-  nothing, with no explanation, and the muted half of the pair *passed* -- a test
-  asserting no sound was made is trivially satisfied when nothing would have made
-  one. Assertions about absence need a paired test proving the thing is possible.
+  **Drive the clock, do not wait for it**, and **an assertion about absence needs
+  a paired test proving the thing is possible.** The 4.x cue tests once waited
+  ninety frames for the clock to produce something; it produced nothing, with no
+  explanation, and the muted half of the pair *passed* -- a test asserting no
+  sound was made is trivially satisfied when nothing would have made one.
 
   **And while a test has the game loaded, its clock is driven**: `TestScene.Load`
   makes every frame `TestScene.FrameSeconds`, a sixtieth of a second of game time,
   and `TestScene.Clear` gives real time back (`TestClockPlayTests` holds both). A
   cap in frames used to mean seconds only at the editor's frame rate. Headless,
   frames are drawn unthrottled: on 2026-10-12 a 1200-frame cap meant to cover 1.5
-  seconds of a hint covered as little as 0.57 -- red on main -- and two fixed
-  240-frame waits for bits to travel did not last one tick, so what they asserted
-  about bits held of none. A fixture that wants its own step sets it before the
-  load and keeps it (the reference shots run at a 120th); one that changes the step
-  mid-test puts `FrameSeconds` back, never 0. **The unscaled clock is not driven**
-  and stays real time, so a wait on something counted in it -- the save's delay,
-  the frame-rate counter, the music's cross-fade -- caps in unscaled seconds, as
-  the audio tests do, never in frames.
-
-  Driven, a headless batch run of Play Mode is green but for one test, and the
-  editor's menu run is still the verdict. `FreePlayBoardsPlayTests
-  .EscapeInTheField_CancelsWithoutOpeningTheMainMenu` fails in a full batch run and
-  passes alone, in the editor, and after any other fixture with simulated input.
-  While a field has the keys, Escape is TextMesh Pro's, which reads IMGUI events
-  rather than the Input System's devices; in batch mode a simulated key stops
-  reaching IMGUI once a fixture that uses the real devices has loaded the game.
-  Not frame rate -- it fails on the driven clock too (2026-10-12).
+  seconds of a hint covered as little as 0.57. A fixture that wants its own step
+  sets it before the load and keeps it (the reference shots run at a 120th); one
+  that changes the step mid-test puts `FrameSeconds` back, never 0. **The
+  unscaled clock is not driven** and stays real time, so a wait on something
+  counted in it -- the save's delay, the frame-rate counter, the music's
+  cross-fade -- caps in unscaled seconds, as the audio tests do, never in frames.
 
   **Never move the player's save.** `SaveGuard` points `ProgressStore.Redirected`
   at a scratch file and the real `progress.json` is not written, moved or deleted
@@ -733,11 +388,11 @@ failure side.
   a scene re-serialisation all landed as one commit.
 
 ## The view layer
-- **The interface is built in code, in two toolkits.** The 4.x game and the
-  menus are a uGUI Canvas: `UiTheme` holds the shared builders, and each panel
-  constructs its own hierarchy at runtime the way `PlacementGrid` builds its
-  dots. The scene is generated, so an authored hierarchy would be dozens of
-  RectTransforms for the builder to reproduce and get subtly wrong.
+- **The interface is built in code.** The drawings -- the circuit, the waves,
+  the legend, the minimap -- are uGUI on one canvas, from `UiTheme`'s builders;
+  the shell round them is UI Toolkit. The scene is generated, so an authored
+  hierarchy would be dozens of RectTransforms for the builder to reproduce and
+  get subtly wrong.
 
   **The workbench's shell is UI Toolkit, built in code the same way** (Part 11):
   a panel made in code (`ShellPanel`), scaled as the canvas is and sorted over
@@ -842,39 +497,19 @@ failure side.
 
   **The game is drawn in `Looks.Schematic`, `Look.Default`, unless the player
   chooses another under STYLE in Settings.** Schematic and Schematic Light keep
-  Neon Board's board, interface and bloom -- Neon Board was chosen out of three
-  directions rendered side by side -- and differ from it only on the canvas: the
-  4.x board is retired in Part 15, and drawing it a third way for one part's life
-  would be work thrown away. So making Schematic the default moved no pixel of the
-  game (Ahmad approved it with the plan, 2026-10-12, and confirmed it at Part 8's
-  review, 2026-10-14).
-  `Look.Classic` is 2.0's look, kept so a change that claims to touch no look can
-  be held to Classic's reference shots, pixel for pixel. A look's bloom lives in
-  the scene's volume profile, which holds Classic's values, so `LookBoot` puts the
-  current look's on every scene as it loads. `LookBriefTests` holds every look but
-  Classic to the board's brief it was drawn against: no state colour on the board,
-  a 1 in a colour of its own, a 0 that glows in its own colour rather than white or
-  the wire's, panels that cover, text at 4.5:1 on every kind of button as well as
-  every panel, and a chosen button that stands out. **And every look, Classic's
-  included, to the canvas's brief**: every value and outline at 3:1 on its ground,
-  every word at 4.5:1, a 0 and a 1 apart by weight as well as colour, an undriven
-  wire apart from both, and reduced motion leaving out the glow and the flashes.
-
-  **Bloom is for a bit in flight**, in every look. The threshold is 1 and only
-  a travelling bit is lifted over it (`BitVisuals.Emission`); gates, fixtures,
-  held bits and the interface are all drawn in plain colour. **It is not quite
-  the only thing bloom reaches**, which this paragraph used to say: URP's bloom
-  eases in from half its threshold, so a plain colour with a channel past 0.5
-  in linear light leaks a little. On a still board rendered with the volume on
-  and off (2026-09-28), a source's next bit showing a 1 -- magenta, a full red
-  channel, and the same colour a register holds a 1 in -- glowed by up to 18
-  levels, a wire's delay label by a few, and a register's pale body and plate
-  by one or two. Several rules below were first written when bloom
-  reached the gates too, and gave it as their reason. They were rendered again
-  under Neon Board on 2026-09-24 -- a stalled gate drawn both ways, bloom on and
-  off -- and bloom changed no pixel of either. The rules stood anyway, each for a
-  reason that does not need bloom, and those are the reasons written below. A
-  rule whose only stated reason is bloom is worth suspecting.
+  Neon Board's interface -- Neon Board was chosen out of three directions
+  rendered side by side for the 4.x board -- and differ from it on the canvas
+  (Ahmad approved it with the plan, 2026-10-12, and confirmed it at Part 8's
+  review, 2026-10-14). `Look.Classic` is 2.0's look, kept so a change that claims
+  to touch no look can be held to Classic's reference shots, pixel for pixel. A
+  look's bloom lives in the scene's volume profile, which holds Classic's values,
+  so `LookBoot` puts the current look's on every scene as it loads.
+  `LookBriefTests` holds every look to the canvas's brief: every value and
+  outline at 3:1 on its ground, every word at 4.5:1, a 0 and a 1 apart by weight
+  as well as colour, an undriven wire apart from both, and reduced motion leaving
+  out the glow and the flashes -- and still holds the looks but Classic to the
+  4.x board's brief, whose palettes they keep until Part 16b decides what of them
+  stays (with bloom, which was for the 4.x board's bits in flight).
 
   **A button says what it is for** -- `ButtonRole`, and `UiTheme.FillOf` is the
   one place a role becomes a colour. The primary is the one thing a screen asks
@@ -882,113 +517,56 @@ failure side.
   as well as colour. Quiet is quieter by its edge, never its caption: a dim
   caption is how a button says it cannot be pressed.
 
-  **A bit says its value by its shape.** In Neon Board a bit in flight is its own
-  digit (`BitStyle.Digit`), stroked like a neon tube and kept upright on every
-  wire, with its arrival squash laid onto the screen's axes by
-  `BitVisuals.Upright`. Colour could not carry it: a magenta 1 and an indigo 0 are
-  neighbours, bloom lifted the 0 to a bright violet, and a playtester could not
-  tell them apart. A digit wants a quieter halo and a narrower trail than a dot,
-  which are the look's `BitGlow` and `TrailWidth`. A bit *held* -- in a socket,
-  or inside a register -- is a disc with its digit cut out of it
-  (`ProceduralSprites.HeldBit`), not the stroked digit: hollow already means an
-  empty socket, so a held bit stays filled and says its value in the cut. The
-  disc is exactly the register's circle, so `PortGeometry` did not move.
 - **Ambient animation keeps one clock, `ViewTime`; an event counts from its own
-  start.** A collision warning throbs in step across port, wire and bit, stalled
-  gates breathe together and the grid shimmers as one, so those read
-  `ViewTime.Now`. A win, a scorch or a wire just re-timed marks a moment and
-  counts from it -- the win celebration once pulsed on the game clock and a solve
-  could land at the bottom of its swell.
+  start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
+  shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures seventy-four states (menu, a built
-  board, bits in flight, a collision one tick out and one that takes both bits,
-  the solved card, the level list, free play, the help panel, the chapter card, a
-  clocked level, the tutorial's intro and its closing card, a first-time hint, a
-  register holding a bit, the tutorial ringing a button, the settings asking
-  whether to reset, the credits part-way up, the help panel's K-map, Four lanes
-  built on its 11 by 7 board, free play on a second board with a name, and the
-  three levels that open on a broken circuit, as they open, the timing
-  diagram mid-run with a picked wire's collisions crossed, Four at once
-  built and running, its carry passing between the boxes, and 5.0's workbench
-  preview with two changes on their way, whole, zoomed in, with a wire pointed at, with two rows in other
-  radixes, a second cursor 9 ps on and two breakpoints flagged, with a block's inside grouped under full names, with the
-  add list searching, MY CIRCUIT being edited, two gates moving with their guides, its half adder being wired, one of its wires being reshaped, the reference's AND in its inspector, the reference zoomed in with its minimap and the canvas's menu, the full adder's transcript beside its hierarchy, the keyboard map, the full adder stepped inside h1, MAKE BLOCK asking for a name, four half adders as one block of four copies, a written adder's code with a fault marked, the full adder's code in the dock's CODE tab, the FILE menu, a project imported with its testbench running, the full adder's critical path lit from the TIMING tab, the LIBRARY menu over it with the full adder held to the course's cells, two written devices on a bus through their inout pins, the start page BitSorter opens on, the EXERCISES page five solved, the half adder's brief with its hint, its CHECK failed with the carry missing, its solved card, the guided tutorial asking for a wire, a first-time hint up, the INPUTS tab with the reference's bus in hex and two inputs chosen, the LOGIC tab on the full adder, the counter's eight states in the STATES tab, ABOUT BITSORTER, operator parts on MY CIRCUIT with two turned a quarter, the full adder with h1 turned a quarter, the written adder's block made a small ALU and shown as the drawing of its code, and the written adder's own sum with GATES, the 4-bit ripple, and the Two-bit ALU's LOGIC tab, its long expressions whole, and an imported written design's code, locked, and the waves zoomed in with the range bar's thumb short, and the start page's three RV32I processors -- each running its instruction test -- the single-cycle's and the multicycle's datapaths stepped into, the pipelined one's five stages and the registers between them, the multicycle one's controller as its state diagram and the single-cycle one's as its control tables, and the small ALU's subtracter selected with its line marked in CODE, and the pipelined one's PROGRAM chooser open on Fibonacci -- every other shot taken with the hints seen) as an Explicit Play
-  Mode fixture, so it runs under `SaveGuard` --
-  driving the real game for a screenshot by hand once marked a level solved on
-  the developer's own save. Frame time is fixed, particle systems are seeded,
-  `ViewTime` is pinned and the real mouse and keyboard are swapped for the
-  fixture's own -- a click on the Game view mid-capture once put a refusal toast
-  into two shots -- so **two captures of the same code are identical to the
-  pixel**; a refactor that claims to change nothing is held to that, with no
-  tolerance. It needs the Game view, so not batch mode.
+  `BitSorter/Capture Reference Shots` captures fifty states of the simulator: the
+  workbench preview with two changes on their way, whole, zoomed in, with a wire
+  pointed at, with two rows in other radixes and two breakpoints, with a block's
+  inside grouped under full names, the add list, MY CIRCUIT being edited, wired
+  and reshaped, the inspector, the minimap and the canvas's menu, the transcript
+  beside the hierarchy, the keyboard map, a block stepped into, MAKE BLOCK, an
+  array of blocks, written code with a fault marked and in the CODE tab, the
+  FILE menu, an imported project, the critical path from TIMING and the LIBRARY
+  menu, two devices on a bus, the start page, the EXERCISES page, an exercise's
+  brief, failed CHECK and solved card, the guided tutorial, a first-time hint,
+  the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
+  block, the drawing of code with and without GATES, locked code, the waves
+  zoomed, the three RISC-V processors and their controllers, the drawing and
+  code linked, the PROGRAM chooser -- and Settings asking whether to reset, and
+  the credits part-way up -- every other shot taken with the hints seen, as an
+  Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
+  and 18 were the 4.x game's and went with it; the rest keep their numbers.
+  Frame time is fixed, particle systems are seeded, `ViewTime` is pinned and the
+  real mouse and keyboard are swapped for the fixture's own -- a click on the
+  Game view mid-capture once put a refusal toast into two shots -- so **two
+  captures of the same code are identical to the pixel**; a refactor that claims
+  to change nothing is held to that, with no tolerance. It needs the Game view,
+  so not batch mode.
 
   **An animation that ends must end on its final value, not on its last
-  frame.** That promise failed about one capture in a dozen until 2026-09-26:
-  a scorch mark grew in over a quarter second and was then left at whatever
-  the last frame *before* the deadline had made it. At the capture's 1/120 the
-  30th frame lands on the deadline exactly, float rounding in the game clock
-  decided whether it counted, and the clock's absolute value differs between
-  runs because scene loading takes a variable number of frames -- so shot 13
-  came out a few levels fainter around the scorch, now and then. Anything
-  timed that stops updating must take its finished value on the first frame
-  past the deadline (`ScorchMarks.Animate`), or count down to exactly zero
-  as the port flash and the bits-lost pop do.
-
-  **Two things that can overlap at one sorting order need different depths.**
-  Unity breaks a tie in sorting order by depth, and leaves a tie in depth to
-  chance. Every bit used to sit at depth zero, so where the half adder's wires
-  cross, the two bits' trails drew in either order and about one capture in
-  three differed there -- forcing that one order reproduced the odd capture to
-  the pixel. `BitRenderer.DepthOf` now gives each bit a depth from its identity,
-  in the order Unity had usually chosen, so the fix moved no pixel of the
-  reference shots. A difference in a capture is a real one.
+  frame**: anything timed that stops updating takes its finished value on the
+  first frame past its deadline, or counts down to exactly zero. A 4.x scorch
+  mark was left at whatever the last frame before its deadline had made it, and
+  float rounding in the game clock decided whether that frame counted, so one
+  capture in a dozen came out a few levels fainter. **Two things that can overlap
+  at one sorting order need different depths**: Unity breaks a tie in sorting
+  order by depth and leaves a tie in depth to chance, which once made one 4.x
+  capture in three differ where two bits' trails crossed. A difference in a
+  capture is a real one.
 
   **A capture can be of any look**, named in the `BitSorter.Capture.Look`
   session key (or `-captureLook` on the command line) and saved under a folder
   of that name. The fixture chooses it before the scene loads and fails on a
   name that matches nothing, rather than capturing the game as it is into a
   folder that says otherwise.
-- **Where a piece of the HUD sits is `UiRows`, worked out once.** Three
-  `UiStack`s -- along the top, along the bottom, down the right -- each place a
-  row clear of the one before, so no two rows of one stack can overlap. They
-  replaced a dozen constants each written as "the row before, plus its height,
-  plus a gap", which held until somebody forgot: the toast went over the
-  controls line, the verdict over the first-time hint, the clock over the
-  verdict, the help panel over the setup panel -- and each was fixed with one
-  more constant and one more test for that one pair. A component reads its row
-  and never works out its own clearance; `UiStackTests` checks that every row
-  came out of a stack.
-- **A control is shown beside the thing it works.** `ControlsReference` gives
-  each control a `ControlSpot`: a button's key goes over the button (Enter over
-  RUN, ctrl+Z over UNDO), ESC under MENU, H under the help badge and F8 under the timing diagram's, and what
-  works nothing on screen -- the mouse and M -- in two short blocks either side
-  of the run buttons, an upper line and a lower. An upper line holds one short
-  phrase: it is level with the names under the board's bottom row, and two
-  phrases reached a bottom-left source's name. They were one line along the
-  bottom in list order, and a playtester had to read all of it to find the key
-  for the button under their hand (2026-09-27). The key is the phrase's first
-  word, so a button and the tutorial's card cannot disagree; none of them takes
-  a click, or a key would press its button and a block would stop clicks
-  reaching the board.
-
-  **A key over a button is drawn as a key** (`UiTheme.KeyCap`), and the phrases
-  are set in `UiType.Prompt` in the text colour, since a second playtest still
-  found the controls unclear and small (2026-09-28). The phrases say what they
-  do in full -- "right click a part or wire to remove it", "scroll a wire to
-  change its delay" -- which is why the delay sentence takes a lower line and N
-  left the board: the upper line beside M has room for one phrase. **Q and E sit
-  beside the level counter on the banner** (`StatusBanner.Counter`), each only
-  where it goes somewhere; they were named on the tutorial's card and the level
-  list and nowhere a player looks while playing.
-
-  **SHORTCUT KEYS in Settings hides every key beside a button** (`KeyCaps`, asked
-  for 2026-10-26): the caps over the run buttons and the workbench's, the keys
-  under MENU, the help badge and the timing diagram's badge, and Q and E beside
-  the counter, which keeps its arrows. Shown to begin with, the whole game, and
-  at once: each key hears the setting change (`KeyCapView` by its alpha, never by
-  switching itself off; the shell's by `ShellTheme.KeyCapClass`). What exists to
-  list keys keeps them -- the workbench's keyboard map, the tutorial's card, the
-  help panel's text -- and every key works either way.
+- **SHORTCUT KEYS in Settings hides every key beside a button** (`KeyCaps`, asked
+  2026-10-26): the caps beside the workbench's buttons -- the uGUI ones by their
+  alpha (`KeyCapView`, never by switching themselves off), the shell's by
+  `ShellTheme.KeyCapClass` -- shown to begin with, the whole simulator, and at
+  once. What exists to list keys keeps them -- the keyboard map and the guided
+  tutorial -- and every key works either way.
 - **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
   `UiType` -- Micro, Caption, Label, Body, Prompt, Numeral, Lead, Heading, Title, Display --
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
@@ -998,29 +576,16 @@ failure side.
   `UiTypeTests` refuses a size set by number.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
-- **`PointerGate` arbitrates the mouse.** Every component that reads a
-  click asks it first. Ownership is *derived* from what is happening, never
-  claimed and released — a claim that leaks disables input silently, with
-  no error and no way for the player to recover. `WiringController` runs at
-  `DefaultExecutionOrder(-100)` because a press that grabs a port and a
-  press that places a gate are the same press. `PointerGate` itself runs at
-  `-30000` and samples "over the interface" before anything reacts to the
-  frame's input: a tap puts press and release in one frame, the event system
-  handles the whole click, and a button that closes its panel would otherwise
-  leave nothing under the pointer by the time placement asks. **Alt held over
-  the board is an owner too** (`PointerOwner.Probing`): the click picks a wire
-  for the timing diagram and nothing else. Before it, nothing read Alt, and an
-  Alt+click placed the part in hand under the wire or started a wire from a
-  port beside it. Drags and the interface still outrank it.
-
-  **The workbench arbitrates its own pointer** (Part 9b-2b). It is a full-screen
-  panel, so the pointer is over the interface everywhere on it and `PointerGate`'s
-  question cannot tell a button from the waves. `WorkbenchControlSample` asks the
-  narrower one -- is the topmost thing under the pointer a control: a button, the
-  slider, a menu -- and asks it at `-30000` too, for the same tap. **The shell's
+- **The workbench arbitrates its own pointer** (Part 9b-2b). It is a full-screen
+  panel, so the pointer is over the interface everywhere on it, and "over the
+  interface" cannot tell a button from the waves. `WorkbenchControlSample` asks the
+  narrower question -- is the topmost thing under the pointer a control: a button,
+  the slider, a menu -- and asks it at `-30000`, before anything reacts to the
+  frame's input: a tap puts press and release in one frame, and a button that
+  closes its menu would otherwise leave the waves under the pointer by the time
+  the workbench asked. **The shell's
   controls are asked of its panel** (`ShellPanel.OverControlAt`, Part 11a): the
-  event system sees a UI Toolkit panel as one nameless object, and `PointerGate`
-  asks the panel too; and the
+  event system sees a UI Toolkit panel as one nameless object; and the
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
   a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the FILE
@@ -1260,10 +825,10 @@ failure side.
   **A double-click is counted on the game's clock**
   (`Time.timeAsDouble`), which a test drives, so a test's double-click is one
   however loaded the machine; nothing in the game changes the time scale.
-- **`UiText` arbitrates the keyboard, as `PointerGate` does the mouse.** Naming a
-  free-play board put the first text field into a game that binds N, M, Q, E, H,
-  R, Space, Enter and Escape in seventeen places, so typing "Adder" would have
-  muted the sound. Every one of them takes its keyboard from `UiText.Keyboard`,
+- **`UiText` arbitrates the keyboard.** The 4.x game's first text field went
+  into a game that bound N, M, Q, E, H, R, Space, Enter and Escape in seventeen
+  places, so typing "Adder" would have muted the sound; the workbench binds more.
+  Every reader of a key takes its keyboard from `UiText.Keyboard`,
   which is null while a text field is selected -- and each already coped with
   there being no keyboard, so while a name is typed each simply sees none.
   `UiTextTests` refuses a script under View that reads `Keyboard.current`
@@ -1285,8 +850,8 @@ failure side.
   counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame) -- its box,
   find's fields included, not only its text -- and
   while it has the keyboard the canvas stops taking every key. Derived, never set, for the reason pointer ownership is: a "typing"
-  flag that leaked would be a game whose keys do nothing. The field answers
-  Enter and Escape itself while it holds the keys (`NameBoardPanel`), and the
+  flag that leaked would be a game whose keys do nothing. A field answers
+  Enter and Escape itself while it holds the keys, and the
   frame it closes is covered by `UiModal.OpenOrJustClosed` like any panel's.
   **Every shell field draws its own caret** (`ShellTheme.Field`, Part 15g): UI
   Toolkit's took its colour from a deprecated property that a browser build
@@ -1334,9 +899,9 @@ failure side.
   Panels used to borrow the AND gate's squircle, which cannot be sliced -- it
   has no straight edge to repeat and stops short of its own texture -- so
   `Image.Type.Sliced` stretched the whole sprite and every panel faded out
-  towards its rim. Over the board that left the help panel's title and hint on
-  bare grid. Anything shorter than two corners replaces the sprite, as the help
-  badge and the clock's pips do with a circle.
+  towards its rim. Over the 4.x board that left the help panel's title and hint
+  on bare grid. Anything shorter than two corners replaces the sprite with a
+  circle.
 
   **Generated sprites are `HideAndDontSave`, and the cache checks what it hands
   out.** `ProceduralSprites` keeps every sprite it draws in a static dictionary,
@@ -1352,131 +917,53 @@ failure side.
   **`Mathf.SmoothStep` is not the shader smoothstep.** It eases between its
   first two arguments, so `SmoothStep(0.62f, 0.98f, d)` is never 0 or 1, and
   `ProceduralSprites` draws a soft edge through its own `Edge` instead --
-  `SmoothStep(0f, 1f, t)` is the one form that is the same either way. The
-  socket's `Ring` and the `Dot` had it the other way until 2026-10-06: an
-  empty input socket was a faint disc, 0.11 even in its middle, that nobody
-  could see under a wire's end, and every dot's core was 0.65. Fixing them
-  moved every reference shot, and the hollow socket the board always claimed
-  to draw is visible for the first time. `ProceduralSpritesTests` reads the
-  generated textures to hold both.
+  `SmoothStep(0f, 1f, t)` is the one form that is the same either way. The 4.x
+  board's socket `Ring` and its `Dot` had it the other way until 2026-10-06: an
+  empty input socket was a faint disc that nobody could see under a wire's end.
+  `ProceduralSpritesTests` reads the generated textures to hold both.
 
-  **A full-screen panel has the screen to itself**, and its backdrop is still
+  **A full-screen panel has the screen to itself**, and its backdrop is
   `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
-  ones. Before the slicing was fixed this was a workaround for the fade, and it
-  left the screen's edges, where the HUD lives, undimmed. The HUD --
-  banner, run buttons and the controls beside them, parts list, help badge,
-  bits-lost meter --
-  hides while `UiModal.HudVisible` is false, or the panels' titles and help
-  lines print over it. Anything that acts on a key asks
-  `UiModal.OpenOrJustClosed`, so the press that closed one panel cannot open
-  another in the same frame -- nor reach the board: the board's keys asked
-  `AnyOpen`, and the Enter that dismissed the chapter card could also run an
-  empty board, whenever the card happened to update first.
+  ones. The workbench is one, and Settings and the credits are pages of it.
 
-  **Escape is the main menu and M is the level list** -- on the 4.x board, once the
-  4.x game is entered from Settings; on the simulator Escape never leaves the
-  workbench (Part 15a), and on the title screen THE 4.x GAME opened, it goes back
-  to the simulator (Part 15g) -- the menu opened from a board is a pause, and Escape
-  closes it onto the board. They were the other
-  way round until a playtest, 2026-09-26: Escape is the key players reach for
-  to get to a menu. **Escape closes what is on top, and only with nothing on
-  top does it open the main menu**; M opens and closes the list, and only
-  opens it with nothing open, so it never stacks on the menu.
-
-  On a board, what is on top may be the solved card, a first-time hint or
-  the open help panel. None of them is a modal, so the main menu cannot hear
-  about them from `UiModal`: each implements `IHoldsEscape` and joins
-  `UiEscape`, and the menu asks `UiEscape.AnyHolds`. A holder answers true
-  while a press would close it and for the rest of the frame once Escape has
-  -- one press, one thing, whichever updates first. Among themselves **the
-  last one opened takes the press** (`UiEscape.TryTake`), as undo undoes the
-  last thing done: each tells `UiEscape.Opened` as it comes up, and a holder
-  is refused while one opened after it still holds Escape. So the help panel
-  over the solved card is two presses, help first, and which closes first no
-  longer depends on which Unity updates first. `UiEscapeTests` scans the
-  view scripts and refuses one that reads Escape without being a full-screen
-  panel, the main menu, or a member of the list; each of the three was found
-  by one press closing it and opening the menu as well. And **a panel never answers a key on the
-  frame it opened** (`FullScreenPanel.OpenedThisFrame`): the Escape that
-  takes down the tutorial's solved card raises the tutorial's own card in
-  the same frame, and that card closes on Escape; the Escape that leaves
-  Settings reopens the main menu in the same frame, and the menu closes on
-  Escape.
+  **Escape closes what is on top, one thing a press.** What is on top may be a
+  popup, a page, an exercise's card or a first-time hint; each implements
+  `IHoldsEscape` and joins `UiEscape`. A holder answers true while a press would
+  close it and for the rest of the frame once Escape has -- one press, one thing,
+  whichever updates first. Among themselves **the last one opened takes the
+  press** (`UiEscape.TryTake`), as undo undoes the last thing done: each tells
+  `UiEscape.Opened` as it comes up, and a holder is refused while one opened
+  after it still holds Escape. `UiEscapeTests` scans the view scripts and refuses
+  one that reads Escape without being a full-screen panel or a member of the
+  list. And **a panel never answers a key on the frame it opened**
+  (`FullScreenPanel.OpenedThisFrame`): in 4.x the Escape that took down one card
+  raised another in the same frame, which closed on Escape too.
 
   **A full-screen panel derives from `FullScreenPanel`**, which does the four
   things showing one always takes: activate it, bring it to the front, and tell
   `UiModal` when it opens and when it closes -- disabling included. Five panels
   each wrote those out, and they had drifted: the chapter card never brought
   itself to the front. What differs between them goes in `OnShown` and
-  `OnHidden`.
+  `OnHidden`. (Its HUD half, `CoversTheHud` and `UiModal.HudVisible`, was the
+  4.x board's, and is left for Part 16b's tidy.)
 
   **A panel fades in, and takes clicks while it does.** `UiFade` moves a
   `CanvasGroup`'s alpha and nothing else, so a panel is clickable from the first
   frame it is drawn -- one that refused clicks while fading would cover the board
   and swallow them. Hiding is instant: a panel lingering after it was closed is
-  what a stuck one looks like. It counts on `Time.deltaTime`, like the bits-lost
-  punch, so captures stay repeatable, and a capture waits on `UiFade.AnyMoving`
+  what a stuck one looks like. It counts on `Time.deltaTime`, so captures stay repeatable, and a capture waits on `UiFade.AnyMoving`
   rather than on a number of frames.
 
-  **The HUD stays under a panel until the panel has covered it.** "A panel is up"
-  for `UiModal.HudVisible` is `FullScreenPanel.CoversTheHud`: faded in, or at once
-  if the HUD was already hidden when it opened. It used to vanish in the frame the
-  panel opened, while the panel was still nearly transparent, and the board
-  showed bare for a moment. "Already hidden" counts a panel closed earlier in the
-  same frame, because the menu closes itself before opening the level list and
-  the HUD would otherwise flash up between them. A test that asserts the HUD has
-  gone waits for the fade, then one frame for each piece to step aside.
-- **The board is framed in what the interface leaves free.** `CameraFraming
-  .Fit` centres it between the pixels taken on the left and the right, and
-  `CameraFit` reads those from the parts list, free play's setup panel and the
-  open help panel. Fitting to the whole screen put the outermost column under
-  the parts list, where twenty of the thirty levels keep a source
-  (counted 2026-10-05; this said four once) — in Carry the one,
-  source B sat under the AND with "DELAY 0 of 5" across its label. **The
-  top-right corner counts only on a level that keeps a bin in that cell** --
-  five do, and free play -- where a board reaching the badges, their keys or
-  the folded setup tab is framed again with the corner as a right inset, about
-  7% smaller (`UiRows.TopRightCorner`); every other framing is untouched, to
-  the pixel, and a gate the player drops there never reframes the board.
-  **On a level that stocks a block, the top row is framed with a name over
-  it** (`CameraFit.RequiredTop`): a block's name sits above its box as far as
-  a fixture's sits below its own, and on Four at once's 13 by 9 board, fitted
-  by its height, the first full adder's name -- on the top row beside A0,
-  where it naturally goes -- was drawn under the banner. Decided by the level,
-  as the corner is.
-
-  **A level may name its own board, and the level wins.** `board: { columns,
-  rows }` in the file, odd both ways because the grid is centred on the
-  origin, from 9 by 5 up to 13 by 9 (`LevelLoader.MinColumns` to
-  `MaxColumns`, and rows likewise); a file without one gets the scene's 9 by
-  5, and so does every level written before the field. `LevelSession` resizes
-  the grid before it raises `LevelLoaded`, so everything that hears about a
-  level already sees its board, and `PlacementGrid.Resized` is what `CameraFit`
-  and `GridPulse` refit on. **There is no pan and no zoom**: the whole board is
-  always on screen, fitted in width between the interface on either side and
-  in height down to the names under the bottom row -- and with the top row
-  clear of the banner, which a seven-row board fitted by height alone reached
-  under (`CameraFit.TopInset`, the drawn banner rather than its reserved row,
-  so a short goal costs no board). That is why the cap
-  exists -- a bigger board would only mean smaller cells. 13 by 7 is the
-  largest drawn and seen still readable with free play's setup panel open,
-  which is why free play stops there; a level has no panel beside it, and
-  13 by 9 was rendered and chosen for the two 4-bit adders, whose nine
-  sources a column of seven cannot hold (Ahmad's choice, 2026-10-05, over a
-  second column of sources and a row of them along the top).
-  A 9 by 5 board renders exactly as it did before boards could change size,
-  which the reference shots confirmed to the pixel.
 - **Nothing may depend on the order components update in.** Unity leaves it
   undefined for scripts with no execution order. When one component needs a
   fact to be true by the time another can see something, produce that fact in
-  the call that changes the state, not in a second poll. `LevelSession.RunEnded`
-  is how a solve is recorded before any panel can see the pass. It used to be
-  recorded by `ProgressTracker` polling in its own Update, and the win panel
-  could show the previous record.
-- **Sound is procedural, except the main menu's music.** Every cue and every
-  level track is generated by `ProceduralAudio`, exactly as `ProceduralSprites`
-  generates sprites. The main menu plays two recorded tracks by other composers,
-  under free licences: "Dream" by jkjkke (CC0) and "Woodland Fantasy" by Matthew
+  the call that changes the state, not in a second poll -- an event raised in
+  the call, as `ProgressTracker.ProgressReset` is. The 4.x game recorded a solve
+  by polling in an Update, and its win panel could show the previous record.
+- **Sound is procedural, except the menu's music.** Every generated track is made
+  by `ProceduralAudio`, exactly as `ProceduralSprites` generates sprites.
+  Settings and the credits play two recorded tracks by other composers, under
+  free licences: "Dream" by jkjkke (CC0) and "Woodland Fantasy" by Matthew
   Pablo (CC BY 3.0), in `Assets/Audio/Music/`. **Any imported audio needs its
   licence read on its source page before download, an entry in the README's
   Music credits, and -- for CC BY -- the in-game credit**, which is the credits
@@ -1555,57 +1042,39 @@ failure side.
   -60 dB. `MusicTests` looks above 8 kHz, where no note reaches, and holds hiss
   and clicks to -66 and -54 dBFS.
 
-  **The track changes only when the level does**, and `MusicRules` is the one
-  place that decides. Never mid-level. Never on a retry, or the music would
-  change every time a player failed the level they are already stuck on. Never
-  on the first load of a session, or the opening would cross-fade a second after
-  the player first heard it. **Which track comes next is `MusicBag`'s answer**:
-  a shuffle that deals every track once per bag and never the same track twice
-  running, seeded once in `GameAudio.Awake` -- the seed is the only random part,
-  so a test can build the same bag and say which track should be playing.
+  **One generated track a session, and the menu's own under Settings.** The
+  session's track is the first of `MusicBag`'s shuffle, seeded once in
+  `GameAudio.Awake` -- the seed is the only random part. In 4.x the track changed
+  with the level, never mid-level and never on a retry; the simulator has no
+  levels, so it plays one under the workbench all session. Settings and the
+  credits play the recordings: which of the two they open on is drawn from the
+  same seed (`MusicRules.FirstMenuTrack`), and every start after that is the
+  other one -- when a track ends, and every time Settings opens again. Leaving
+  Settings fades back to the workbench's track, the same clip. The recording not
+  playing has its audio unloaded. A track is built a slice at a time
+  (`MusicBake`, bit-identical to building it in one go), at 2 ms a frame, and the
+  music waits for it rather than freezing a frame: building on the spot froze
+  one for 260-550 ms.
 
-  **The main menu has its own music.** Which of its two tracks it opens on is
-  drawn from the same session seed (`MusicRules.FirstMenuTrack`), and every start
-  after that is the other one: when a track ends -- they are not built to loop --
-  and every time the menu is opened again. It used to open on "Dream" every
-  launch and restart it on every visit, so "Woodland Fantasy" was heard only if
-  the menu stayed up for the whole two and a half minutes of Dream. Leaving the
-  menu fades to the level's track, and coming back to the level resumes the same
-  one, because opening the menu is not a level change. The menu track not
-  playing has its audio unloaded.
+  **The recordings play at the generated music's loudness.** They were mastered
+  6 to 11 dB louder, and at the same volume the music dropped away every time a
+  4.x level started. `ProceduralAudio.MusicLoudnessDb` is the set's loudness, which
+  `MusicTests` holds every generated track to within 3 dB of; each recording
+  carries its own loudness beside its path in the scene builder, and `GameAudio`
+  turns it to the set's. That figure is measured, not chosen -- the file's RMS
+  once imported, mixed to mono and normalised -- and `AudioPlayTests` decodes the
+  files to check what Settings then sounds like against the workbench. **A
+  recording added or re-exported needs measuring before it goes in**, or that
+  test fails.
 
-  **The recordings play at the level music's loudness.** They were mastered 6 to
-  11 dB louder than the generated tracks, and at the same volume the music
-  dropped away every time a level started. `ProceduralAudio.MusicLoudnessDb` is
-  the set's loudness, which `MusicTests` holds every generated track to within
-  3 dB of; each menu track carries its own loudness beside its path in the scene
-  builder, and `GameAudio` turns it to the set's. That figure is measured, not
-  chosen -- the file's RMS once imported, mixed to mono and normalised -- and
-  `AudioPlayTests` decodes the files to check what the menu then sounds like
-  against a level. **A recording added or re-exported needs measuring before it
-  goes in**, or that test fails.
-
-  **A track is built before it is needed, and a switch waits for it.**
-  `MusicBake` renders a track a slice at a time, bit-identical to rendering it
-  in one go, and `GameAudio` builds the next one -- the shuffle's `PeekNext`, or
-  the track a change is heading to -- at 2 ms a frame. Building on the spot used
-  to freeze a frame for 260-550 ms; the chord tracks take up to 0.9 s. If a
-  change arrives before its track is built, the music already playing carries on
-  while the build finishes at 8 ms a frame, and the switch comes a moment late.
-
-  **Sound is one switch for the whole game, and music and effects each have
-  one under it. The music is off until switched on** (Part 15a, Ahmad's choice:
-  BitSorter opens as a simulator); a player who had switched it on keeps it on,
-  and the audio tests switch it on before they load. The sound switch -- N, or SOUND in Settings -- silences music
-  and cues alike; it used to silence only the music while the clock carried on
-  ticking, which is the sound somebody reaching for mute most wants gone.
-  `GameAudio.MusicOn` and `EffectsOn` switch one each and are greyed out while
-  the sound is off, still showing what they are set to. This paragraph used to
-  argue that one switch was enough, since every cue says something the screen
-  also says -- true of information, not of taste, and a playtest asked for the
-  two (2026-09-26). The PlayerPrefs key for the sound switch still says music,
-  deliberately: renaming it would reset the preference of anyone who had
-  already turned the sound off.
+  **Sound is one switch, and the music has one under it. The music is off until
+  switched on** (Part 15a, Ahmad's choice: BitSorter opens as a simulator); a
+  player who switched it on keeps it on, and the audio tests switch it on before
+  they load. The sound switch -- N, or SOUND in Settings -- silences everything;
+  `GameAudio.MusicOn` is greyed out while the sound is off, still showing what it
+  is set to. The 4.x game's effects had a switch of their own, and went with it.
+  The PlayerPrefs key for the sound switch still says music, deliberately:
+  renaming it would reset the preference of anyone who had turned the sound off.
 
   **One volume under it, for everything, for the same reason** --
   `GameAudio.Volume`, in Settings, asked for after a playtest on 2026-09-26.
@@ -1616,553 +1085,48 @@ failure side.
   `PointerRelease`), because `Preferences.SetInt` writes the whole of
   PlayerPrefs out each time -- to the browser's storage, in a web build.
 
-  Music is rendered at half the sample rate the cues are. Nothing in it comes
-  near that Nyquist limit, and it halves what each long uncompressed clip costs.
-  **At most three tracks are held at once** -- the one playing, the next one
-  ready, and the buffer the one after is being built in -- about 8.5 MB, in a
-  game whose whole browser build downloads about 14.4 MB (measured 2026-10-15,
-  after the menu music went to 96 kbps in the browser build and the managed
-  code was stripped at Medium; it was 21 before `WebGLBuild` built for size,
-  and 16 at 4.0.0). Every track built used to stay for
-  the session; at twenty-two tracks that would have been over 55 MB. A clip
-  belongs to whoever built it, and `GameAudio` destroys the one it leaves.
-
-  **That figure is `ProceduralAudio.MusicResidentBytes` and `MusicTests`
-  asserts against it.** It used to be the whole set, written in a comment when
-  there were six tracks, and it still said six and 34 MB after three more were
-  added -- the set cost half again as much as the only place that explained the
-  decision claimed. The number of tracks no longer moves it at all.
-- **AND and NAND are the textbook D.** A flat back, straight top and bottom, a
-  round front -- the symbol a student reads in every lecture. They were a rounded
-  square, a shape the game had made up. As wide as tall like every gate, so the
-  aspect-ratio rule below still holds; square back corners and a round front keep
-  it apart from the OR family's pointed front at a glance.
-- **A wire's delay is drawn as buffer triangles**, one per tick past the first,
-  evenly along the wire and pointing the way the bits go, with no cap -- the
-  textbook symbol for a delay with nothing else in it. They replaced
-  cross-hatches (2026-10-01, Ahmad's choice of three drawn side by side). Hollow
-  and never round, so none can be read as a bit in transit; a fill in the
-  casing's colour keeps the bright core from running through them. Full size
-  is about the casing's width, and only a wire too short to hold them apart
-  shrinks them (`EdgeRenderer.MarkSizeFor`). They share the core's sorting
-  order at a nearer depth, never a tie (`ViewLayers.WireMark`).
-- **A register is drawn as what it is, not as another gate.** Its
-  silhouette is a tall box with the clock's notch cut out of the left edge,
-  and it is the only shape taller than it is wide — aspect ratio is the cue
-  that reads before colour does, the same reasoning that made sources a wide
-  capsule. Inside it sits **the bit it is holding**, in that bit's own colour,
-  which swells for a moment when it changes: the state of a machine has to be
-  readable on the board while it runs. The body is the palest, least
-  saturated thing on the board on purpose. Near-white was tried and was
-  wrong the way the stalled-gate glow was wrong — a bright slab with the held
-  bit lost inside it. That was blamed on bloom, which no longer reaches a
-  body; the rule stands for the stall's reason below, that the largest bright
-  area on a node outshouts the small thing inside it that carries the meaning.
-
-  **The capture is a swell, not a brightening**, and that too was first
-  argued from bloom -- "bloom is already brightest at the middle of a node" --
-  which stopped being true once held bits were drawn in plain colour. It
-  stands because a plain colour made brighter can only move towards white,
-  the one direction that erases which value it was, where a change of size
-  keeps the colour and the digit and does not depend on colour at all.
-
-  **The held bit is measured against the body, in `PortGeometry`, and sits
-  right of centre.** It shipped drawn from a size on `NodeRenderer` while the
-  outline lived in `ProceduralSprites`, with nothing comparing the two: at rest
-  the disc covered the notch, and a capture swelled it wider than the box it
-  was inside, so the state changing read as the register bursting. Offset, it
-  leaves the notch showing and puts the state on the Q side.
-
-  **The held bit sits on a solid plate in the register's colour**
-  (`PortGeometry.HeldBitPlateRadius`). Neon Board draws the body as glass,
-  see-through in the middle, so a held 0 was seen against a fraction of the
-  body's colour over its halo and the ground: 2.5:1, measured on the rendered
-  board on 2026-09-28, while the two palette colours promised better than 6:1.
-  On the plate it is 6.2:1. `BoardRenderPlayTests` holds it to 3:1 by rendering
-  the board with the held bit and without it, because a comparison of colours
-  cannot see what a sprite's alpha lets through. The plate does not swell --
-  the bit swells over it -- so it clears the notch and the edges at rest; and
-  where the body is solid already, as in Classic, it is the same colour on the
-  same colour.
-- **A block is drawn as one box over every cell it covers** (`NodeRenderer
-  .SpawnBlock`), and nothing inside it is drawn. A rounded rectangle,
-  nine-sliced so its corners and rim keep a gate's size at any height, in
-  `OtherNode`'s colour -- a block is whatever its maker put in it, and anything
-  without a colour of its own takes that one. Its name sits above it, as far from
-  it as a fixture's name sits below its own; each port's name sits inside beside
-  its port and shrinks to keep clear of the one across the box, because a full
-  adder's cin and cout share a row. Port names take the ground's colour on a
-  solid body (Classic) and the block's on a see-through one (Neon Board). When
-  anything inside is stalled the box breathes amber, as a gate does. Its ports
-  are its anchors' sockets, placed by `PortGeometry`'s block geometry, so a box
-  one cell tall with two ports has them where a gate does.
-
-  **A bit crossing a box's face leaves a ring on the port it crossed**, in its
-  own plain colour, growing to half a gate's width and fading over 0.45
-  seconds, under a tick (`PortPulse`).
-  Nothing inside is drawn, so a bit went into the box and came out ticks later
-  with nothing to say the box was working (asked for after the 4.0.0 browser
-  playtest, 2026-10-05). `BitRenderer` starts, ages and draws it in the one
-  `LateUpdate` that sees the crossing, so no other component's update order
-  can move it a frame, and it is let go at its length, where it is fully
-  transparent.
-
-  **Set a sliced sprite's draw mode before its transform's scale.** Switching a
-  renderer to sliced rewrites the scale to keep the size the sprite had, and the
-  first boxes came out 1.2 times too large -- found only by logging the
-  renderer's `lossyScale` from a render probe (2026-10-05).
-- **A source shows the bit it will send next**, in a disc above its capsule:
-  the register's held bit, the same disc, digit and colour, on the same kind of
-  solid plate in the register's colour, because both are a value sitting on a
-  part rather than one in flight. A stream was a row of bits in a file, and on
-  the board the only way to read it was to run it and watch; a playtester asked
-  for it (2026-09-28). **The plate is what makes a 0 visible**: the first disc
-  was drawn on the bare board, where Neon Board's indigo 0 is about 2:1 against
-  the ground, and `LookBriefTests` holds a 0 to 3:1 against the plate's colour.
-  `SourceNode.NextBit` skips the clock's silent ticks -- what comes
-  next is the next bit, not the next tick -- and disc and plate go once the
-  source has sent its last. Both sit inside the square the source occupies
-  (`PortGeometry.NextBitPlateRadius`), so nothing framed around a node, the
-  banner's clearance of the top row included, has to know they are there.
-- **The clock is on screen when there is one.** `ClockReadout` draws one pip
-  per tick of the period under the banner, lit in turn, and only on levels
-  that have a clock. Every other rule of this chapter is visible on the
-  board; "a vector every third tick, and your loop has that long" is not,
-  until something collides. It sits on `UiRows.Clock`, under the
-  verdict — worked out from the banner instead, it landed on top of the
-  verdict, which is the third time two things in that file each owned half
-  the arithmetic.
-
-  **`ClockDiagram` is the same fact in the course's notation**, behind F2: a
-  square wave over three cycles with a playhead on the current tick, in the
-  bottom-left corner, on clocked levels only. It is the pair to the pips, not
-  a replacement: the pips explain the beat to someone who has never seen a
-  timing diagram. It is not on the tutorial's card -- the card's taller column
-  is at the 14 rows `TheCardsColumns_StayRoughlyBalanced` allows, and F2 is
-  worth nothing before the clocked chapter -- but it is named, quietly, at the
-  end of the clock strip, which is on screen exactly on the levels where it
-  means anything.
-
-  **Diagnostics is the other thing on F2**: the developer numbers in the
-  bottom-right corner. They follow the clock diagram's flag
-  (`ClockDiagram.IsOpen`) instead of reading F2 themselves, one flag per key.
-  **The two F2 readouts take opposite bottom corners**, under the timing
-  diagram's strip, and both hide while `UiModal.HudVisible` is false. They are
-  anchored the same way at the same width, so a shared corner would put them
-  in one rectangle -- which the catch readout and diagnostics already did once.
-
-  **The timing diagram is all of it** (`WaveformPanel`, 4.0.0): a strip along
-  the bottom showing, tick by tick, what each source sent and each bin
-  received, with the clock as its first row on a clocked level. It is worth
-  something on every level, so it has **a badge beside the help badge**, with
-  its key under it as H is under the help's.
-
-  **Its key is F8, the one function key no browser keeps that F2 does not
-  already have.** A key the browser keeps does the browser's thing first, and
-  F3 opened find-in-page in a playtest. F1 is help; F3 find; F4 selects Edge's
-  address bar, and Alt+F4 closes the window, with Alt held to pick wires; F5
-  reloads; F6 moves focus; F7 is caret browsing; F9 is Edge's and Firefox's
-  reader view; F10 to F12 are the menu, fullscreen and the developer tools.
-  `ControlsReferenceTests` scans the sources and refuses any other function
-  key. For its first day the strip was on F2, in place of the clock diagram;
-  Ahmad asked for the two apart (2026-10-01).
-
-  **It is recorded from tick 0 whether it is open or not** (`WaveformRecorder`,
-  fed by `SimulationRunner.Ticked` and `Rebuilt`). Several ticks can run in
-  one frame, and a wire forgets a bit once it is delivered, so nothing here
-  polls: what a wire delivers is read the tick before, from the front bit
-  with one tick left. A cell is a bit or none, plus a collision flag, drawn
-  as an ✕ where a bit arrived into a collision. When two equal bits land
-  together, both get an ✕, because the model does not say which one
-  survived. So a row's crosses are not a count of lost bits.
-
-  **Along the bottom, and the board moves up** (Ahmad's choice over a
-  right-hand column, 2026-09-30):
-  - The strip sits on `UiRows.PanelFloor`. It runs from the parts list to the
-    right margin or to an open right-hand panel.
-  - Its height is fixed per level, with four wire rows reserved, so opening
-    it frames the board once.
-  - `CameraFraming` centres the board in the band between the banner and the
-    strip, at the smallest size that fits it there.
-  - With no strip the framing is exactly as before, camera at y = 0, which
-    the reference shots hold it to.
-  - The solved card moves up above the strip, back over the board's bottom
-    row.
-
-  **It is fitted to the run, and the wheel over it zooms** (`WaveformZoom`,
-  asked for 2026-10-01). A tick was a fixed 24 units, about seventy across,
-  so a half adder's run of eight was a sliver at the left of an empty strip.
-  - Fitted, the strip divides its width by the level's expected run -- its
-    vectors a clock period apart, plus half the board's width for the
-    circuit to carry the last one -- or by the run so far once that is
-    longer, so a run that outlasts the estimate narrows as it goes. Past the
-    recorder's 128 ticks it scrolls. Every level fits at 75 to 160 a tick.
-  - The wheel up zooms in on the tick under the cursor, and down zooms back
-    out as far as the whole run, which is how the fit comes back. Shift with
-    the wheel, or a sideways scroll, moves through time; back at the latest
-    ticks, the view follows the run again.
-  - A fitted tick stops at 160 and a zoomed one at four times that
-    (`WaveformZoom.MaxZoomedTickWidth`). Both used to stop at 160, where a
-    short run is fitted already, so on most short levels the wheel and Shift
-    with it did nothing at all, and a playtester took both for broken
-    (2026-10-05).
-  - A new run keeps the zoom and follows the playhead; a new level starts
-    fitted.
-  - The header names the gestures at its right-hand end
-    (`ControlsReference.TimingZoom`), beside the list and off the card, for
-    the clock diagram's reason. Its numbers thin out from every tick to
-    every eighth as ticks narrow, never closer than 28 units.
-  - The wheel over the strip is free: the strip takes clicks, so a wire's
-    delay is never scrolled through it.
-
-  **A wire the player picks is in the diagram too**: Alt+click on a wire,
-  any time the board is on screen, running or not (`ProbeController`), up to
-  four, W1 to W4, each with a tag on its wire. The tag sits on the side of the
-  wire the delay's number does not. Things to know:
-  - A picked wire's row is what arrived at its far end, where a bit waits or
-    collides. Every wire is recorded from tick 0, so one picked mid-run shows
-    its history.
-  - Picked wires are held by the two ports they join, never by edge id
-    (`WireProbes`). Every edit and RUN rebuilds the graph and renumbers edges.
-  - A deleted wire takes its slot with it, undo does not bring it back, and a
-    new level starts with none.
-  - Slots stay put, so taking W1 out leaves W2 as W2.
-  - A fifth wire is refused with the way out.
-  - **"Probe" is the code's word and never the player's.** A playtester asked
-    what probing a wire meant (2026-09-30). The screen says W1 to W4, and the
-    first empty row says "Alt+click a wire to show its bits here".
-- **Anything shown to the player is derived, never restated.** The truth
-  table comes from the level's own streams and expectations; node labels
-  come from `Node.Name`. A second copy of a fact is a second thing to
-  drift. The table draws a row per **clock cycle**, not per vector: a sink
-  fed through a register takes a bit after the streams have run out, and a
-  table that stopped at the vectors disagreed with the level it described.
-- **The Karnaugh map is the table again, laid out for minimising.**
-  `KarnaughMap` derives it from the same streams and expectations, rows and
-  columns in Gray order. An `x` is either an `x` in the file or a
-  combination no row tests, because to the grader both are free. It is
-  offered only on a combinational level of two to four inputs that tests
-  each combination once, and it draws no groups: the groups are the answer.
-
-  **One map per bin, one tab each** -- TABLE, then S1, S0, COUT. Stacked, three
-  four-input maps are 23 lines, too tall for the room above the run buttons;
-  one map is at most six lines, and `KarnaughMapTests` holds every map to no
-  more lines than its level's table. So the panel is sized to the table, and
-  switching tabs never resizes it. That matters because `CameraFit` frames the
-  board around the open panel. The choice between table and map lasts the
-  session and lives on the panel, not in a static: every Play Mode fixture shares
-  one play session, and a static would carry "map" into every fixture after the
-  one that pressed the tab.
-
-  **The help panel shrinks to fit a short window**, as Settings did until it
-  scrolled (Part 15g), and as the setup panel beside it does at `UiRows.PanelFloor` -- which once only stopped its
-  background there and let its rows run on over the board. A browser tab 1920
-  by 800 gives the canvas about 930 of height, and a sixteen-row table needs all
-  of the room that leaves. `HelpPanelTests` holds every level to fitting unscaled
-  at 1080 and to at least 90% at 930.
+  Music is rendered at half the sample rate a cue was. Nothing in it comes near
+  that Nyquist limit, and it halves what each long uncompressed clip costs. A
+  clip belongs to whoever built it, and `GameAudio` destroys the one it leaves.
+  `ProceduralAudio.MusicResidentBytes` is what the music may hold at once, and
+  `MusicTests` asserts against it; it was written for the 4.x game, which held a
+  next track ready as well, and Part 16b's audio pass measures it again.
+- **Anything shown to the player is derived, never restated.** A truth table is
+  the engine run through every combination (`LogicTable`), a K-map is laid out
+  from it, a state diagram is the engine run from its start (`StateExplorer`),
+  and a controller's reading is checked against its netlist before it is shown
+  (`ControllerCheck`). A second copy of a fact is a second thing to drift.
 
 ## Not yet
 **5.0 was asked for by name** (2026-10-11), and its parts are listed in
-`Docs/architecture-5.md`: building them in order is not building ahead.
-What follows describes 4.x.
-
-Do not build ahead of me. The logic core, the view layer, the level
-format, the thirty levels, the canvas interface, sound, level select,
-saved progress, analytics, the sandbox, board undo, the settings screen and
-the K-map view are all in.
-
-**Thirty: twenty-one combinational, nine sequential.** The
-combinational chapter runs in three stretches: logic and timing (Route the
-bit to Odd one out, with the K-map pair Four corners and Don't care in the
-middle), building blocks (One of four, Pick a lane, Four lanes, Highest wins,
-Which is bigger), and arithmetic (Half adder, Carry the one, Pass it on,
-Carry it further, and the two built from blocks, Four at once and Look
-ahead). **Three of them open on a broken circuit** to repair, each
-placed just after the level that builds the thing it breaks: Out of step
-after The slow lane, Wrong part after Carry the one, and Miscount after the
-two-bit counter. Four lanes, Carry it further and the two 4-bit adders are
-the four on a board bigger than 9 by 5 -- 11 by 7, 13 by 7 and 13 by 9 --
-because a 4:1 mux and a 3-bit adder do not fit a smaller one, and nine
-sources do not fit a column of seven. **The two 4-bit adders' blocks take
-their carry a tick after their other inputs**, as a full adder built for
-speed does, and both goals say so, since nothing on the board shows a
-block's inside. It is also what fits the wire cap: an FA wanting all three
-inputs together makes each column three ticks after the one below, and A3's
-wire ten, past the single digit a wire's label holds. The
-sequential chapter is the register, the rising edge, the toggle, the enabled
-register, the two-bit counter and its broken twin, the 1-0-1 detector, the
-Moore reading of it and the serial adder — orders 100 to 170. Orders are not all tens: each
-level's `order` is authored, and levels inserted between two others take a
-number between theirs (Balance the paths is 25, Don't care 35). Its card
-(`ChapterCard`) is shown once, on the first level whose parts list holds a
-register, and is a milestone in the save beside the tutorial.
-
-**Where the chapters divide is `LevelCatalog.IsSequential`, and it is the
-only place that knows.** The card fires on it and the level list draws its
-two columns from it — `CIRCUITS THAT FORGET` on the left and `CIRCUITS THAT
-REMEMBER` on the right, both constants there, the second being the card's own
-title. Deciding by what a level *stocks* rather than by its number means
-inserting or reordering levels cannot put the boundary in the wrong place, and
-`CurriculumTests` refuses a run whose two chapters interleave — which is
-the only way a level could end up under the wrong heading.
-
-**The whole run shows at once at the reference resolution**, which is why the
-list is two columns, a chapter each. One column held every level until the
-eighteenth, and past that it scrolled: the run is meant to be one picture, both
-chapters and where the player is in them. The tutorial's row and free play's
-sit under the sequential chapter, the shorter one, apart from the run.
-`UiThemeTests` holds the real run, thirty levels since 4.0.0, to fitting at
-1080; a shorter window still scrolls, both columns together.
-
-**The banner reserves three lines for the goal and shrinks to what it
-uses.** A goal is centred and wrapping, so before this it overflowed a
-28-pixel box in both directions and printed over the level title;
-eighteen of the twenty-eight goals were longer than one line when measured
-(2026-09-29), and both 4-bit adders' run to three. `UiTheme.GoalHeight`
-measures one with the label that will draw it, and is what both the
-banner and `UiThemeTests` ask — a level whose goal will not fit is a
-failing test rather than a smudge on the title. Everything below the
-banner is still placed from its full row, `UiRows.Banner`, so a short banner
-leaves a wider gap and never a collision.
-
-**The sandbox is built in code, not authored as JSON.** That is a
-decision, not a shortcut: `LevelLoader.Validate` refuses a level with no
-expectations and refuses a sink nothing grades — both correct for a
-taught level and both fatal to free play — and `CurriculumTests` then
-demands a hint and a goal from every file in `Resources/Levels`. Building
-it in `SandboxLevel` leaves all of those rules exactly as strict as they
-were rather than carving an exception through them. It also means the
-sandbox is not in `LevelCatalog`, so it is not a level in the run: it has no
-order, no completion tick and no personal best, and it is reached by an
-explicit entry in the main menu and by the last row of the level list.
-
-Free play is ungraded via `RunState.Finished`, which is deliberately not
-`Passed` — every "did they win" check names `Passed`, so none of them
-fire. Unlimited is spelled `-1`, the way `RemainingDelay` already spells
-an absent budget, and the trap is that zero and unlimited are opposites
-that both look falsy: test `== 0` for "not stocked", never `<= 0`.
-
-**Its setup is a docked panel, not a modal.** `SandboxPanel` sits down the
-right-hand edge beside the board, collapses to a tab, reads no keys and
-never registers with `UiModal` — a panel that closed on Escape was racing
-the level list for the same press. It is part of the HUD, so it steps
-aside for a full-screen panel, and it reports its width to `CameraFit`,
-which frames the board in what is left. Free play's catch readout lives in
-it now, in the same columns as the streams above, rather than in the
-bottom-right corner.
-
-**A setup edit is `LevelSession.Reconfigure`, never `Adopt`.** Adopt is a
-level *switch*: it empties the undo history, resets the part in hand,
-cancels the run and makes `ProgressTracker` rewrite the save — which is
-what one click on one bit used to cost. Reconfigure swaps the definition
-under the board and raises `LevelChanged`, which is for anything derived
-from the level rather than the board; the help panel's truth table is the
-subscriber that matters, since free play's streams are the player's.
-Entering free play is still an Adopt, and that is what saves and restores.
-
-**Free play keeps up to eight boards, each under a name** (`BoardNames`: 1 to
-24 characters, unique ignoring case). The save file holds them as `freePlay`,
-and free play's key means the open one -- `ProgressTracker` and the setup
-panel still ask for one board by one key, and only the store knows there are
-several. A 3.0.2 file's single board becomes "My board". The setup panel's
-BOARD section steps between them and makes, copies, renames and deletes them;
-DELETE asks as RESET PROGRESS does, and deleting the last board empties it.
-**Switching is an `Adopt` with a step in the middle** (`betweenLevels`): both
-boards save under the same key, so the store's open board has to change after
-the old one is written and before the new one is restored. A second subscriber
-to those events would be racing the tracker for them.
-
-**Free play keeps a library of blocks, and the parts list is what caps it.**
-The setup panel's BLOCKS section, under BOARD, steps through the library and
-has MAKE BLOCK, which turns the open board into a block under a name it asks
-for (`NameBoardPanel`, headed `NAME THIS BLOCK`), and DELETE, which asks
-first as the BOARD section's does. The board is held to `BlockRules` before
-any name is asked for, so one that cannot be a block says why at once. Every
-library block is in free play's parts list without limit, and the list has
-room for `LevelDefinition.MaxPartsRows`, eleven -- so the library holds
-`SandboxLevel.LibraryCapacity`, four, under the seven gates. Eleven fits a
-1920 by 800 browser tab only because a list longer than nine draws every row
-compact, 48 rather than 64 (`GatePaletteView.RowHeightFor`; `PartsListTests`
-holds every length to the window between the menu's key and the clock
-diagram's corner). No level stocks more than nine parts, so none is ever
-drawn compact. Deleting a block takes it out of the parts list and nowhere
-else: free play is `AnyBlock`, and every board keeps its own copy.
-
-**Fixtures have fixed slots and both edge columns are reserved.** Slot *i*
-sits at `halfExtents.y - i`, never re-centred: fixtures used to be centred
-in their column, so adding a source moved every one of them, and wires are
-stored by cell — a circuit wired to A silently became one wired to B.
-`LevelDefinition.ReservedSlots` then keeps the whole of both columns clear
-of gates, because the count is the player's to raise at any moment.
-Wires may still end on a reserved slot, so a fixture counted away leaves
-its wires in the blueprint, built by nothing, and they return with it.
-**Free play is on its own 13 by 7 board** (`SandboxLevel.Board`), the
-largest with its setup panel open beside it, so a column holds seven fixtures
-and there is room for a circuit bigger than most levels'. Boards saved on an older layout are
-brought up a step at a time by `SandboxLevel.Migrate` -- which the store runs
-on every free-play board as it reads the file, so a board opened later in the
-session arrives migrated too -- gated by `SandboxConfig.layout`: 0 centred its fixtures on the 9 by 5 board
-(a missing `layout` reads as zero), 1 gave them fixed slots on it, and 2 is
-those slots on 13 by 7. Every step moves wire ends slot for slot, counted-away
-slots included, so a circuit wired to A is still wired to A.
-
-**Streams are stored at `MaxVectors` and the level takes the first few**,
-so the vector count decides how much is emitted rather than how much
-survives. It used to truncate, so stepping down and back up returned
-zeros where the player's pattern had been.
-
-**`SimulationRunner.Speed` is free play's alone.** It divides the tick
-interval by 1, 2 or 4, and `LevelSession` puts it back to `DefaultSpeed`
-whenever a level is installed, so a fast sandbox cannot follow the player
-into a taught level.
-
-**The guided tutorial is code-built, like the sandbox, and for the same
-reasons.** `LevelLoader.Validate` and `CurriculumTests` stay exactly as strict
-as they were rather than gaining an exception. It reaches the board through
-`LevelSession.Adopt`, so `ProgressTracker` persistence works with neither side
-knowing the other exists.
-
-It is **not in `LevelCatalog`**: it cannot disturb the run whose order
-`CurriculumTests` pins, and it never appears in `AvailableLevels`, so Q and E
-never step into it and the banner counts the levels of the run without it. It is
-reached by a row of the level list, above free play's and apart from the run,
-and once by itself on a save with no `tutorial` milestone -- in the simulator,
-only once the 4.x game has been entered from Settings and its title screen
-left, since the workbench is open until then and the tutorial waits for nothing
-to be.
-
-**Off the run is before its start.** From the tutorial E goes to the first
-level and Q goes nowhere; from free play neither key goes anywhere, because
-free play is not one of the levels. Q used to start at the far end from any
-board off the run, so it went to the last level (then 17) from the tutorial -- one step before
-the first level, where the fix for Q wrapping stopped. A fresh save starts in
-the tutorial, so that was most players' first Q. Found in a playtest,
-2026-09-26.
-
-**The main menu's CONTINUE goes back to the tutorial** when it is running,
-rather than to the furthest unsolved level, which is where it goes from
-everywhere else. Escape opens the menu and is the key a new player presses
-first; leaving the tutorial for level 1 lost it for the session. Unlike the sandbox it
-*is* graded, so the last step ends on the ordinary win panel.
-
-**No step ever blocks input.** Each step is a predicate over board state, so an
-unsatisfied step simply does not advance and every other action stays legal —
-and a step un-finishes by itself when the player deletes what it asked for,
-Ctrl+Z included, with nothing tracking the undo.
-
-**A part on the wrong square is named, and so is the way off.** Not refused --
-nothing is -- but the step's own line would ask for a click the board then
-refuses, so `TutorialScript.CorrectionText` says instead which part is where it
-should not be and to right-click it: the decoy on the NOT's square, the NOT on
-another square, or both. Found in a playtest, 2026-09-25, and the sweep after it
-found the other side: the first step, "the NOT is in hand", is also met by the NOT
-already on its square, because a drag from the parts list places a part without
-selecting it.
-
-**The intro is the one exception, and it holds the whole board.** Until the
-player presses START or SKIP nothing on the board takes an edit; after either,
-everything is theirs. That moment is the only one where a free board costs
-something that cannot be got back: the tutorial stocks one NOT and one AND
-decoy, and the step that wants the NOT wants it on one particular cell, so a
-part spent before it is asked for leaves a step that cannot be met and nothing
-in hand to meet it with. A playtester hit exactly that — the instructions asked
-for a gate that was no longer there.
-
-It is refused with a reason, never ignored: a click that does nothing and says
-nothing teaches that the board is broken, and this is the first board anyone
-sees. And it is **one gate, not three controllers**. Every board edit already
-passes through `LevelRules.CanEdit`, which exists to say the board is not
-editable and to say why, so the tutorial is another reason rather than a new
-mechanism — this paragraph used to argue against gating precisely because it
-imagined reaching into `PlacementController`, `WiringController` and
-`PaletteDragSource`, and it does not.
-
-`TutorialDirector.HoldingTheBoard` is **derived from the phase and never set**,
-which is the rule pointer ownership follows and for the same reason: a hold that
-can be claimed is a hold that can leak, and a leaked hold is a board nobody can
-touch with nothing on screen explaining why. There is no state to leak — no
-director, a destroyed one, or any phase but the intro, and the board is free.
-The tests that matter are the two proving both ways out, not the one proving the
-hold.
-
-**It ends on its own card, after the win panel.** The run settles `Passed`, the
-ordinary solved panel appears, and only once it is dismissed does the card take
-the screen — a full-screen scrim built like `EndingPanel`, the controls in two
-columns from `ControlsReference.Groups`, and one button into the first level.
-Skipping is the small quiet button on the instruction strip and just stops, so
-finishing and skipping do not look alike.
-
-**The solved card leads to the ending card, not past it.** While the tutorial is
-running its steps, the solved card's one button is CONTINUE, which dismisses it so
-the ending card comes up (`TutorialDirector.EndsOnItsCard`, derived from the phase
-like `HoldingTheBoard`). It used to offer PLAY THE FIRST LEVEL, which loaded the
-level and skipped the card. A player who skipped the tutorial and solved its
-board anyway gets no ending card, so for them the solved card still offers the
-first level.
-
-**Leaving it once its run has passed is finishing it, and it offers itself once
-a session.** Recorded as walking away, leaving a solved tutorial left no
-milestone on an empty first-level board -- a first-time player, to the
-auto-start -- and a playtester who had just finished the tutorial was put
-straight back in it. Opening the first level from the list mid-tutorial looped
-the same way.
-
-**Nothing outside the run may count itself as a level.** `LevelCatalog.
-IsOffCatalogue` is the one place that knows free play and the tutorial are not
-levels in the run, and `ProgressTracker` and `GameAnalytics` both ask it. The
-tutorial being *graded* is what made this bite: free play never passes so it
-never reached the code that records a solve, and without the guard the tutorial
-marked itself complete, took a personal best and reported itself to analytics.
-The board rule is narrower still — free play keeps its board on purpose, and only
-the tutorial must always start empty, guarded on save *and* on restore because a
-restored circuit would satisfy every step the instant it loaded.
-
-Traps worth knowing, all found in play mode and none visible from the script.
-`PlacementController` puts the selection on a level's **first** budget row on
-every load, so the tutorial stocks a decoy first — otherwise the "pick a part"
-step is already complete before the player touches anything. The main menu held
-`UiModal` at the 4.x boot, and the workbench holds it at the simulator's, so
-auto-launch waits for a frame with nothing modal up rather than firing on startup. And `WinPanel` never registers with `UiModal`, so the director
-asks the panel itself: the card goes up once `WinPanel.PresentedThisRun` and the
-panel is no longer showing. "Not showing" alone cannot say the panel has had its
-turn -- on the frame a run passes it may simply not have updated yet, and Unity
-makes no promise about which updates first. This used to be the director
-*watching* for the panel, "seen showing, then gone", which depended on that same
-order: a card dismissed in the frame it appeared was never seen, and the ending
-waited for a card that had already come and gone. `PresentedThisRun` is set in
-the call that presents the card, so there is nothing to catch.
+`Docs/architecture-5.md`: building them in order is not building ahead. Do not
+build ahead of me otherwise.
 
 **Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
 frame-rate counter, the look, reduced motion and the shortcut keys, the data
-switch, starting over, the credits, and THE 4.x GAME.** `SettingsPanel` is reached from the
-workbench's SETTINGS, over the simulator (`OpenOver`) -- the 4.x title screen's SETTINGS opens the
-same, over the simulator, since Part 15g, and only the 4.x boot the tests use still opens it over
-the title screen -- and BACK goes back to whichever it was -- a change of look reloads the game and puts Settings back over
-the same one (`OpenAgain`). It plays the menu's music. Sound and Data were rows of the menu
-until it existed.
+switch, starting over, and the credits** (`SettingsPanel`), reached from the
+workbench's SETTINGS; BACK goes back to what it was opened over, and a change of
+look reloads the game and puts Settings back over the same (`OpenAgain`). It
+plays the menu's music. Until Part 16a THE 4.x GAME stood beside CREDITS.
 
 **Settings is a page of the workbench** (Part 15g, `WorkbenchPanel.AddPage`): under
 the header like the start page, in the style's own colours and type, its switches
 and sliders the shell's. It was a uGUI screen in the 4.x board's colours whatever
 the style, and Ahmad asked that it look like the start page and that a change of
-style through it change everything (2026-10-28). In the 4.x boot the tests use, the
-workbench comes up under it, and BACK takes both down to the title screen. The
-class kept its name, its object and its controls' names, so the scene, `GameAudio`,
-`LookSwitch` and the tests reach it as before. **The credits roll on a page of
+style through it change everything (2026-10-28). **The credits roll on a page of
 the workbench too** (`CreditsPanel`), in the style's colours.
 
 **STYLE chooses the look, and the game loads again in it** (`LookSwitch`). A
 palette is never changed in place, so the whole scene is built again under a cover
-of the ground's colour -- the open board written first, since a reload is not a
-quit -- and Settings is put back up where the choice was made; the music starts
-again with the scene. The choice is kept as the look's own number (`Look.Code`),
-never its place in the list, so a look added later cannot move anyone's choice,
-and it is put on before the first scene in a build, **never in the editor**, as
-the frame cap is: every test and reference shot would otherwise be drawn in
-whatever the developer last picked. **REDUCED MOTION leaves out the workbench's
-glow and its gates' flashes** (`ReducedMotion`); a change still travels its wire,
-because where it has got to is what the workbench shows. Read where it is drawn,
-so it needs no reload; the 4.x board keeps its motion until Part 15.
+of the ground's colour, and Settings is put back up where the choice was made; the
+music starts again with the scene. The choice is kept as the look's own number
+(`Look.Code`), never its place in the list, so a look added later cannot move
+anyone's choice, and it is put on before the first scene in a build, **never in
+the editor**, as the frame cap is: every test and reference shot would otherwise
+be drawn in whatever the developer last picked. **REDUCED MOTION leaves out the
+workbench's glow and its gates' flashes** (`ReducedMotion`); a change still
+travels its wire, because where it has got to is what the workbench shows. Read
+where it is drawn, so it needs no reload.
 
 **Its sections are two columns, and fit a 1080 screen** (Part 15h): AUDIO, DISPLAY
 and STYLE on the left; PRIVACY, PROGRESS and ABOUT on the right. One column ran
@@ -2173,7 +1137,7 @@ past the foot, and CREDITS, last, was found only by scrolling (Ahmad, 2026-10-28
 width and height, so a wide window gives less than the 1080 the sections are laid
 out against -- a browser tab 1920 by 800 gives about 930. As a uGUI screen it had
 no scroll, ran under BACK and off the bottom, and was made to shrink to fit
-(`SettingsPanel.FitScale`, which the help panel and free play's setup still use).
+(`SettingsPanel.FitScale`, unused since and left for Part 16b's tidy).
 **Nothing in a shell `ScrollView` may give up its height** (`flexShrink = 0` on
 every row): UI Toolkit shrinks a column's children to the page before it lets
 the page scroll, and the first build of the page squashed every line into the
@@ -2193,7 +1157,7 @@ License; Icarus Verilog under CHECKED AGAINST, the simulator the engine is held
 to; and a dedication to every student of Digital Systems and Computer Structure -- the
 course's name in full, as Ahmad asked (2026-10-29) -- naming no university.
 No line for the assistant that helped write it. **The roll is the only place the menu's music is
-credited**: a line along the foot of the main menu credited it too, until a
+credited**: a line along the foot of the 4.x main menu credited it too, until a
 playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list
 of credits be at least as prominent as the others, so each track's title is set
 as a name, the same kind of line as the maker's, under its own heading --
@@ -2235,16 +1199,15 @@ off until asked for, so what the cap does can be seen -- asked for with it,
 build has too** (`SettingsPanel.DisplaySwitches`): a browser keeps fullscreen and
 the frame rate to itself, but what the frame rate is is worth seeing anywhere
 (asked for after the 4.0.0 browser playtest, 2026-10-05). It sits in the margin every top-right
-control keeps, so it is above BACK, CLOSE and the help badge rather than on
-them at any window size, and over every panel on a canvas of its own sorted
-above the interface's; it takes no clicks. It counts half a second of real
-time, and hands TextMeshPro its digits in a reused buffer (`SetCharArray`)
-rather than formatting a string, because unlike the rest of the HUD it redraws
-by design. `HudAllocationPlayTests` holds the counting frames to no allocation
-and a redraw to two: in the editor, and only there, `SetCharArray` also keeps a
-string copy of the text for the inspector, a char array and a string -- read in
-TextMeshPro's own source after the first version of that test, which asked for
-none, failed on exactly those.
+control keeps, so it is above BACK rather than on it at any window size, and over
+every panel on a canvas of its own sorted above the interface's; it takes no
+clicks. It counts half a second of real time, and hands TextMeshPro its digits in
+a reused buffer (`SetCharArray`) rather than formatting a string, because it
+redraws by design. `FrameRateCounterPlayTests` holds the counting frames to no
+allocation and a redraw to two: in the editor, and only there, `SetCharArray` also
+keeps a string copy of the text for the inspector, a char array and a string --
+read in TextMeshPro's own source after the first version of that test, which asked
+for none, failed on exactly those.
 
 **A reset asks first, and a double-click cannot answer.** RESET PROGRESS puts
 its question where the button was, exactly the button's height, with CANCEL
@@ -2253,59 +1216,40 @@ question before the screen.
 
 **A reset starts the exercises over and keeps the circuits** (Part 15g,
 Ahmad's choice, 2026-10-28; it emptied the whole save). It forgets every solved
-mark, every answer kept under an exercise's id and the 4.x board of its level,
-which the exercise would otherwise migrate back, the bests, the tutorial and
-every hint seen (`ProgressStore.ForgetTheExercises`); MY CIRCUIT, every named
-circuit, the free-play boards and their blocks stay, and Settings says which is
-which. **It switches level first and forgets after**: `ProgressTracker.ResetProgress`
-loads the first level, then clears the store, so whatever is written on the way
-out of the old level -- its board, or the tutorial recording itself finished --
-goes with the rest. Boards are neither saved nor restored while it runs, or the
-first level would come back with its old circuit. Sound and data live in
+mark, every answer kept under an exercise's id, the bests, the milestones and
+every hint seen (`ProgressStore.ForgetTheExercises`); MY CIRCUIT and every named
+circuit stay, and Settings says which is which. Sound and data live in
 PlayerPrefs, not the save, and stay as they were.
 
-**A forgotten exercise is not a new player.** The tutorial remembers it has run
-this session, and neither it nor the workbench reads the save again.
-`ProgressTracker.ProgressReset` is for anything that keeps its own copy of
-something the save said: the tutorial offers itself again, and the workbench lets
-an exercise open go -- MY CIRCUIT in its place at once, under Settings, and the
-start page when Settings comes down. Left on the stage until then, the
-exercise's circuit was MY CIRCUIT's to keep (the 15g-2 review). Free play keeps its setup, which the save
-still holds.
+**A forgotten exercise is not a new student.** The workbench does not read the
+save again, so `ProgressTracker.ProgressReset` is for anything that keeps its own
+copy of something the save said: the workbench lets an exercise open go -- MY
+CIRCUIT in its place at once, under Settings, and the start page when Settings
+comes down. Left on the stage until then, the exercise's circuit was MY CIRCUIT's
+to keep (the 15g-2 review).
 
 **Analytics is the one thing that sends data anywhere.** `GameAnalytics`
-reports exactly two events, `levelStarted` and `levelSolved`, each
-carrying the level's file name, to answer one question: which level
-people stop at. **An exercise is reported as its level is** (Part 15d):
-opened and solved on the workbench, under its id, which the thirty share with
-their levels -- the same two events and the same parameter, so a level and its
-exercise count as one place, once a session between them. The README's "What it collects" section is the canonical
-list — do not restate it elsewhere. Nothing about the player's circuit,
-their bests or their progress file is ever sent, and a reporting failure
-must never interrupt play. Adding a third event, or a new parameter, is a
-change to what players were told is collected, so ask first.
+reports exactly two events, `levelStarted` and `levelSolved`, each carrying an
+exercise's id under the parameter the 4.x game sent a level's file name in, to
+answer one question: which exercise people stop at. The thirty share their ids
+with the 4.x levels, so a level and its exercise count as one place. The
+README's "What it collects" section is the canonical list — do not restate it
+elsewhere. Nothing about the student's circuit, their bests or their progress
+file is ever sent, and a reporting failure must never interrupt them. Adding a
+third event, or a new parameter, is a change to what players were told is
+collected, so ask first.
 
-**Each event fires once per level per session.** Re-entering a level from the
-level list refires `LevelLoaded`, so counting every load meant a player who
-reopened a hard level four times before giving up read as four people quitting
-— and levels get reopened in proportion to how hard they are, so the apparent
-drop-off was inflated most at exactly the levels this measures. The old number
-was not merely noisy: `LevelLoaded` fires on opening a level but not on RESET,
-so it counted neither attempts nor players, only which key somebody retried
-with. Solves are deduplicated too, or a level solved twice in one session would
-report more solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
-`GameAnalytics` keeps the set, cleared on boot and never persisted. It listens to
-every scene loaded, not only the first: a change of look loads the game again, and
-until the #84 review nothing was reported after one.
-
-**A level the simulator loads under the workbench has not started** (Part 15a).
-The game loads one at launch, out of sight, and reporting it would count a start
-for every launch of the simulator. It is reported when the 4.x game first comes on
-screen (`AppLaunch.GameShown`), as a level under the 4.x title screen always was.
+**Each event fires once per exercise per session.** Counting every open meant a
+student who reopened a hard one four times before giving up read as four people
+quitting -- and exercises get reopened in proportion to how hard they are, so
+the apparent drop-off was inflated most at exactly the ones this measures.
+Solves are deduplicated too, or one solved twice in a session would report more
+solves than starts. `AnalyticsRules.ShouldReport` takes the answer;
+`GameAnalytics` keeps the set, cleared on boot and never persisted.
 
 **Reporting is on by default and the player can turn it off**, from
-Settings -- the workbench's SETTINGS, or the 4.x main menu's -- the PRIVACY section's DATA switch. It was a row
-of the main menu itself until Settings existed; one click down, it gained a
+Settings, the PRIVACY section's DATA switch. It was a row
+of the 4.x main menu itself until Settings existed; one click down, it gained a
 line saying what it switches, which the row never had room for. Consent goes through `EndUserConsent`, not the
 deprecated `StartDataCollection`; the two flows cannot be mixed, so no
 call to the old one may come back. The consent framework does not persist
@@ -2313,99 +1257,13 @@ anything, so the answer lives in `PlayerPrefs` beside the mute setting and
 is re-applied every launch. Removing the off switch, or defaulting it to
 off, is a decision about what players were promised — ask first.
 
-**The line is ranking, not measurement.** A number describing the player's
-own circuit is fine, including one kept between sessions: gate count and
-latency on the win panel, and the personal best beside each level, are
-facts about what they built measured against what they built last time.
-Nobody else's number appears anywhere.
+**The line is ranking, not measurement.** A number describing the student's
+own circuit is fine, including one kept between sessions: its gate count, its
+timing, the best kept beside an exercise, are facts about what they built
+measured against what they built last time. Nobody else's number appears
+anywhere.
 
 **Still off limits until I ask by name:** anything that ranks a player
 against other people or against an authored ideal — a star rating, a par
 score, a leaderboard, a percentile, a grade. Those turn "here is your
 circuit" into "here is how you compare", which is a different game.
-
-Whatever gets measured, **throughput must never be one of them** — see the
-Syllabus scope note above for why it has only two states.
-
-## Level ideas
-Design notes only — not implementation work, and not a backlog. Nothing
-here gets built, scaffolded or prepared for until I explicitly ask for it
-by name. Treat this section as a place to park ideas, not as a to-do list.
-
-- **Flip-flops and FSMs. Shipped**, as the nine sequential levels.
-  `Docs/level-roadmap.md` listed three blockers — the register, a way to
-  author its initial state, and a palette slot — and a fourth one nobody
-  had noticed: a loop cannot keep up with a vector every tick. The clock
-  answers the fourth, and the second dissolved rather than being built,
-  because every register starting at 0 needs no authoring at all.
-
-  What is left of that chapter's ideas: level- versus edge-triggering and
-  clock skew stay out (see Syllabus scope). Carry-lookahead, which this
-  line once said was waiting for a wider board, waited for blocks as well
-  and **shipped** as `look-ahead`.
-
-- **NAND-only puzzle.** NAND and NOR are each functionally complete —
-  every other gate, including NOT, can be built from either one alone.
-  A level that hands the player nothing but NANDs and asks for XOR.
-
-  **Shipped** as `nothing-but-nand.json`, after the K-map levels. This entry went on reading
-  as an unbuilt idea after the level existed.
-
-- **Unbalanced path delays.** Feeding a second-stage gate along paths of
-  different total delay causes corruption, not wrong answers. The early
-  bit latches in its port, and the next arrival collides with it. This is
-  the core difficulty of the adder chapters, and the reason CorruptedCount
-  exists as a game mechanic rather than just a diagnostic.
-
-  **Shipped, and the timing-hazard chapter is unblocked.** Of the two
-  candidate fixes once listed here — a locked `wires` array in the level
-  JSON, or player-chosen wire delays — the second is the one that landed
-  (2925472). Delay is a resource the player manages: wires carry a delay
-  scrolled on the wire itself, `LevelRules.CanSetDelay` polices the floor
-  of 1, and a level bounds it with `maxWireDelay` and `delayBudget`.
-  `balance-the-paths.json` is the first level built on it.
-
-  The road not taken is built now, in a better form than a locked array: a
-  level can open on a circuit (`start`, 4.0.0), so it can hand the player a
-  pre-broken one to repair -- an unbalanced path included. The wires stay
-  the player's all the same: a starting circuit is edited like any board,
-  and START OVER puts it back.
-
-- **A waiting bit needs a stronger visual. Shipped.** This entry used to
-  claim a held bit rendered as a small square inside the node. It never
-  did: `BitRenderer` released the sprite the moment the bit left transit
-  and nothing drew it again, so a waiting bit was drawn as *nothing* and a
-  stalled board showed gates idling for no stated reason.
-
-  Now an empty input socket is a hollow ring and a full one is a filled
-  disc in that bit's own colour, carrying the glow it had on the wire. A
-  stalled gate drains and dims with a slow amber breath — **darker, not
-  brighter**: the first attempt raised its glow and the gate became one
-  bright blob with the sockets lost inside it, which is backwards, because
-  the sockets are what carry the meaning. That was put down to bloom, and
-  re-rendered on 2026-09-24 with bloom off the brighter gate was still the
-  blob: the halo and the body are the two largest things on a gate and the
-  held bit the smallest, so dimming the first two is the only way to let the
-  held bit stand out against them. A collision
-  one tick away throbs on the port, the wire and the bit at once, amber
-  when only the arrival dies and red when the waiting bit dies too -- and
-  then the waiting bit is **crossed out**, because amber and red are the
-  pair a red-green colour-blind player cannot separate. The cross says the
-  one thing that differs, on the bit it is about, by shape. Not a faster
-  throb: the warning already pulses above three times a second.
-
-  **The aftermath flash fires once per collision, and every collision gets
-  one.** Both halves of that were wrong. It was armed from "the port's last
-  collision was the tick just executed", which is a standing fact rather
-  than an event — so the view re-armed it on every frame, invisibly while
-  the clock moved and permanently once it stopped. A run that settled on a
-  collision tick left the port swollen and red until the next rebuild, and
-  never repainted with what it was holding, because a port mid-flash is
-  skipped by the resting pass. And it keyed on the poison flag, which only
-  a mixed-value collision sets, so a matching-value collision scorched the
-  board and moved the meter while the port itself did nothing.
-  `CollisionWatch` owns the decision now and is reachable from Edit Mode;
-  the renderer keeps the countdown.
-
-  Still worth playtesting with someone unfamiliar with the game — that was
-  the original point of this entry and no amount of design settles it.

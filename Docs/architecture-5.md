@@ -774,6 +774,11 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   document through `JsonUtility` and back; the 3.0.2 save and a 4.0.0 one (named free-play boards, a block
   from the library, four at once's blocks) migrated whole, written as format 5 and read back, the 4.x
   keys intact (`WholeSaveMigrationTests`, `Release400MigrationTests`).
+- **Since Part 16a nothing migrates** (Ahmad, 2026-11-02: "idc about the old saves tbh this is like a new phase in the
+  project"). `SaveMigration`, the 4.x keys -- `boards`, `freePlay`, `blocks` -- and the tests above went with the 4.x
+  game; an older file's solves and hints still read, being the same names. `Migrator` and `LegacyCircuit` stay in the
+  Board layer for now, with their tests: `Migrator.NameFrom` names every exercise's and circuit's module, and the rest
+  is left for Part 16b's tidy.
 
 ---
 
@@ -2650,7 +2655,7 @@ thing that was open, and with nothing, on a start page like a good IDE's.
   backdrop is solid there, where it is see-through over the 4.x board: the board under the workbench is the 4.x
   game's. A change of look reloads the game and puts Settings back over the same thing (`OpenAgain`). (Part 15g: Settings
   is a page of the workbench, in the style's colours, and has no backdrop of its own; see "As built in Part 15g-2".)
-- **The 4.x game is one quiet row down**, until Part 16 deletes it: THE 4.x GAME beside CREDITS in Settings opens its
+- **The 4.x game is one quiet row down**, until Part 16 deletes it (Part 16a did): THE 4.x GAME beside CREDITS in Settings opens its
   title screen, whose WORKBENCH row became SIMULATOR -- and in Part 15g its first and largest button, BACK TO THE
   SIMULATOR, with SIMULATOR beside MENU on a 4.x board. Nothing of 4.x is on a first screen (Ahmad: "not deep but not
   plainly").
@@ -4348,6 +4353,26 @@ order now, and decide again after Part 16's sweep).
   graded both ways, its answer and the circuit it opens on, and none differs.
 - **Not time 0, so not here:** a port costs BitSorter a delta, so processes woken through one run a delta after the
   parent's, where ModelSim joins a port's two sides into one net. Three of the 42 designs show it; no corpus design races on it.
+
+**As built in Part 16a: the 4.x game deleted** (Ahmad, 2026-11-02: "go ahead do part 16a", and "be careful not to delete
+something needed").
+
+- **Gone:** the token engine (`Assets/Scripts/LogicCore`, its asmdef, its tests and its two CI projects); the 4.x board
+  and HUD and everything that drew them; the thirty level files (`Assets/Resources/Levels`), the level catalog, loader
+  and session; free play and its block library; the 4.x tutorial, first-time hints, help panel and level list; the main
+  menu, THE 4.x GAME in Settings and `AppLaunch`'s two boots; the cues and EFFECTS; the save's 4.x keys and their
+  migration (section 8); 24 reference shots of the 4.x game and its Edit and Play Mode tests.
+- **Kept, though the 4.x game made them:** the four looks and their palettes, the menu's music (under Settings and the
+  credits), `ProceduralSprites`' panels, `KeyCapView` (the workbench's uGUI key caps), `FrameRecorder` (the README's
+  GIFs), and the exercise ids, which are the levels' names. Members only the 4.x game used -- `UiTheme`'s HUD sizes,
+  `ProceduralSprites`' gate shapes, `UiModal.HudVisible`, `SettingsPanel.FitScale`, most of `Migrator` -- are left for
+  Part 16b's tidy, where each is measured as it goes.
+- **The scene** is the camera, the canvas and one object holding the save, Settings, the workbench, its fonts, the
+  credits, the frame-rate counter and the music (`HalfAdderDemoSceneBuilder`).
+- **The tests boot as the game does.** `TestScene.LoadSimulator` is the launch; `TestScene.Load` is the launch and then
+  the reference circuit, which is where the 4.x title screen's button used to open the workbench on a fresh save, so
+  every workbench fixture kept its starting point. The audio tests hear Settings' music where they heard the main
+  menu's; the Settings tests open it from the header and hold a reset to the exercises.
 
 ---
 
