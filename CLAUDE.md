@@ -264,6 +264,20 @@ failure side.
   fork's branches (Part L5) start straight after the process that forks
   them, in the order written, once it waits; Icarus 12 starts them last
   first, and the standard leaves it open (`Docs/oracle-notes.md`).
+  **Where that order decides a value, the run says so** (Part 15i-3): a
+  process woken by an edge -- 0 to 1 or 1 to 0, never out of x -- that reads,
+  on its way to its next wait, a signal another process changed by a blocking
+  write in the same region of the same moment gets one TRANSCRIPT warning for
+  the pair. Each change carries the process it came from through drivers of no
+  delay and through logic it woke (`Simulator`'s origins); never a nonblocking
+  write, which lands in the NBA region; never two processes a chain of causes
+  orders -- the writer made the edge, however far back, the reader set the
+  writer going, or one forked the other; never a change from several processes
+  at once. It is by signal, not by bit: a write to `data[7]` is a race with a
+  read of `data[0]`. No sample, exercise answer or behavioural, system or
+  processor corpus testbench races (`RaceFreeRunsTests`, and the corpus as the
+  oracle runs it): the traffic light's testbench did, and drives its button
+  with `<=` now.
 
 - **SourceNode plays a scripted sequence from tick 0**, then goes silent.
   It needs no special casing: a source has no inputs, so the

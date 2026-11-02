@@ -403,6 +403,14 @@ Each slip BitSorter answers in a student's words, Icarus 12 refuses too -- but o
 
 The standard has the procedural `assign`, so BitSorter is the one short here; it is said in its answer.
 
+## Races (Part 15i-3, 2026-11-02)
+
+The traffic light's testbench changed `walk` with `=` straight after `@(posedge clk)`, so the state's flip-flop and the
+testbench woke on one edge, and the state it took depended on which ran first. BitSorter runs a design's processes in a
+fixed order -- an instance's before its parent's -- and Icarus 12 happened to agree on every signal, so the oracle
+passed it. The race warning found it; it drives `walk` with `<=` now, which every simulator settles the same way, and
+every corpus testbench is held to no race as the oracle runs it.
+
 ## ModelSim (Part 15i-4, ModelSim ASE 2020.1, 2026-11-02)
 
 Every corpus testbench runs under ModelSim as well as Icarus (`BehaviouralOracleTests`), compared on every signal and

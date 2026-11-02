@@ -248,6 +248,66 @@ namespace BitSorter.Sim
         private readonly int[] _signalStamp;
         private readonly int[] _driverStamp;
         private int _stamp;
+
+        // The race warning (Part 15i-3): within one region of one moment, each change of value carries the process it came
+        // from, through drivers of no delay; a process an edge wakes is told of a change it reads, from a process neither it
+        // nor the one that made the edge, by a blocking write. Never a nonblocking write: that lands in the NBA region,
+        // after every process the edge woke has run.
+
+        private const int NoOrigin = -1, SeveralOrigins = -2;
+
+        /// <summary>The region under way: moved on at every moment, and before its inactive and its NBA regions.</summary>
+        private long _region;
+
+        /// <summary>Per signal: the process its change in <see cref="_region"/> came from, and the signal that process wrote.</summary>
+        private readonly int[] _origin, _written0;
+        private readonly long[] _originRegion;
+
+        /// <summary>Per driver: where what it read this region came from.</summary>
+        private readonly int[] _driverOrigin, _driverWritten;
+        private readonly long[] _driverOriginRegion;
+
+        /// <summary>Per signal: where a driver's update put on it this region came from, taken if its value changes.</summary>
+        private readonly int[] _arriving, _arrivingWritten;
+        private readonly long[] _arrivingRegion;
+
+        /// <summary>Per process: whether a change woke it this region, by an edge or not, its signal and where it came from.</summary>
+        private readonly long[] _wokenRegion;
+        private readonly bool[] _wokenByEdge;
+        private readonly int[] _wokenOrigin;
+        private readonly int[] _wokenSignal;
+
+        /// <summary>Where the running process's blocking writes come from: itself, or what woke it by a change of value.</summary>
+        private int _writer = NoOrigin;
+
+        /// <summary>
+        /// The signal its origin wrote, for the warning to name: what the running process writes, or -- woken by a change, as
+        /// an always_comb is -- what the process the change came from wrote.
+        /// </summary>
+        private int _writerWrote = -1;
+
+        /// <summary>Per process woken by a change: the signal the change's origin wrote.</summary>
+        private readonly int[] _wokenWrote;
+
+        /// <summary>Each process an edge woke this region: where the edge came from, its signal, and where it took up.</summary>
+        private readonly List<(int Process, int Origin, int Clock, int Pc)> _sampled = new List<(int, int, int, int)>();
+
+        /// <summary>
+        /// What a process reads from where it takes up to where it next waits -- by its process and that counter -- the
+        /// reads one wake makes, never its whole code's (the 15i-3 review: a check a moment after the edge was taken for one
+        /// on it). Made when first needed.
+        /// </summary>
+        private readonly Dictionary<long, HashSet<int>> _readsFrom = new Dictionary<long, HashSet<int>>();
+
+        /// <summary>Per process: what woke it this region -- the change's origin -- kept for the race's chain of causes.</summary>
+        private readonly int[] _wakerOf;
+        private readonly long[] _wakerRegion;
+
+        /// <summary>The signals given an origin this region, for the race check to walk rather than every read.</summary>
+        private readonly List<int> _markedInRegion = new List<int>();
+
+        /// <summary>Each race said, by its pair of processes: once a run.</summary>
+        private readonly HashSet<long> _racesSaid = new HashSet<long>();
         private int _evalEpoch = 1;
         private readonly List<int> _dirty = new List<int>();
         private readonly List<int> _changed = new List<int>();
@@ -298,6 +358,22 @@ namespace BitSorter.Sim
             _values = new LogicVec[signals];
             _written = new LogicVec[signals];
             _signalStamp = new int[signals];
+            _origin = new int[signals];
+            _written0 = new int[signals];
+            _originRegion = new long[signals];
+            _arriving = new int[signals];
+            _arrivingWritten = new int[signals];
+            _arrivingRegion = new long[signals];
+            _driverOrigin = new int[drivers];
+            _driverWritten = new int[drivers];
+            _driverOriginRegion = new long[drivers];
+            _wokenRegion = new long[processes];
+            _wokenByEdge = new bool[processes];
+            _wokenOrigin = new int[processes];
+            _wokenSignal = new int[processes];
+            _wokenWrote = new int[processes];
+            _wakerOf = new int[processes];
+            _wakerRegion = new long[processes];
             _drivers = new DriverInfo[drivers];
             _output = new LogicVec[drivers];
             _pendingToken = new long[drivers];
@@ -527,6 +603,9 @@ namespace BitSorter.Sim
 
             _now = time;
             long events = 0;
+            _region++;
+            _sampled.Clear();
+            _markedInRegion.Clear();
 
             if (_time >= 0)
                 _values[_time] = _written[_time] = LogicVec.FromUInt64((ulong)time, 64);
@@ -560,16 +639,21 @@ namespace BitSorter.Sim
                     }
                     else if (_inactive.Count > 0)
                     {
+                        CheckRaces();
+                        _region++;
                         _runnable.AddRange(_inactive);
                         _inactive.Clear();
                     }
                     else if (_nba.Count > 0)
                     {
+                        CheckRaces();
+                        _region++;
                         _current.AddRange(_nba);
                         _nba.Clear();
                     }
                     else
                     {
+                        CheckRaces();
                         break;
                     }
                 }
@@ -622,7 +706,10 @@ namespace BitSorter.Sim
                         _history.EndTransition(_pendingTransition[d], TransitionOutcome.Applied, time);
                     _pendingTransition[d] = -1;
 
-                    MarkDirty(_drivers[d].Target.Index);
+                    int driven = _drivers[d].Target.Index;
+                    if (_driverOriginRegion[d] == _region)
+                        Arrive(driven, _driverOrigin[d], _driverWritten[d]);
+                    MarkDirty(driven);
                 }
 
                 _current.Clear();
@@ -637,6 +724,8 @@ namespace BitSorter.Sim
                     _values[s] = value;
                     if (_options.RecordChanges && !_design.Signals[s].Local)
                         _history.RecordChange(s, time, delta, value);
+                    if (_arrivingRegion[s] == _region)
+                        MarkOrigin(s, _arriving[s], _arrivingWritten[s]);
 
                     _changed.Add(s);
                 }
@@ -971,8 +1060,13 @@ namespace BitSorter.Sim
         /// <summary>A signal changed: its readers evaluate next, and any process waiting on it may wake.</summary>
         private void Changed(int s)
         {
+            int origin = _originRegion[s] == _region ? _origin[s] : NoOrigin;
             foreach (int reader in _fanout[s])
+            {
                 MarkToEvaluate(reader);
+                if (origin != NoOrigin)
+                    DriverReads(reader, origin, _written0[s]);
+            }
 
             // A force follows its expression, as a continuous assignment would, in the next delta.
             if (_forceReaders != null && _forceReaders[s] != null)
@@ -986,10 +1080,22 @@ namespace BitSorter.Sim
 
             foreach (Waiter w in _waitersOf[s])
             {
-                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc))
+                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, out bool edge, out int by))
                 {
                     _waitingAt[w.Process] = -1;
                     _runnable.Add(w.Process);
+
+                    // Woken by what fired, which need not be the change under way: a clock falling as a reset rises, the
+                    // two in one delta, wakes @(posedge clk, posedge rst) by the reset (the 15i-3 review's exercise).
+                    int trigger = by >= 0 ? by : s;
+                    int from = _originRegion[trigger] == _region ? _origin[trigger] : NoOrigin;
+                    _wokenRegion[w.Process] = _region;
+                    _wokenByEdge[w.Process] = edge;
+                    _wokenOrigin[w.Process] = from;
+                    _wokenSignal[w.Process] = trigger;
+                    _wakerOf[w.Process] = from;
+                    _wakerRegion[w.Process] = _region;
+                    _wokenWrote[w.Process] = from != NoOrigin ? _written0[trigger] : -1;
                 }
             }
         }
@@ -1000,6 +1106,27 @@ namespace BitSorter.Sim
 
         /// <summary>Runs a process from its counter until it waits, ends, or finishes the run.</summary>
         private void RunProcess(int p)
+        {
+            // Its blocking writes come from itself -- woken by time, or by an edge, alongside whatever else the edge woke --
+            // or, woken by a change of value as logic is, from where that change came from.
+            bool woken = _wokenRegion[p] == _region;
+            _writer = !woken || _wokenByEdge[p] ? p : _wokenOrigin[p];
+            _writerWrote = !woken || _wokenByEdge[p] ? -1 : _wokenWrote[p];
+            if (woken && _wokenByEdge[p])
+                _sampled.Add((p, _wokenOrigin[p], _wokenSignal[p], _pc[p]));
+            _wokenRegion[p] = 0;
+            try
+            {
+                RunSteps(p);
+            }
+            finally
+            {
+                _writer = NoOrigin;
+                _writerWrote = -1;
+            }
+        }
+
+        private void RunSteps(int p)
         {
             Instruction[] code = _processes[p].Code;
             int pc = _pc[p];
@@ -1257,6 +1384,7 @@ namespace BitSorter.Sim
         /// <summary>Takes a process out of whatever it was waiting for, and out of the lists that would run it.</summary>
         private void Cancel(int p)
         {
+            _wokenRegion[p] = 0;   // a wake it never ran on is no wake (the 15i-3 review)
             _waitingAt[p] = -1;
             _joinPc[p] = -1;
             _generation[p]++;
@@ -1611,9 +1739,16 @@ namespace BitSorter.Sim
         }
 
         /// <summary>Whether a change wakes a process waiting at <paramref name="pc"/>; it notes the new values either way.</summary>
-        private bool Fired(int p, int pc)
+        /// <param name="edge">
+        /// Whether what woke it is an edge from a known value to a known one -- a clock's, as a flip-flop waits on -- for the
+        /// race warning. An edge out of x, as a clock's first at time 0, is no clock's edge yet.
+        /// </param>
+        /// <param name="by">The signal of the item that fired, for the race warning; -1 when it is no one signal.</param>
+        private bool Fired(int p, int pc, out bool edge, out int by)
         {
             ref Instruction ins = ref _processes[p].Code[pc];
+            edge = false;
+            by = -1;
 
             if (ins.Op == OpCode.WaitUntil)
                 return LogicVec.Truth(ins.Value.Evaluate(_values)) == Logic4.One;
@@ -1626,7 +1761,11 @@ namespace BitSorter.Sim
             {
                 LogicVec now = items[i].Value.Evaluate(_values);
                 if (!fired && Matching.Fires(items[i].Edge, last[i], now))
+                {
                     fired = true;
+                    edge = items[i].Edge != EdgeKind.Any && !last[i].IsEmpty && last[i].IsKnown && now.IsKnown;
+                    by = items[i].Signal;
+                }
                 last[i] = now;
             }
 
@@ -1701,8 +1840,185 @@ namespace BitSorter.Sim
             _values[s] = next;
             if (_options.RecordChanges && !info.Local)
                 _history.RecordChange(s, _now, _delta, next);
+            if (_writer != NoOrigin)
+                MarkOrigin(s, _writer, _writerWrote >= 0 ? _writerWrote : s);
 
             Changed(s);
+        }
+
+        // -----------------------------------------------------------------
+        // The race warning (Part 15i-3)
+        // -----------------------------------------------------------------
+
+        private void MarkOrigin(int s, int origin, int written)
+        {
+            if (_originRegion[s] != _region)
+            {
+                _markedInRegion.Add(s);
+                _originRegion[s] = _region;
+                _origin[s] = origin;
+                _written0[s] = written;
+            }
+            else if (_origin[s] != origin)
+            {
+                _origin[s] = SeveralOrigins;
+            }
+        }
+
+        private void Arrive(int s, int origin, int written)
+        {
+            if (_arrivingRegion[s] != _region)
+            {
+                _arrivingRegion[s] = _region;
+                _arriving[s] = origin;
+                _arrivingWritten[s] = written;
+            }
+            else if (_arriving[s] != origin)
+            {
+                _arriving[s] = SeveralOrigins;
+            }
+        }
+
+        private void DriverReads(int d, int origin, int written)
+        {
+            if (_driverOriginRegion[d] != _region)
+            {
+                _driverOriginRegion[d] = _region;
+                _driverOrigin[d] = origin;
+                _driverWritten[d] = written;
+            }
+            else if (_driverOrigin[d] != origin)
+            {
+                _driverOrigin[d] = SeveralOrigins;
+            }
+        }
+
+        /// <summary>
+        /// The region ends: each process an edge woke in it is told of a signal it reads that changed in it by a blocking
+        /// write, from one process that is neither it nor the one the edge came from. The two ran in no set order -- this
+        /// engine runs a design's processes in a fixed one, and another simulator may run them in another -- so what it read
+        /// is a race. An edge or a change from several processes, or from none, is left alone: it cannot be told which came first.
+        /// </summary>
+        private void CheckRaces()
+        {
+            if (_markedInRegion.Count > 0)
+            {
+                foreach ((int p, int trigger, int clock, int pc) in _sampled)
+                {
+                    if (trigger < 0)
+                        continue;
+                    HashSet<int> reads = ReadsFrom(p, pc);
+                    foreach (int r in _markedInRegion)
+                    {
+                        if (!reads.Contains(r))
+                            continue;
+                        int q = _origin[r];
+                        if (q < 0 || q == p)
+                            continue;
+                        // Ordered after all, by a chain of causes (the 15i-3 review): the writer made the edge, however far
+                        // back; the reader, or what woke it, set the writer going; or one forked the other.
+                        if (Caused(q, trigger) || Caused(p, q) || Caused(q, p))
+                            continue;
+                        if (_racesSaid.Add(((long)q << 32) | (uint)p))
+                            SayRace(p, q, r, clock);
+                    }
+                }
+            }
+            _sampled.Clear();
+            _markedInRegion.Clear();
+        }
+
+        /// <summary>
+        /// Whether <paramref name="cause"/> set <paramref name="effect"/> going this region: is it, or what woke it, or the
+        /// process that forked it, and so on back.
+        /// </summary>
+        private bool Caused(int cause, int effect)
+        {
+            int at = effect;
+            for (int steps = 0; at >= 0 && steps < 64; steps++)
+            {
+                if (at == cause)
+                    return true;
+                if (_wakerRegion[at] == _region && _wakerOf[at] >= 0 && _wakerOf[at] != at)
+                    at = _wakerOf[at];
+                else
+                    at = _parent[at];
+            }
+            return false;
+        }
+
+        private void SayRace(int p, int q, int r, int clock)
+        {
+            // What the writer wrote, and what the reader reads of it where that is another name -- a port, a wire after it.
+            int w = _written0[r];
+            string wrote = w >= 0 && w < _design.Signals.Count ? _design.Signals[w].Name : _design.Signals[r].Name;
+            string read = _design.Signals[r].Name, edge = _design.Signals[clock].Name;
+            string reader = _processes[p].Name, writer = _processes[q].Name;
+            string reaching = read == wrote ? "" : $" (which {read} follows)";
+            _history.Message(_now, Severity.Warning,
+                $"At t = {_now} {writer} changes {wrote}{reaching} with a blocking assignment at the edge of {edge} that runs " +
+                $"{reader}, which reads it. The two may run in either order, so {reader} may see the value from before the " +
+                $"change or after it, and another simulator may not agree with this one. Change {wrote} away from the edge -- " +
+                "on the other edge, or a moment after it -- or with <=. (Said once for these two.)");
+        }
+
+        /// <summary>
+        /// What <paramref name="p"/> reads from <paramref name="pc"/> on, every way its jumps may take, up to where it next
+        /// waits -- a delay, an event, a wait, a fork, a stop or its end -- as the wake that took up there runs. An asynchronous
+        /// reset its body tests is read like any value.
+        /// </summary>
+        private HashSet<int> ReadsFrom(int p, int pc)
+        {
+            long key = ((long)p << 32) | (uint)pc;
+            if (_readsFrom.TryGetValue(key, out HashSet<int> known))
+                return known;
+
+            Instruction[] code = _processes[p].Code;
+            var reads = new HashSet<int>();
+            var seen = new HashSet<int>();
+            var todo = new Stack<int>();
+            todo.Push(pc);
+            while (todo.Count > 0)
+            {
+                int at = todo.Pop();
+                if (at < 0 || at >= code.Length || !seen.Add(at))
+                    continue;
+                ref Instruction ins = ref code[at];
+                switch (ins.Op)
+                {
+                    case OpCode.Delay:
+                    case OpCode.WaitEvent:
+                    case OpCode.WaitUntil:
+                    case OpCode.Fork:
+                    case OpCode.Stop:
+                    case OpCode.Finish:
+                        continue;
+                }
+                ins.Value?.CollectReads(reads);
+                ins.Other?.CollectReads(reads);
+                foreach (LPiece piece in ins.Target ?? Array.Empty<LPiece>())
+                {
+                    piece.Offset?.CollectReads(reads);
+                    piece.Word?.CollectReads(reads);
+                }
+                switch (ins.Op)
+                {
+                    case OpCode.Jump:
+                        todo.Push(ins.Jump);
+                        break;
+                    case OpCode.JumpIf:
+                    case OpCode.JumpUnless:
+                    case OpCode.JumpIfMatch:
+                        todo.Push(ins.Jump);
+                        todo.Push(at + 1);
+                        break;
+                    default:
+                        todo.Push(at + 1);
+                        break;
+                }
+            }
+            _readsFrom[key] = reads;
+            return reads;
         }
 
         /// <summary>A nonblocking write: the value and where it goes are worked out now; it lands in an NBA region.</summary>

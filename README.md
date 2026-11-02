@@ -474,7 +474,11 @@ Once a circuit works, the workbench answers the questions the course asks of it:
 - **Warnings, as ModelSim's `vlog` gives them.** The TRANSCRIPT warns about a
   signal read that nothing drives, one set that nothing reads, two drivers on a
   wire that cannot both let go, and a value cut short by a narrower target. They
-  never stop a run.
+  never stop a run. **A race** is warned of as the run makes it: a process -- most
+  often a testbench -- that changes a flip-flop's input with `=` on the very clock
+  edge the flip-flop takes it at -- `@(posedge clk); d = 1;` -- leaves the two in
+  either order, and another simulator may not agree with BitSorter on which. Change
+  it on the other edge, a moment later, or with `<=`.
 - **Buses.** Several tri-state gates (BUFIF, NOTIF) may drive one wire; where two
   drive at once it reads x on the waves. Written code may use `inout` ports, and a
   block of it shows an inout pin you can wire onto a bus beside tri-state gates and
