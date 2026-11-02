@@ -1638,10 +1638,10 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>A processor sample opened, stepped inside <paramref name="inside"/> where one is named, run to <paramref name="at"/> and fitted.</summary>
         /// <remarks>
-        /// Each runs TEST, every instruction (Part 15h-6c): the moments these shots show were chosen on the one demo program,
+        /// Each runs ISA, every instruction (Part 15h-6c): the moments these shots show were chosen on the one demo program,
         /// and the sum, which a processor opens on, has stopped by them.
         /// </remarks>
-        private IEnumerator Processor(string sample, double at, string inside, string shot, string program = "TEST")
+        private IEnumerator Processor(string sample, double at, string inside, string shot, string program = "ISA")
         {
             yield return LoadTheGame();
             yield return Frames(2);

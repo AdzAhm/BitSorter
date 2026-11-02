@@ -6,8 +6,8 @@
 `define RV32I_SVH
 
 // The programs a processor's testbench can run, its PROGRAM (Part 15h-6c): the sum of 1 to 10, the first ten
-// Fibonacci numbers, or every instruction once, checking itself.
-typedef enum {SUM, FIBONACCI, TEST} rv_program_t;
+// Fibonacci numbers, or the instruction set -- ISA, every instruction once -- checking itself.
+typedef enum {SUM, FIBONACCI, ISA} rv_program_t;
 
 localparam logic [6:0] OP_LUI    = 7'b0110111;
 localparam logic [6:0] OP_AUIPC  = 7'b0010111;

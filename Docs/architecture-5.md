@@ -3888,7 +3888,7 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
 - **Three programs** in place of the one demo, from the same emulator-checked generator (kept outside the repository):
   `rv_sum.hex`, `rv_fib.hex` and `rv_isa.hex`, each with its `_expected` image, on the shared `rv_data.hex`. Their names
   are one length because a testbench picks them with a `?:`, and Icarus 12 pads a shorter string with a NUL it does not
-  strip, reading no file. `rv32i.svh` declares `typedef enum {SUM, FIBONACCI, TEST} rv_program_t`; each processor's
+  strip, reading no file. `rv32i.svh` declares `typedef enum {SUM, FIBONACCI, ISA} rv_program_t` (ISA was TEST until the morning of 2026-11-02); each processor's
   testbench takes `parameter rv_program_t PROGRAM = SUM` -- in its body, not a #( ) list, since a project includes the
   definitions inside each module after its header -- and prints and checks only that program. Cycles, the reset's two
   included: single-cycle 37, 61 and 316; multicycle 135, 247 and 1,204; pipelined 58, 90 and 346.
@@ -3908,11 +3908,11 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
   again is no step; a name or member the testbench has not got is refused, and so is a choice the design cannot be
   elaborated with, in the elaborator's words (`SetBenchParameter`). The run it makes is its own length: a replay goes
   as far as the run it replaces only when that one was carried on past a `$stop` (`RunSession.RanOn`) -- an undo of a
-  choice, or SUM after TEST, was run on to the longer program's end until the review. The drawing of code is made again
+  choice, or SUM after ISA, was run on to the longer program's end until the review. The drawing of code is made again
   with the choice (keyed on `BenchParameters` as well as the modules). A sample is made afresh each time it is opened,
   so its choice is not kept from one launch to the next: it opens on SUM. Only a testbench's parameters are a choice:
   a design run without one is elaborated as written. The start page's RISC-V
-  PROCESSORS, under EXERCISES: a card for each, its name opening it, a line, and SUM, FIBONACCI and TEST opening it on
+  PROCESSORS, under EXERCISES: a card for each, its name opening it, a line, and SUM, FIBONACCI and ISA opening it on
   that program; the three leave SAMPLES.
 - **To ModelSim**: an exported run.do gives each chosen parameter `-G` its member's value -- or, for a member whose value
   only elaboration works out (`LOW = BASE`), a comment saying to add it, rather than another number. ModelSim ASE 20.1 reads
@@ -3924,8 +3924,8 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
   choice read, one step and the run's end measured again, the save and an older file, a choice the testbench no longer
   has, an enum's own values, run.do's `-G`); `ProgramChoiceTests` (choosing runs, undo goes back, the lock lets it);
   `ProcessorSampleTests` each processor on each program to PASS in the cycles its line says; the nine oracle cases; Play
-  Mode, a processor opened from the start page on Fibonacci and its chip's menu running TEST; shot 74, the chooser open;
-  shots 68 to 72 on TEST, whose run reaches the moments they show.
+  Mode, a processor opened from the start page on Fibonacci and its chip's menu running ISA; shot 74, the chooser open;
+  shots 68 to 72 on ISA, whose run reaches the moments they show.
 
 **As built in Part 15h-5: the drawing of code and its code linked** (Ahmad's choice, 2026-11-01, in place of the
 DRAWING dock tab first planned: the circuit window already shows the drawing while the dock's CODE tab shows the code,

@@ -33,13 +33,13 @@ namespace BitSorter.ViewModel.Tests
         /// </summary>
         [TestCase("Single-cycle RISC-V", "scpu_tb", null, 37)]
         [TestCase("Single-cycle RISC-V", "scpu_tb", "FIBONACCI", 61)]
-        [TestCase("Single-cycle RISC-V", "scpu_tb", "TEST", 316)]
+        [TestCase("Single-cycle RISC-V", "scpu_tb", "ISA", 316)]
         [TestCase("Multicycle RISC-V", "mcpu_demo_tb", null, 135)]
         [TestCase("Multicycle RISC-V", "mcpu_demo_tb", "FIBONACCI", 247)]
-        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", "TEST", 1204)]
+        [TestCase("Multicycle RISC-V", "mcpu_demo_tb", "ISA", 1204)]
         [TestCase("Pipelined RISC-V", "pcpu_tb", null, 58)]
         [TestCase("Pipelined RISC-V", "pcpu_tb", "FIBONACCI", 90)]
-        [TestCase("Pipelined RISC-V", "pcpu_tb", "TEST", 346)]
+        [TestCase("Pipelined RISC-V", "pcpu_tb", "ISA", 346)]
         public void AProcessor_RunsEachProgram_ToPass_InTheCyclesItsLineSays(string name, string bench, string program, int cycles)
         {
             (string Name, string Says, System.Func<Project> Build) sample = WorkbenchSamples.All.Single(s => s.Name == name);
@@ -53,7 +53,7 @@ namespace BitSorter.ViewModel.Tests
 
             BenchChoice choice = BenchChoices.Of(BoardCompiler.Compile(project), project.Settings).Single();
             Assert.AreEqual("PROGRAM", choice.Name);
-            CollectionAssert.AreEqual(new[] { "SUM", "FIBONACCI", "TEST" }, choice.Members.ToArray());
+            CollectionAssert.AreEqual(new[] { "SUM", "FIBONACCI", "ISA" }, choice.Members.ToArray());
             Assert.AreEqual("SUM", choice.Chosen, "each opens on the sum");
             if (program != null)
             {

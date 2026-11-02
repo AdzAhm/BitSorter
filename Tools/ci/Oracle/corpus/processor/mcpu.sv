@@ -427,7 +427,7 @@ endmodule
 // every instruction once -- so the three processors can be compared on each: the start page's multicycle sample
 // (Part 15h-6, the three programs Part 15h-6c).
 module mcpu_demo_tb;
-    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // Which program it runs: SUM, FIBONACCI or ISA (rv32i.svh). In the body, not a #( ) list, where a project's module
     // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
     parameter rv_program_t PROGRAM = SUM;
 

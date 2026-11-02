@@ -1044,7 +1044,7 @@ failure side.
   sample and leaves the page (Part 15g: it did nothing there); so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
   either up is `PageShowing`. **The start page gives the three RISC-V processors a section
   of their own** (Part 15h-6c, Ahmad, 2026-11-02): RISC-V PROCESSORS under EXERCISES, a card each
-  with its name, a line on what it shows, and SUM, FIBONACCI and TEST, each opening it on that
+  with its name, a line on what it shows, and SUM, FIBONACCI and ISA, each opening it on that
   program; they are not rows of SAMPLES, though the S chip still steps through them. **A
   testbench with a parameter of an enum type has a PROGRAM chip** (Part 15h-6c) at the controls'
   row's right end -- PROGRAM: FIBONACCI -- its menu the enum's members, choosing one step of the

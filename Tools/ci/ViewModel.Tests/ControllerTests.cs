@@ -83,7 +83,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void TheDiagram_FollowsTheRun()
         {
-            WorkbenchSession session = InsideTheControl("Multicycle RISC-V", "TEST");   // every instruction: every state
+            WorkbenchSession session = InsideTheControl("Multicycle RISC-V", "ISA");   // every instruction: every state
             WorkbenchModel model = session.Run.Model;
             MachineReading machine = session.Controller.Machine;
             var seen = new List<int>();
@@ -106,7 +106,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void SteppingIntoTheSingleCycleController_OpensOnItsTables_TheRowOfTheInstructionRunningLit()
         {
-            WorkbenchSession session = InsideTheControl("Single-cycle RISC-V", "TEST");
+            WorkbenchSession session = InsideTheControl("Single-cycle RISC-V", "ISA");
             Assert.IsTrue(session.ShowsController);
             Assert.IsNull(session.Controller.Machine);
             Assert.AreEqual(2, session.Controller.Tables.Count);

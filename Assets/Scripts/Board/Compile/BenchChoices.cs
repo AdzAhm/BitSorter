@@ -42,7 +42,7 @@ namespace BitSorter.Board
         /// <summary>The parameter's name: <c>PROGRAM</c>.</summary>
         public string Name { get; }
 
-        /// <summary>Its enum's members, in the order declared: <c>SUM</c>, <c>FIBONACCI</c>, <c>TEST</c>.</summary>
+        /// <summary>Its enum's members, in the order declared: <c>SUM</c>, <c>FIBONACCI</c>, <c>ISA</c>.</summary>
         public IReadOnlyList<string> Members { get; }
 
         /// <summary>The member its declaration gives it, or null when that is no member by name.</summary>

@@ -55,7 +55,7 @@ namespace BitSorter.View
         /// <summary>The programs every processor runs, as its PROGRAM names them, and as its buttons say them.</summary>
         private static readonly (string Member, string Caption)[] Programs =
         {
-            ("SUM", "SUM"), ("FIBONACCI", "FIBONACCI"), ("TEST", "TEST"),
+            ("SUM", "SUM"), ("FIBONACCI", "FIBONACCI"), ("ISA", "ISA"),
         };
 
         private static bool IsProcessor(string sample)

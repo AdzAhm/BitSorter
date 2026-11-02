@@ -3575,13 +3575,13 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(ChoiceMenu.SlotName(2));
             yield return null;
             yield return null;
-            Assert.AreEqual("TEST", workbench.Session.Choices.Single().Chosen, "TEST chosen from the menu");
+            Assert.AreEqual("ISA", workbench.Session.Choices.Single().Chosen, "ISA chosen from the menu");
             workbench.Pause();
             workbench.Session.Finish();
             yield return null;
             yield return null;
             Assert.GreaterOrEqual(workbench.WaveWindow.End, workbench.Session.Run.Model.End - 1,
-                "TEST's run shown whole, never Fibonacci's shorter window (the 15h-6c shots)");
+                "ISA's run shown whole, never Fibonacci's shorter window (the 15h-6c shots)");
             Assert.IsTrue(workbench.Session.Undo(), "one step");
             yield return null;
             Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen);
