@@ -4210,6 +4210,34 @@ with/against modelsim?").
   COMPARE catches the rest); 64 MB was past what the reader takes in a browser (16 MB now, and a dump past it named rather
   than passed over); and the chip said nothing of signals the dump had not got.
 
+**As built in Part 15h-6d: the browser check, and what a frame may make** (the plan's last part before Part 16,
+2026-11-02).
+- **The browser build died opening a processor.** Choosing FIBONACCI on the pipelined processor stopped the page with
+  `abort("OOM")` as the heap grew. A browser frees memory only between frames -- the collector cannot see the wasm stack
+  -- so whatever one frame makes the page must hold, and the build may grow to 2 GB (`webGLMaximumMemorySize`). BitSorter
+  opens on the last thing open, so it died again on every launch after.
+- **Measured in Unity with the frame's own counter** (a `ProfilerRecorder` on "GC Allocated In Frame"): 1,841 MB in the
+  frame that opened it. The profiler with GC call stacks (`ProfilerDriver.memoryRecordMode = GCAlloc`, read through
+  `RawFrameDataView`) put almost all of it in `WrittenModules`: every read of a written module made its cache key out of
+  the whole project's text -- its own, every other module's, each file they include or read (`Surroundings`,
+  `ProjectFiles.KeyOf`, `ParseText`) -- and made it again on every read, kept or not. Importing the sample's sources
+  checks the whole document for every part the importer adds, so the frame made some two thousand of those keys.
+- **Fixed in two steps.** A read, a parse and a file's key are kept by the very objects they were asked of as well
+  (`ProjectFiles.SameObjects`: a document is immutable, so the same objects give the same answer) -- 926 MB. And every key
+  is made of a number for each text in place of the text (`ProjectFiles.IdOf`: the same for the same characters while it
+  is kept and never given to another, so a key made after the numbers are let go misses, and never finds another text's
+  read) -- 601 MB. In the browser, the launch onto the processor stopped at 743 MB of heap where it had reached 2,080 and
+  died. Board's tests run in 59 s, from 108.
+- **Held** by `WrittenModuleCostTests` (a read kept costs nothing again, from 314 KB; an ask of what a module uses 319
+  bytes, from 14 KB) and `BrowserMemoryPlayTests` (opening the pipelined processor on FIBONACCI makes under 1 GB in any
+  frame).
+- **What is left of the 601 MB is real work**: each written module elaborated on its own as the sample is imported, where
+  a processor's top elaborates the whole design and a memory is a signal a word -- 1,024 for each of its two. That is for
+  Part 16's optimisation pass.
+- **The rest of the check waits for a pane on screen.** Hidden, the browser pane lays the page out at a size of its own
+  and changes it when a click lands, so the click lands somewhere else: the PROGRAM chooser, GATES' cap, the drawing and
+  its code linked, stepping in and out, the controllers and COMPARE are left to be tried with it showing.
+
 ---
 
 ## 11. The parts

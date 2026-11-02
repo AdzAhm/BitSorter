@@ -686,6 +686,14 @@ failure side.
   way again, the package was not the cause. This paragraph once said the package
   repinned `com.unity.test-framework`. It did not: it declares a dependency on
   1.1.33, and the project's own 1.6.0 pin resolved the same before and after.
+- **A browser frees memory only between frames, so whatever a frame makes the page must hold** (Part 15h-6d,
+  2026-11-02). The build may grow to 2 GB; opening the pipelined processor made 1.8 GB in one frame -- cache keys made of
+  the whole project's text, made again on every read of a written module -- and the page died, and again on every launch,
+  since BitSorter opens on the last thing open. dotnet's tests never saw it: they time and measure a session, not a frame,
+  and the worst of that frame was the sample being imported and checked a part at a time. Measure a frame in the editor
+  with a `ProfilerRecorder` on "GC Allocated In Frame"; name where it comes from with the profiler's GC call stacks
+  (`ProfilerDriver.memoryRecordMode = GCAlloc`, read through `RawFrameDataView`), and switch the profiler off after.
+  `BrowserMemoryPlayTests` holds the open to 1 GB.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
