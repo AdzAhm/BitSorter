@@ -3587,6 +3587,38 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen);
         }
 
+        /// <summary>
+        /// M3 (Ahmad, 2026-11-02: every part of the processors described): a click on the single-cycle datapath's ALU puts
+        /// what the code says of it at the head of the inspector's line -- what an ALU is for, not only "an instance of".
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AClickOnAProcessorsALU_SaysWhatItIsFor_InTheCodesOwnWords()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleIndex("Single-cycle RISC-V") + 1);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            if (workbench.Session.DrawnModule.FindPart("datapath") == null)
+                Assert.IsTrue(workbench.StepInto(workbench.Session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == "scpu").Id),
+                    "into the processor under its testbench");
+            Assert.IsTrue(workbench.StepInto(workbench.Session.DrawnModule.FindPart("datapath").Id), "into the datapath");
+            workbench.FitView();
+            yield return null;
+            yield return null;
+
+            BlockPart alu = workbench.Session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Name == "alu");
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, alu, workbench.Session.DrawnModule.Layout.PlacementOf(alu.Id));
+            yield return ClickAt(workbench, new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2));
+            Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(alu.Id), "a click selects the ALU");
+            StringAssert.StartsWith("The ALU: the result of an arithmetic instruction", workbench.InspectorSays,
+                "the comment over its line, first");
+            StringAssert.Contains("scpu_alu", workbench.InspectorSays, "then what the drawing says of it");
+        }
+
         private static int SampleIndex(string name)
         {
             for (int i = 0; i < WorkbenchSamples.All.Count; i++)

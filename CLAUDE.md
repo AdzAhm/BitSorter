@@ -1160,7 +1160,16 @@ failure side.
   Ahmad's choice, 2026-11-01), which its inspector line ends by naming ("From line 8."):
   a port's declaration, an instance's, an assign's or a gate's, a statement's inside a
   process -- the if's or the case's for the mux joining its ways -- and a register's
-  always (`RtlCell.At`, `RtlDrawing.LineOf`, `PartsOn`). **A generate loop of one module's instances is one array block**
+  always (`RtlCell.At`, `RtlDrawing.LineOf`, `PartsOn`). **And it says first what the code
+  says of it** (M3, asked 2026-11-02): the `//` comment at the end of that line, else the
+  `//` lines right above it -- a blank line, code, a banner or a line of code commented out
+  ends them, and an import's `include` right over the line, with the blank line after it,
+  is passed over -- its first sentence before the rest, since the bar is one line; a block
+  with none of its own takes the comment over its module
+  (`CodeComments`, `WorkbenchSession.CommentOfPart`). Every block, register, port and mux
+  of the three processors has one (`ProcessorDescriptionTests`). An edit made on a
+  drawing writes its module's code again and keeps only the comment over the module, so
+  its line comments go with it. **A generate loop of one module's instances is one array block**
   (`slice × 8`, `RtlArrays.cs`), a double-click stepping into its first copy; constants
   stand beside what reads them, and a case arm of several labels is one input of its
   mux. A double-click on a block in it, or its row in DESIGN, steps into the instance the
