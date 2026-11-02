@@ -2504,6 +2504,94 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// FILE, COMPARE WITH MODELSIM'S RUN (Part 15i-5): the newest .vcd in the Import folder held to the run -- here the run's
+        /// own dump, which agrees, then the same with one value changed, which is found at its moment and said at the head of
+        /// the TRANSCRIPT, the run taken there.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator CompareWithModelSim_SaysTheyAgree_OrFindsTheFirstDifference()
+        {
+            yield return TestScene.Load();
+            yield return Click(MainMenu.WorkbenchButton);
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(WorkbenchSamples.All.ToList().FindIndex(s => s.Name == "Counter"));
+            yield return null;
+            workbench.Session.Finish();
+            WorkbenchModel model = workbench.Session.Run.Model;
+            var dump = new System.IO.StringWriter();
+            BitSorter.Sim.VcdWriter.Write(dump, model.Session.Design, model.Session.History, model.End);
+
+            PutInTheImportFolder(("modelsim.vcd", dump.ToString()));
+            workbench.CompareWithModelSim();
+            yield return null;
+            Assert.IsTrue(workbench.LastComparison.Agree, "the run's own dump: " + workbench.LastComparison.Signal);
+            Assert.IsTrue(workbench.Transcript.Lines.Any(l => l.Text.StartsWith("COMPARE: ModelSim's run agrees")), "said at the TRANSCRIPT's head");
+
+            // One value changed, and an older dump beside it: the newest is the one compared.
+            string text = dump.ToString();
+            var traces = BitSorter.Sim.VcdReader.Read(new System.IO.StringReader(text));
+            BitSorter.Sim.VcdTrace trace = traces.Values.First(t => t.Changes.Count > 2 && Declared(text, t.Name) == 1);
+            long at = trace.Changes[2].Time;
+            PutInTheImportFolder(("older.vcd", "$enddefinitions $end\n"), ("modelsim.vcd", Mutated(text, trace, at)));
+            System.IO.File.SetLastWriteTimeUtc(System.IO.Path.Combine(FileImport.Folder, "older.vcd"), System.DateTime.UtcNow.AddHours(-1));
+
+            workbench.CompareWithModelSim();
+            yield return null;
+            Assert.IsFalse(workbench.LastComparison.Agree, "a value changed is a difference");
+            Assert.LessOrEqual(workbench.LastComparison.Time, at);
+            TranscriptLine said = workbench.Transcript.Lines.First(l => l.Text.StartsWith("COMPARE: at t = "));
+            Assert.AreEqual(workbench.LastComparison.Time, said.Time, "at its moment");
+        }
+
+        /// <summary>How many variables of <paramref name="name"/>'s last part a dump declares, in any scope.</summary>
+        private static int Declared(string dump, string name)
+        {
+            string last = name.Substring(name.LastIndexOf('.') + 1);
+            return dump.Replace("\r", "").Split('\n').Count(line =>
+            {
+                string[] words = line.Split(' ');
+                return words.Length >= 5 && words[0] == "$var" && words[4] == last;
+            });
+        }
+
+        /// <summary>A dump with <paramref name="trace"/>'s value at <paramref name="at"/> written as its opposite.</summary>
+        private static string Mutated(string dump, BitSorter.Sim.VcdTrace trace, long at)
+        {
+            var lines = dump.Replace("\r", "").Split('\n').ToList();
+            string id = null;
+            string last = trace.Name.Substring(trace.Name.LastIndexOf('.') + 1);
+            foreach (string line in lines)
+            {
+                string[] words = line.Split(' ');
+                if (words.Length >= 5 && words[0] == "$var" && words[4] == last)
+                {
+                    id = words[3];
+                    break;
+                }
+            }
+            Assert.IsNotNull(id, "sanity: the signal's id in the dump");
+            int from = lines.IndexOf("#" + at);
+            Assert.GreaterOrEqual(from, 0, "sanity: the moment in the dump");
+            for (int i = from + 1; i < lines.Count && !lines[i].StartsWith("#"); i++)
+            {
+                string line = lines[i];
+                if (line.EndsWith(" " + id) && line.StartsWith("b"))
+                {
+                    string bits = line.Substring(1, line.Length - id.Length - 2);
+                    lines[i] = "b" + new string(bits.Select(c => c == '0' ? '1' : '0').ToArray()) + " " + id;
+                    return string.Join("\n", lines);
+                }
+                if (line.Length == id.Length + 1 && line.EndsWith(id))
+                {
+                    lines[i] = (line[0] == '0' ? "1" : "0") + id;
+                    return string.Join("\n", lines);
+                }
+            }
+            Assert.Fail("sanity: the change at its moment in the dump");
+            return dump;
+        }
+
+        /// <summary>
         /// An import never replaces a circuit (Part 15a, where it asked before replacing MY CIRCUIT): the same project imported
         /// twice is two circuits, the second numbered, MY CIRCUIT as it was, and FILE, OPEN lists all three, the latest first.
         /// </summary>

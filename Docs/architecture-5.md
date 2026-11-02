@@ -4149,6 +4149,26 @@ course-style testbenches above all).
 - **Tests**: 26 under ModelSim -- 17 corpus testbenches and 9 processor runs -- all agreeing but the named differences;
   `VcdNamingTests.AVectorDumpedABitAtATime_ReadsBackWhole`.
 
+**As built in Part 15i-5: COMPARE WITH MODELSIM'S RUN** (Ahmad, 2026-11-02: "add these 2", and "how would students check
+with/against modelsim?").
+- **The run.do dumps.** An exported run.do has ModelSim write every signal to `modelsim.vcd` (`vcd file`, `vcd add -r /*`,
+  and `vcd flush` after `run -all`) beside the wave window it opens as before.
+- **FILE, COMPARE WITH MODELSIM'S RUN** reads it back -- the newest `.vcd` in the Import folder on a desktop
+  (`FileImport.NewestDump`), one the player picks in a browser (`FileImport.PickDump`, up to 64 MB) -- and holds the run to
+  it (`RunComparison`, the view-model's): every signal of the run but a process's own variables, a memory's words, a string
+  and a real, matched by full name, up to the moment before the run's end. The first moment and signal they differ at
+  goes at the TRANSCRIPT's head at its moment, with both values, and the run is taken there; or the agreement is said.
+  A signal the dump has not got is listed, never taken for a difference.
+- **A difference from t = 0 is said apart.** ModelSim starts an `always` before an `initial` at time 0, BitSorter and
+  Icarus the `initial` first; the standard leaves it open (`Docs/oracle-notes.md`). So a reset set at time 0 is seen at
+  once in ModelSim and at the first clock here, and the traffic light and the sequence detector differ from t = 0 until
+  their first clock. Such a signal is followed from where the two first agree on it; the first difference after that is
+  the one reported.
+- **Held to ModelSim itself** (`ModelSimCompareOracleTests`, skipped without ModelSim): every start-page sample exported,
+  run under ModelSim with the same dump, and compared by the same comparison -- all thirteen agree, those two only
+  after their start. `RunComparisonTests` (the run's own dump agrees, a changed value found at its moment, a missing
+  signal listed) and a Play Mode test through FILE's action.
+
 ---
 
 ## 11. The parts

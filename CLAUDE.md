@@ -991,7 +991,10 @@ failure side.
   panel reads its mouse as gestures (`WavePointer`), where a press on a control is
   never one. The row menu, the menu for a moment (a right-click on the waves, for
   a breakpoint there; Part 9b-3), the export menu (VCD or PNG; Part 9b-4), the FILE
-  menu (Part 13a) with OPEN's list of circuits (Part 15a), the question asked before a
+  menu (Part 13a) with OPEN's list of circuits (Part 15a) and COMPARE WITH MODELSIM'S
+  RUN (Part 15i-5: the `modelsim.vcd` an exported run.do has ModelSim write, held to
+  the run by `RunComparison` -- the first moment and signal they differ at, at the
+  TRANSCRIPT's head and the run taken there, a difference from t = 0 said apart), the question asked before a
   testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
   and 15a), the add list and the three fields -- RENAME,
   BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
