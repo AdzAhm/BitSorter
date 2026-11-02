@@ -568,7 +568,34 @@ namespace BitSorter.ViewModel
         {
             string text;
             string numbers = "";
-            if (depth.Stages is int stages)
+            if (!depth.HasOutputs)
+            {
+                text = "none: it has no outputs";
+            }
+            else if (depth.Unfollowed)
+            {
+                text = "not worked out: a register on its paths is written at a place found as it runs -- r[i] <= ... -- "
+                    + "which this does not follow";
+            }
+            else if (depth.Loop)
+            {
+                text = "none fixed: a path from an input to an output runs round a loop -- a state machine's, or logic fed "
+                    + "back -- so an output follows its inputs by no set number of periods";
+            }
+            else if (depth.Sequenced)
+            {
+                text = "none fixed: a register on its paths is loaded only when another register's value says so, as a "
+                    + "multicycle machine's is, so a result takes several periods and the next does not follow one period on";
+            }
+            else if (depth.MixedClocks)
+            {
+                text = "none single: the registers on its paths take different clocks, or different edges of one";
+            }
+            else if (!depth.Reaches)
+            {
+                text = "none: no input reaches what an output holds, so its outputs follow its own state alone";
+            }
+            else if (depth.Stages is int stages)
             {
                 if (stages == 0)
                 {
@@ -581,15 +608,6 @@ namespace BitSorter.ViewModel
                     if (period is long each && each > 0)
                         numbers = Time(stages * each, unit);
                 }
-            }
-            else if (!depth.Reaches)
-            {
-                text = "none: no input reaches what an output holds, so its outputs follow its own state alone";
-            }
-            else if (depth.Loop)
-            {
-                text = "none fixed: a path from an input to an output runs round a loop through a register, as a state "
-                    + "machine's does, so an output follows its inputs by no set number of periods";
             }
             else
             {

@@ -648,14 +648,59 @@ namespace BitSorter.ViewModel.Tests
         public void AStateMachine_AndACounter_ClaimNoLatency_AndLogicWithNoClockShowsNone()
         {
             TimingLine detector = TimingView.Of(WorkbenchSamples.SequenceDetector()).Lines.Single(l => l.Label == "LATENCY");
-            StringAssert.StartsWith("none fixed: a path from an input to an output runs round a loop through a register", detector.Text);
+            StringAssert.StartsWith("none fixed: a path from an input to an output runs round a loop -- a state machine's", detector.Text);
             Assert.AreEqual("", detector.Numbers);
 
             TimingLine counter = TimingView.Of(WorkbenchSamples.Counter()).Lines.Single(l => l.Label == "LATENCY");
-            StringAssert.StartsWith("none: no input reaches what an output holds", counter.Text, "its enable only steers it");
+            StringAssert.StartsWith("none", counter.Text, "a counter is no pipeline, however its inputs reach it");
+            Assert.IsFalse(TimingView.Of(WorkbenchSamples.Counter()).Lines.Any(l => l.Label == "THROUGHPUT"));
 
             TimingView adder = TimingView.Of(WorkbenchSamples.FullAdder());
             Assert.IsFalse(adder.Lines.Any(l => l.Label == "LATENCY" || l.Label == "THROUGHPUT"), "no registers, no clock");
+        }
+
+        private const string WorkbenchMulticycle =
+            "module m (input logic clk, rst, input logic [3:0] x, output logic [3:0] y);\n" +
+            "    logic [1:0] state;\n" +
+            "    logic [3:0] a, b;\n" +
+            "    always_ff @(posedge clk)\n" +
+            "        if (rst) state <= 2'd0;\n" +
+            "        else case (state)\n" +
+            "            2'd0: begin a <= x; state <= 2'd1; end\n" +
+            "            2'd1: begin b <= a + 4'd1; state <= 2'd2; end\n" +
+            "            default: begin y <= b + 4'd1; state <= 2'd0; end\n" +
+            "        endcase\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// The first review's two wrong claims, as the tab words them (2026-11-02): a multicycle machine is no pipeline, and a
+        /// processor with no outputs says it has none rather than that its outputs follow its state.
+        /// </summary>
+        [Test]
+        public void AMulticycleMachine_AndADesignWithNoOutputs_SayWhatTheyAre()
+        {
+            Project multicycle = Written("m", ("m",
+                "module m (input logic clk, input logic [3:0] x, output logic [3:0] y);\n" +
+                "    logic [1:0] state = 2'd0;\n" +
+                "    logic [3:0] a, b;\n" +
+                "    always_ff @(posedge clk)\n" +
+                "        case (state)\n" +
+                "            2'd0: begin a <= x; state <= 2'd1; end\n" +
+                "            2'd1: begin b <= a + 4'd1; state <= 2'd2; end\n" +
+                "            default: begin y <= b + 4'd1; state <= 2'd0; end\n" +
+                "        endcase\n" +
+                "endmodule\n"));
+            TimingView view = TimingView.Of(multicycle);
+            StringAssert.StartsWith("none fixed: a register on its paths is loaded only when another register's value says so",
+                view.Lines.Single(l => l.Label == "LATENCY").Text, "its sequencer runs by itself, reached by no input");
+            Assert.IsFalse(view.Lines.Any(l => l.Label == "THROUGHPUT"), "never one result a period");
+
+            // With a reset reaching its sequencer, the way runs round the sequencer's loop: no pipeline either way.
+            Project reset = Written("m", ("m", WorkbenchMulticycle));
+            StringAssert.StartsWith("none fixed", TimingView.Of(reset).Lines.Single(l => l.Label == "LATENCY").Text);
+
+            Project processor = WorkbenchSamples.All.Single(s => s.Name == "Single-cycle RISC-V").Build();
+            Assert.AreEqual("none: it has no outputs", TimingView.Of(processor).Lines.Single(l => l.Label == "LATENCY").Text);
         }
     }
 }

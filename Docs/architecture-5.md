@@ -4019,26 +4019,41 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
 **As built in Part 15i-1: latency and throughput in TIMING** (Ahmad, 2026-11-02: "a latency/throughput readout as a tiny
 extra", beside the course read, which gives both for a K-stage pipeline).
 - **`Sim/Timing/PipelineDepth`** counts the registers on every path from an input to an output, over the timing graph's
-  bits. A register is not the timing graph's one node for a whole process -- that would make a pipeline written as one
-  `always_ff` of stages a loop -- but, for each signal an edge-triggered process writes, a junction from the signals its
-  value reads, through any blocking temporary of the same process (`FlowOf`). Its `if`s and `case`s are left out: an
-  enable or a reset steers a stage and is no stage of its own, as the course counts one, so a counter's enable reaches
-  nothing. Only bits on some way from an input to an output count, so a counter beside a pipeline leaves it a pipeline.
-  In order (Kahn's), the fewest and the most registers each bit is reached through; what is left unordered is a loop.
+  bits, and never claims a pipeline that is not one. Each register's process is followed in the order it is written:
+  each bit it writes takes its next value from the bits its value reads, through a blocking temporary as it stands at
+  that point, one register crossed (`Write`, `Land`). So a shift register is a chain of stages, `acc = acc + x` kept from
+  edge to edge a loop, and `y = r; r = a;` two stages. A bit written on some ways only keeps its value on the others,
+  and one given its own value back (`q <= q`) is kept too: an enable's register is a stage. Kept through `en ? d : q`,
+  it is read as a loop.
+- **A condition is a way but no stage.** An `if`'s or a `case`'s condition reaches every bit its process writes, through
+  a junction: it counts for reaching an output and for a loop -- a state machine written in one `always_ff` is a loop,
+  Moore or Mealy -- never as a register crossed, so a pipeline's synchronous reset or enable leaves it a pipeline. A
+  condition reading a register makes the process's writes **sequenced**, as a multicycle machine's are. A clock, what an
+  edge waits on, starts no path and is no condition.
+- **What it says** (`TimingView`, after the period lines of a design with registers): LATENCY, "K clock periods: every path
+  from an input to an output passes K registers, a K-stage pipeline", with K times the clock period, and THROUGHPUT, one
+  result each period whatever K is. Anything else, in this order: it has no outputs (the processors); not worked out,
+  where a register on its paths is written at a place found as it runs (`r[i] <=` in a loop, followed only enough to
+  find a loop); none fixed, round a loop -- a state machine's, or logic fed back; none fixed, sequenced; none single,
+  registers on different clocks or edges (an asynchronous reset listed before the clock is not one); none, where no
+  input reaches an output; within the period, where no register stands on any such path; none single, where paths cross
+  different numbers -- `keep-in-step` as it opens, 0 to 2. Throughput is claimed for a pipeline alone, and a design
+  without registers shows neither line.
 - A register is matched to its process by the process itself (`TimingRegister.Process`), never by name: a drawn module
-  prints every register's process on one line, `always_ff@0`, and the first version gave `cut-it-in-two`'s first
-  register the second one's flow, so no input reached its output.
-- **On the TIMING tab**, after the period lines of a design with registers: LATENCY -- "K clock periods: every path from
-  an input to an output passes K registers, a K-stage pipeline", with K times the clock period -- and THROUGHPUT, one
-  result each period whatever K is. Anything else says what it is: within the period, where no register stands on any
-  such path; none, where no input reaches what an output holds; none fixed, round a state machine's loop; none single,
-  where paths cross different numbers -- `keep-in-step` as it opens, 0 to 2. Throughput is claimed only for a pipeline.
-  A design without registers shows neither line.
-- **Tests**: `PipelineDepthTests` (logic alone, one and three stages in one process, paths of different depths, an
-  accumulator's loop, a counter's enable reaching nothing, a counter beside a pipeline, two processes of one name);
-  `TimingViewTests` (a written 3-stage pipeline's lines and numbers, both pipelining exercises' solutions two stages,
-  `keep-in-step`'s start none single, the sequence detector and the counter claiming none, the full adder showing
-  neither).
+  prints every register's process on one line, `always_ff@0`.
+- **The first review found eight things wrong (2026-11-02)**, all fixed here: conditions left out, so a one-process
+  state machine read as "within the period" and a multicycle datapath as a 3-stage pipeline; a register per signal, so a
+  shift register was a loop; an enable written `else q <= q` a loop; blocking temporaries taken out of order; a memory
+  word written at a run-time place credited to its first word only; the clock read as an input; "through a register"
+  said of a loop of logic; "its outputs follow its own state" of a design with no outputs.
+- **Tests**: `PipelineDepthTests` -- logic alone; one and three stages in one process; paths of different depths; an
+  accumulator's loop; a counter; a counter beside a pipeline; two processes of one name; a one-process state machine,
+  Moore and Mealy; a multicycle datapath; a toggle; an 8-bit shift register; an enable three ways; blocking variables in
+  and out of order; a word written at a run-time place; the clock read as a value; a synchronous reset; registers on
+  both edges; an asynchronous reset listed first; no outputs. `TimingViewTests` -- a written 3-stage pipeline's lines and
+  numbers, both pipelining exercises two stages, `keep-in-step`'s start none single, the sequence detector and the
+  counter claiming none, a multicycle machine never one result a period, a processor's no outputs, the full adder
+  showing neither.
 
 ---
 
