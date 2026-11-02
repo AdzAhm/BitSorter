@@ -40,6 +40,11 @@ namespace BitSorter.Board.Tests
             Assert.IsNull(CodeComments.For(Code, 0));
             Assert.IsNull(CodeComments.For(Code, 99));
             Assert.IsNull(CodeComments.For(null, 1));
+
+            const string Cut = "    // The PC.\n    `include \"rv32i.svh\"\n\n    always_ff @(posedge clk) pc <= next;\n";
+            Assert.AreEqual("The PC.", CodeComments.For(Cut, 4),
+                "an include an import put at the head of a module's body, and the blank line after it, are passed over");
+            Assert.IsNull(CodeComments.For("    // Not this.\n\n    assign y = a;\n", 3), "a blank line of the code's own still ends it");
         }
 
         [Test]

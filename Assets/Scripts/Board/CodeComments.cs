@@ -28,21 +28,7 @@ namespace BitSorter.Board
             if (trailing != null)
                 return trailing;
 
-            var above = new List<string>();
-            for (int i = line - 2; i >= 0; i--)
-            {
-                string trimmed = lines[i].Trim();
-                if (!trimmed.StartsWith("//", StringComparison.Ordinal))
-                    break;
-                string words = Words(trimmed.Substring(2));
-                if (words == null)
-                    break;
-                above.Add(words);
-            }
-            if (above.Count == 0)
-                return null;
-            above.Reverse();
-            return string.Join(" ", above);
+            return Above(lines, line - 1);
         }
 
         /// <summary>
@@ -63,12 +49,15 @@ namespace BitSorter.Board
             return null;
         }
 
+        /// <summary>The <c>//</c> lines right above line <paramref name="index"/> (from 0), joined; null for none.</summary>
         private static string Above(string[] lines, int index)
         {
             var above = new List<string>();
             for (int i = index - 1; i >= 0; i--)
             {
                 string trimmed = lines[i].Trim();
+                if (IsInclude(trimmed) || trimmed.Length == 0 && i > 0 && IsInclude(lines[i - 1].Trim()))
+                    continue;   // what an import's cutter put there: an include, and the blank line after it
                 if (!trimmed.StartsWith("//", StringComparison.Ordinal))
                     break;
                 string words = Words(trimmed.Substring(2));
@@ -81,6 +70,12 @@ namespace BitSorter.Board
             above.Reverse();
             return string.Join(" ", above);
         }
+
+        /// <summary>
+        /// An <c>`include</c> line, passed over on the way up: an import's module cutter puts a file's includes at the head of
+        /// each module's body, between a comment and the first thing it says something of.
+        /// </summary>
+        private static bool IsInclude(string trimmed) => trimmed.StartsWith("`include", StringComparison.Ordinal);
 
         /// <summary>The <c>//</c> comment at the end of a line of code, outside any string; null for none or a line that is all comment.</summary>
         private static string Trailing(string line)
