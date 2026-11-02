@@ -72,8 +72,10 @@ namespace BitSorter.Board.Tests
         {
             Project project = Chain(16);
             List<Module> written = project.Modules.Where(m => m.IsWritten).ToList();
-            foreach (Module module in written)
-                Assert.IsNotNull(WrittenModules.Read(project, module), module.Name);   // read, and kept
+            // Read, and kept: twice, since a cache full from the tests before empties itself once on the way.
+            for (int pass = 0; pass < 2; pass++)
+                foreach (Module module in written)
+                    Assert.IsNotNull(WrittenModules.Read(project, module), module.Name);
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int pass = 0; pass < 10; pass++)
@@ -90,8 +92,9 @@ namespace BitSorter.Board.Tests
         {
             Project project = Chain(16);
             List<Module> written = project.Modules.Where(m => m.IsWritten).ToList();
-            foreach (Module module in written)
-                WrittenModules.UsesOf(project, module).ToList();
+            for (int pass = 0; pass < 2; pass++)
+                foreach (Module module in written)
+                    WrittenModules.UsesOf(project, module).ToList();
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             int asked = 0;
