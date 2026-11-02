@@ -3915,8 +3915,10 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
   that program; the three leave SAMPLES.
 - **To ModelSim**: an exported run.do gives each chosen parameter `-G` its member's value -- or, for a member whose value
   only elaboration works out (`LOW = BASE`), a comment saying to add it, rather than another number. ModelSim ASE 20.1 reads
-  `-GPROGRAM=FIBONACCI` as a string of characters, 1094927177, and runs the instruction test without a word; the value,
-  `-GPROGRAM=1`, runs Fibonacci (measured, 2026-11-02).
+  `-GPROGRAM=FIBONACCI` as a string of characters, 1094927177, and runs the instruction test without a word; the value
+  runs Fibonacci (measured, 2026-11-02). **By the testbench's path**, `-G/scpu_tb/PROGRAM=1`: a bare `-GPROGRAM=1` sets
+  every parameter called PROGRAM in the design, and each processor's memory takes its image's file name by one, so
+  ModelSim opened "" and the program never ran -- found by the ModelSim oracle in Part 15i-4, a red test first.
 - **Tests**: `BenchParameterTests` (the pattern in the engine, the override, a wrong name); `BenchChoicesTests` (the
   choice read, one step and the run's end measured again, the save and an older file, a choice the testbench no longer
   has, an enum's own values, run.do's `-G`); `ProgramChoiceTests` (choosing runs, undo goes back, the lock lets it);

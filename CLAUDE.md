@@ -1016,7 +1016,8 @@ failure side.
   a choice the design cannot be made with is refused in the elaborator's words. Kept with the
   project (`ProjectSettings.BenchParameters`) -- a sample is made afresh as it opens, so it opens
   on SUM again -- never refused by the lock, the first such parameter's alone, and given to
-  ModelSim by an export as the member's value, `-GPROGRAM=1` (its name ModelSim reads as
+  ModelSim by an export as the member's value, by the testbench's path, `-G/tb/PROGRAM=1` (a bare
+  `-GPROGRAM` sets every parameter of the name, a processor's image name among them; its name ModelSim reads as
   characters, and runs another program without a word), or said in a comment where only the
   code works the value out. **An exercise open puts GOAL and CHECK at the
   controls' row's right end** in its place, the chip beside them made room for: GOAL its brief,

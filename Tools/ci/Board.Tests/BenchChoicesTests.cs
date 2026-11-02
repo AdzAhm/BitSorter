@@ -166,7 +166,7 @@ namespace BitSorter.Board.Tests
             CompiledProject compiled = BoardCompiler.Compile(editor.Project);
             string script = ProjectExport.RunDo(editor.Project, compiled, BoardPrinter.Print(compiled));
             StringAssert.Contains("vsim -voptargs=+acc work.tb", script, "nothing given for it");
-            StringAssert.Contains("# LEVEL is HIGH, whose value the code works out: add -GLEVEL=<its value> to vsim", script);
+            StringAssert.Contains("# LEVEL is HIGH, whose value the code works out: add -G/tb/LEVEL=<its value> to vsim", script);
         }
 
         [Test]
