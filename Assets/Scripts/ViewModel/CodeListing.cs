@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BitSorter.Board;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.ViewModel
 {
@@ -61,10 +62,12 @@ namespace BitSorter.ViewModel
                 return 1;
             string path = Files[index].Path, text = Files[index].Text;
             Module module = path.EndsWith(".sv", StringComparison.Ordinal) ? Project.Find(path.Substring(0, path.Length - 3)) : null;
-            if (module == null || !module.IsWritten || module.Source == null || text == null || !text.EndsWith(module.Source, StringComparison.Ordinal))
+            // As printed: a look-alike written as what it was read as (Part 15i-2's review -- a module with one lost its numbering).
+            string body = module?.Source != null ? Lexer.Straightened(module.Source) : null;
+            if (module == null || !module.IsWritten || body == null || text == null || !text.EndsWith(body, StringComparison.Ordinal))
                 return 1;
             int line = 1;
-            for (int i = 0; i < text.Length - module.Source.Length; i++)
+            for (int i = 0; i < text.Length - body.Length; i++)
                 if (text[i] == '\n')
                     line++;
             return line;

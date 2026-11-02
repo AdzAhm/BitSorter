@@ -2521,9 +2521,16 @@ namespace BitSorter.Sim
                 BuildPass(inner, block.Items, depth);
             }
 
+            /// <summary>What a generate's condition is, said where a signal is given for it (Part 15i-2).</summary>
+            private const string IfNeeds = "an if outside an always is chosen once, as the design is built, so its condition must be "
+                + "a number or a parameter. To choose while it runs, put the if in an always_comb, or write ?: in an assign.";
+
+            private const string LoopNeeds = "a for outside an always builds what is in it as the design is built, so its bounds "
+                + "must be numbers or parameters.";
+
             private void BuildIf(Scope scope, IfGenerate g, int number, int depth)
             {
-                if (!ExpressionBuilder.TryConstant(g.Condition, scope, _diagnostics, out LogicVec condition))
+                if (!ExpressionBuilder.TryConstant(g.Condition, scope, _diagnostics, out LogicVec condition, need: IfNeeds))
                     return;
 
                 GenerateBlock chosen = LogicVec.Truth(condition) == Logic4.One ? g.Then : g.Else;
@@ -2569,7 +2576,7 @@ namespace BitSorter.Sim
                     var here = new Scope(scope.Path, scope, scope.Module);
                     here.Set(genvar, new GenvarEntry { Value = LogicVec.FromInt64(value, 32, true), Declared = loop.Location });
 
-                    if (!ExpressionBuilder.TryConstant(loop.Condition, here, _diagnostics, out LogicVec condition))
+                    if (!ExpressionBuilder.TryConstant(loop.Condition, here, _diagnostics, out LogicVec condition, need: LoopNeeds))
                         return;
 
                     if (LogicVec.Truth(condition) != Logic4.One)

@@ -101,6 +101,23 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
+        public void AModuleWithALookalikeInIt_IsNumberedAsItsEditorDoes_Too()
+        {
+            // Printed as what it was read as (Part 15i-2): the numbering found its code in the listing by its text as typed,
+            // and lost it (the 15i-2 review).
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("pick", Code.Replace("s ? b : a", "s ? b : a & 2’b11")).Done);
+            double now = 0;
+            var session = new WorkbenchSession(editor.Project with { Top = "pick" }, () => now += 0.01);
+            session.Finish();
+            CodeListing listing = session.Listing;
+            int file = listing.FileOf("pick");
+            int body = listing.BodyLine(file);
+            Assert.Greater(body, 1);
+            Assert.AreEqual("    assign y = s ? b : a & 2'b11;", listing.Files[file].Text.Split('\n')[body - 1 + 8 - 1]);
+        }
+
+        [Test]
         public void OverAnythingButTheDrawing_ThereAreNoLines()
         {
             WorkbenchSession session = Session();
