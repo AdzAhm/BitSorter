@@ -4259,6 +4259,25 @@ judgement calls on waking; his changes run M1 to M5 before Part 16).
   a member or a parameter the bench no longer offers passed over. Older saves read none. Held by `BenchChoicesTests` and
   two Play Mode tests, one through a launch onto a sample planted in the save.
 
+**As built in M3 (2026-11-02): every part of the processors described.** Ahmad found a processor's blocks said only "An
+instance of X, written as SystemVerilog", and half its modules said nothing of what they were.
+- **The code describes itself** (`Board/CodeComments.cs`). A part of the drawing of code comes from a line (15h-5), and
+  what the code says of that line is its description's first sentence: the `//` comment at the end of the line, else the
+  `//` lines right above it, joined. A blank line or code ends them, and a line of rule characters is a divider, not a
+  comment. A block whose line says nothing takes the comment over its module's `module`. The inspector line reads the
+  comment, then what the drawing says of the part, then the line it comes from. General: a student's commented design
+  describes itself the same way.
+- **An import's includes are passed over.** The importer cuts a file into a module each and puts the file's includes at
+  the head of every body, an `` `include `` line and a blank one after it -- between a comment and the register it was
+  written over. Both are skipped on the way up; a blank line of the code's own still ends a comment.
+- **The words**: every module of the three processors has a comment over it, every port one beside it, and every
+  instance, register, and assign or case that makes a mux one saying what it is for -- written from the published RISC-V
+  specification, nothing from the course. Comments only: the code is the same line for line, and the oracle runs it as
+  before. `ProcessorDescriptionTests` walks each processor's drawings, the top and every module stepped into, and fails
+  on any block, register, port or mux with no comment: 138, 188 and 360 parts, none without.
+- **Known limit.** An edit made on a drawing writes its module's code again from the drawing (15h-4g), which keeps the
+  comment over the module and no other, so that module's line comments go.
+
 ---
 
 ## 11. The parts

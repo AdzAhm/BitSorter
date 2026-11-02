@@ -57,6 +57,20 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("A chooser, written for this test.", session.CommentOfPart(block));
         }
 
+        [Test]
+        public void TheSingleCycleDatapathsALU_SaysWhatItIsFor()
+        {
+            Project project = WorkbenchSamples.All.Single(x => x.Name == "Single-cycle RISC-V").Build();
+            double now = 0;
+            var session = new WorkbenchSession(project, () => now += 0.01);
+            if (session.DrawnModule.FindPart("datapath") == null)
+                Assert.IsTrue(session.StepInto(session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == "scpu").Id));
+            Assert.IsTrue(session.StepInto(session.DrawnModule.FindPart("datapath").Id));
+            BlockPart alu = session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Name == "alu");
+            StringAssert.StartsWith("The ALU: the result of an arithmetic instruction", session.CommentOfPart(alu.Id),
+                "the comment over its instance's line");
+        }
+
         /// <summary>
         /// The checklist: every block, register, port and mux of each processor's drawing -- at its top and in every module
         /// stepped into, a controller's drawing included -- described by a comment of its code.
