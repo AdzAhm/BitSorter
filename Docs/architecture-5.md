@@ -311,9 +311,11 @@ VCD           written for export, read for the oracle comparison
   processes come before those of the modules beside them. A testbench that raises reset
   at time 0 therefore reaches the flip-flops of the design it instantiates. A `fork`'s branches (Part L5)
   are processes of their own, each written after the process that forks it, and start straight after it
-  in the order written, once it waits -- Icarus 12 starts them last first; the standard leaves it open. At time 0 the processes start
-  once what has no delay has settled from the starting values (from Part 6a, as Icarus starts them), so
-  an `initial` that reads a wire at time 0 sees it worked out, not x.
+  in the order written, once it waits -- Icarus 12 starts them last first; the standard leaves it open. **Time 0 begins
+  as ModelSim begins it** (M5): every `always` headed by an event control waits first, the others then start as
+  written, an instance's in its place, and what has no delay settles after them, so an `initial` that reads a wire at
+  once sees x. As Icarus begins it -- from Part 6a until M5, and a setting since -- the processes start once what has
+  no delay has settled, so the `initial` sees the wire worked out ("As built in M5").
 - **Regions.** A nonblocking write is worked out when it runs and applied once nothing active is left in
   the time step; `#0` waits for that moment too, and runs before the nonblocking writes (IEEE 1800, 4.4).
   `q <= #3 d` takes `d` now and writes it three units on; `a = #3 b` takes `b` now, waits, and writes.
@@ -2043,8 +2045,8 @@ template is imported, then exported filled.
   stimulus makes as a declaration; a clock set by `initial clk = 1` instead is set at time 0 (`ClockTrack.SetAtZero`), an
   event, x to 1, as the original's was. A change made after the first round of its moment -- the nonblocking `d <= ~d`
   of a testbench answering a clock edge -- is a late step (`Step.Late`), made with `<=` so the edge sees the value from
-  before; at time 0 the first round is the one the processes started in (`Simulator.ProcessesStartedIn`), after what has
-  no delay settled. Every change is kept, not only each moment's last, so a pulse no time wide (`g = 1; #0 g = 0;`) is
+  before; at time 0 the first round is the one the processes started in (`Simulator.ProcessesStartedIn`) -- the first,
+  as ModelSim begins time 0, or after what has no delay settled, as Icarus does. Every change is kept, not only each moment's last, so a pulse no time wide (`g = 1; #0 g = 0;`) is
   made again. An input wired to something other than a plain name -- a constant, an expression -- is read from the
   design's port as it settled. A testbench that gives the design parameters is refused with why, until a stimulus can.
 - **The testbench module is taken out**, `Project.Bench` goes, and the inputs are the stimulus's to set again; the
@@ -4319,6 +4321,27 @@ where 15i-2 had refused it as a slip). The procedural continuous assignment of I
 - **The oracle**: Icarus 12 reads an assign's right side once ("not yet fully supported"); ModelSim follows the standard.
   So `corpus/behavioural/procedural_assign.sv` is held to ModelSim, `TestbenchControlTests` holds BitSorter to ModelSim's
   printed lines where CI runs, and a test holds Icarus's difference (`Docs/oracle-notes.md`, "Procedural assign").
+
+**As built in M5 (2026-11-02): time 0 begins as ModelSim begins it** (Ahmad's morning answer to Q1: follow ModelSim's
+order now, and decide again after Part 16's sweep).
+- **Measured first.** 39 small designs under ModelSim and Icarus, kept in the session's scratchpad, never the repository;
+  ModelSim's rule is the one written in `Docs/oracle-notes.md`, "Time 0, as ModelSim begins it", from what they printed.
+- **One setting** (`SimOptions.StartOrder`, `Sim/StartOrder.cs`): `ModelSim`, the default wherever BitSorter runs -- the
+  workbench, CHECK and the exercises' grading, COMPARE -- or `Icarus`, BitSorter's start before M5. Deciding again after
+  the sweep is flipping that default.
+- **ModelSim's start** (`ModelSimStart.Of`, worked out once a run): in the first delta, after every driver has worked out
+  its first value and before it arrives, every `always` or `always_ff` whose first instruction is a wait runs and so sets
+  itself waiting; then the other processes, by their places from the top down -- each instance statement's in its
+  parent, a generate block taking the first place inside it, then the process's own -- and `always_comb` and
+  `always_latch` last, as the standard has their first run. The drivers' first values arrive a delta later, as changes
+  the waiting processes see. Processes woken together still run in the fixed order, an instance's before its parent's
+  -- which is ModelSim's too, measured.
+- **Held three ways.** The Icarus oracle runs every comparison in Icarus's start, so it stays exact; the ModelSim oracle
+  runs ModelSim's, and `ModelSimDiffers` lost its two time-0 rows (the scheduling testbench's S1, and the printing
+  testbench's read through the hierarchy); COMPARE agrees with ModelSim on every sample from t = 0. Every exercise is
+  graded both ways, its answer and the circuit it opens on, and none differs.
+- **Not time 0, so not here:** a port costs BitSorter a delta, so processes woken through one run a delta after the
+  parent's, where ModelSim joins a port's two sides into one net. Three of the 39 designs show it; no corpus design races on it.
 
 ---
 

@@ -257,10 +257,19 @@ failure side.
   (`Docs/architecture-5.md`, sections 5 and 9; a test shuffles it).
   Processes are the one place the language itself allows a race -- a
   blocking write is seen at once -- so they run in a fixed order instead:
-  an instance's processes before its parent's own, then as written, as
-  Icarus starts them -- except that a scope's interfaces are made before
-  its modules, which may be given one through a port (Part L8). Never let
-  that order depend on anything else. A
+  an instance's processes before its parent's own, then as written --
+  except that a scope's interfaces are made before its modules, which may
+  be given one through a port (Part L8). Never let that order depend on
+  anything else. **Time 0 begins as ModelSim begins it** (M5, Ahmad's
+  morning decision of 2026-11-02, to be decided again after Part 16's
+  sweep; `SimOptions.StartOrder`, `ModelSimStart`): every `always` headed
+  by an event control is waiting before anything runs, the other processes
+  then start as written, depth first -- an instance's at its instance
+  statement's place -- `always_comb` and `always_latch` last, and the
+  continuous logic settles after them, as changes of its own. Icarus's
+  start -- the logic settled first, then every process in the fixed order
+  -- is one setting away, and the Icarus oracle runs it, so both oracles
+  stay exact (`Docs/oracle-notes.md`, "Time 0"). A
   fork's branches (Part L5) start straight after the process that forks
   them, in the order written, once it waits; Icarus 12 starts them last
   first, and the standard leaves it open (`Docs/oracle-notes.md`).

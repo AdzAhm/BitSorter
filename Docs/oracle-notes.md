@@ -130,8 +130,10 @@ now read from their SystemVerilog. They agree. What the probes pinned down:
 | `#0` | the process runs again after the rest of the instant's processes, before the nonblocking writes | the inactive region |
 | `a = #5 b`, `q <= #3 d` | the value is taken when the statement runs and written after the delay | the same |
 
-So BitSorter starts processes in Icarus's order -- an instance's before its parent's own, a module's own
-as written -- and holds to it on every run (`Docs/architecture-5.md`, section 5).
+So BitSorter started processes in Icarus's order -- an instance's before its parent's own, a module's own
+as written -- and holds to that order whenever processes are woken together (`Docs/architecture-5.md`, section 5).
+How time 0 begins follows ModelSim since M5 (below, "Time 0, as ModelSim begins it"); Icarus's start is a setting,
+and the Icarus oracle runs it.
 
 ### The last time step of a `$stop`
 
@@ -219,7 +221,8 @@ compared with Icarus's, as well as every signal. They agree. What the probes pin
 Icarus works out every continuous assignment from the starting values before any process runs, so an
 `initial` that prints a wire at time 0 prints its value. BitSorter started its processes in the first
 delta of time 0 until Part 6a, and printed x. Both are allowed; Icarus's is plainly what a student
-expects, so BitSorter now does the same (`ProcessTests.AtTimeZero_ProcessesStart_...`).
+expects, so BitSorter did the same (`ProcessTests.AtTimeZero_AsIcarusBegins_...`) -- until M5, which follows
+ModelSim, where it prints x again (below).
 
 ### What `$writememh` writes
 
@@ -442,6 +445,40 @@ fixed order -- an instance's before its parent's -- and Icarus 12 happened to ag
 passed it. The race warning found it; it drives `walk` with `<=` now, which every simulator settles the same way, and
 every corpus testbench is held to no race as the oracle runs it.
 
+## Time 0, as ModelSim begins it (M5, 2026-11-02)
+
+Ahmad's morning decision of 2026-11-02 (Q1): follow ModelSim's order at time 0 now, and decide again after Part 16's
+sweep. The standard leaves it open (4.7). Measured first, with 39 small designs run under ModelSim ASE 2020.1 and
+Icarus 12 (in the session's scratchpad, never the repository). ModelSim's rule, as measured:
+
+| Question | ModelSim | Icarus 12 |
+| --- | --- | --- |
+| An `initial` raises `r` at time 0; an `always @(posedge r)` written after it | sees the edge | misses it |
+| The same with an `always_ff` on a reset, or across an instance either way | sees it | sees it only if the always's instance starts first |
+| `r = 1; r = 0;` in an initial; `always @(posedge r)` and `@(negedge r)` written after it | sees both | sees neither |
+| A clock raised from x at time 0, an `always_ff @(posedge clk)` | an edge | no edge |
+| An `initial @(posedge r)` written after the initial that raises `r` | misses it | misses it |
+| An `always begin x = 1; #5; end` written after `initial y = x;` | y = 0: the initial first | the same |
+| Initials printing, an instance's between its parent's two | as written, the instance's in its place | the instance's first |
+| An `initial` reading a wire, or an output through the hierarchy, at once | x: not settled yet | its value |
+| The same after `#0` | its value | its value |
+| An `always @(w)` on a wire that settles at time 0 | sees the change | sees nothing |
+| An `initial` reading an `always_comb`'s output at once | x | x |
+| Two always blocks of one module woken by one edge | as written | last first |
+| Two instances' always blocks and the parent's, woken by one edge | the instances first, in their order, then the parent's | the parent's, then the instances last first |
+
+So ModelSim has every `always` headed by an event control waiting before anything runs; then the other processes run
+as written, depth first, an instance's at its instance statement's place, `always_comb` and `always_latch` last; and
+the continuous logic settles after them, as changes. BitSorter does just that by default since M5
+(`StartOrder.ModelSim`, `ModelSimStart`), and matches ModelSim on 36 of the 39 designs. The three it does not are not
+time 0: **a port costs BitSorter a delta**, so an instance's processes woken through one run a delta after the parent's,
+where ModelSim, which joins a port's two sides into one net, runs them first. No corpus design races on it.
+
+`StartOrder.Icarus` is BitSorter's start before M5, and the Icarus oracle runs every comparison in it, so those stay
+exact; the ModelSim oracle runs ModelSim's, which took the time-0 rows out of `ModelSimDiffers` below. No exercise's
+grade depends on it (`ExerciseCurriculumTests.NoExercisesGrade_DependsOnHowTimeZeroBegins`), and COMPARE WITH MODELSIM'S
+RUN agrees with ModelSim on every sample from t = 0 (`ModelSimCompareOracleTests`).
+
 ## ModelSim (Part 15i-4, ModelSim ASE 2020.1, 2026-11-02)
 
 Every corpus testbench runs under ModelSim as well as Icarus (`BehaviouralOracleTests`), compared on every signal and
@@ -451,9 +488,7 @@ let through.
 
 | Testbench | ModelSim | Icarus 12 and BitSorter |
 | --- | --- | --- |
-| `scheduling`, S1: an `initial` raising `r1` at time 0, written before the `always @(posedge r1)` | starts the `always` first, so it sees the edge: `q1` is 1 | start the `initial` first: `q1` stays x |
 | `printing`, `$display("%5d|%-5d|%05d|%3h|%8b|")` | `%05d` is padded with spaces, `%3h` and `%8b` with zeros: `    5|005|00000101` | `00005|  5|    0101` |
-| `printing`, a value read through the hierarchy in an `initial` at time 0 | before the logic under it has settled: x | after |
 | `expressions`, `$random` with no seed | its own first seed | Icarus's |
 | `reals`, a real printed with no format, and `%d` beside it | the shortest exact form, `2.5 0.3333333333333333`, and `%d` padded to its width | `2.50000 0.333333`, `%d` unpadded |
 
