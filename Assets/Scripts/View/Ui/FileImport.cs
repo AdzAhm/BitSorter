@@ -117,6 +117,39 @@ namespace BitSorter.View
 #endif
         }
 
+        /// <summary>The largest dump COMPARE WITH MODELSIM reads (Part 15i-5): a VCD of a long run is far larger than a project's code.</summary>
+        public const long MaxDumpSize = 64L << 20;
+
+        /// <summary>Asks the page for one file, a dump to compare with, which <see cref="TryTake"/> has once it is read.</summary>
+        public static void PickDump()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            BitSorterPickFiles(0, 1, (int)MaxDumpSize, (int)MaxDumpSize);
+#endif
+        }
+
+        /// <summary>The newest .vcd in the Import folder or a folder in it, or null: where a desktop finds ModelSim's dump.</summary>
+        public static string NewestDump()
+        {
+            string folder = Folder;
+            if (!Directory.Exists(folder))
+                return null;
+            string newest = null;
+            DateTime when = DateTime.MinValue;
+            foreach (string path in Directory.GetFiles(folder, "*.vcd", SearchOption.AllDirectories))
+            {
+                var info = new FileInfo(path);
+                if (info.Length > MaxDumpSize || IsHidden(Path.GetRelativePath(folder, path).Replace('\\', '/')))
+                    continue;
+                if (info.LastWriteTimeUtc > when)
+                {
+                    when = info.LastWriteTimeUtc;
+                    newest = path;
+                }
+            }
+            return newest;
+        }
+
         /// <summary>The files picked, once the page has read them all; false until then, and after they are taken.</summary>
         public static bool TryTake(out List<SourceFile> files)
         {

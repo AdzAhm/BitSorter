@@ -1456,7 +1456,7 @@ namespace BitSorter.View
 
             // Files the player picked in the page (Part 13d), once it has read them.
             if (FileImport.Picks && FileImport.TryTake(out List<BitSorter.Board.SourceFile> picked))
-                Import(picked);
+                Picked(picked);
 
             // Escape closes what is on top of the workbench -- a popup first, then the start page, a part in hand or a drag
             // (Part 10a) -- and nothing more: nothing is behind the workbench to go back to (Part 15a).

@@ -16,6 +16,9 @@ namespace BitSorter.Board
         /// <summary>The script's name, as ModelSim's own examples call it.</summary>
         public const string RunScript = "run.do";
 
+        /// <summary>The dump the run.do has ModelSim write, which COMPARE WITH MODELSIM reads back (Part 15i-5).</summary>
+        public const string ModelSimDump = "modelsim.vcd";
+
         /// <summary>The zip of <paramref name="project"/>, its files dated <paramref name="when"/>; null for a document that does not compile.</summary>
         public static byte[] Zip(Project project, DateTime when)
         {
@@ -82,7 +85,11 @@ namespace BitSorter.Board
             }
             script.Append("vsim -voptargs=+acc").Append(given).Append(' ').Append(Tcl("work." + compiled.Top)).Append('\n');
             script.Append("add wave -r /*\n");
+            // Every signal dumped as it runs, for BitSorter to hold its own run to: FILE, COMPARE WITH MODELSIM (Part 15i-5).
+            script.Append("vcd file ").Append(ModelSimDump).Append('\n');
+            script.Append("vcd add -r /*\n");
             script.Append("run -all\n");
+            script.Append("vcd flush\n");
             return script.ToString();
         }
 

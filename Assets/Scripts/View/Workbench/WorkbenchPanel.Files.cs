@@ -92,7 +92,118 @@ namespace BitSorter.View
                 case FileAction.ConvertTestbench:
                     AskConvert();
                     break;
+                case FileAction.CompareModelSim:
+                    CompareWithModelSim();
+                    break;
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Compare with ModelSim (Part 15i-5)
+        // -----------------------------------------------------------------
+
+        /// <summary>Whether the files the page is reading are a dump to compare with, not a project to import.</summary>
+        private bool _comparing;
+
+        /// <summary>
+        /// FILE, COMPARE WITH MODELSIM'S RUN: the dump an exported run.do has ModelSim write (<see cref="ProjectExport.ModelSimDump"/>)
+        /// -- the newest .vcd in the Import folder on a desktop, one the player picks in a browser -- held to this run.
+        /// </summary>
+        public void CompareWithModelSim()
+        {
+            if (_session == null)
+                return;
+            if (FileImport.Picks)
+            {
+                _comparing = true;
+                FileImport.PickDump();
+                return;
+            }
+
+            string path = FileImport.NewestDump();
+            if (path == null)
+            {
+                Notice("put the " + ProjectExport.ModelSimDump + " ModelSim wrote in " + FileImport.Folder + ", then FILE, COMPARE WITH MODELSIM'S RUN");
+                return;
+            }
+
+            string text;
+            try
+            {
+                text = System.IO.File.ReadAllText(path);
+            }
+            catch (System.Exception e) when (e is System.IO.IOException || e is System.UnauthorizedAccessException)
+            {
+                Notice("the dump could not be read: " + e.Message);
+                return;
+            }
+            Compare(text);
+        }
+
+        /// <summary>
+        /// <paramref name="dump"/>, a VCD, held to this run (<see cref="RunComparison"/>): the verdict on the chip, the first
+        /// difference at the TRANSCRIPT's head at its moment, and the run taken there -- or the agreement said.
+        /// </summary>
+        public void Compare(string dump)
+        {
+            if (_session == null || dump == null)
+                return;
+
+            Dictionary<string, BitSorter.Sim.VcdTrace> theirs;
+            try
+            {
+                theirs = BitSorter.Sim.VcdReader.Read(new System.IO.StringReader(dump));
+            }
+            catch (System.Exception e) when (e is System.FormatException || e is System.IndexOutOfRangeException || e is System.OverflowException)
+            {
+                Notice("that is not a VCD ModelSim wrote: " + e.Message);
+                return;
+            }
+
+            _session.Finish();   // the whole run, to be held to the whole dump
+            WorkbenchModel model = _session.Run.Model;
+            RunComparison comparison = RunComparison.Of(model.Session.Design, model.Session.History, model.End, theirs);
+            LastComparison = comparison;
+            if (comparison.Compared == 0)
+            {
+                Notice("ModelSim's dump names none of this run's signals: export this circuit, run its run.do, and compare its " +
+                    ProjectExport.ModelSimDump);
+                return;
+            }
+
+            string unit = _session.Unit;
+            _transcript.Notes = comparison.Lines(unit);
+            _notesAbout = _session.Project;
+            _transcriptDrawn = -1;
+            Notice(comparison.Verdict(unit));
+            ShowDockTab(DockTab.Transcript);
+            if (!comparison.Agree)
+            {
+                Pause();
+                Seek(comparison.Time.Value);
+            }
+        }
+
+        /// <summary>The last comparison made, for the tests.</summary>
+        public RunComparison LastComparison { get; private set; }
+
+        /// <summary>Files the page has read: a dump to compare with when COMPARE asked for them, else a project to import.</summary>
+        private void Picked(List<SourceFile> files)
+        {
+            if (!_comparing)
+            {
+                Import(files);
+                return;
+            }
+
+            _comparing = false;
+            foreach (SourceFile file in files)
+                if (file.Path.EndsWith(".vcd", System.StringComparison.OrdinalIgnoreCase) && file.Text != null)
+                {
+                    Compare(file.Text);
+                    return;
+                }
+            Notice("pick the " + ProjectExport.ModelSimDump + " ModelSim wrote to compare with");
         }
 
         // -----------------------------------------------------------------

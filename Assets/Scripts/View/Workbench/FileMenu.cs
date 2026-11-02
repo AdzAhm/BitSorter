@@ -42,6 +42,9 @@ namespace BitSorter.View
 
         /// <summary>The written testbench turned into the stimulus, so the inputs are set on the waves (Part 13c, 13d).</summary>
         ConvertTestbench,
+
+        /// <summary>The run held to ModelSim's dump of the exported project, the first difference shown (Part 15i-5).</summary>
+        CompareModelSim,
     }
 
     /// <summary>
@@ -58,7 +61,7 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _rename, _delete, _backToImported, _export, _submission, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _rename, _delete, _backToImported, _export, _submission, _compare, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
@@ -72,6 +75,8 @@ namespace BitSorter.View
                 () => onChoose?.Invoke(FileAction.ExportProject), breakBefore: true);
             menu._submission = menu.Item(ActionItem + FileAction.ExportSubmission, "EXPORT FOR SUBMISSION",
                 () => onChoose?.Invoke(FileAction.ExportSubmission));
+            menu._compare = menu.Item(ActionItem + FileAction.CompareModelSim, "COMPARE WITH MODELSIM'S RUN",
+                () => onChoose?.Invoke(FileAction.CompareModelSim));
             menu._importFolder = menu.Item(ActionItem + FileAction.ImportFolder, "IMPORT A PROJECT FROM THE IMPORT FOLDER",
                 () => onChoose?.Invoke(FileAction.ImportFolder), breakBefore: true);
             menu._openFolder = menu.Item(ActionItem + FileAction.OpenImportFolder, "OPEN THE IMPORT FOLDER", () => onChoose?.Invoke(FileAction.OpenImportFolder));
@@ -93,6 +98,7 @@ namespace BitSorter.View
                 FileAction.BackToImported => _backToImported,
                 FileAction.ExportProject => _export,
                 FileAction.ExportSubmission => _submission,
+                FileAction.CompareModelSim => _compare,
                 FileAction.ImportFolder => _importFolder,
                 FileAction.OpenImportFolder => _openFolder,
                 FileAction.ImportFiles => _importFiles,
@@ -122,6 +128,7 @@ namespace BitSorter.View
             Offer(_delete, ownCircuit);
             Offer(_export, circuitShown);
             Offer(_submission, hasTemplate);
+            Offer(_compare, circuitShown);
             Offer(_importFolder, !picks);
             Offer(_openFolder, !picks);
             Offer(_importFiles, picks);

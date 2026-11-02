@@ -36,6 +36,8 @@
     <ProjectReference Include="../SystemVerilog/SystemVerilog.csproj" />
     <ProjectReference Include="../Sim/Sim.csproj" />
     <ProjectReference Include="../Board/Board.csproj" />
+    <!-- COMPARE WITH MODELSIM's comparison, held to ModelSim's own dump (Part 15i-5). -->
+    <ProjectReference Include="../ViewModel/ViewModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>
