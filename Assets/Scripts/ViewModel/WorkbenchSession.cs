@@ -328,16 +328,19 @@ namespace BitSorter.ViewModel
         // The code elaborated as it is now, made once for the document's modules, and its scopes by their paths: what steps
         // through code are found and checked in, and what the drawing of code is drawn from.
         private IReadOnlyList<Module> _designModules;
+        private IReadOnlyDictionary<string, string> _designParameters;
         private Design _design;
         private readonly Dictionary<string, int> _scopes = new Dictionary<string, int>(StringComparer.Ordinal);
 
         private Design DesignOf(Project project, CompiledProject compiled)
         {
-            if (ReferenceEquals(_designModules, project.Modules))
+            // The program chosen is the design's too (Part 15h-6c): another changes no module and every value.
+            if (ReferenceEquals(_designModules, project.Modules) && ReferenceEquals(_designParameters, project.Settings?.BenchParameters))
                 return _design;
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             _design = elaboration.HasErrors ? null : elaboration.Design;
             _designModules = project.Modules;
+            _designParameters = project.Settings?.BenchParameters;
             _scopes.Clear();
             if (_design != null)
                 for (int i = 0; i < _design.Scopes.Count; i++)
@@ -1449,6 +1452,33 @@ namespace BitSorter.ViewModel
         /// every gate of a cell given the cell's delays, one step, drawn at once and run again.
         /// </summary>
         public EditResult SetLibrary(GateLibrary library) => Unchangeable ?? Edited(Editor.SetLibrary(library));   // it retimes the gates
+
+        /// <summary>
+        /// What the testbench lets the run choose (Part 15h-6c) -- a processor's PROGRAM: its enum's members and the one chosen
+        /// -- for the workbench's chips; none when its top has no parameter of an enum type. Read once for each document.
+        /// </summary>
+        public IReadOnlyList<BenchChoice> Choices
+        {
+            get
+            {
+                if (!ReferenceEquals(_choicesFor, Project))
+                {
+                    _choicesFor = Project;
+                    _choices = BitSorter.Board.BenchChoices.Of(BoardCompiler.Compile(Project), Project.Settings);
+                }
+                return _choices;
+            }
+        }
+
+        private Project _choicesFor;
+        private IReadOnlyList<BenchChoice> _choices = Array.Empty<BenchChoice>();
+
+        /// <summary>
+        /// <paramref name="member"/> chosen for the testbench's <paramref name="name"/> -- PROGRAM, FIBONACCI -- one undo step,
+        /// and the run made again with it (<see cref="BoardEditor.SetBenchParameter"/>). Not refused while the circuit is
+        /// locked: it changes what is run, never the circuit or its code.
+        /// </summary>
+        public EditResult Choose(string name, string member) => Edited(Editor.SetBenchParameter(name, member));
 
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>

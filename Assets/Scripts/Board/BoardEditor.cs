@@ -686,6 +686,41 @@ namespace BitSorter.Board
             settings == null ? EditResult.Refused("A project needs its settings.") : Commit(Project with { Settings = settings });
 
         /// <summary>
+        /// The testbench's own parameter <paramref name="name"/> given <paramref name="value"/> for every run of the project
+        /// (Part 15h-6c): a processor's PROGRAM, FIBONACCI. One step; null gives it back what its declaration gives it, and the
+        /// value it already has is no step at all.
+        /// </summary>
+        public EditResult SetBenchParameter(string name, string value)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return EditResult.Refused("A parameter needs a name.");
+            ProjectSettings settings = Project.Settings ?? new ProjectSettings();
+            IReadOnlyDictionary<string, string> was = settings.BenchParameters;
+            string current = was != null && was.TryGetValue(name, out string given) ? given : null;
+            if (current == value)
+                return EditResult.Ok();
+            var values = was != null ? new Dictionary<string, string>(was.Count + 1, StringComparer.Ordinal) : new Dictionary<string, string>(StringComparer.Ordinal);
+            if (was != null)
+                foreach (KeyValuePair<string, string> pair in was)
+                    values[pair.Key] = pair.Value;
+            if (value == null)
+                values.Remove(name);
+            else
+                values[name] = value;
+            Project next = Project with { Settings = settings with { BenchParameters = values.Count == 0 ? null : values } };
+
+            // A written testbench's run is shown to where it stops, and each program stops at its own time: measured again.
+            if (next.Bench != null && next.Stimulus != null)
+            {
+                CompiledProject compiled = BoardCompiler.Compile(next);
+                Sim.Elaboration elaboration = compiled.Succeeded ? compiled.Elaborate() : null;
+                if (elaboration != null && !elaboration.HasErrors)
+                    next = next with { Stimulus = next.Stimulus with { End = ProjectImporter.RunEnd(next, elaboration, out _) } };
+            }
+            return Commit(next);
+        }
+
+        /// <summary>
         /// The project held to <paramref name="library"/> (Part 14d), or to none for null -- and every drawn gate the library
         /// has a cell for given that cell's delays in the same step, so a delay changed in the table is every gate of the
         /// cell changed, and undone together. Refused, in the rules' words, when what is drawn breaks it: a gate it has no

@@ -68,6 +68,20 @@ namespace BitSorter.Board
 
         public bool Succeeded => Tree != null;
 
+        /// <summary>
+        /// What the top's own parameters are given (<see cref="ProjectSettings.BenchParameters"/>, Part 15h-6c), as the
+        /// elaborator takes them; empty for none.
+        /// </summary>
+        public IReadOnlyDictionary<string, Expression> TopParameters { get; internal set; } = new Dictionary<string, Expression>();
+
+        /// <summary>
+        /// The design elaborated from <see cref="Top"/>, its parameters given what the project chose: what a run of the
+        /// project runs. A module elaborated by itself -- for its drawing, its truth table -- is the module, and takes none.
+        /// </summary>
+        public Elaboration Elaborate() => TopParameters.Count == 0
+            ? Elaborator.Elaborate(Tree, Top)
+            : Elaborator.Elaborate(Tree, Top, TopParameters);
+
         public CompiledModule Find(string module)
         {
             foreach (CompiledModule m in Modules)
@@ -150,7 +164,10 @@ namespace BitSorter.Board
                 designPath = testbench + "." + dut;
             }
 
-            return new CompiledProject(tree, testbench ?? project.Top, testbench, designPath, compiled, new List<string>(cells), diagnostics);
+            return new CompiledProject(tree, testbench ?? project.Top, testbench, designPath, compiled, new List<string>(cells), diagnostics)
+            {
+                TopParameters = BenchChoices.Values(tree, testbench ?? project.Top, project.Settings?.BenchParameters),
+            };
         }
 
         /// <summary>The modules, each after every module it uses.</summary>

@@ -331,7 +331,8 @@ namespace BitSorter.Board.Tests
         {
             var fields = new JsonSerializerOptions { IncludeFields = true };
             string json = JsonSerializer.Serialize(ProjectRecord.From(SampleBoards.Build("half_adder")), fields)
-                .Replace(",\"bench\":null", "").Replace("\"files\":[],", "").Replace(",\"files\":[]", "");
+                .Replace(",\"bench\":null", "").Replace("\"files\":[],", "").Replace(",\"files\":[]", "")
+                .Replace(",\"benchParameters\":[]", "");   // nor what the testbench is given (Part 15h-6c)
             StringAssert.DoesNotContain("bench", json);
             StringAssert.DoesNotContain("files", json);
 
@@ -340,6 +341,7 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(problems);
             Assert.IsNull(read.Bench);
             Assert.IsEmpty(read.Files);
+            Assert.IsNull(read.Settings.BenchParameters);
         }
 
         [Test]

@@ -335,7 +335,7 @@ namespace BitSorter.ViewModel
             if (!compiled.Succeeded)
                 throw new InvalidOperationException("The document does not compile: " + string.Join("; ", compiled.Diagnostics));
 
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             if (elaboration.HasErrors)
                 throw new InvalidOperationException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics));
 

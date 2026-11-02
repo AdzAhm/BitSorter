@@ -83,7 +83,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void TheDiagram_FollowsTheRun()
         {
-            WorkbenchSession session = InsideTheControl("Multicycle RISC-V");
+            WorkbenchSession session = InsideTheControl("Multicycle RISC-V", "TEST");   // every instruction: every state
             WorkbenchModel model = session.Run.Model;
             MachineReading machine = session.Controller.Machine;
             var seen = new List<int>();
@@ -106,7 +106,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void SteppingIntoTheSingleCycleController_OpensOnItsTables_TheRowOfTheInstructionRunningLit()
         {
-            WorkbenchSession session = InsideTheControl("Single-cycle RISC-V");
+            WorkbenchSession session = InsideTheControl("Single-cycle RISC-V", "TEST");
             Assert.IsTrue(session.ShowsController);
             Assert.IsNull(session.Controller.Machine);
             Assert.AreEqual(2, session.Controller.Tables.Count);
@@ -189,10 +189,12 @@ namespace BitSorter.ViewModel.Tests
         private static bool Overlap(Vec2 aMin, Vec2 aMax, Vec2 bMin, Vec2 bMax) =>
             aMin.x <= bMax.x && bMin.x <= aMax.x && aMin.y <= bMax.y && bMin.y <= aMax.y;
 
-        private static WorkbenchSession InsideTheControl(string sample)
+        private static WorkbenchSession InsideTheControl(string sample, string program = null)
         {
             double now = 0;
             var session = new WorkbenchSession(WorkbenchSamples.All.Single(s => s.Name == sample).Build(), () => now += 0.01);
+            if (program != null)
+                Assert.IsTrue(session.Choose("PROGRAM", program).Done);
             session.Finish();
             Assert.IsTrue(session.StepInto(ControlOf(session)));
             Assert.IsTrue(session.ShowsDrawingOfCode, "the controller drawn");

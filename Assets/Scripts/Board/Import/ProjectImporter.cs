@@ -522,7 +522,7 @@ namespace BitSorter.Board
                 return new ProjectImport(project, notes);
 
             // Where the testbench stops, which the run is shown to.
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             if (elaboration.HasErrors)
             {
                 foreach (Diagnostic d in elaboration.Diagnostics)
@@ -531,9 +531,26 @@ namespace BitSorter.Board
                 return Refused();
             }
 
+            long end = RunEnd(project, elaboration, out bool stopped);
+            if (!stopped)
+                Note(WrittenModules.FileOf(bench.Name), 0, 0,
+                    $"The testbench had not stopped by {end.ToString(CultureInfo.InvariantCulture)} {unit}, so the run is shown to there: end it with $stop.", false);
+
+            return new ProjectImport(project with { Stimulus = new Stimulus { End = end } }, notes);
+        }
+
+        /// <summary>
+        /// Where a written testbench's run is shown to, <paramref name="elaboration"/> run as far as <see cref="MaxRun"/> and
+        /// <see cref="MaxEvents"/> let it: where it stops; run out of things to do, as one with no $stop is, its last change
+        /// and a tenth more; or, not stopped, there, <paramref name="stopped"/> false. Measured again as the testbench's PROGRAM
+        /// is chosen (Part 15h-6c), since each program stops at its own time.
+        /// </summary>
+        internal static long RunEnd(Project project, Elaboration elaboration, out bool stopped)
+        {
             var sim = new Simulator(elaboration.Design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
             RunResult run = sim.RunTo(MaxRun, MaxEvents);
             long end = run.Time;
+            stopped = true;
             if (run.Status != RunStatus.Suspended && run.Status != RunStatus.Finished)
             {
                 if (run.Status == RunStatus.ReachedTime && sim.NextEventTime == null)
@@ -544,12 +561,10 @@ namespace BitSorter.Board
                 }
                 else
                 {
-                    Note(WrittenModules.FileOf(bench.Name), 0, 0,
-                        $"The testbench had not stopped by {end.ToString(CultureInfo.InvariantCulture)} {unit}, so the run is shown to there: end it with $stop.", false);
+                    stopped = false;
                 }
             }
-
-            return new ProjectImport(project with { Stimulus = new Stimulus { End = Math.Max(1, end) } }, notes);
+            return Math.Max(1, end);
         }
 
         /// <summary>

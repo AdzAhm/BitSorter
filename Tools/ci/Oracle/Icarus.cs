@@ -149,9 +149,13 @@ namespace BitSorter.Ci.Oracle
         /// Files the design opens as it runs -- <c>$readmemh</c>'s images -- copied into the run's folder,
         /// where a name with no folder is looked for.
         /// </param>
+        /// <param name="parameters">
+        /// Values for a top's own parameters, <c>scpu_tb.PROGRAM=1</c>, as <c>-P</c> gives them (Part 15h-6c): its
+        /// signals keep their names, where a wrapper module around the top would put them a level down.
+        /// </param>
         public IcarusRun Simulate(
             IEnumerable<string> sources, string top = null, IEnumerable<string> includeDirs = null, TimeSpan? timeout = null,
-            IEnumerable<string> dataFiles = null)
+            IEnumerable<string> dataFiles = null, IEnumerable<string> parameters = null)
         {
             TimeSpan limit = timeout ?? TimeSpan.FromSeconds(30);
             string folder = Path.Combine(Path.GetTempPath(), "bitsorter-oracle", Guid.NewGuid().ToString("N"));
@@ -164,6 +168,8 @@ namespace BitSorter.Ci.Oracle
                     compileArguments.AddRange(new[] { "-s", each.Trim() });
             foreach (string dir in includeDirs ?? Enumerable.Empty<string>())
                 compileArguments.Add("-I" + dir);
+            foreach (string parameter in parameters ?? Enumerable.Empty<string>())
+                compileArguments.Add("-P" + parameter);
             compileArguments.AddRange(sources);
 
             foreach (string data in dataFiles ?? Enumerable.Empty<string>())
