@@ -135,6 +135,17 @@ post-processing data, `Assets/Settings/PostProcessData.asset`, with its film-gra
 No look uses film grain, URP only reads that list while film grain is on, and noise barely
 compresses, so it was about 2.5 MB of the download for nothing.
 
+**What the browser build weighs**, measured from the release build's `Build/` folder, Brotli-compressed as
+served. 4.0.0's was 16,931,273 bytes; Part 16b records each cut it makes here against these.
+
+| Build | wasm | data | Download |
+|---|---|---|---|
+| 5.0 before Part 16a (v5 `b278b2b`, 2026-11-02) | 7,990,347 | 7,177,312 | 15,462,551 |
+| After Part 16a deleted the 4.x game (2026-11-02) | 7,688,213 | 7,063,474 | 15,046,579 |
+
+Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. The
+two menu recordings, about 3.6 MB of the data, are the largest thing left, and 16b's first candidate.
+
 **Decompression fallback is the setting that matters.** A Brotli-compressed Unity
 build only loads if the server answers with `Content-Encoding: br`. A host that
 serves the `.br` files as plain bytes makes the loader fail, and the failure is
