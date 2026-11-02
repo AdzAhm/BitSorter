@@ -104,7 +104,9 @@ namespace BitSorter.ViewModel
         /// </summary>
         /// <param name="describe">On a drawing of code, what a part it makes up does (Part 15h-4e): its line, where it has one.</param>
         /// <param name="lineOf">On a drawing of code, the line of the code a part comes from (Part 15h-5), which its line ends by saying; 0 for none.</param>
-        public static Inspection Of(Project project, string module, CanvasTarget target, Func<int, string> describe = null, Func<int, int> lineOf = null)
+        /// <param name="commentOf">What the code's own comments say of a part (2026-11-02), which its line starts with; null for nothing.</param>
+        public static Inspection Of(Project project, string module, CanvasTarget target, Func<int, string> describe = null, Func<int, int> lineOf = null,
+            Func<int, string> commentOf = null)
         {
             Module m = project?.Find(module);
             if (m == null)
@@ -115,7 +117,7 @@ namespace BitSorter.ViewModel
                 case CanvasTargetKind.Part:
                 case CanvasTargetKind.Pin:
                     Part part = m.FindPart(target.Part);
-                    return part == null ? null : OfPart(project, m, part, describe, lineOf);
+                    return part == null ? null : OfPart(project, m, part, describe, lineOf, commentOf);
 
                 case CanvasTargetKind.Wire:
                 case CanvasTargetKind.Bend:
@@ -142,7 +144,8 @@ namespace BitSorter.ViewModel
             return new Inspection("WIRE " + netName, says, -1, wire.Id, fields, "name");
         }
 
-        private static Inspection OfPart(Project project, Module m, Part part, Func<int, string> describe = null, Func<int, int> lineOf = null)
+        private static Inspection OfPart(Project project, Module m, Part part, Func<int, string> describe = null, Func<int, int> lineOf = null,
+            Func<int, string> commentOf = null)
         {
             var fields = new List<InspectorField> { new InspectorField("name", "NAME", part.Name) };
             string unit = project.Settings?.TimeUnit ?? TimeUnits.Default;
@@ -277,6 +280,9 @@ namespace BitSorter.ViewModel
 
             if (describe?.Invoke(part.Id) is string described)
                 says = described;
+            // What the code says of it, first: the designer's words, then what the drawing makes of it (2026-11-02).
+            if (commentOf?.Invoke(part.Id) is string comment && comment.Length > 0)
+                says = Sentence(comment) + (says.Length > 0 ? " " + says : "");
             if (lineOf?.Invoke(part.Id) is int line && line > 0)
                 says = (says.Length > 0 ? says + " " : "") + "From line " + line.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".";
             // A part the drawing of code makes up goes by what it is: OPERATOR, never OPERATOR $p4.
@@ -602,6 +608,17 @@ namespace BitSorter.ViewModel
         // -----------------------------------------------------------------
 
         private static string Int(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>A comment as a sentence of the inspector's line: its first letter a capital, and a stop at its end.</summary>
+        private static string Sentence(string comment)
+        {
+            string s = comment.Trim();
+            if (s.Length == 0)
+                return s;
+            s = char.ToUpperInvariant(s[0]) + s.Substring(1);
+            char last = s[s.Length - 1];
+            return last == '.' || last == '!' || last == '?' || last == ':' || last == ')' ? s : s + ".";
+        }
 
         private static string Time(long value, string unit) => value.ToString(CultureInfo.InvariantCulture) + " " + unit;
 

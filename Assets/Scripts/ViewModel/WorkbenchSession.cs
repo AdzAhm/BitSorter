@@ -805,6 +805,22 @@ namespace BitSorter.ViewModel
         public string DescribePart(int part) => ShownDrawing?.Describe(part);
 
         /// <summary>
+        /// What the code's own comments say of <paramref name="part"/> (Ahmad, 2026-11-02: every part of the processors
+        /// described): on the drawing of code, the comment for the line it comes from (<see cref="CodeComments.For"/>); for a
+        /// block with none of its own, anywhere, the comment over its module -- a written one's, else a drawn one's comment.
+        /// Null where the code says nothing.
+        /// </summary>
+        public string CommentOfPart(int part)
+        {
+            Module shown = Project.Find(Module);
+            int line = LineOfPart(part);
+            string said = line > 0 && shown != null && shown.IsWritten ? CodeComments.For(shown.Source, line) : null;
+            if (said == null && DrawnModule?.FindPart(part) is BlockPart block && Project.Find(block.Module) is Module of)
+                said = of.IsWritten ? CodeComments.OverModule(of.Source) : string.IsNullOrWhiteSpace(of.Comment) ? null : of.Comment.Trim();
+            return said;
+        }
+
+        /// <summary>
         /// The line of its module's own code a part of the drawing of code shown comes from, as the code's editor numbers it
         /// (<see cref="RtlDrawing.LineOf"/>, Part 15h-5); 0 for none, and over anything but the drawing -- its code, a
         /// controller's diagram, a drawn module.
