@@ -116,8 +116,8 @@ namespace BitSorter.View
 
         /// <summary>
         /// How strongly the board blooms, and how far the glow spreads. The threshold is not here:
-        /// it stays at <see cref="BitVisuals.BloomThreshold"/> in every look, because what crosses
-        /// it is what makes a bit the thing that glows.
+        /// it stays at 1 in every look (the 4.x game's <c>BitVisuals.BloomThreshold</c>, until Part 16a), because what
+        /// crossed it was what made a bit in flight the thing that glowed.
         /// </summary>
         public float BloomIntensity = 1f;
 

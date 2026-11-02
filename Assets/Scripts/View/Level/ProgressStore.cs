@@ -34,12 +34,11 @@ namespace BitSorter.View
         public string[] hintsSeen;
 
         /// <summary>
-        /// One-off things this player has been through, such as the guided tutorial.
+        /// One-off things this player has been through. The 4.x game kept its tutorial and chapter card here; since Part 16a
+        /// nothing writes one, and a reset still forgets them (<see cref="ProgressStore.ForgetTheExercises"/>).
         /// </summary>
         /// <remarks>
-        /// Its own array rather than a name in <see cref="completed"/>: that one counts solved
-        /// levels, and <c>MenuRules.AllSolved</c> and the ending panel both read the count, so a
-        /// tutorial in there would make nine levels look like ten. And not in
+        /// Its own array rather than a name in <see cref="completed"/>, which counts what was solved; and not in
         /// <see cref="hintsSeen"/> either, whose ids are held to hint rules by tests.
         /// </remarks>
         public string[] milestones;
@@ -231,7 +230,7 @@ namespace BitSorter.View
             return true;
         }
 
-        /// <summary>Whether this player has already been through a one-off, such as the tutorial.</summary>
+        /// <summary>Whether this player has already been through a one-off (<see cref="milestones"/>).</summary>
         public bool HasMilestone(string id) =>
             !string.IsNullOrEmpty(id) && _milestones.Contains(id);
 
@@ -474,8 +473,8 @@ namespace BitSorter.View
 
         /// <summary>
         /// Forgets the exercises and nothing the student made outside them (Part 15g, RESET PROGRESS): every solved mark,
-        /// every answer kept under one of <paramref name="exercises"/>' ids; the bests; the tutorial and every first-time
-        /// hint, which are milestones and hints seen; and an exercise in the recent list or as the last thing open. MY CIRCUIT
+        /// every answer kept under one of <paramref name="exercises"/>' ids; the bests; the milestones and every first-time
+        /// hint seen; and an exercise in the recent list or as the last thing open. MY CIRCUIT
         /// and every named circuit are kept.
         /// </summary>
         public void ForgetTheExercises(ICollection<string> exercises)

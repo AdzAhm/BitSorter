@@ -78,7 +78,7 @@ where simple and friendly conflicts with exact, simple and friendly wins.
  BitSorter.SystemVerilog   the language itself: its 4-state values, lexer, preprocessor, parser,
                            syntax tree and printer
 
- BitSorter.LogicCore   the 4.x token engine: frozen, deleted when 5.0 is finished
+ (BitSorter.LogicCore, the 4.x token engine, stood beside them until Part 16a deleted it)
 ```
 
 - **`SystemVerilog`, `Sim`, `Board` and `ViewModel` are pure C# 9** — no engine references, no reflection, no
@@ -113,6 +113,7 @@ costs.
   carries over.
 - **Why.** Every part ships green, and the 4.x game stays playable until the new one replaces it.
 - **Cost.** Two engines coexist in the middle of the branch.
+- **Carried out.** The Exercises replaced the levels in Part 15, and Part 16a deleted `LogicCore` and the 4.x game.
 
 ### ADR-2 — SystemVerilog is the one representation
 
@@ -759,7 +760,8 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
 - **The save** gains `format` (5 when 5.0 writes; absent, so 0, in every 4.x file) and `projects`, each
   document under its board's key -- a level's name, or `free-play/` and the board's name -- as
   `ProjectRecord`: plain fields in the shape `JsonUtility` needs, a part one record with a `kind`, values as
-  literals. The 4.x keys stay as they were, because the 4.x game reads them until Part 16.
+  literals. The 4.x keys stay as they were, because the 4.x game reads them until Part 16 (Part 16a dropped them:
+  see the end of this section).
   `SaveMigration.MigrateAll` migrates every board with no document yet, rebuilding each exactly as the
   game would, so a document edited in 5.0 is never replaced by its old board. **Nothing calls it on the
   player's save yet**: Part 15d wires it in with the Exercises, and must then leave alone a board whose

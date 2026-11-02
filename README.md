@@ -285,11 +285,9 @@ file:
 
 **To start over:** the workbench's **SETTINGS** → **Reset progress**. It asks first,
 and nothing is forgotten unless you answer yes. A reset starts the exercises over:
-every solved exercise, its saved answer and its best, the tutorial and the first-time
-hints are forgotten -- and the 4.x game's levels with them, which share the exercises'
-names. **Your circuits are kept**: MY CIRCUIT, every circuit you named, and free play's
-boards and blocks. Sound, music, effects, volume, display and data settings are not
-progress, so they stay as they are.
+every solved exercise, its saved answer and its best, and the first-time hints are
+forgotten. **Your circuits are kept**: MY CIRCUIT and every circuit you named. Sound,
+music, volume, display and data settings are not progress, so they stay as they are.
 
 In a browser the same data lives in the browser's own storage for the address
 you played at. Progress does not travel between the desktop build and a browser,
@@ -380,9 +378,8 @@ drawing -- the course's gates, no operators, no more of each than the exercise
 gives -- and graded the same way. **DRAW IT** goes back to drawing, and draws your code
 as its gates.
 
-The 4.x game is still there until 5.0 replaces it: Settings, **THE 4.x GAME**,
-beside the credits. **BACK TO THE SIMULATOR**, first on its title screen, brings you back,
-and so do **SIMULATOR** beside MENU on a 4.x board and Escape on the title screen.
+The 4.x game is gone from 5.0 (Part 16a): its thirty levels are the first thirty exercises,
+and 4.0.0 itself is still played on [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter).
 
 ### Your own SystemVerilog, in and out (5.0 preview)
 
@@ -601,18 +598,24 @@ into it.
 ### Architecture
 
 ```text
-Assets/Scripts/LogicCore/   pure C#, no UnityEngine reference
-Assets/Scripts/View/        Unity rendering, input and interface
-Assets/Resources/Levels/    one JSON file per level
-Assets/Tests/EditMode/      NUnit tests, no scene
-Assets/Tests/PlayMode/      tests against the real scene, on a scratch save
+Assets/Scripts/SystemVerilog/   the language: values, lexer, preprocessor, parser, printer
+Assets/Scripts/Sim/             the 4-state event-driven engine
+Assets/Scripts/Board/           the document: circuits, exercises, import and export
+Assets/Scripts/ViewModel/       the workbench's layout, routes and gestures
+Assets/Scripts/View/            Unity rendering, input and interface
+Assets/Resources/Exercises/     one JSON file per exercise
+Assets/Tests/EditMode/          NUnit tests, no scene
+Assets/Tests/PlayMode/          tests against the real scene, on a scratch save
 ```
 
-`LogicCore` is its own assembly with `noEngineReferences: true`, so a stray
-`using UnityEngine;` fails to compile rather than silently coupling the simulator
-to the engine.
+The four pure layers are assemblies with `noEngineReferences: true`, so a stray
+`using UnityEngine;` fails to compile rather than silently coupling them to the
+engine, and `Tools/ci` builds and tests them without Unity. Until Part 16a the 4.x
+game's token engine, `LogicCore`, stood beside them; this section and the ones
+after it still describe that game in places, until the README is rewritten for the
+simulator.
 
-State flows LogicCore → View only. The view never mutates the simulation.
+The view changes the document and the engine only through their commands.
 
 The interface is a Canvas built in code, for the same reason the scene is: an
 authored hierarchy would be dozens of RectTransforms for the builder to reproduce

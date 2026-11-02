@@ -59,44 +59,33 @@ up. The forms add the first one; more are added as it is looked at.
 If you want to work on an issue, say so in a comment first, so two people do not
 build the same thing.
 
-## Suggesting or writing a level
+## Suggesting or writing an exercise
 
-A level is one JSON file in `Assets/Resources/Levels/`. Start from a level close
-to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
+An exercise is one JSON file in `Assets/Resources/Exercises/`, with its reference
+solution as SystemVerilog in `Tools/ci/Exercises/solutions/<id>.sv`. Start from one
+close to the one you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 
 | Field | What it does |
 |---|---|
-| `name`, `order` | The title, and where it sits in the run. Orders need not be tens: a level between 70 and 80 can be 72. |
-| `goal` | The objective, stated plainly. It may name gates. |
-| `hint` | A nudge towards the answer. It **may not** name the gates that solve it; `CurriculumTests` checks. |
-| `fixtures` | Sources (with a `stream` of 0s and 1s, one per vector) and sinks, each on a `cell`. |
-| `budget` | The parts the player may place, with counts. A kind that is not listed cannot be placed. A block is stocked as `{ "block": "FA", "count": 4 }`. |
-| `expected` | Per sink, the values it must receive: `0`, `1`, `x` (either is fine) or `-` (nothing). |
-| `tickLimit` | When a circuit that never settles is given up on. |
-| `maxWireDelay`, `delayBudget` | The longest one wire may be, and the total extra delay across all wires. |
-| `maxLatency` | The longest the critical path may be, in ticks. |
-| `clockPeriod` | Ticks between vectors. Sequential levels need one; see the design notes. |
-| `board` | `{ "columns": 11, "rows": 7 }` for a board bigger than 9 by 5. Odd sizes, up to 13 by 9. |
-| `start` | A circuit the board opens on, for a level about finding what is wrong with one: `gates` (`kind`, `cell`) and `wires` (`from`, `fromPort`, `to`, `toPort`, `delay`). It is held to every rule a player's board is. Its parts count against `budget`, so the budget is the start's parts plus any spares, and its wires spend `delayBudget` from the start. `out-of-step.json` is an example. |
-| `blocks` | The blocks the level defines, each a small board written as a start is: a `name` of up to four characters, `inputs` and `outputs` (each an `id` and the `cell` its wires inside start or end on), `gates` and `wires`. Every input must lead somewhere inside, every output must be fed by exactly one wire, and none may hold a register. The budget must stock every block it defines. |
+| `id` | What it is known by for good: solves, saved answers and analytics are kept under it, so it never changes. The first thirty are the 4.x levels' names. |
+| `title`, `order`, `chapter` | Its name, and where it sits in the run. Orders need not be tens. The run goes chapter by chapter. |
+| `goal` | The objective, stated plainly. It may name parts. |
+| `hint` | A nudge towards the answer. It may name at most one of the parts it stocks, and never which part makes which output; `ExerciseCurriculumTests` checks. |
+| `inputs`, `outputs` | Each a `name` and its `values`, one character a vector for a bit (`0110`), or binary words with spaces between for a bus. An `x` in an output leaves that answer free. |
+| `parts` | What it stocks: a gate's `kind` (or `Register`), or a block's module, each with a `count`; -1 is any number. |
+| `delay`, `constants`, `clock`, `cycle` | Every gate's delay; whether constants may be drawn; whether it has a clock, `clk`; how long each vector has (0 works it out). |
+| `settleBy`, `period` | A timing exercise's slowest input-to-output path, or a pipelining one's clock period, that the design must meet. |
+| `start`, `blocks` | The circuit it opens on, and the blocks it stocks, as structural SystemVerilog. A `start` must fail as it opens, for the reason its goal gives. |
+| `code`, `registerStart` | Whether it may be answered in code; what a register starts at (`0`, `1`, or empty for x). |
 
-A **vector** is one row of input values: every source plays its next bit at once,
-and the sinks' expectations line up with the same rows.
-
-Every level ships with a test class, `Assets/Tests/EditMode/<Name>LevelTests.cs`,
-that builds a reference solution and shows it passes, fits the parts and delay
-budget, and that the obvious wrong answers fail. A level with a `start` also
-shows that the start fails the way its goal says, and `CurriculumTests` refuses
-one that ships already solved. Add the level to the list in
-`CurriculumTests.TheRun_IsEveryLevelInItsTaughtOrder`, and to the level table in
-the README. Work the timing out tick by tick before writing the file: "The
-arithmetic every level design uses" in the design notes is the whole method.
+`ExerciseCurriculumTests` holds every file: it opens, its solution solves it, it is in
+order, its goal and hint keep their rules, and a thing is taught before it is asked for.
+`ExerciseOracleTests` runs every solution's testbench under Icarus Verilog too.
 
 Stay inside the syllabus. Boolean algebra, K-maps, functional completeness,
 propagation delay, combinational components, adders, flip-flops, state machines,
-critical path and pipelining are in. Assembly, the RISC-V datapath, memory
-addressing and number representation are out. Hazards cannot be expressed at all,
-because bits are discrete tokens with nowhere for a glitch to live.
+critical path and pipelining are taught. The course's RISC-V hardware is simulated
+but not taught, and assembly and memory addressing are out.
 
 ## Setting up
 
@@ -113,21 +102,19 @@ because bits are discrete tokens with nowhere for a glitch to live.
 
 These are enforced by tests where they can be, and by review where they cannot.
 
-- **`Assets/Scripts/LogicCore/` is pure C#** with no Unity references, and has
-  its own assembly. It is the simulator. `Assets/Scripts/View/` draws it and
-  never changes it.
-- **The simulator is deterministic.** Nodes within one tick must give the same
-  result in any order. Do not add anything that breaks that.
+- **`Assets/Scripts/SystemVerilog`, `Sim`, `Board` and `ViewModel` are pure C#**
+  with no Unity references, each its own assembly, pointing one way.
+  `Assets/Scripts/View/` draws them and changes them only through their commands.
+- **The engine is deterministic.** The order drivers are visited in within a delta
+  cycle can never change a run. Do not add anything that breaks that.
 - **The scene is generated.** `HalfAdderDemoSceneBuilder` is the only authority
   on what is in it; anything added by hand is lost on the next build.
-- **The interface is built in code.** Colours come from `Palette`, text sizes from
-  `UiType`, and where a piece of the HUD sits from `UiRows`. No colour or size
-  literals.
-- **Keys and focus go through one place each:** `UiText.Keyboard` for reading
-  keys, `UiTheme.Defocus` and `UiTheme.Focus` for focus, `PointerGate` for the
-  mouse.
-- **Anything shown to the player is derived.** The truth table, the K-map and
-  every label come from the level itself, never from a second copy.
+- **The interface is built in code.** Colours come from `Palette` and the looks'
+  `SchematicPalette`s, text sizes from `UiType`. No colour or size literals.
+- **Keys go through one place:** `UiText.Keyboard` for reading keys, which is null
+  while a text field has them.
+- **Anything shown is derived.** The truth table, the K-map and the state diagram
+  are the engine run, never a second copy.
 
 ## Tests
 
@@ -136,7 +123,7 @@ There are two suites: Edit Mode (no scene, fast) and Play Mode (the real scene,
 on a scratch save that never touches your own progress). Use the PlayMode tab,
 not the Player tab, which builds a whole player first.
 
-- Every new simulator component gets a truth-table test.
+- Every new construct gets a test, and a comparison against Icarus Verilog where it can run it.
 - **A bug fix is two commits:** a test that fails and still compiles, then the
   fix that makes it pass. That keeps the history bisectable.
 - **Visual changes are checked against the reference shots.** Run
@@ -144,7 +131,7 @@ not the Player tab, which builds a whole player first.
   the same code are identical to the pixel, so a change that claims not to move
   anything can be held to it. Say in the pull request which shots changed and why.
 
-CI runs everything that needs no Unity on every push -- the simulator's tests,
+CI runs everything that needs no Unity on every push -- the pure layers' tests,
 the repository's rules and the Icarus Verilog oracle; locally that is
 `dotnet test Tools/ci/BitSorter.Ci.slnx` (install Icarus Verilog for the oracle
 tests, or they are skipped).

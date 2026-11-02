@@ -1082,7 +1082,7 @@ stretch that way.
   it existed, and it is greyed out and locked while the sound is off: a volume
   for silence is a control that visibly does nothing. A drag applies every
   step at once and writes once, on release (`Preferences.Stage`,
-  `PointerRelease`), because `Preferences.SetInt` writes the whole of
+  `ShellSlider.Released`), because `Preferences.SetInt` writes the whole of
   PlayerPrefs out each time -- to the browser's storage, in a web build.
 
   Music is rendered at half the sample rate a cue was. Nothing in it comes near
