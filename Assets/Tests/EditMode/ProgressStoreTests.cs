@@ -226,6 +226,52 @@ namespace BitSorter.LogicCore.Tests
         // Every way the file can be unusable
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// A file the 4.x game also wrote to -- its boards, free play and block library beside 5.0's keys -- still loads,
+        /// with every 5.0 thing in it; the 4.x keys are not read, and the next save leaves them out (Part 16a).
+        /// </summary>
+        /// <remarks>
+        /// The 4.x game went with Part 16a, and its boards need not carry over (Ahmad, 2026-11-02); the save must not fail
+        /// on them, which until then the migration tests held.
+        /// </remarks>
+        [Test]
+        public void AFileWithThe4xGamesKeys_StillLoads_AndTheNextSaveDropsThem()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.MarkComplete("half-adder");
+            store.MarkHintSeen(Hint.Collision);
+            store.SetProject("doc/adder", BitSorter.Board.Project.New("adder"));
+            store.LastOpen = "doc/adder";
+            Assert.IsTrue(store.SetSampleProgram("Pipelined RISC-V", "PROGRAM", "FIBONACCI"));
+            store.Save();
+
+            string old = File.ReadAllText(_path).TrimStart();
+            Assert.AreEqual('{', old[0], "sanity: the save is a JSON object");
+            File.WriteAllText(_path, "{\"boards\":[{\"level\":\"half-adder\",\"gates\":[{\"kind\":\"And\",\"x\":0,\"y\":0}],"
+                + "\"wires\":[]}],\"freePlay\":{\"active\":\"My board\",\"boards\":[{\"name\":\"My board\"}]},"
+                + "\"blocks\":[{\"name\":\"FA\",\"gates\":[]}]," + old.Substring(1));
+
+            var older = new ProgressStore(_path);
+            older.Load();
+            Assert.IsNull(older.LastError, "a file the 4.x game wrote to is not an error");
+            Assert.IsTrue(older.IsComplete("half-adder"), "its solves are the exercises' names, and still read");
+            Assert.IsTrue(older.HasSeenHint(Hint.Collision), "and its hints");
+            Assert.IsTrue(older.HasProject("doc/adder"), "a 5.0 circuit beside the 4.x keys is kept");
+            Assert.AreEqual("doc/adder", older.LastOpen);
+            Assert.AreEqual("FIBONACCI", older.SamplePrograms("Pipelined RISC-V")["PROGRAM"]);
+
+            older.Save();
+            string saved = File.ReadAllText(_path);
+            StringAssert.DoesNotContain("\"boards\"", saved, "the next save leaves the 4.x boards out");
+            StringAssert.DoesNotContain("\"freePlay\"", saved);
+            StringAssert.DoesNotContain("\"blocks\"", saved);
+
+            var again = new ProgressStore(_path);
+            again.Load();
+            Assert.IsTrue(again.IsComplete("half-adder") && again.HasProject("doc/adder"), "and loses nothing of 5.0's");
+        }
+
         [Test]
         public void NoFileAtAll_IsAFreshStartRatherThanAnError()
         {

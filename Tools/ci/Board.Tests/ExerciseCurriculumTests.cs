@@ -7,11 +7,11 @@ using NUnit.Framework;
 namespace BitSorter.Board.Tests
 {
     /// <summary>
-    /// The exercises as a course (Part 15c), held under dotnet as the 4.x levels are by the Edit Mode <c>CurriculumTests</c>:
-    /// every file opens and its reference solution solves it, every starting circuit fails as it opens, the thirty levels are
-    /// all here under their own ids, the run is in order chapter by chapter, every exercise has a goal and a hint that gives
-    /// nothing away, and a thing is taught before it is asked for. <c>ExerciseOracleTests</c> holds every solution's
-    /// self-checking testbench to passing under Icarus too.
+    /// The exercises as a course (Part 15c), held under dotnet as the 4.x levels were by the Edit Mode <c>CurriculumTests</c>
+    /// until Part 16a deleted them: every file opens and its reference solution solves it, every starting circuit fails as it
+    /// opens, the thirty levels' names are all exercise ids still, the run is in order chapter by chapter, every exercise has
+    /// a goal and a hint that gives nothing away, and a thing is taught before it is asked for. <c>ExerciseOracleTests</c>
+    /// holds every solution's self-checking testbench to passing under Icarus too.
     /// </summary>
     public class ExerciseCurriculumTests
     {
@@ -66,6 +66,34 @@ namespace BitSorter.Board.Tests
             Project opened = exercise.ToProject(problems);
             Assert.IsNotNull(opened, string.Join("\n", problems));
             Assert.IsFalse(ExerciseGrader.Grade(exercise, opened).Solved, $"{id} opens on a circuit that already solves it");
+        }
+
+        /// <summary>The 4.x game's thirty level names, which the first thirty exercises are known by.</summary>
+        private static readonly string[] LevelNames =
+        {
+            "add-as-you-go", "balance-the-paths", "carry-it-further", "carry-the-one", "count-the-ones", "dont-care",
+            "flip-on-one", "four-at-once", "four-corners", "four-lanes", "half-adder", "highest-wins", "hold-when-told",
+            "look-ahead", "miscount", "nothing-but-nand", "odd-one-out", "one-clock-behind", "one-clock-late", "one-of-four",
+            "out-of-step", "pass-it-on", "pick-a-lane", "rising-edge", "route-the-bit", "spot-the-pattern",
+            "the-long-way-round", "the-slow-lane", "which-is-bigger", "wrong-part",
+        };
+
+        /// <summary>
+        /// The thirty levels' names are exercise ids still, and there are thirty-five exercises: a solve, an answer kept in
+        /// the save and an analytics event are all under the id, which the 4.x game reported a level under too.
+        /// </summary>
+        /// <remarks>
+        /// Read from the level files until Part 16a deleted them; written out here since, so renaming an exercise is a
+        /// failing test rather than every student's solve of it quietly lost.
+        /// </remarks>
+        [Test]
+        public void TheThirtyLevelsNames_AreStillExerciseIds()
+        {
+            var ids = new HashSet<string>(Ids());
+            Assert.AreEqual(30, LevelNames.Length, "sanity: thirty levels");
+            foreach (string level in LevelNames)
+                Assert.IsTrue(ids.Contains(level), $"the level {level} is no exercise: its solves and answers are kept under that name");
+            Assert.AreEqual(35, ids.Count, "the thirty and five new ones");
         }
 
         [Test]
