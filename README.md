@@ -427,7 +427,13 @@ the lines by four spaces, and **Ctrl+/** comments them out or back in. In a brow
 **Ctrl+F** finds and replaces, **Ctrl+D** selects the next match and **Alt+Up** or
 **Alt+Down** moves the lines. While you type, none of the workbench's own keys act:
 Ctrl+V pastes text in the code, and pastes parts only on the circuit. `?` lists
-every key. Deleting a block leaves its module, since that is your code; to delete
+every key. The classic first slips are answered with what to write instead: an
+`assign` inside an `always`, `logic s[1:0]` used as a bus, an `if`, `for` or `case`
+on a signal outside an `always`, an instance with no name, `always_comb @(...)`.
+Curly quotes, dashes and no-break spaces pasted from a slide are read as `'`, `"`,
+`-` and a space, with a warning, and exported that way -- in included headers too --
+so ModelSim takes what ran here. Deleting a block
+leaves its module, since that is your code; to delete
 the module itself, right-click its row under BLOCKS in PARTS. It asks first, and
 Ctrl+Z brings it back.
 
@@ -443,7 +449,10 @@ Once a circuit works, the workbench answers the questions the course asks of it:
   beside PATHS, and the arrow beside a path too long for its row shows all of it.
   For a circuit with registers, give
   each its clock-to-Q and setup in its inspector, and the tab gives the minimum
-  clock period and the frequency that allows. The tab also counts the gates.
+  clock period and the frequency that allows. For a pipeline, where every path
+  from an input to an output passes the same number of registers, it gives the
+  latency in clock periods and the throughput: one result each period. The tab
+  also counts the gates.
 - **The measured worst.** For a circuit of up to ten input bits and no registers,
   the TIMING tab steps every input up and down from every value of the others.
   It shows the slowest each output really changed, and the input values that

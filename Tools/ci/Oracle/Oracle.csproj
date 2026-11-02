@@ -30,6 +30,8 @@
     <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
     <!-- The exercises as shipped, and their reference solutions (Part 15c). -->
     <Compile Include="../Board.Tests/ExerciseFiles.cs" Link="Shared/ExerciseFiles.cs" />
+    <!-- The classic slips and their answers (Part 15i-2), held to Icarus here. -->
+    <Compile Include="../Board.Tests/FriendlyErrorCases.cs" Link="Shared/FriendlyErrorCases.cs" />
   </ItemGroup>
 
   <ItemGroup>

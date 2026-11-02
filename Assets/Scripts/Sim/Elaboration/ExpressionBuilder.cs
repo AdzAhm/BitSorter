@@ -29,11 +29,42 @@ namespace BitSorter.Sim
         private readonly DiagnosticBag _diagnostics;
         private readonly bool _constant;
 
-        public ExpressionBuilder(Scope scope, DiagnosticBag diagnostics, bool constantOnly)
+        /// <summary>
+        /// What a constant is needed for, said where a signal is given instead (Part 15i-2): a generate's condition explains
+        /// itself; anywhere else, a number or a parameter is asked for.
+        /// </summary>
+        private readonly string _need;
+
+        public ExpressionBuilder(Scope scope, DiagnosticBag diagnostics, bool constantOnly, string need = null)
         {
             _scope = scope;
             _diagnostics = diagnostics;
             _constant = constantOnly;
+            _need = need;
+        }
+
+        private string Need => _need ?? "a value known before the run is needed here -- a number or a parameter.";
+
+        /// <summary>
+        /// A memory read or written whole. A memory of 1-bit words declared with its range after the name -- logic s[1:0] --
+        /// is most often a bus meant with its range before it, and is said so (Part 15i-2).
+        /// </summary>
+        private static string MemoryUsedWhole(MemoryEntry entry, string name, bool written)
+        {
+            MemoryInfo memory = entry.Memory;
+            string said = written ? $"{name} is a memory: write it a word at a time, as {name}[i]."
+                : $"{name} is a memory, read a word at a time: {name}[i].";
+            // A plain logic or bit of one bit a word, with one range after the name -- not a struct's, an enum's, nor rows of
+            // words (the review: logic s[4] and s[3:0][1:0] were told of ranges they never wrote).
+            PackedType type = entry.Type;
+            bool plain = type == null || (type.Struct == null && type.Enum == null && type.Element == null);
+            if (memory.Width != 1 || memory.Depth < 2 || !plain || (entry.Dims != null && entry.Dims.Length > 1))
+                return said;
+            string depth = memory.Depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string top = (memory.Depth - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string article = depth.StartsWith("8", StringComparison.Ordinal) || depth == "11" || depth == "18" ? "an" : "a";
+            return said + $" With its range after its name it is {depth} separate 1-bit words; for {article} {depth}-bit bus, " +
+                $"put the range before the name: {(type != null && type.TwoState ? "bit" : "logic")} [{top}:0] {name}.";
         }
 
         /// <summary>Whether building reported an error.</summary>
@@ -99,9 +130,10 @@ namespace BitSorter.Sim
             BuildAt(expression, Math.Max(width, TypeOf(expression).Width), signed);
 
         /// <summary>A constant expression's value, or false having reported why it is not one.</summary>
-        public static bool TryConstant(Expression expression, Scope scope, DiagnosticBag diagnostics, out LogicVec value, int contextWidth = 0)
+        public static bool TryConstant(Expression expression, Scope scope, DiagnosticBag diagnostics, out LogicVec value, int contextWidth = 0,
+            string need = null)
         {
-            var builder = new ExpressionBuilder(scope, diagnostics, constantOnly: true);
+            var builder = new ExpressionBuilder(scope, diagnostics, constantOnly: true, need);
             Expr built = builder.Build(expression, contextWidth);
 
             if (builder.Failed)
@@ -572,8 +604,7 @@ namespace BitSorter.Sim
                 case SignalEntry s:
                     if (_constant)
                     {
-                        Error(e.Location, ElaborationCodes.NotConstant,
-                            $"{text} is a signal, but a value known before the run is needed here -- a number or a parameter.");
+                        Error(e.Location, ElaborationCodes.NotConstant, $"{text} is a signal, but {Need}");
                         return Expr.Constant(LogicVec.AllX(s.Width));
                     }
 
@@ -589,7 +620,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(32));
 
                 case MemoryEntry m:
-                    Error(e.Location, ElaborationCodes.BadSelect, $"{text} is a memory, read a word at a time: {text}[i].");
+                    Error(e.Location, ElaborationCodes.BadSelect, MemoryUsedWhole(m, text, written: false));
                     return Expr.Constant(LogicVec.AllX(m.Memory.Width));
 
                 case TypeEntry _:
@@ -1094,8 +1125,7 @@ namespace BitSorter.Sim
 
             if (_constant)
             {
-                Error(n.Location, ElaborationCodes.NotConstant,
-                    $"{Printer.Print(n)} is part of a signal, but a value known before the run is needed here -- a number or a parameter.");
+                Error(n.Location, ElaborationCodes.NotConstant, $"{Printer.Print(n)} is part of a signal, but {Need}");
                 return Expr.Constant(LogicVec.AllX(type.Width));
             }
 
@@ -2860,8 +2890,8 @@ namespace BitSorter.Sim
                     Error(e.Location, ElaborationCodes.BadLValue, $"{(member != null ? s.FullName.Substring(s.FullName.LastIndexOf('.') + 1) : name)} is a wire, and a process can only write a variable. Declare it logic.");
                     return false;
 
-                case MemoryEntry _:
-                    Error(e.Location, ElaborationCodes.BadLValue, $"{name} is a memory: write it a word at a time, as {name}[i].");
+                case MemoryEntry m:
+                    Error(e.Location, ElaborationCodes.BadLValue, MemoryUsedWhole(m, name, written: true));
                     return false;
 
                 case null when e is NameExpression one && one.Path.Count == 1:

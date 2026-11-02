@@ -618,7 +618,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
 
 - **Lexer** (`Lexer`): a sized literal is one token however it is spaced (`8 'h FF`); a `//` comment
   later on a line is kept on the token before it, so a port's comment survives; characters copied out of
-  a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning.
+  a slide -- `’` for an apostrophe, `–` for a minus -- are read as what they look like, with a warning, and
+  written so in an export (`Lexer.Straightened`, Part 15i-2).
 - **Preprocessor** (`Preprocessor`): `` `include `` through `ISourceFiles` (never the disk), looked for
   beside the including file and then as written, with cycles and depth caught; `` `define ``, with
   arguments and their defaults from Part L6 -- a use's arguments may run over lines, ``` `` ``` joins two
@@ -4061,6 +4062,77 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the question asked once, answered either way, one undo step, refused locked, with GATES on, where the drawing is not
   the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
+
+**As built in Part 15i-1: latency and throughput in TIMING** (Ahmad, 2026-11-02: "a latency/throughput readout as a tiny
+extra", beside the course read, which gives both for a K-stage pipeline).
+- **`Sim/Timing/PipelineDepth`** counts the registers on every path from an input to an output, over the timing graph's
+  bits, and never claims a pipeline that is not one. Each register's process is followed in the order it is written:
+  each bit it writes takes its next value from the bits its value reads, through a blocking temporary as it stands at
+  that point, one register crossed (`Write`, `Land`). So a shift register is a chain of stages, `acc = acc + x` kept from
+  edge to edge a loop, and `y = r; r = a;` two stages. A bit written on some ways only keeps its value on the others,
+  and one given its own value back (`q <= q`) is kept too: an enable's register is a stage. Kept through `en ? d : q`,
+  it is read as a loop.
+- **A condition is a way but no stage.** An `if`'s or a `case`'s condition reaches every bit its process writes, through
+  a junction: it counts for reaching an output and for a loop -- a state machine written in one `always_ff` is a loop,
+  Moore or Mealy -- never as a register crossed, so a pipeline's synchronous reset or enable leaves it a pipeline. A
+  condition reading a register makes the process's writes **sequenced**, as a multicycle machine's are. A clock, what an
+  edge waits on, starts no path and is no condition.
+- **What it says** (`TimingView`, after the period lines of a design with registers): LATENCY, "K clock periods: every path
+  from an input to an output passes K registers, a K-stage pipeline", with K times the clock period, and THROUGHPUT, one
+  result each period whatever K is. Anything else, in this order: it has no outputs (the processors); not worked out,
+  where a register on its paths is written at a place found as it runs (`r[i] <=` in a loop, followed only enough to
+  find a loop); none fixed, round a loop -- a state machine's, or logic fed back; none fixed, sequenced; none single,
+  registers on different clocks or edges (an asynchronous reset listed before the clock is not one); none, where no
+  input reaches an output; within the period, where no register stands on any such path; none single, where paths cross
+  different numbers -- `keep-in-step` as it opens, 0 to 2. Throughput is claimed for a pipeline alone, and a design
+  without registers shows neither line.
+- A register is matched to its process by the process itself (`TimingRegister.Process`), never by name: a drawn module
+  prints every register's process on one line, `always_ff@0`.
+- **The first review found eight things wrong (2026-11-02)**, all fixed here: conditions left out, so a one-process
+  state machine read as "within the period" and a multicycle datapath as a 3-stage pipeline; a register per signal, so a
+  shift register was a loop; an enable written `else q <= q` a loop; blocking temporaries taken out of order; a memory
+  word written at a run-time place credited to its first word only; the clock read as an input; "through a register"
+  said of a loop of logic; "its outputs follow its own state" of a design with no outputs.
+- **Tests**: `PipelineDepthTests` -- logic alone; one and three stages in one process; paths of different depths; an
+  accumulator's loop; a counter; a counter beside a pipeline; two processes of one name; a one-process state machine,
+  Moore and Mealy; a multicycle datapath; a toggle; an 8-bit shift register; an enable three ways; blocking variables in
+  and out of order; a word written at a run-time place; the clock read as a value; a synchronous reset; registers on
+  both edges; an asynchronous reset listed first; no outputs. `TimingViewTests` -- a written 3-stage pipeline's lines and
+  numbers, both pipelining exercises two stages, `keep-in-step`'s start none single, the sequence detector and the
+  counter claiming none, a multicycle machine never one result a period, a processor's no outputs, the full adder
+  showing neither.
+
+**As built in Part 15i-2: the classic slips answered in a student's words** (Ahmad, 2026-11-02: "yeah do these 2", with
+"make sure there is no bugs with it / wrong errors"). Every answer rewords a refusal or a warning BitSorter already gave
+-- none is new -- and each is held three ways: the slip is answered on its own line, the slip mended is taken without a
+word, and Icarus refuses the slip as well and takes it mended (`FriendlyErrorCases`, shared by `FriendlyErrorTests` and
+`FriendlyErrorOracleTests`). None of the corpus's designs nor the exercises' answers is answered so.
+- **`assign` inside an `always` or an `initial`**: a procedural continuous assignment -- the language has one, Icarus
+  runs it, BitSorter does not (`Docs/oracle-notes.md`) -- said so, with the assignment to write in its place, or the
+  `assign` moved out beside the `always`. It was "Expected a statement here, but found 'assign'".
+- **A memory of 1-bit words read or written whole** (`logic s[1:0]` used as a bus): the memory message, and that with
+  its range after its name it is separate 1-bit words -- for a bus, `logic [1:0] s`.
+- **An `if` or a `for` outside an `always` on a signal**: the constant needed says what for -- chosen once as the design
+  is built, so put the `if` in an `always_comb` or write `?:` -- through `ExpressionBuilder`'s `need`, set only for a
+  generate's condition. **A `case` outside an `always`** -- a case-generate, which BitSorter does not support -- says the
+  same, where it said "use if-generate".
+- **An instance with parameters and no name** is answered as the one without parameters already was, with the example.
+  **`always_comb @(...)`** adds that `always @(...)` names its own list.
+- **Curly quotes and dashes** were already read as what they look like, with a warning; the export wrote them as typed,
+  so ModelSim and Icarus refused the file that ran here. The lexer records where it read each one as code, and
+  `Lexer.Straightened` writes those characters, and only those, as what they were read as -- one for one, every line and
+  column in place, a comment and a string's own text as written -- in the export (`BoardPrinter`) and a submission's
+  filled region. A red test came first.
+- Left as they were, already in the student's words: an instance with no name, `always_ff` with no event control. Left
+  out as unsafe to answer: `&` for `&&` and a blocking `=` in an `always_ff`, both legal and sometimes meant.
+- **The Sonnet review found seven more (2026-11-02), all fixed**: a curly apostrophe before `{` was read as code but
+  neither said nor straightened; a header an include reads went out as typed (the export now straightens a project file
+  read as code -- `.sv`, `.svh`, `.v`, `.vh` -- and leaves a memory image as written); CODE lost its numbering for a module
+  with a look-alike (`CodeListing.BodyLine` now finds the text as printed); the `assign` answer was followed by a second
+  error saying the opposite (the assignment after it is now read as the one meant, and the answer names a missing `end`);
+  `logic s[4]` was told of a `[0:3]` it never wrote (the hint is now `logic [N-1:0] s`, and none for rows of words, a
+  struct's or an enum's); a straightened minus could join the character beside it (`a –-b` is written `a - -b`, the one
+  place a character becomes two); and a no-break space was read as a space with no word (said now, and straightened).
 
 **As built in Part 15i-4: ModelSim as a second oracle** (Ahmad, 2026-11-02: "yeah do these 2", for same-instant races in
 course-style testbenches above all).

@@ -92,6 +92,53 @@ namespace BitSorter.Board.Tests
             StringAssert.EndsWith(SampleBoards.WrittenAdder, files[ProjectExport.FolderOf(project) + "/add4.sv"]);
         }
 
+        /// <summary>
+        /// Code pasted from a slide: BitSorter reads a curly quote as an apostrophe and a dash as a minus, with a warning, and
+        /// runs it -- so the file ModelSim is given must say what BitSorter read, or ModelSim refuses what ran here. A comment
+        /// and a string are left as written: nothing there was read as code.
+        /// </summary>
+        [Test]
+        public void AWrittenModulesLookalikes_AreExportedAsWhatTheyWereReadAs()
+        {
+            const string pasted =
+                "// it’s a “small” adder – pasted\n" +
+                "module paste (input logic [1:0] a, b, output logic [1:0] y, output logic z);\n" +
+                "    assign y = a – b;\n" +
+                "    assign z = a[0] & 1’b1;\n" +
+                "    initial $display(“it’s on”);\n" +
+                "endmodule\n";
+            var editor = new BoardEditor(Project.New("scratch"));
+            Assert.IsTrue(editor.AddWrittenModule("paste", pasted).Done);
+            Assert.IsTrue(editor.SetTop("paste").Done);
+            string exported = Unzipped(ProjectExport.Zip(editor.Project, When))[ProjectExport.FolderOf(editor.Project) + "/paste.sv"];
+
+            StringAssert.Contains("    assign y = a - b;\n", exported);
+            StringAssert.Contains("    assign z = a[0] & 1'b1;\n", exported);
+            StringAssert.Contains("    initial $display(\"it’s on\");\n", exported, "the quotes that close the string, read as \"; the apostrophe inside it, its text");
+            StringAssert.Contains("// it’s a “small” adder – pasted\n", exported, "a comment as written");
+        }
+
+        [Test]
+        public void AnIncludedHeadersLookalikes_AreExportedAsRead_AndADataFileAsWritten()
+        {
+            // The 15i-2 review: a header an include reads is code too, and went out as typed.
+            var editor = new BoardEditor(Project.New("scratch") with
+            {
+                Files = new[]
+                {
+                    new ProjectFile { Name = "defs.svh", Text = "`define K 4’d3\n" },
+                    new ProjectFile { Name = "notes.hex", Text = "// ’ kept\n0f\n" },
+                },
+            });
+            Assert.IsTrue(editor.AddWrittenModule("m",
+                "`include \"defs.svh\"\nmodule m (output logic [3:0] y);\n    assign y = `K;\nendmodule\n").Done, "read and run, with a warning");
+            Project project = editor.Project;
+            Dictionary<string, string> files = Unzipped(ProjectExport.Zip(project, When));
+            string folder = ProjectExport.FolderOf(project);
+            Assert.AreEqual("`define K 4'd3\n", files[folder + "/defs.svh"]);
+            Assert.AreEqual("// ’ kept\n0f\n", files[folder + "/notes.hex"], "a memory image is data, written as it is");
+        }
+
         [Test]
         public void TheProjectsOtherFiles_AreBesideTheModules_AndNotCompiled()
         {
