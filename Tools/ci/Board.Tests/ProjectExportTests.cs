@@ -60,8 +60,11 @@ namespace BitSorter.Board.Tests
                 "vlog -sv " + string.Join(" ", printed.Select(p => p.Path)),
                 "vsim -voptargs=+acc work." + compiled.Testbench,
                 "add wave -r /*",
+                "vcd file modelsim.vcd",
+                "vcd add -r /*",
                 "run -all",
-            }, lines);
+                "vcd flush",
+            }, lines, "every signal dumped as it runs, for COMPARE WITH MODELSIM'S RUN (Part 15i-5)");
             Assert.AreEqual(compiled.Top, compiled.Testbench, "sanity: the top simulated is the testbench");
         }
 
