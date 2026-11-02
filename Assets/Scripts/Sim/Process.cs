@@ -344,6 +344,13 @@ namespace BitSorter.Sim
         internal int Index { get; set; } = -1;
 
         /// <summary>
+        /// Where it is written, as the elaborator's walk of the source meets it -- depth first, an instance's processes where
+        /// its statement is, a generate loop's iteration by iteration, an include's in its place: the order time 0 starts the
+        /// processes in as ModelSim begins it (M5). 0 for a process made in code.
+        /// </summary>
+        internal long Written { get; set; }
+
+        /// <summary>
         /// Every signal it reads anywhere (Part 14e, for lint): its values, conditions, delays, the places it writes to,
         /// what it waits on, what it prints, its memory tasks' bounds, and what the functions it calls read in turn.
         /// </summary>

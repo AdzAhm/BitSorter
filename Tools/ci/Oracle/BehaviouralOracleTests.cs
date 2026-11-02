@@ -61,6 +61,36 @@ namespace BitSorter.Ci.Oracle
             Agrees("ModelSim", file, top, ownDump, data, null);
 
         /// <summary>
+        /// M5's review: the corpus under ModelSim's start, held where CI runs, which has no ModelSim. Every testbench races in
+        /// neither start and prints the same in both, but the one line that reads through the hierarchy at time 0 -- before the
+        /// logic under it has settled, as ModelSim begins it.
+        /// </summary>
+        [TestCaseSource(nameof(Testbenches))]
+        public void TheTestbench_RacesInNeitherStart_AndPrintsAlikeInBoth(string file, string top, string ownDump, string data)
+        {
+            string[] Lines(StartOrder start)
+            {
+                var files = new MemorySimFiles();
+                foreach (string path in data == null ? new string[0] : data.Split(',').Select(Corpus.File))
+                    files.Add(Path.GetFileName(path), File.ReadAllText(path));
+                var sim = new Simulator(Elaborate(file, top), null, new SimOptions { Files = files, StartOrder = start });
+                sim.RunTo(1_000_000);
+                CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Severity == Severity.Warning && m.Text.Contains("blocking assignment at the edge"))
+                    .Select(m => m.Text), $"a race in {file} as {start} begins time 0");
+                return sim.History.Messages.Where(m => m.Severity == Severity.Info).Select(m => m.Text).ToArray();
+            }
+
+            string[] icarus = Lines(StartOrder.Icarus), modelSim = Lines(StartOrder.ModelSim);
+            Assert.AreEqual(icarus.Length, modelSim.Length, string.Join("\n", modelSim));
+            int[] differs = top == "printing" ? new[] { 10 } : new int[0];
+            for (int i = 0; i < icarus.Length; i++)
+                if (Array.IndexOf(differs, i + 1) < 0)
+                    Assert.AreEqual(icarus[i], modelSim[i], $"{file}, line {i + 1}");
+                else
+                    Assert.AreNotEqual(icarus[i], modelSim[i], $"{file}, line {i + 1}: read before the logic under it settles, as ModelSim begins");
+        }
+
+        /// <summary>
         /// The procedural continuous assignment (M4), held to ModelSim on every signal and every printed line: Icarus 12 reads
         /// an assign's right side once, as it runs, where the standard has it followed (Docs/oracle-notes.md, "Procedural
         /// assign"), so this design is not in the list both simulators run.

@@ -205,7 +205,7 @@ namespace BitSorter.Board
 
         /// <summary>
         /// The round of a moment a process's own assignments are made in: the first, but at time 0 the one the processes
-        /// started in, after what has no delay settled from its starting values.
+        /// started in (<see cref="Simulator.ProcessesStartedIn"/>, as the run began time 0).
         /// </summary>
         private static int FirstRound(Simulator sim, long time) => time == 0 ? sim.ProcessesStartedIn : 0;
 

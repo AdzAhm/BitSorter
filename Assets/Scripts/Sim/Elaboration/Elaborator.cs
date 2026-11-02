@@ -30,9 +30,10 @@ namespace BitSorter.Sim
     /// <c>input logic</c> port.
     ///
     /// **Processes** (<c>initial</c> and every kind of <c>always</c>) are compiled to instructions
-    /// (<c>Elaborator.Processes.cs</c>) and start in the order Icarus starts them: an instance's
-    /// processes before its parent's own, and a module's own as written. So a testbench that raises
-    /// reset at time 0 is seen by the flip-flops of the design it instantiates.
+    /// (<c>Elaborator.Processes.cs</c>) and kept in the design's order: an instance's processes before
+    /// its parent's own, and a module's own as written -- the order processes woken together run in,
+    /// and the one they start in as Icarus begins time 0. Each also keeps where it is written
+    /// (<c>ProcessInfo.Written</c>), the order they start in as ModelSim begins it (M5).
     ///
     /// What is not simulated yet -- a function, a task, a memory -- is an error naming the part it
     /// arrives in, because simulating the design without it would be simulating something else.
@@ -173,6 +174,9 @@ namespace BitSorter.Sim
 
             /// <summary>The processes of the instance being elaborated, and of the instances inside it, kept apart to be ordered.</summary>
             private List<ProcessInfo> _ownProcesses;
+
+            /// <summary>How many processes this walk of the source has met: the next one's place as written (M5).</summary>
+            private long _written;
             private List<ProcessInfo> _childProcesses;
             private readonly List<ProcessInfo> _allProcesses = new List<ProcessInfo>();
             private readonly Dictionary<ProcessInfo, SourceLocation> _processAt = new Dictionary<ProcessInfo, SourceLocation>();
@@ -712,7 +716,8 @@ namespace BitSorter.Sim
                     _active.Remove(module.Name);
                     _deferred = outerDeferred;
 
-                    // An instance's processes start before its parent's own, as Icarus starts them.
+                    // The design's order: an instance's processes before its parent's own -- the order processes woken together
+                    // run in, and the order they start in as Icarus begins time 0 (as ModelSim does, ProcessInfo.Written, M5).
                     List<ProcessInfo> ordered = _childProcesses;
                     ordered.AddRange(_ownProcesses);
                     _ownProcesses = outerOwn;
@@ -1750,6 +1755,10 @@ namespace BitSorter.Sim
                         }
 
                         case ProceduralBlock process:
+                        {
+                            // Where it is written, as this walk meets it -- before the instances after it are built (M5).
+                            long written = ++_written;
+
                             // Compiled once the module's instances are in, so dut.ctl.state can be reached.
                             _deferred.Add(() =>
                             {
@@ -1761,12 +1770,14 @@ namespace BitSorter.Sim
                                     // The process, then its forks' branches (Part L5).
                                     foreach (ProcessInfo info in compiled)
                                     {
+                                        info.Written = written;
                                         _ownProcesses.Add(info);
                                         _processAt[info] = process.Location;
                                     }
                                 }
                             });
                             break;
+                        }
 
                         case SubroutineDeclaration _:
                             // Declared in the first pass; compiled where it is called.

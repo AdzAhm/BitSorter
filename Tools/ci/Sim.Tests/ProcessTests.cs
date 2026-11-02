@@ -197,6 +197,109 @@ module t;
 endmodule", "t"), 10).History.Messages.Where(m => !m.Text.StartsWith("$")).Select(m => m.Text).ToArray());
         }
 
+        private static string[] Printed(Simulator sim) =>
+            sim.History.Messages.Where(m => m.Severity == Severity.Info && !m.Text.StartsWith("$")).Select(m => m.Text).ToArray();
+
+        /// <summary>
+        /// M5, as ModelSim runs them (measured): a generate loop's processes iteration by iteration, an instance's among them in
+        /// its place, a generate if's where it is written, an include's where the include is.
+        /// </summary>
+        [Test]
+        public void AtTimeZero_AsModelSimBegins_ALoopRunsIterationByIteration_AndAnIfAndAnIncludeInTheirPlaces()
+        {
+            Simulator loop = Run(Clean(@"
+module c;
+    initial $display(""instance"");
+endmodule
+module t;
+    for (genvar i = 0; i < 3; i++) begin : g
+        initial $display(""A%0d"", i);
+        c u ();
+        initial $display(""B%0d"", i);
+    end
+    localparam bit ON = 1;
+    if (ON) begin
+        initial $display(""in the if"");
+    end
+    initial $display(""last"");
+endmodule", "t"), 10);
+            CollectionAssert.AreEqual(new[] { "A0", "instance", "B0", "A1", "instance", "B1", "A2", "instance", "B2", "in the if", "last" },
+                Printed(loop));
+
+            var files = new MemorySourceFiles();
+            files.Add("inc.svh", "initial $display(\"included 1\");\ninitial $display(\"included 2\");\n");
+            files.Add("t.sv", "module t;\n    initial $display(\"before\");\n    `include \"inc.svh\"\n    initial $display(\"after\");\nendmodule\n");
+            Elaboration included = Elaborator.Elaborate(SyntaxReader.Read("t.sv", files), "t");
+            Assert.IsFalse(included.HasErrors, string.Join("\n", included.Diagnostics));
+            CollectionAssert.AreEqual(new[] { "before", "included 1", "included 2", "after" }, Printed(Run(included.Design, 10)),
+                "an include's processes where the include is, whatever their lines in their own file (the M5 review)");
+        }
+
+        /// <summary>M5: an always_latch makes its first run after the initials, as an always_comb does.</summary>
+        [Test]
+        public void AtTimeZero_AsModelSimBegins_AnAlwaysLatchsFirstRun_ComesAfterTheInitials()
+        {
+            Simulator sim = Run(Clean(@"
+module t;
+    logic en = 1, d = 1, l, seen;
+    always_latch if (en) l = d;
+    initial seen = l;
+endmodule"), 10);
+            CollectionAssert.AreEqual(new[] { "0 x" }, Changes(sim, "seen"));
+            Assert.AreEqual("1", Now(sim, "l"));
+        }
+
+        /// <summary>
+        /// M5: a stimulus's writes at time 0 are a testbench's -- what the exported testbench's initial makes -- so a flip-flop
+        /// waiting on an asynchronous reset sees the reset a stimulus raises at time 0, as it would under ModelSim.
+        /// </summary>
+        [TestCase(StartOrder.ModelSim, "0")]
+        [TestCase(StartOrder.Icarus, "x")]
+        public void AtTimeZero_AStimulussWrite_IsSeenAsTheStartSays(StartOrder start, string q)
+        {
+            Design design = Clean(@"
+module t (input logic clk, rst, output logic q);
+    always_ff @(posedge clk, posedge rst)
+        if (rst) q <= 0;
+        else q <= ~q;
+endmodule", "t");
+            var stimulus = new Stimulus();
+            stimulus.Set(0, design.Find("t.rst"), Logic4.One);
+            stimulus.Set(0, design.Find("t.clk"), Logic4.Zero);
+            var sim = new Simulator(design, stimulus, new SimOptions { StartOrder = start });
+            sim.RunTo(1);
+            Assert.AreEqual(q, Now(sim, "q"));
+        }
+
+        /// <summary>
+        /// M5's review: working out where 2,048 copies of a generate loop are written costs about what building the run does
+        /// anyway, where the first version's search for each block's first place grew with the square of the design.
+        /// </summary>
+        [Test]
+        public void ModelSimsStart_OfABigGenerateLoop_CostsAboutWhatIcarussDoes()
+        {
+            Design design = Clean(@"
+module inv1 (input logic a, output logic y);
+    always_comb y = ~a;
+endmodule
+module t;
+    logic [2047:0] a, y;
+    for (genvar i = 0; i < 2048; i++) begin : g
+        inv1 u (.a(a[i]), .y(y[i]));
+        initial a[i] = 1'b0;
+    end
+endmodule", "t");
+            double Build(StartOrder start)
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                new Simulator(design, null, new SimOptions { StartOrder = start }).RunTo(0);
+                return watch.Elapsed.TotalMilliseconds;
+            }
+            Build(StartOrder.Icarus);   // warmed
+            double icarus = Build(StartOrder.Icarus), modelSim = Build(StartOrder.ModelSim);
+            Assert.Less(modelSim, 3 * icarus + 100, $"ModelSim's start {modelSim:F0} ms, Icarus's {icarus:F0} ms");
+        }
+
         [Test]
         public void AtTimeZero_AsIcarusBegins_AnInstancesProcessesStartFirst_AndAModulesOwnRunAsWritten()
         {

@@ -447,6 +447,9 @@ namespace BitSorter.Sim
         /// <summary>The signal of this full name.</summary>
         public SignalId Find(string name) =>
             _byName.TryGetValue(name, out SignalId signal) ? signal : throw new KeyNotFoundException($"There is no signal called '{name}'.");
+
+        /// <summary>The order its processes start in as ModelSim begins time 0, worked out once a design (<see cref="Sim.ModelSimStart"/>, M5).</summary>
+        internal int[] ModelSimStart;
     }
 
     /// <summary>

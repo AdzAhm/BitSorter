@@ -554,8 +554,9 @@ namespace BitSorter.Sim
         public long? NextEventTime => !_started ? 0 : _heap.Count > 0 ? _heap.Peek().Time : (long?)null;
 
         /// <summary>
-        /// The round of time 0 the processes started in, once what has no delay had settled from its starting values: the
-        /// round a process's first assignments are made in, where a later one answered something (Part 13c). -1 before.
+        /// The round of time 0 the processes started in -- the first, as ModelSim begins time 0, or once what has no delay had
+        /// settled from its starting values, as Icarus does (M5): the round a process's first assignments are made in, where a
+        /// later one answered something (Part 13c). -1 before.
         /// </summary>
         public int ProcessesStartedIn { get; private set; } = -1;
 
@@ -653,13 +654,23 @@ namespace BitSorter.Sim
             bool first = !_started;
             _started = true;
 
+            // As ModelSim begins time 0 (M5), a stimulus's writes at time 0 are a testbench's, which an initial would make: they
+            // arrive after the processes start, so an always waiting on one sees it -- as the exported testbench's would be.
+            if (first && _startOrder != null)
+                for (int i = _current.Count - 1; i >= 0; i--)
+                    if (_current[i].Kind == EventKind.Write)
+                    {
+                        _next.Insert(0, _current[i]);
+                        _current.RemoveAt(i);
+                    }
+
             for (int delta = firstDelta; ; delta++)
             {
                 if (!first && _current.Count == 0 && _toEvaluate.Count == 0 && _runnable.Count == 0)
                 {
-                    // Nothing active is left. At time 0 the processes start now, once the continuous
-                    // logic has settled from its starting values, as Icarus starts them; otherwise the
-                    // inactive region (#0) runs next, then the NBA region.
+                    // Nothing active is left. At time 0, as Icarus begins it (StartOrder.Icarus), the
+                    // processes start now, once the continuous logic has settled from its starting values;
+                    // otherwise the inactive region (#0) runs next, then the NBA region.
                     if (!_processesStarted)
                     {
                         for (int p = 0; p < _processes.Length; p++)

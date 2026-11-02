@@ -4324,24 +4324,30 @@ where 15i-2 had refused it as a slip). The procedural continuous assignment of I
 
 **As built in M5 (2026-11-02): time 0 begins as ModelSim begins it** (Ahmad's morning answer to Q1: follow ModelSim's
 order now, and decide again after Part 16's sweep).
-- **Measured first.** 39 small designs under ModelSim and Icarus, kept in the session's scratchpad, never the repository;
+- **Measured first.** 42 small designs under ModelSim and Icarus, kept in the session's scratchpad, never the repository;
   ModelSim's rule is the one written in `Docs/oracle-notes.md`, "Time 0, as ModelSim begins it", from what they printed.
 - **One setting** (`SimOptions.StartOrder`, `Sim/StartOrder.cs`): `ModelSim`, the default wherever BitSorter runs -- the
   workbench, CHECK and the exercises' grading, COMPARE -- or `Icarus`, BitSorter's start before M5. Deciding again after
   the sweep is flipping that default.
-- **ModelSim's start** (`ModelSimStart.Of`, worked out once a run): in the first delta, after every driver has worked out
-  its first value and before it arrives, every `always` or `always_ff` whose first instruction is a wait runs and so sets
-  itself waiting; then the other processes, by their places from the top down -- each instance statement's in its
-  parent, a generate block taking the first place inside it, then the process's own -- and `always_comb` and
-  `always_latch` last, as the standard has their first run. The drivers' first values arrive a delta later, as changes
-  the waiting processes see. Processes woken together still run in the fixed order, an instance's before its parent's
-  -- which is ModelSim's too, measured.
+- **ModelSim's start** (`ModelSimStart.Of`, worked out once a design and kept on it): in the first delta, after every
+  driver has worked out its first value and before it arrives, every `always` or `always_ff` whose first instruction is a
+  wait runs and so sets itself waiting; then the other processes in the order they are written, and `always_comb` and
+  `always_latch` last, as the standard has their first run. The drivers' first values, and a stimulus's writes at time 0
+  -- what the exported testbench's initial would make -- arrive a delta later, as changes the waiting processes see.
+  Processes woken together still run in the fixed order, an instance's before its parent's -- ModelSim's too, measured.
+- **"As written" is the elaborator's walk** (`ProcessInfo.Written`): a running number given to each process as the walk
+  of the source meets it -- before the instances after it are built, since each instance's body is built where its
+  statement is. So it is depth first with an instance's processes in its place, a generate loop's iteration by
+  iteration, a generate `if`'s where it is written and an include's where the include is, as ModelSim runs them
+  (measured). The first version sorted by line and column instead; the review found an include's lines out of place, a
+  loop's copies taken statement by statement, and a search for each block's first place that grew with the square of
+  the design -- 762 MB for a loop of 2,048. A design made in code has no walk, and keeps the design's order.
 - **Held three ways.** The Icarus oracle runs every comparison in Icarus's start, so it stays exact; the ModelSim oracle
   runs ModelSim's, and `ModelSimDiffers` lost its two time-0 rows (the scheduling testbench's S1, and the printing
   testbench's read through the hierarchy); COMPARE agrees with ModelSim on every sample from t = 0. Every exercise is
   graded both ways, its answer and the circuit it opens on, and none differs.
 - **Not time 0, so not here:** a port costs BitSorter a delta, so processes woken through one run a delta after the
-  parent's, where ModelSim joins a port's two sides into one net. Three of the 39 designs show it; no corpus design races on it.
+  parent's, where ModelSim joins a port's two sides into one net. Three of the 42 designs show it; no corpus design races on it.
 
 ---
 

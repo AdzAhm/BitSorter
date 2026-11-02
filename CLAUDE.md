@@ -265,8 +265,10 @@ failure side.
   sweep; `SimOptions.StartOrder`, `ModelSimStart`): every `always` headed
   by an event control is waiting before anything runs, the other processes
   then start as written, depth first -- an instance's at its instance
-  statement's place -- `always_comb` and `always_latch` last, and the
-  continuous logic settles after them, as changes of its own. Icarus's
+  statement's place, as the elaborator's walk meets them
+  (`ProcessInfo.Written`) -- `always_comb` and `always_latch` last, and the
+  continuous logic and a stimulus's time-0 writes arrive after them, as
+  changes. Icarus's
   start -- the logic settled first, then every process in the fixed order
   -- is one setting away, and the Icarus oracle runs it, so both oracles
   stay exact (`Docs/oracle-notes.md`, "Time 0"). A

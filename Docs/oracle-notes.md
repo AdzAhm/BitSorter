@@ -448,7 +448,7 @@ every corpus testbench is held to no race as the oracle runs it.
 ## Time 0, as ModelSim begins it (M5, 2026-11-02)
 
 Ahmad's morning decision of 2026-11-02 (Q1): follow ModelSim's order at time 0 now, and decide again after Part 16's
-sweep. The standard leaves it open (4.7). Measured first, with 39 small designs run under ModelSim ASE 2020.1 and
+sweep. The standard leaves it open (4.7). Measured first, with 42 small designs run under ModelSim ASE 2020.1 and
 Icarus 12 (in the session's scratchpad, never the repository). ModelSim's rule, as measured:
 
 | Question | ModelSim | Icarus 12 |
@@ -466,16 +466,23 @@ Icarus 12 (in the session's scratchpad, never the repository). ModelSim's rule, 
 | An `initial` reading an `always_comb`'s output at once | x | x |
 | Two always blocks of one module woken by one edge | as written | last first |
 | Two instances' always blocks and the parent's, woken by one edge | the instances first, in their order, then the parent's | the parent's, then the instances last first |
+| A generate loop of initials and an instance | iteration by iteration, the instance's in its place | the instance's first, then each initial for every iteration |
+| A generate `if`'s initial, between two others | where it is written | first |
+| A child's initial reading an input port tied to a constant, at once | x | its value |
 
 So ModelSim has every `always` headed by an event control waiting before anything runs; then the other processes run
 as written, depth first, an instance's at its instance statement's place, `always_comb` and `always_latch` last; and
 the continuous logic settles after them, as changes. BitSorter does just that by default since M5
-(`StartOrder.ModelSim`, `ModelSimStart`), and matches ModelSim on 36 of the 39 designs. The three it does not are not
+(`StartOrder.ModelSim`, `ModelSimStart`), "as written" being the order its elaborator's walk meets the processes in,
+and matches ModelSim on all of the designs but three. A stimulus drawn on the workbench writes at time 0 as the exported
+testbench's initial would, after the processes start. The three it does not are not
 time 0: **a port costs BitSorter a delta**, so an instance's processes woken through one run a delta after the parent's,
 where ModelSim, which joins a port's two sides into one net, runs them first. No corpus design races on it.
 
 `StartOrder.Icarus` is BitSorter's start before M5, and the Icarus oracle runs every comparison in it, so those stay
-exact; the ModelSim oracle runs ModelSim's, which took the time-0 rows out of `ModelSimDiffers` below. No exercise's
+exact; the ModelSim oracle runs ModelSim's, which took the time-0 rows out of `ModelSimDiffers` below; and where CI runs,
+with no ModelSim, every corpus testbench is run in both starts, racing in neither and printing alike but for the
+printing testbench's read through the hierarchy (`TheTestbench_RacesInNeitherStart_AndPrintsAlikeInBoth`). No exercise's
 grade depends on it (`ExerciseCurriculumTests.NoExercisesGrade_DependsOnHowTimeZeroBegins`), and COMPARE WITH MODELSIM'S
 RUN agrees with ModelSim on every sample from t = 0 (`ModelSimCompareOracleTests`).
 
