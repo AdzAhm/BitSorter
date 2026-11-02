@@ -69,15 +69,6 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
-        public void TheThirtyLevels_AreAllExercises_UnderTheirOwnIds()
-        {
-            string levels = Path.Combine(ExerciseFiles.Root, "Assets", "Resources", "Levels");
-            var ids = new HashSet<string>(Ids());
-            foreach (string level in Directory.EnumerateFiles(levels, "*.json").Select(Path.GetFileNameWithoutExtension))
-                Assert.IsTrue(ids.Contains(level), $"the level {level} is no exercise: its id is what its progress and its board carry over under");
-        }
-
-        [Test]
         public void TheRun_IsInOrder_ChapterByChapter()
         {
             List<Exercise> run = ExerciseFiles.InOrder();

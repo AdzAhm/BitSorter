@@ -8,7 +8,7 @@ namespace BitSorter.View
 {
     /// <summary>
     /// The settings: sound and its volume; fullscreen, vertical sync, a frame cap and a frame-rate counter on a desktop
-    /// build; the look; reporting; starting over; the credits and the 4.x game. A page of the workbench's own since Part
+    /// build; the look; reporting; starting over; the credits. A page of the workbench's own since Part
     /// 15g, over what is open and under the header, in the style's own colours -- it was a uGUI screen over everything, in
     /// the 4.x board's colours whatever the style, and Ahmad asked that it look like the start page and that a change of
     /// style through it change everything (2026-10-28). BACK and Escape take it down again.
@@ -29,13 +29,12 @@ namespace BitSorter.View
     public sealed class SettingsPanel : MonoBehaviour, IHoldsEscape
     {
         [SerializeField] private ProgressTracker _progress;
-        [SerializeField] private MainMenu _menu;
         [SerializeField] private CreditsPanel _credits;
         [SerializeField] private WorkbenchPanel _workbench;
 
         private GameAudio _audio;
         private VisualElement _page;
-        private ShellButton _sound, _music, _effects, _data, _fullscreen, _vSync, _counter, _motion, _keys, _reset;
+        private ShellButton _sound, _music, _data, _fullscreen, _vSync, _counter, _motion, _keys, _reset;
         private ShellSlider _volume, _cap;
         private Label _volumeLabel, _volumeValue, _capLabel, _capValue, _status;
         private VisualElement _question;
@@ -69,9 +68,6 @@ namespace BitSorter.View
         public const string MusicButton = "Music setting";
 
         /// <inheritdoc cref="SoundButton"/>
-        public const string EffectsButton = "Effects setting";
-
-        /// <inheritdoc cref="SoundButton"/>
         public const string VolumeSlider = "Volume setting";
 
         /// <inheritdoc cref="SoundButton"/>
@@ -103,9 +99,6 @@ namespace BitSorter.View
 
         /// <inheritdoc cref="SoundButton"/>
         public const string CreditsButton = "Credits";
-
-        /// <inheritdoc cref="SoundButton"/>
-        public const string GameButton = "The 4.x game";
 
         /// <inheritdoc cref="SoundButton"/>
         public const string MotionButton = "Motion setting";
@@ -180,8 +173,8 @@ namespace BitSorter.View
 
         /// <summary>What RESET PROGRESS forgets, and what it keeps (Part 15g: it emptied the whole save, circuits included).</summary>
         public const string ProgressText =
-            "Start the exercises over: every solved exercise, its saved answer and best, the tutorial and the " +
-            "first-time hints are forgotten. Your circuits and settings are kept.";
+            "Start the exercises over: every solved exercise, its saved answer and best, and the first-time hints " +
+            "are forgotten. Your circuits and settings are kept.";
 
         /// <summary>The question RESET PROGRESS asks.</summary>
         public const string Question = "Start the exercises over? This cannot be undone.";
@@ -195,7 +188,6 @@ namespace BitSorter.View
         private void Awake()
         {
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
-            if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
             if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
             if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
             if (_workbench == null) _workbench = FindFirstObjectByType<WorkbenchPanel>();
@@ -289,7 +281,6 @@ namespace BitSorter.View
             VisualElement sound = Row(column);
             _sound = Switch(sound, SoundButton, ToggleSound);
             _music = Switch(sound, MusicButton, ToggleMusic);
-            _effects = Switch(sound, EffectsButton, ToggleEffects);
             _volume = Slider(column, VolumeSlider, "VOLUME", 0, 100, out _volumeLabel, out _volumeValue);
             _volume.SetValueWithoutNotify(GameAudio.Volume);
             _volume.Changed += value => { if (_audio != null) _audio.SetVolume(Mathf.RoundToInt(value), keep: false); };
@@ -331,12 +322,10 @@ namespace BitSorter.View
             BuildReset(right);
             Gap(right);
 
-            // Last, below everything that changes how the game behaves. The 4.x game, kept until Part 16 deletes it, beside
-            // CREDITS and as quiet (Ahmad, 2026-10-27: "not deep but not plainly").
+            // Last, below everything that changes how the game behaves. THE 4.x GAME stood beside CREDITS until Part 16a
+            // deleted the game.
             Section(right, AboutHeading, null);
-            VisualElement about = Row(right);
-            Control(about, CreditsButton, "CREDITS", OpenCredits, ButtonWidth).style.marginRight = LookGap;
-            Control(about, GameButton, "THE 4.x GAME", OpenTheGame, ButtonWidth);
+            Control(Row(right), CreditsButton, "CREDITS", OpenCredits, ButtonWidth);
 
             Label help = ShellTheme.Label("help", HelpText, UiType.Caption, _palette.Muted, TextAnchor.MiddleCenter);
             help.style.marginTop = 20f;
@@ -530,12 +519,10 @@ namespace BitSorter.View
 
             Caption(_sound, sound ? "SOUND  ON" : "SOUND  OFF");
             Caption(_music, GameAudio.MusicOn ? "MUSIC  ON" : "MUSIC  OFF");
-            Caption(_effects, GameAudio.EffectsOn ? "EFFECTS  ON" : "EFFECTS  OFF");
 
-            // Each keeps saying what it is set to while greyed out, so turning the sound back on brings back exactly what
+            // It keeps saying what it is set to while greyed out, so turning the sound back on brings back exactly what
             // the player had.
             Enable(_music, sound);
-            Enable(_effects, sound);
             Caption(_data, GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF");
             Caption(_motion, ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF");
             Caption(_keys, KeysCaption(KeyCaps.Shown));
@@ -609,12 +596,6 @@ namespace BitSorter.View
         {
             if (_audio != null)
                 _audio.SetMusic(!GameAudio.MusicOn);
-        }
-
-        private void ToggleEffects()
-        {
-            if (_audio != null)
-                _audio.SetEffects(!GameAudio.EffectsOn);
         }
 
         private void ToggleSound()
@@ -713,70 +694,30 @@ namespace BitSorter.View
         // Showing
         // -----------------------------------------------------------------
 
-        /// <summary>
-        /// Opens the settings from the 4.x title screen, in the 4.x boot the tests use (<see cref="AppLaunch.Classic"/>):
-        /// the workbench is brought up under them, and BACK goes back to the title screen.
-        /// </summary>
-        public void Open()
-        {
-            _over = null;
-            _overTheSimulator = false;
-            if (_workbench != null)
-                _workbench.Resume();
-            Show(true);
-        }
-
         /// <summary>Opens the settings over the simulator, as it is, which BACK goes back to (Part 15a; a page of it since 15g).</summary>
         public void OpenOver(WorkbenchPanel workbench)
         {
             _over = workbench;
-            _overTheSimulator = workbench != null;
             Show(true);
         }
 
         /// <summary>
         /// Opens the settings again where they were, after a change of look has loaded the game again (<see cref="LookSwitch"/>):
-        /// over the simulator, which the reload opened, or as from the title screen.
+        /// over the simulator, which the reload opened.
         /// </summary>
         public void OpenAgain()
         {
-            if (_menu != null)
-                _menu.Show(false);
-            if (_overTheSimulator && _workbench != null)
-            {
-                _workbench.Resume();
-                OpenOver(_workbench);
-            }
-            else
-            {
-                Open();
-            }
+            if (_workbench == null)
+                return;
+            _workbench.Resume();
+            OpenOver(_workbench);
         }
 
-        /// <summary>The simulator Settings went over, which BACK goes back to; null for the title screen.</summary>
+        /// <summary>The simulator Settings went over, which BACK goes back to.</summary>
         private WorkbenchPanel _over;
-
-        /// <summary>Whether Settings was last opened over the simulator: kept through the reload a change of look makes.</summary>
-        private static bool _overTheSimulator;
-
-        /// <summary>Whether Settings was opened over the simulator, rather than from the 4.x title screen.</summary>
-        public bool OverTheSimulator => _over != null;
 
         /// <summary>Settings again, as it was: the credits roll coming back.</summary>
         public void Reopen() => Show(true);
-
-        /// <summary>THE 4.x GAME: its title screen, which BACK TO THE SIMULATOR leaves (Part 15a).</summary>
-        private void OpenTheGame()
-        {
-            Show(false);
-            _over = null;
-            _overTheSimulator = false;
-            if (_workbench != null)
-                _workbench.GoUnder();
-            AppLaunch.ShowTheGame();
-            if (_menu != null)
-                _menu.OpenFromTheSimulator();   // so Escape on it comes back (Part 15g)
-        }
 
         /// <summary>The credits roll, which comes back here.</summary>
         private void OpenCredits()
@@ -787,23 +728,15 @@ namespace BitSorter.View
             _credits.Open();
         }
 
-        /// <summary>Back to what Settings was opened over: the simulator, or the 4.x title screen.</summary>
+        /// <summary>Back to the simulator Settings was opened over.</summary>
         private void Back()
         {
             Show(false);
 
-            if (_over != null)
-            {
-                WorkbenchPanel over = _over;
-                _over = null;
+            WorkbenchPanel over = _over != null ? _over : _workbench;
+            _over = null;
+            if (over != null)
                 over.Resume();   // a reset made from here is shown on what is under it
-                return;
-            }
-
-            if (_workbench != null)
-                _workbench.GoUnder();
-            if (_menu != null)
-                _menu.Show(true);
         }
 
         /// <summary>

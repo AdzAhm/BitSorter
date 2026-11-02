@@ -12,16 +12,16 @@ using UnityEngine.TestTools;
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// The built scene itself: that nothing it produces is holding a null, and that the components
-    /// which depend on running in a particular order do.
+    /// The built scene itself: that nothing it produces is holding a null, and that what it cannot run without is there,
+    /// once.
     /// </summary>
     /// <remarks>
     /// `HalfAdderDemoSceneBuilder` is the only authority on scene contents, and its output goes
-    /// wrong in ways no single script can show: a collaborator missing from the scene, or two
-    /// components whose Update order decides whether one sees the other's state.
+    /// wrong in ways no single script can show: a collaborator missing from the scene, or one there twice. Until Part 16a
+    /// this also held three pairs of the 4.x game's components to the order they updated in; the simulator's scene has no
+    /// such pair.
     ///
-    /// Loading the real scene is the point -- a hand-built subset like
-    /// <see cref="PointerArbitrationPlayTests"/> uses could not catch either. The `{fileID: 0}` case
+    /// Loading the real scene is the point -- a hand-built subset could not catch either. The `{fileID: 0}` case
     /// is deliberately *not* here: it needs the scene read as a file, which `SceneWiringTests` does
     /// in Edit Mode, because by the time this fixture can look, Awake has already filled the gaps in.
     ///
@@ -36,9 +36,9 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         /// <remarks>
         /// Analytics is the one that would leave the building. `GameAnalytics.Boot` runs on
-        /// AfterSceneLoad and reports `levelStarted` for whatever loads, so without this a test run
-        /// would post real events to the dashboard and quietly corrupt the one measurement the game
-        /// collects -- the answer to "which level do people stop at" would include a robot.
+        /// AfterSceneLoad, and an exercise opened or solved is reported, so without this a test run
+        /// could post real events to the dashboard and quietly corrupt the one measurement the game
+        /// collects -- the answer to "which exercise do people stop at" would include a robot.
         ///
         /// The progress file is the other, and <see cref="SaveGuard"/> handles it by pointing the
         /// game at a scratch file rather than by moving the player's out of the way. Nothing here
@@ -69,13 +69,9 @@ namespace BitSorter.PlayMode.Tests
         public void ClearTheSave() => SaveGuard.Clear();
 
         /// <summary>
-        /// Takes the game back off the screen before the next fixture runs.
+        /// Takes the game back off the screen before the next fixture runs (<see cref="TestScene"/> says why that is not
+        /// optional).
         /// </summary>
-        /// <remarks>
-        /// Not optional. Leaving the scene loaded turned two of `PointerArbitrationPlayTests`'
-        /// assertions red -- it builds its own canvas and assumes nothing else is on screen, and
-        /// the main menu is a full-screen panel, so the pointer was over UI everywhere.
-        /// </remarks>
         [UnityTearDown]
         public IEnumerator ClearTheScene()
         {
@@ -149,7 +145,7 @@ namespace BitSorter.PlayMode.Tests
         /// project's own classes go.
         /// </summary>
         /// <remarks>
-        /// Not into Unity's: the timing diagram's lines are a <see cref="UnityEngine.UI.MaskableGraphic"/>, whose
+        /// Not into Unity's: the workbench's drawings are each a <see cref="UnityEngine.UI.MaskableGraphic"/>, whose
         /// serialized material is null on purpose, meaning the default UI material. A null there is
         /// Unity's convention, not a collaborator missing from the scene, which is what this test
         /// looks for.
@@ -175,69 +171,11 @@ namespace BitSorter.PlayMode.Tests
         }
 
         // -----------------------------------------------------------------
-        // Component order
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Component order within one GameObject decides Update order, and three pairs depend on it.
-        /// </summary>
-        /// <remarks>
-        /// The trap CLAUDE.md records: `WinPanel` never registers with `UiModal`, so
-        /// `TutorialDirector` watches its `IsShowing` instead -- which only works because the builder
-        /// adds the director after it, so on the frame a run passes the win panel has already
-        /// presented. Add the director first and the tutorial's card appears on top of the win panel,
-        /// which is precisely the bug the ordering was introduced to fix.
-        ///
-        /// Asserted as indices on the shared GameObject rather than by observing behaviour, because
-        /// the behaviour only diverges on one frame in a whole playthrough.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator ComponentsThatDependOnUpdateOrder_AreInTheRightOrder()
-        {
-            yield return LoadScene();
-
-            AssertOrder<WinPanel, TutorialDirector>(
-                "the director must see a win panel that has already presented, or the tutorial's " +
-                "card and the win panel share the screen");
-
-            AssertOrder<ProgressTracker, FirstTimeHints>(
-                "hints ask the store whether they have been seen; the store must have loaded first");
-
-            AssertOrder<LevelSelectPanel, SandboxPanel>(
-                "the sandbox row is drawn into the level list, which has to exist by then");
-        }
-
-        private static void AssertOrder<TFirst, TSecond>(string because)
-            where TFirst : MonoBehaviour
-            where TSecond : MonoBehaviour
-        {
-            TFirst first = Find<TFirst>();
-            TSecond second = Find<TSecond>();
-
-            Assert.IsNotNull(first, typeof(TFirst).Name + " is missing from the scene");
-            Assert.IsNotNull(second, typeof(TSecond).Name + " is missing from the scene");
-
-            // Only meaningful on one GameObject: across objects Unity gives no ordering guarantee at
-            // all, so if the builder ever splits these the assertion below is the thing that says so.
-            Assert.AreSame(first.gameObject, second.gameObject,
-                typeof(TFirst).Name + " and " + typeof(TSecond).Name +
-                " must share a GameObject for their order to mean anything");
-
-            MonoBehaviour[] all = first.GetComponents<MonoBehaviour>();
-
-            int firstAt = System.Array.IndexOf(all, (MonoBehaviour)first);
-            int secondAt = System.Array.IndexOf(all, (MonoBehaviour)second);
-
-            Assert.Less(firstAt, secondAt,
-                typeof(TFirst).Name + " must come before " + typeof(TSecond).Name + ": " + because);
-        }
-
-        // -----------------------------------------------------------------
         // Things there must be exactly one of
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Without an AudioListener every cue plays to nobody, silently and with no warning.
+        /// Without an AudioListener the music plays to nobody, silently and with no warning.
         /// </summary>
         /// <remarks>
         /// `GameAudio` says so in its own remarks and then has no way to check. Two listeners is the
@@ -253,7 +191,7 @@ namespace BitSorter.PlayMode.Tests
                 Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
 
             Assert.AreEqual(1, listeners.Length,
-                "cues play to nobody with no listener, and unpredictably with two");
+                "the music plays to nobody with no listener, and unpredictably with two");
         }
 
         [UnityTest]
@@ -275,8 +213,8 @@ namespace BitSorter.PlayMode.Tests
         /// The components the game cannot run without are all present, and present once.
         /// </summary>
         /// <remarks>
-        /// A rebuild that dropped one would leave a scene that opens, draws a grid and does nothing,
-        /// which reads as a hang rather than as a missing component.
+        /// A rebuild that dropped one would leave a scene that opens and does nothing, which reads as a
+        /// hang rather than as a missing component.
         /// </remarks>
         [UnityTest]
         public IEnumerator TheScenesLoadBearingComponents_AreAllPresentExactlyOnce()
@@ -285,9 +223,8 @@ namespace BitSorter.PlayMode.Tests
 
             foreach (System.Type type in new[]
                      {
-                         typeof(SimulationRunner), typeof(LevelSession), typeof(ProgressTracker),
-                         typeof(PointerGate), typeof(WiringController), typeof(GameAudio),
-                         typeof(TutorialDirector), typeof(WinPanel), typeof(FirstTimeHints),
+                         typeof(ProgressTracker), typeof(WorkbenchPanel), typeof(SettingsPanel),
+                         typeof(CreditsPanel), typeof(GameAudio), typeof(FrameRateCounter),
                      })
             {
                 Object[] found = Object.FindObjectsByType(type, FindObjectsSortMode.None);

@@ -15,9 +15,6 @@ namespace BitSorter.View
     /// building every one of them. Nothing in the scene outlives a load, so a reload builds the whole
     /// game again in the new look -- the music starts again with it.
     ///
-    /// The open board is written first. A reload is not a quit, so nothing else would write it, and
-    /// an edit made in the half second before Settings was opened is still waiting for its save.
-    ///
     /// The cover is the only thing that outlives the load: a canvas of its own above everything,
     /// which fades in over the old game, stays through the load, and fades out over the new one once
     /// Settings is back. It takes clicks while it is up, so nothing is pressed under it. It counts
@@ -68,10 +65,6 @@ namespace BitSorter.View
             Color ground = Palette.Current.Ground;
             yield return Fade(ground, 0f, 1f, CoverSeconds);
 
-            ProgressTracker tracker = FindFirstObjectByType<ProgressTracker>();
-            if (tracker != null)
-                tracker.SaveNow();
-
             Look.Use(_look);
             yield return SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
 
@@ -82,7 +75,7 @@ namespace BitSorter.View
 
             SettingsPanel settings = FindFirstObjectByType<SettingsPanel>();
             if (settings != null)
-                settings.OpenAgain();   // over the simulator or the title screen, as it was (Part 15a)
+                settings.OpenAgain();   // over the simulator, as it was (Part 15a)
 
             yield return Fade(Palette.Current.Ground, 1f, 0f, RevealSeconds);
             Destroy(gameObject);

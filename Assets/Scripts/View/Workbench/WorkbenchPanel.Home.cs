@@ -16,8 +16,7 @@ namespace BitSorter.View
     /// </summary>
     /// <remarks>
     /// The start page is the shell's, covering everything under the header, whose menus stay working; while it is up the
-    /// workbench reads no keys and no pointer of its own, so nothing hidden under it is played, scrolled or deleted. The 4.x
-    /// game's own boot, its title screen first, is kept for the Play Mode tests written against it (<see cref="AppLaunch"/>).
+    /// workbench reads no keys and no pointer of its own, so nothing hidden under it is played, scrolled or deleted.
     /// </remarks>
     public sealed partial class WorkbenchPanel
     {
@@ -106,11 +105,7 @@ namespace BitSorter.View
         /// <summary>HELP's menu.</summary>
         public HelpMenu HelpMenu => _helpMenu;
 
-        private void Start()
-        {
-            if (!AppLaunch.Classic)
-                Launch();
-        }
+        private void Start() => Launch();
 
         /// <summary>
         /// Opens the workbench on what was open last (<see cref="Documents.LaunchKey"/>): that circuit, that sample, or with

@@ -66,12 +66,9 @@ namespace BitSorter.PlayMode.Tests
         private static IEnumerator OpenTheReference()
         {
             yield return TestScene.Load();
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-            yield return null;
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.IsTrue(workbench.IsOpen);
-            workbench.ShowSample(1);
-            yield return null;
+            Assert.AreEqual(1, workbench.Sample, "sanity: the reference circuit");
             workbench.Pause();
             workbench.Session.Finish();
             yield return null;

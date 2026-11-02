@@ -12,45 +12,32 @@ using UnityEngine.UI;
 namespace BitSorter.View.EditorTools
 {
     /// <summary>
-    /// Builds the play scene and everything it needs, so none of it has to be wired by hand. Safe to
-    /// re-run: it overwrites the generated assets and rebuilds the scene.
+    /// Builds the scene and everything it needs, so none of it has to be wired by hand. Safe to
+    /// re-run: it rebuilds the scene.
     /// </summary>
     /// <remarks>
-    /// The scene no longer contains a circuit. <see cref="LevelSession"/> loads one from
-    /// Assets/Resources/Levels at Start, and its _levelName field is the only thing that decides
-    /// which. The file name and menu item still say half adder for the sake of the git history; the
-    /// half adder is now level 2, in half-adder.json.
+    /// The scene is the simulator: the workbench, Settings and the credits, the save, the music and the frame-rate counter,
+    /// on one canvas and one shell panel that each builds its own hierarchy at runtime. It built the 4.x game's board and
+    /// HUD too until Part 16a deleted the game. The file name and menu item still say half adder for the sake of the git
+    /// history.
     /// </remarks>
     public static class HalfAdderDemoSceneBuilder
     {
-        /// <summary>
-        /// The level a scene built from nothing opens on. Any file name from Assets/Resources/Levels.
-        /// </summary>
-        /// <remarks>
-        /// Only used when there is no existing scene to take the choice from. Rebuilding preserves
-        /// whatever the scene was already set to -- see <see cref="StartingLevelFor"/>. Forcing this
-        /// value on every rebuild silently threw away the level you had selected, which is exactly the
-        /// kind of thing that reads as "the inspector is broken".
-        /// </remarks>
-        private const string DefaultStartingLevel = "route-the-bit";
-
         private const string ScenesFolder = "Assets/Scenes";
-        private const string PrefabsFolder = "Assets/Prefabs";
-        private const string ArtFolder = "Assets/Art/Generated";
 
         private const string ScenePath = ScenesFolder + "/HalfAdderDemo.unity";
         private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
 
         /// <summary>
-        /// The main menu's music, and how loud each recording is. Imported, free-licence tracks;
+        /// The recordings Settings plays, and how loud each is. Imported, free-licence tracks;
         /// their credit is Credits.MenuMusic, on the credits roll, and the README says where each
         /// came from.
         /// </summary>
         /// <remarks>
         /// The loudness is the file's RMS in dBFS once imported -- mixed down to mono and normalised
-        /// to its peak, as its .meta says -- measured by decoding the file. The menu turns each
-        /// track to the level music's loudness with it. AudioPlayTests decodes both files again and
-        /// fails if the menu does not then sound as loud as a level, so a track added or re-exported
+        /// to its peak, as its .meta says -- measured by decoding the file. Settings turns each
+        /// track to the generated music's loudness with it. AudioPlayTests decodes both files again and
+        /// fails if Settings does not then sound as loud as the simulator, so a track added or re-exported
         /// needs measuring before it goes in.
         /// </remarks>
         private static readonly (string Path, float LoudnessDb)[] MenuTrackFiles =
@@ -58,9 +45,6 @@ namespace BitSorter.View.EditorTools
             ("Assets/Audio/Music/jkjkke-dream.mp3", -13.6f),
             ("Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3", -18.5f),
         };
-        private const string SquareTexturePath = ArtFolder + "/WhiteSquare.png";
-        private const string NodePrefabPath = PrefabsFolder + "/NodeSquare.prefab";
-        private const string BitPrefabPath = PrefabsFolder + "/BitSquare.prefab";
 
         [MenuItem("BitSorter/Build Play Scene")]
         public static void Build()
@@ -68,88 +52,20 @@ namespace BitSorter.View.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
 
-            // Read before NewScene throws the current one away.
-            string startingLevel = StartingLevelFor();
-
             EnsureFolder(ScenesFolder);
-            EnsureFolder(PrefabsFolder);
-            EnsureFolder(ArtFolder);
-
-            Sprite square = CreateSquareSprite();
-            GameObject nodePrefab = CreateSquarePrefab(NodePrefabPath, "NodeSquare", square, 0);
-            GameObject bitPrefab = CreateSquarePrefab(BitPrefabPath, "BitSquare", square, 2);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            Camera camera = CreateCamera();
+            CreateCamera();
             CreateBloomVolume();
             Canvas canvas = CreateUi();
 
             var host = new GameObject("Simulation");
 
-            // The grid is added first: SimulationRunner finds it during Awake, and both the level
-            // loader and the placement rules read its extents to know where the board ends.
-            PlacementGrid grid = host.AddComponent<PlacementGrid>();
-            SimulationRunner runner = host.AddComponent<SimulationRunner>();
-            LevelSession session = host.AddComponent<LevelSession>();
-            NodeRenderer nodes = host.AddComponent<NodeRenderer>();
-            EdgeRenderer edges = host.AddComponent<EdgeRenderer>();
-            BitRenderer bits = host.AddComponent<BitRenderer>();
-            PortRenderer ports = host.AddComponent<PortRenderer>();
-            SimulationInput input = host.AddComponent<SimulationInput>();
-            PlacementController placement = host.AddComponent<PlacementController>();
-            WiringController wiring = host.AddComponent<WiringController>();
-            WireDelayController wireDelay = host.AddComponent<WireDelayController>();
-            SparkEffects sparks = host.AddComponent<SparkEffects>();
-            ScorchMarks scorch = host.AddComponent<ScorchMarks>();
-            GridPulse pulse = host.AddComponent<GridPulse>();
-            BoardBackground board = host.AddComponent<BoardBackground>();
-            PointerGate pointer = host.AddComponent<PointerGate>();
-
-            // The interface builds its own hierarchy under the canvas at runtime, the same way the
-            // grid builds its dots. Only the component and its references live in the scene.
-            GatePaletteView palette = host.AddComponent<GatePaletteView>();
-            RunControls runControls = host.AddComponent<RunControls>();
-            StatusBanner banner = host.AddComponent<StatusBanner>();
-            BitsLostMeter bitsLost = host.AddComponent<BitsLostMeter>();
-            ClockReadout clock = host.AddComponent<ClockReadout>();
-
-            HintBanner hintBanner = host.AddComponent<HintBanner>();
-            TutorialPanel tutorialPanel = host.AddComponent<TutorialPanel>();
-            TutorialHighlighter tutorialRings = host.AddComponent<TutorialHighlighter>();
-            TutorialCard tutorialCard = host.AddComponent<TutorialCard>();
-            ChapterCard chapterCard = host.AddComponent<ChapterCard>();
-
-            DiagnosticsPanel diagnostics = host.AddComponent<DiagnosticsPanel>();
-
-            // The other bottom corner, behind the same key: F2's one flag is the clock diagram's,
-            // and diagnostics follows it.
-            ClockDiagram clockDiagram = host.AddComponent<ClockDiagram>();
-
-            // The timing diagram along the bottom, behind F8 and the badge beside the help badge.
-            WaveformPanel waveform = host.AddComponent<WaveformPanel>();
-
-            // Alt+click on a wire puts it in the diagram.
-            ProbeController probes = host.AddComponent<ProbeController>();
             ProgressTracker progress = host.AddComponent<ProgressTracker>();
-
-            // Reads the tracker's store only in Update, after every Awake has run, so its place in
-            // this list does not matter. Nothing here should depend on the order components are
-            // added: Unity does not promise that they wake or update in that order.
-            FirstTimeHints hints = host.AddComponent<FirstTimeHints>();
-
-            LevelSelectPanel levelSelect = host.AddComponent<LevelSelectPanel>();
-            HelpPanel help = host.AddComponent<HelpPanel>();
-            WinPanel winPanel = host.AddComponent<WinPanel>();
-
-            // The director waits until it has seen the solved panel showing before its ending card
-            // goes up, so its place relative to WinPanel does not matter either.
-            TutorialDirector tutorial = host.AddComponent<TutorialDirector>();
-            SinkCelebration celebration = host.AddComponent<SinkCelebration>();
-            MainMenu mainMenu = host.AddComponent<MainMenu>();
             SettingsPanel settings = host.AddComponent<SettingsPanel>();
 
-            // 5.0's workbench preview, off the main menu. Builds nothing until it is first opened.
+            // The simulator itself, which BitSorter opens on (Part 15a); Settings and the credits are pages of it.
             WorkbenchPanel workbench = host.AddComponent<WorkbenchPanel>();
 
             // The shell's typeface (Part 11a): UI Toolkit makes its own font asset from these, so they ship in the build.
@@ -158,202 +74,14 @@ namespace BitSorter.View.EditorTools
             Assign(shellFonts, "_bold", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexSans/IBMPlexSans-Bold.ttf"));
             Assign(shellFonts, "_mono", AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/IBMPlexMono/IBMPlexMono-Regular.ttf"));
             CreditsPanel credits = host.AddComponent<CreditsPanel>();
-            EndingPanel ending = host.AddComponent<EndingPanel>();
 
             // Over everything, on a canvas of its own, so its place in this list does not matter.
             FrameRateCounter frameCounter = host.AddComponent<FrameRateCounter>();
 
-            SandboxPanel sandbox = host.AddComponent<SandboxPanel>();
-            NameBoardPanel namer = host.AddComponent<NameBoardPanel>();
-
             // AddComponent brings its own AudioSource along, via RequireComponent.
             GameAudio audio = host.AddComponent<GameAudio>();
 
-            Assign(board, "_camera", camera);
-
-            // Added here rather than in CreateCamera because the grid it measures does not exist
-            // yet at that point.
-            CameraFit fit = camera.gameObject.AddComponent<CameraFit>();
-            Assign(fit, "_grid", grid);
-
-            // The things that cover the screen's edges. The board is framed between them, so a
-            // source in the outermost column is not left under the parts list, the setup panel or
-            // the open help panel.
-            Assign(fit, "_palette", palette);
-            Assign(fit, "_sandbox", sandbox);
-            Assign(fit, "_help", help);
-
-            // And the banner over the top edge, which a seven-row board's top row would reach, and
-            // the timing diagram along the bottom while it is open.
-            Assign(fit, "_banner", banner);
-            Assign(fit, "_waveform", waveform);
-
-            // And the badges in the top-right corner, kept clear of the board's top-right cell on a
-            // level with a bin there: the level says whether there is one, the canvas how big the
-            // corner is on screen.
-            Assign(fit, "_session", session);
-            Assign(fit, "_canvas", canvas);
-            Assign(bits, "_sparks", sparks);
-            Assign(scorch, "_runner", runner);
-
-            Assign(pulse, "_grid", grid);
-            Assign(pulse, "_runner", runner);
-            Assign(ports, "_runner", runner);
-            Assign(ports, "_stubPrefab", bitPrefab);
-            Assign(grid, "_dotPrefab", bitPrefab);
-            Assign(runner, "_grid", grid);
-            Assign(nodes, "_runner", runner);
-            Assign(nodes, "_nodePrefab", nodePrefab);
-            Assign(edges, "_runner", runner);
-            Assign(edges, "_delay", wireDelay);
-            Assign(edges, "_sparks", sparks);
-            Assign(edges, "_probes", probes);
-            Assign(bits, "_runner", runner);
-            Assign(bits, "_bitPrefab", bitPrefab);
-
-            // The session owns every edit, so the two editing controllers and the input component all
-            // talk to it. WiringController keeps the runner as well, for layout and the read-only view
-            // its hit testing and preview need.
-            Assign(session, "_runner", runner);
-            AssignString(session, "_levelName", startingLevel);
-            Assign(wiring, "_session", session);
-            Assign(wiring, "_runner", runner);
-            Assign(wiring, "_camera", camera);
-            Assign(placement, "_session", session);
-            Assign(placement, "_grid", grid);
-            Assign(placement, "_camera", camera);
-
-            // Holds the wiring controller so re-timing stays suppressed while a new wire is dragged.
-            Assign(wireDelay, "_session", session);
-            Assign(wireDelay, "_runner", runner);
-            Assign(wireDelay, "_wiring", wiring);
-            Assign(wireDelay, "_camera", camera);
-            // One gate, three consumers. Every mouse reader asks it before acting, which is what stops
-            // a single press being handled by two of them at once.
-            Assign(pointer, "_wiring", wiring);
-            Assign(placement, "_pointer", pointer);
-            Assign(wiring, "_pointer", pointer);
-            Assign(wireDelay, "_pointer", pointer);
-
-            Assign(input, "_session", session);
-            Assign(input, "_runner", runner);
-            Assign(palette, "_session", session);
-            Assign(palette, "_placement", placement);
-            Assign(palette, "_canvas", canvas);
-            Assign(palette, "_pointer", pointer);
-            Assign(palette, "_grid", grid);
-            Assign(palette, "_camera", camera);
-
-            Assign(runControls, "_session", session);
-            Assign(runControls, "_runner", runner);
-            Assign(runControls, "_canvas", canvas);
-
-            Assign(banner, "_session", session);
-            Assign(banner, "_runner", runner);
-            Assign(banner, "_canvas", canvas);
-
-            Assign(bitsLost, "_session", session);
-            Assign(bitsLost, "_runner", runner);
-            Assign(bitsLost, "_canvas", canvas);
-
-            Assign(clock, "_session", session);
-            Assign(clock, "_runner", runner);
-            Assign(clock, "_canvas", canvas);
-
-            Assign(diagnostics, "_runner", runner);
-            Assign(diagnostics, "_session", session);
-            Assign(diagnostics, "_clock", clockDiagram);
-            Assign(diagnostics, "_canvas", canvas);
-
-            Assign(clockDiagram, "_runner", runner);
-            Assign(clockDiagram, "_session", session);
-            Assign(clockDiagram, "_canvas", canvas);
-
-            Assign(waveform, "_runner", runner);
-            Assign(waveform, "_session", session);
-            Assign(waveform, "_palette", palette);
-            Assign(waveform, "_sandbox", sandbox);
-            Assign(waveform, "_help", help);
-            Assign(waveform, "_probes", probes);
-            Assign(waveform, "_canvas", canvas);
-
-            Assign(probes, "_runner", runner);
-            Assign(probes, "_session", session);
-            Assign(probes, "_pointer", pointer);
-
-            Assign(progress, "_session", session);
-            Assign(progress, "_runner", runner);
-
-            Assign(levelSelect, "_session", session);
-            Assign(levelSelect, "_progress", progress);
-            Assign(levelSelect, "_sandbox", sandbox);
-            Assign(levelSelect, "_canvas", canvas);
-
-            Assign(sandbox, "_session", session);
-            Assign(sandbox, "_progress", progress);
-            Assign(sandbox, "_runner", runner);
-            Assign(sandbox, "_namer", namer);
-            Assign(sandbox, "_canvas", canvas);
-            Assign(namer, "_canvas", canvas);
-
-            Assign(help, "_session", session);
-            Assign(help, "_canvas", canvas);
-
-            Assign(hintBanner, "_canvas", canvas);
-
-            Assign(hints, "_session", session);
-            Assign(hints, "_runner", runner);
-            Assign(hints, "_progress", progress);
-            Assign(hints, "_banner", hintBanner);
-            Assign(hints, "_wireDelay", wireDelay);
-
-            Assign(tutorialPanel, "_canvas", canvas);
-            Assign(tutorialRings, "_canvas", canvas);
-
-            Assign(tutorial, "_session", session);
-            Assign(tutorial, "_runner", runner);
-            Assign(tutorial, "_progress", progress);
-            Assign(tutorial, "_placement", placement);
-            Assign(tutorial, "_grid", grid);
-            Assign(tutorial, "_palette", palette);
-            Assign(tutorial, "_runControls", runControls);
-            Assign(tutorial, "_panel", tutorialPanel);
-            Assign(tutorial, "_highlighter", tutorialRings);
-            Assign(tutorial, "_card", tutorialCard);
-            Assign(tutorial, "_winPanel", winPanel);
-
-            Assign(tutorialCard, "_canvas", canvas);
-
-            Assign(chapterCard, "_session", session);
-            Assign(chapterCard, "_progress", progress);
-            Assign(chapterCard, "_canvas", canvas);
-
-            Assign(levelSelect, "_tutorial", tutorial);
-
-            Assign(winPanel, "_session", session);
-            Assign(winPanel, "_runner", runner);
-            Assign(winPanel, "_progress", progress);
-            Assign(winPanel, "_waveform", waveform);
-            Assign(winPanel, "_canvas", canvas);
-
-            Assign(ending, "_session", session);
-            Assign(ending, "_progress", progress);
-            Assign(ending, "_menu", mainMenu);
-            Assign(ending, "_canvas", canvas);
-
-            Assign(celebration, "_session", session);
-            Assign(celebration, "_runner", runner);
-
-            Assign(mainMenu, "_session", session);
-            Assign(mainMenu, "_progress", progress);
-            Assign(mainMenu, "_levels", levelSelect);
-            Assign(mainMenu, "_sandbox", sandbox);
-            Assign(mainMenu, "_settings", settings);
-            Assign(mainMenu, "_workbench", workbench);
-            Assign(mainMenu, "_canvas", canvas);
-
             Assign(settings, "_progress", progress);
-            Assign(settings, "_menu", mainMenu);
             Assign(settings, "_credits", credits);
             Assign(settings, "_workbench", workbench);   // pages of the workbench's own since Part 15g
 
@@ -364,11 +92,6 @@ namespace BitSorter.View.EditorTools
 
             Assign(frameCounter, "_canvas", canvas);
 
-            Assign(audio, "_runner", runner);
-            Assign(audio, "_session", session);
-            Assign(audio, "_bits", bits);
-            Assign(audio, "_menu", mainMenu);
-            Assign(audio, "_levels", levelSelect);
             Assign(audio, "_settings", settings);
             Assign(audio, "_credits", credits);
             AssignMenuTracks(audio);
@@ -379,28 +102,7 @@ namespace BitSorter.View.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            // Says which level, because this used to reset it without a word.
-            Debug.Log($"Built {ScenePath} starting on '{startingLevel}'. It is open now -- press Play. " +
-                      "Q and E change level while playing.");
-        }
-
-        /// <summary>
-        /// The level the rebuilt scene should open on: whatever the scene being replaced was set to, or
-        /// <see cref="DefaultStartingLevel"/> when building from nothing.
-        /// </summary>
-        /// <remarks>
-        /// Only reads the scene already open, and does not go opening the file to find out. A rebuild is
-        /// nearly always done with the scene in front of you, and opening scenes behind the user's back
-        /// to salvage one string is a worse trade than falling back to the default.
-        /// </remarks>
-        private static string StartingLevelFor()
-        {
-            LevelSession existing = Object.FindFirstObjectByType<LevelSession>();
-
-            if (existing == null || string.IsNullOrWhiteSpace(existing.LevelName))
-                return DefaultStartingLevel;
-
-            return existing.LevelName;
+            Debug.Log($"Built {ScenePath}. It is open now -- press Play.");
         }
 
         private static Camera CreateCamera()
@@ -410,12 +112,9 @@ namespace BitSorter.View.EditorTools
 
             var camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            // The framing the board was designed at. CameraFit treats this as a floor and zooms out
-            // on anything narrower, so it is no longer the only shape the game is playable at.
-            camera.orthographicSize = 5.5f;   // shows roughly x -9..9 at 16:9
+            camera.orthographicSize = 5.5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            // Never seen -- the board tile covers the view from the first frame -- but taken from
-            // the palette all the same, so nothing in the game names a colour of its own.
+            // Taken from the palette, so nothing in the game names a colour of its own.
             camera.backgroundColor = Palette.Current.Ground;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
@@ -440,7 +139,7 @@ namespace BitSorter.View.EditorTools
         /// </summary>
         /// <remarks>
         /// Screen Space Overlay deliberately, not Screen Space Camera. The camera runs bloom and
-        /// SMAA, and a camera-space canvas would be post-processed along with the board -- readable
+        /// SMAA, and a camera-space canvas would be post-processed with it -- readable
         /// text is not improved by being bloomed.
         ///
         /// The input module must be <see cref="InputSystemUIInputModule"/>. The project is set to the
@@ -460,8 +159,7 @@ namespace BitSorter.View.EditorTools
             scaler.referenceResolution = UiTheme.ReferenceResolution;
 
             // Halfway between matching width and height, so neither axis is favoured when the window
-            // is not 16:9. The board is wider than it is tall, so a width-only match would push the
-            // interface off a tall window.
+            // is not 16:9.
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
@@ -475,8 +173,8 @@ namespace BitSorter.View.EditorTools
         }
 
         /// <summary>
-        /// A global Volume carrying a Bloom override, which is what makes the glow sprites read as
-        /// light rather than as pale blobs.
+        /// A global Volume carrying a Bloom override, which <see cref="LookBoot"/> sets to the look's on every load. The 4.x
+        /// board bloomed its bits in flight; whether any look still wants bloom is Part 16b's question.
         /// </summary>
         private static void CreateBloomVolume()
         {
@@ -485,16 +183,9 @@ namespace BitSorter.View.EditorTools
 
             var bloom = profile.Add<Bloom>(true);
 
-            // At 1, so nothing drawn in LDR can cross it and only a bit in flight -- lifted above
-            // it by BitVisuals.Emission -- blooms in earnest. Everything else reaches it only
-            // through the threshold's soft knee, which is the trace of glow a thing that is not a
-            // bit should have.
-            //
-            // It was 0.62, below every gate colour, when the whole board was LDR; five of the nine
-            // node colours peak at 1.00, the same as a one, so gates bloomed as hard as bits and a
-            // NOT gate rendered as a bright disc with its silhouette gone.
+            // At 1, so nothing drawn in LDR can cross it.
             bloom.threshold.overrideState = true;
-            bloom.threshold.value = BitVisuals.BloomThreshold;
+            bloom.threshold.value = 1f;
             bloom.intensity.overrideState = true;
             bloom.intensity.value = 1f;
             bloom.scatter.overrideState = true;
@@ -514,54 +205,6 @@ namespace BitSorter.View.EditorTools
             volume.sharedProfile = profile;
         }
 
-        /// <summary>
-        /// Writes a white PNG and imports it at 16 pixels per unit, so the sprite is exactly one
-        /// world unit square and scale values in the renderers read as world units.
-        /// </summary>
-        private static Sprite CreateSquareSprite()
-        {
-            const int size = 16;
-
-            var texture = new Texture2D(size, size);
-            var pixels = new Color32[size * size];
-            for (int i = 0; i < pixels.Length; i++)
-                pixels[i] = new Color32(255, 255, 255, 255);
-
-            texture.SetPixels32(pixels);
-            texture.Apply();
-
-            File.WriteAllBytes(SquareTexturePath, texture.EncodeToPNG());
-            Object.DestroyImmediate(texture);
-
-            AssetDatabase.ImportAsset(SquareTexturePath, ImportAssetOptions.ForceUpdate);
-
-            var importer = AssetImporter.GetAtPath(SquareTexturePath) as TextureImporter;
-            if (importer != null)
-            {
-                importer.textureType = TextureImporterType.Sprite;
-                importer.spriteImportMode = SpriteImportMode.Single;
-                importer.spritePixelsPerUnit = size;
-                importer.filterMode = FilterMode.Point;
-                importer.textureCompression = TextureImporterCompression.Uncompressed;
-                importer.SaveAndReimport();
-            }
-
-            return AssetDatabase.LoadAssetAtPath<Sprite>(SquareTexturePath);
-        }
-
-        private static GameObject CreateSquarePrefab(string path, string name, Sprite sprite, int sortingOrder)
-        {
-            var temporary = new GameObject(name);
-            var renderer = temporary.AddComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
-            renderer.sortingOrder = sortingOrder;
-
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temporary, path);
-            Object.DestroyImmediate(temporary);
-
-            return prefab;
-        }
-
         /// <summary>Sets a [SerializeField] private field, which is not reachable directly.</summary>
         private static void Assign(Object target, string fieldName, Object value)
         {
@@ -575,11 +218,11 @@ namespace BitSorter.View.EditorTools
         }
 
         /// <summary>
-        /// Gives GameAudio the menu tracks, each loaded from its path with its loudness beside it.
+        /// Gives GameAudio the recordings, each loaded from its path with its loudness beside it.
         /// </summary>
         /// <remarks>
-        /// An error rather than a quiet gap for any track that is missing: the menu would simply play
-        /// the level music, and nobody would know why.
+        /// An error rather than a quiet gap for any track that is missing: Settings would simply play
+        /// the generated music, and nobody would know why.
         /// </remarks>
         private static void AssignMenuTracks(Object audio)
         {
@@ -603,21 +246,6 @@ namespace BitSorter.View.EditorTools
                 track.FindPropertyRelative("LoudnessDb").floatValue = loudness;
             }
 
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        /// <summary>
-        /// The same for a string field. objectReferenceValue would silently do nothing here, leaving
-        /// the level name empty and the scene loading no level at all.
-        /// </summary>
-        private static void AssignString(Object target, string fieldName, string value)
-        {
-            SerializedObject serialized = Find(target, fieldName, out SerializedProperty property);
-
-            if (serialized == null)
-                return;
-
-            property.stringValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

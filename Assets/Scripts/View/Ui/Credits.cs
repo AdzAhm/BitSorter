@@ -15,6 +15,12 @@ namespace BitSorter.View
     /// </remarks>
     public static class Credits
     {
+        /// <summary>The line at the top of the credits, under the title. The 4.x title screen showed it too, until Part 16a.</summary>
+        public const string Tagline = "bits fall through logic. sort them.";
+
+        /// <summary>The version the credits show: the build's own, as "v3.0.0".</summary>
+        public static string VersionText => "v" + UnityEngine.Application.version;
+
         /// <summary>The person who made the game, in every role.</summary>
         public const string Maker = "Ahmad Zoabi";
 

@@ -8,16 +8,16 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.TestTools;
-using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
     /// BitSorter opening as a simulator (Part 15a): a fresh save on the start page with the music off, a save with a
-    /// circuit or a sample open last on that again, the start page's lists, HOME and Escape, HELP, SETTINGS over the
-    /// workbench and back, and the 4.x game from Settings with SIMULATOR back from it. Every fixture written before Part 15a
-    /// boots as 4.x did (<see cref="TestScene.Load"/>); this one boots as the game does (<see cref="TestScene.LoadSimulator"/>).
+    /// circuit or a sample open last on that again, the start page's lists, HOME and Escape, HELP, and SETTINGS over the
+    /// workbench and back. It boots as the game does (<see cref="TestScene.LoadSimulator"/>); most fixtures begin on the
+    /// reference circuit instead (<see cref="TestScene.Load"/>). Until Part 16a it also held the way into the 4.x game from
+    /// Settings, and the ways back out of it.
     /// </summary>
     [TestFixture]
     public class SimulatorLaunchPlayTests : InputTestFixture
@@ -61,103 +61,11 @@ namespace BitSorter.PlayMode.Tests
         private static IEnumerator Click(string name)
         {
             UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(name);
-            if (shell != null)
-            {
-                ShellPanel.Submit(shell);
-            }
-            else
-            {
-                GameObject found = GameObject.Find(name);
-                Assert.IsNotNull(found, $"no '{name}' on screen");
-                found.GetComponent<Button>().onClick.Invoke();
-            }
+            Assert.IsNotNull(shell, $"no '{name}' on screen");
+            ShellPanel.Submit(shell);
 
             yield return null;
             yield return null;
-        }
-
-        /// <summary>A uGUI button pressed as a player presses it: the pointer moved over it, pressed and let go.</summary>
-        private IEnumerator PointAndClick(string name)
-        {
-            GameObject found = GameObject.Find(name);
-            Assert.IsNotNull(found, $"no '{name}' on screen");
-            var corners = new Vector3[4];
-            found.GetComponent<RectTransform>().GetWorldCorners(corners);   // an overlay canvas: world is screen
-            Set(_mouse.position, (Vector2)((corners[0] + corners[2]) / 2f));
-            yield return null;
-            Press(_mouse.leftButton);
-            yield return null;
-            Release(_mouse.leftButton);
-            yield return null;
-            yield return null;
-        }
-
-        private static string State(string at)
-        {
-            return at + ": menu " + Find<MainMenu>().IsOpen + ", workbench " + Find<WorkbenchPanel>().IsOpen
-                + ", settings " + Find<SettingsPanel>().IsShowing + ", level " + Find<LevelSession>().LevelName;
-        }
-
-        private IEnumerator IntoThe4xGame()
-        {
-            yield return Click(WorkbenchPanel.SettingsButton);
-            yield return Click(SettingsPanel.GameButton);
-            Assert.IsTrue(Find<MainMenu>().IsOpen, State("THE 4.x GAME opens its title screen"));
-        }
-
-        /// <summary>
-        /// The way back from the 4.x game is on its board and first on its menu (Part 15g): Ahmad, inside it, found none
-        /// (2026-10-28). Pressed as a player presses them, with the pointer, after a level has been played.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator TheFourXGame_HasAWayBack_FromItsBoardAndFromItsMenu()
-        {
-            yield return TestScene.LoadSimulator();
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-
-            // The menu: its way back, first and largest.
-            yield return IntoThe4xGame();
-            GameObject back = GameObject.Find(MainMenu.WorkbenchButton);
-            Assert.AreEqual(MainMenu.WorkbenchCaption, back.GetComponentInChildren<TMPro.TextMeshProUGUI>().text);
-            Rect backRect = back.GetComponent<RectTransform>().rect;
-            foreach (string row in new[] { "Continue", "Levels", "Sandbox", "Settings" })
-            {
-                RectTransform other = GameObject.Find(row).GetComponent<RectTransform>();
-                Assert.Greater(backRect.width, other.rect.width, row + " is as wide as the way back");
-                Assert.Greater(backRect.height, other.rect.height, row + " is as tall as the way back");
-                Assert.Greater(back.transform.position.y, other.position.y, row + " is above the way back");
-            }
-
-            // On a board, played: its SIMULATOR beside MENU.
-            yield return PointAndClick("Continue");
-            for (int i = 0; i < 10; i++)
-                yield return null;
-            Assert.IsFalse(Find<MainMenu>().IsOpen, State("CONTINUE: a board"));
-            Find<SimulationRunner>().StepOneTick();
-            yield return null;
-            yield return PointAndClick(MainMenu.HudSimulatorButtonName);
-            Assert.IsTrue(workbench.IsOpen, State("the board's SIMULATOR comes back"));
-
-            // Escape on the title screen goes back, not on to the board under it.
-            yield return IntoThe4xGame();
-            yield return Tap(_keyboard.escapeKey);
-            Assert.IsTrue(workbench.IsOpen, State("Escape on the title screen comes back"));
-            Assert.IsFalse(Find<MainMenu>().IsOpen);
-
-            // From a board, Escape is the menu, a pause: Escape again closes it onto the board (the 15g-1 review), and its way
-            // back is the big button.
-            yield return IntoThe4xGame();
-            yield return PointAndClick("Continue");
-            yield return Tap(_keyboard.escapeKey);
-            Assert.IsTrue(Find<MainMenu>().IsOpen, State("Escape on a board opens the menu"));
-            Assert.IsFalse(workbench.IsOpen);
-            yield return Tap(_keyboard.escapeKey);
-            Assert.IsFalse(Find<MainMenu>().IsOpen, State("Escape again closes it"));
-            Assert.IsFalse(workbench.IsOpen, State("onto the board, not out of the game"));
-            yield return Tap(_keyboard.escapeKey);
-            Assert.IsTrue(Find<MainMenu>().IsOpen, State("sanity: the menu again"));
-            yield return PointAndClick(MainMenu.WorkbenchButton);
-            Assert.IsTrue(workbench.IsOpen, State("BACK TO THE SIMULATOR comes back"));
         }
 
         /// <summary>
@@ -175,19 +83,6 @@ namespace BitSorter.PlayMode.Tests
             yield return Tap(_keyboard.sKey);
             Assert.IsFalse(workbench.StartPageShowing, "S left the start page");
             Assert.AreEqual((before + 1) % WorkbenchSamples.All.Count, workbench.Sample, "for the next sample");
-        }
-
-        /// <summary>The 4.x title screen's SETTINGS is the simulator's, over the simulator, which BACK comes back to (Part 15g).</summary>
-        [UnityTest]
-        public IEnumerator TheFourXMenusSettings_IsTheSimulators()
-        {
-            yield return TestScene.LoadSimulator();
-            yield return IntoThe4xGame();
-            yield return PointAndClick("Settings");
-            Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator, State("SETTINGS"));
-            yield return Click(SettingsPanel.BackButton);
-            Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, State("BACK: the simulator"));
-            Assert.IsFalse(Find<MainMenu>().IsOpen);
         }
 
         private IEnumerator Tap(KeyControl key)
@@ -213,15 +108,11 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
 
-            Assert.IsTrue(workbench.IsOpen, "the simulator, not the 4.x title screen");
-            Assert.IsFalse(Find<MainMenu>().IsOpen);
+            Assert.IsTrue(workbench.IsOpen, "the simulator");
             Assert.IsTrue(workbench.StartPageShowing, "nothing was open last: the start page");
             CollectionAssert.AreEqual(new[] { WorkbenchSamples.MyCircuitKey }, workbench.RecentListed, "MY CIRCUIT, the one circuit there is");
             Assert.IsFalse(workbench.Playing, "nothing plays under it");
             Assert.IsFalse(GameAudio.MusicOn, "the music starts off");
-            Assert.IsTrue(GameAudio.EffectsOn, "the effects on");
-            Assert.IsFalse(AppLaunch.GameShown, "the 4.x game is not on screen, so no level of it has started");
-            Assert.IsFalse(Find<TutorialDirector>().IsRunning, "nor has the 4.x tutorial, behind the workbench");
         }
 
         /// <summary>
@@ -312,7 +203,6 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Tap(_keyboard.escapeKey);
             Assert.IsTrue(workbench.IsOpen, "and never leaves the workbench");
-            Assert.IsFalse(Find<MainMenu>().IsOpen);
         }
 
         /// <summary>
@@ -341,7 +231,7 @@ namespace BitSorter.PlayMode.Tests
             UnityEngine.UIElements.VisualElement about = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WorkbenchPanel.AboutPageName);
             string said = string.Join(" ", UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.Label>(about).ToList().Select(l => l.text));
             StringAssert.Contains("Digital Systems and Computer Structure", said, "the course named in full, as Ahmad asked");
-            StringAssert.Contains("THE 4.x GAME", said, "and where the game it began as still is");
+            StringAssert.Contains("4.0.0", said, "and where the game it began as is still played");
             Assert.IsNotNull(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.AboutGitHubButton), "the project's page at its foot");
 
             CreditsPanel credits = Find<CreditsPanel>();
@@ -383,40 +273,22 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.FileMenu.Offers(FileAction.RenameCircuit) || workbench.FileMenu.Offers(FileAction.DeleteCircuit));
         }
 
+        /// <summary>A change of look comes back to Settings over the simulator, and BACK to what Settings went over.</summary>
         [UnityTest]
-        public IEnumerator AChangeOfLook_ComesBackToSettings_OverWhicheverItWasOpenedOver()
+        public IEnumerator AChangeOfLook_ComesBackToSettings_OverTheSimulator()
         {
             yield return TestScene.LoadSimulator();
             try
             {
-                // Over the 4.x title screen: the reload opens the simulator, which has to go under (the #84 review).
                 yield return Click(WorkbenchPanel.SettingsButton);
-                yield return Click(SettingsPanel.GameButton);
-                Find<MainMenu>().Show(false);
-                Find<SettingsPanel>().Open();   // as the title screen's own SETTINGS does
-                yield return null;
                 yield return Click(SettingsPanel.LookButton(Looks.SchematicLight));
                 yield return UntilTheLookHasChanged();
 
                 Assert.IsTrue(Find<SettingsPanel>().IsShowing, "back on Settings");
-                Assert.IsFalse(Find<SettingsPanel>().OverTheSimulator);
-                Assert.IsFalse(Find<MainMenu>().IsOpen, "the title screen under it, not over it");
-                yield return Click(SettingsPanel.BackButton);
-                Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK: the title screen it was opened from");
-                Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "with the workbench Settings is a page of taken down");
-                Assert.IsFalse(Find<WorkbenchPanel>().Shell.Visible, "its shell, drawn over the canvas, out of sight");
-
-                // Over the simulator.
-                yield return Click(MainMenu.WorkbenchButton);
-                yield return Click(WorkbenchPanel.SettingsButton);
-                yield return Click(SettingsPanel.LookButton(Look.Default));
-                yield return UntilTheLookHasChanged();
-
-                Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator, "back on Settings, over the simulator");
                 Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "a page of the workbench (Part 15g)");
                 yield return Click(SettingsPanel.BackButton);
                 Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "BACK: the simulator");
-                Assert.IsFalse(Find<MainMenu>().IsOpen);
+                Assert.IsTrue(Find<WorkbenchPanel>().StartPageShowing, "and the start page Settings went over");
             }
             finally
             {
@@ -432,29 +304,28 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(LookSwitch.Busy, "the switch never finished");
         }
 
+        /// <summary>
+        /// SETTINGS is a page over the simulator, which BACK comes back to; nothing on it leads anywhere else (THE 4.x GAME,
+        /// beside CREDITS until Part 16a, opened the 4.x title screen).
+        /// </summary>
         [UnityTest]
-        public IEnumerator Settings_GoesOverTheSimulator_AndTheFourXGameIsAtItsFoot_WithTheWayBack()
+        public IEnumerator Settings_GoesOverTheSimulator_AndBackComesBackToIt()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             SettingsPanel settings = Find<SettingsPanel>();
 
             yield return Click(WorkbenchPanel.SettingsButton);
-            Assert.IsTrue(settings.IsShowing && settings.OverTheSimulator, "SETTINGS, over the simulator");
+            Assert.IsTrue(settings.IsShowing, "SETTINGS");
             Assert.IsTrue(workbench.IsOpen, "a page of the workbench's own (Part 15g)");
+
+            UnityEngine.UIElements.VisualElement page = ShellPanel.Find<UnityEngine.UIElements.VisualElement>(SettingsPanel.PageName);
+            string said = string.Join(" ", UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.TextElement>(page)
+                .ToList().Select(l => l.text));
+            StringAssert.DoesNotContain("4.x", said, "Settings no longer leads into the 4.x game");
+
             yield return Click(SettingsPanel.BackButton);
             Assert.IsTrue(workbench.IsOpen && workbench.StartPageShowing, "BACK: the start page it went over");
-
-            yield return Click(WorkbenchPanel.SettingsButton);
-            yield return Click(SettingsPanel.GameButton);
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "THE 4.x GAME opens its title screen");
-            Assert.IsFalse(settings.IsShowing || workbench.IsOpen);
-            Assert.IsTrue(AppLaunch.GameShown);
-
-            yield return Click(MainMenu.WorkbenchButton);
-            Assert.IsTrue(workbench.IsOpen, "SIMULATOR comes back");
-            Assert.IsFalse(Find<MainMenu>().IsOpen);
-            Assert.IsTrue(workbench.StartPageShowing, "to what it was showing");
         }
     }
 }

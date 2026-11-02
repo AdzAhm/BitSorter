@@ -17,6 +17,12 @@ namespace BitSorter.LogicCore.Tests
     /// </remarks>
     public class ProgressStoreTests
     {
+        /// <summary>Hint ids for the store to remember: any will do, as the store holds them as names (the 4.x game's, until Part 16a).</summary>
+        private static class Hint
+        {
+            public const string Stalled = "stalled", Collision = "collision", WireDelay = "wire-delay";
+        }
+
         private string _path;
 
         [SetUp]
@@ -363,14 +369,14 @@ namespace BitSorter.LogicCore.Tests
             var first = new ProgressStore(_path);
             first.Load();
 
-            Assert.IsFalse(first.HasSeenHint(HintRules.Stalled), "nobody has seen anything yet");
-            Assert.IsTrue(first.MarkHintSeen(HintRules.Stalled), "the first time is the first time");
-            Assert.IsFalse(first.MarkHintSeen(HintRules.Stalled), "and only once");
+            Assert.IsFalse(first.HasSeenHint(Hint.Stalled), "nobody has seen anything yet");
+            Assert.IsTrue(first.MarkHintSeen(Hint.Stalled), "the first time is the first time");
+            Assert.IsFalse(first.MarkHintSeen(Hint.Stalled), "and only once");
 
             var second = new ProgressStore(_path);
             second.Load();
 
-            Assert.IsTrue(second.HasSeenHint(HintRules.Stalled),
+            Assert.IsTrue(second.HasSeenHint(Hint.Stalled),
                 "a hint shown in one session must not come back in the next");
         }
 
@@ -379,10 +385,10 @@ namespace BitSorter.LogicCore.Tests
         {
             var store = new ProgressStore(_path);
             store.Load();
-            store.MarkHintSeen(HintRules.Collision);
+            store.MarkHintSeen(Hint.Collision);
 
-            Assert.IsTrue(store.HasSeenHint(HintRules.Collision));
-            Assert.IsFalse(store.HasSeenHint(HintRules.Stalled), "one seen is not all seen");
+            Assert.IsTrue(store.HasSeenHint(Hint.Collision));
+            Assert.IsFalse(store.HasSeenHint(Hint.Stalled), "one seen is not all seen");
         }
 
         [Test]
@@ -398,7 +404,7 @@ namespace BitSorter.LogicCore.Tests
 
             Assert.IsNull(store.LastError, "an older save is not a broken one");
             Assert.IsTrue(store.IsComplete("route-the-bit"), "completions survive");
-            Assert.IsFalse(store.HasSeenHint(HintRules.Stalled), "and no hint counts as shown");
+            Assert.IsFalse(store.HasSeenHint(Hint.Stalled), "and no hint counts as shown");
         }
 
         [Test]
@@ -419,17 +425,17 @@ namespace BitSorter.LogicCore.Tests
             var store = new ProgressStore(_path);
             store.Load();
             store.MarkComplete("route-the-bit");
-            store.MarkHintSeen(HintRules.WireDelay);
+            store.MarkHintSeen(Hint.WireDelay);
 
             store.Clear();
 
-            Assert.IsFalse(store.HasSeenHint(HintRules.WireDelay),
+            Assert.IsFalse(store.HasSeenHint(Hint.WireDelay),
                 "starting over means meeting the game again");
 
             var reloaded = new ProgressStore(_path);
             reloaded.Load();
 
-            Assert.IsFalse(reloaded.HasSeenHint(HintRules.WireDelay), "and on disk too");
+            Assert.IsFalse(reloaded.HasSeenHint(Hint.WireDelay), "and on disk too");
         }
 
         // -----------------------------------------------------------------

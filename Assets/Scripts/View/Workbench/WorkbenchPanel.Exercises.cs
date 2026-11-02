@@ -22,9 +22,6 @@ namespace BitSorter.View
     /// </remarks>
     public sealed partial class WorkbenchPanel
     {
-        /// <summary>The milestone that says an exercise's 4.x board has been migrated, its id following.</summary>
-        private const string MigratedMilestone = "exercise-migrated/";
-
         /// <summary>The EXERCISES chip, the page's name, and the names of GOAL, CHECK and WRITE IT (Part 15e).</summary>
         public const string ExercisesButton = "Workbench exercises", ExercisesPageName = "Workbench exercises page",
             GoalButton = "Workbench goal", CheckButton = "Workbench check", CodeButton = "Workbench write it";
@@ -138,9 +135,10 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The exercise's document: the student's answer the save keeps under its id -- or the 4.x board of its level,
-        /// migrated now -- made the exercise's again (<see cref="Exercise.Adopt"/>); or, with none, the exercise as it starts.
-        /// A kept circuit that is no answer to it is not lost: it is moved to a circuit of its own, and the notice says where.
+        /// The exercise's document: the student's answer the save keeps under its id, made the exercise's again
+        /// (<see cref="Exercise.Adopt"/>); or, with none, the exercise as it starts. A kept circuit that is no answer to it
+        /// is not lost: it is moved to a circuit of its own, and the notice says where. (A 4.x board of the exercise's level
+        /// was migrated here too, until Part 16a.)
         /// </summary>
         private Project ExerciseDocument(Exercise exercise)
         {
@@ -148,15 +146,6 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store != null)
             {
-                // A 4.x board of its level, migrated the first time only: one moved aside below is not made again.
-                var notes = new List<string>();
-                string migrated = MigratedMilestone + exercise.Id;
-                if (!store.HasProject(exercise.Id) && !store.HasMilestone(migrated) && SaveMigration.MigrateOne(store, exercise.Id, notes))
-                {
-                    store.MarkMilestone(migrated);
-                    store.Save();
-                }
-
                 if (store.TryGetProject(exercise.Id, out Project kept, problems) && kept.TopModule != null)
                 {
                     Project adopted = exercise.Adopt(kept, problems);

@@ -8,12 +8,12 @@ namespace BitSorter.View
 {
     /// <summary>
     /// Whether the pointer is over one of the workbench's controls -- a button, the slider, the row
-    /// menu -- sampled before anything reacts to the frame's input, as <see cref="PointerGate"/>
-    /// samples "over the interface" for the board (Part 9b-2b).
+    /// menu -- sampled before anything reacts to the frame's input (Part 9b-2b), as the 4.x board's
+    /// arbiter of the mouse sampled "over the interface" until Part 16a.
     /// </summary>
     /// <remarks>
     /// The workbench is a full-screen panel, so the pointer is over its interface everywhere and
-    /// <see cref="PointerGate"/>'s question cannot tell a button from the waves. This asks the narrower
+    /// "over the interface" cannot tell a button from the waves. This asks the narrower
     /// one: is the topmost thing under the pointer something with clicks of its own. **Sampled at the
     /// frame's start**, because a tap puts press and release in one frame and the event system handles
     /// the whole click before the panel's Update may run: a click on the menu that closes it would

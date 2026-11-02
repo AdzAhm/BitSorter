@@ -7,8 +7,8 @@ namespace BitSorter.View
     /// Which full-screen panels are currently open, so the board underneath knows to hold still.
     /// </summary>
     /// <remarks>
-    /// A scrim stops clicks reaching the board, because <see cref="PointerGate"/> sees the pointer
-    /// over an interface. Keys are the gap: without this, Q behind an open menu would change level
+    /// Written for the 4.x board, deleted in Part 16a: a scrim stopped clicks reaching it, because its
+    /// arbiter of the mouse saw the pointer over an interface. Keys are the gap: without this, Q behind an open menu would change level
     /// under it, and space would start the clock on a board nobody can see.
     ///
     /// Membership is a set of objects, checked for life on every query, rather than a counter. The

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using BitSorter.Board;
 using BitSorter.View;
+using BitSorter.ViewModel;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -20,15 +22,12 @@ namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
     /// The settings page, and above all its reset: that it asks, that saying no costs nothing, and
-    /// that saying yes leaves a game a new player would recognise. A page of the workbench's own
-    /// since Part 15g, in the shell, so its controls are found by name there.
+    /// that saying yes starts the exercises over. A page of the workbench's own since Part 15g, in the
+    /// shell, so its controls are found by name there.
     /// </summary>
     /// <remarks>
-    /// "Like a new player" is more than an empty file. The tutorial remembers it has run this
-    /// session, and free play holds its setup in memory, and neither reads the save again once it
-    /// has read it once -- so a reset that only emptied the file would bring back neither the
-    /// tutorial nor the opening setup until the game was restarted. Those are the two tests here
-    /// that could not be written against the store alone.
+    /// What a reset keeps -- the student's circuits, and the one open -- and what it does to an exercise open is
+    /// <c>WorkbenchCanvasPlayTests</c>'. Until Part 16a this also held the 4.x game's tutorial and free play to a reset.
     ///
     /// Everything runs under <see cref="SaveGuard"/>. A test that resets progress is the last test
     /// anyone wants pointed at the real save.
@@ -97,20 +96,10 @@ namespace BitSorter.PlayMode.Tests
             return true;
         }
 
-        /// <summary>A button by its name: the shell's -- Settings, the credits -- or the 4.x menu's, which is still uGUI.</summary>
+        /// <summary>A button of the shell by its name -- the workbench's header, Settings, the credits -- pressed.</summary>
         private static IEnumerator Click(string name)
         {
-            ShellButton shell = ShellPanel.Find<ShellButton>(name);
-            if (Shown(shell))
-            {
-                ShellPanel.Submit(shell);
-            }
-            else
-            {
-                GameObject found = GameObject.Find(name);
-                Assert.IsNotNull(found, $"no '{name}' button on screen");
-                found.GetComponent<Button>().onClick.Invoke();
-            }
+            ShellPanel.Submit(OnScreen(name));
             yield return null;
             yield return null;
         }
@@ -133,47 +122,38 @@ namespace BitSorter.PlayMode.Tests
             return found[index];
         }
 
+        /// <summary>Opens Settings from the workbench's header, as a student does.</summary>
         private static IEnumerator OpenSettings()
         {
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game should boot into the main menu");
-            yield return Click("Settings");
-            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "the Settings row did not open the settings");
+            Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "sanity: the game should open on the workbench");
+            yield return Click(WorkbenchPanel.SettingsButton);
+            Assert.IsTrue(Find<SettingsPanel>().IsOpen, "SETTINGS did not open the settings");
         }
 
+        /// <summary>A milestone for the store to remember: any will do, as the store holds them as names.</summary>
+        private const string AMilestone = "a milestone";
+
         /// <summary>
-        /// A player some way in: two levels solved, a circuit left on the second, the tutorial and
-        /// the chapter card behind them and a hint already read -- and the second level on screen.
+        /// A student some way in: the first two exercises solved, a milestone behind them and a hint already read -- and the
+        /// second exercise open.
         /// </summary>
-        private static IEnumerator APlayerWithProgress()
+        private static IEnumerator AStudentWithProgress()
         {
-            LevelSession session = Find<LevelSession>();
             ProgressStore store = Find<ProgressTracker>().Store;
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
 
-            string first = session.AvailableLevels[0];
-            string second = session.AvailableLevels[1];
+            store.MarkComplete(ExerciseCatalog.Run[0].Id);
+            store.MarkComplete(ExerciseCatalog.Run[1].Id);
+            store.MarkMilestone(AMilestone);
+            store.MarkHintSeen(SimulatorHints.Clock);
+            store.Save();
 
-            store.MarkComplete(first);
-            store.MarkComplete(second);
-            store.MarkMilestone(TutorialLevel.Key);
-            store.MarkMilestone(ChapterCard.Milestone);
-            store.MarkHintSeen(HintRules.Collision);
-
-            session.LoadLevel(second);
+            workbench.OpenExercise(ExerciseCatalog.Run[1].Id);
             yield return null;
-            yield return null;
-
-            Assert.IsTrue(session.TryPlaceGate(session.Level.Budget[0].Kind, new Vector2Int(0, 0)),
-                "sanity: could not put a gate on the second level");
-
-            // Off the level and back, so the board is saved the way a player's would be.
-            session.LoadLevel(first);
-            yield return null;
-            session.LoadLevel(second);
-            yield return null;
+            workbench.ExerciseCard.Close();   // its brief opens over the circuit
             yield return null;
 
-            Assert.IsNotNull(store.BoardFor(second), "sanity: the second level's board was not saved");
-            Assert.IsFalse(session.Blueprint.IsEmpty, "sanity: the second level's board was not restored");
+            Assert.AreEqual(ExerciseCatalog.Run[1].Id, workbench.ExerciseOpen?.Id, "sanity: the second exercise did not open");
         }
 
         // -----------------------------------------------------------------
@@ -181,17 +161,14 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Settings is a row of the main menu, has its headed sections, and BACK returns to the menu
-        /// rather than to the board. Opened from there it is the workbench's page, with the workbench
-        /// brought up under it and taken down again with it (Part 15g).
+        /// Settings opens from the workbench's header as a page of its own over the workbench (Part 15g), has its headed
+        /// sections, and BACK returns to the circuit it was opened over.
         /// </summary>
         [UnityTest]
-        public IEnumerator Settings_OpensFromTheMenu_WithItsSections_AndGoesBackToIt()
+        public IEnumerator Settings_OpensFromTheWorkbench_WithItsSections_AndGoesBackToIt()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
-
-            Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu stayed up under the settings");
 
             var shown = new HashSet<string>(Page().Query<Label>().ToList().Select(l => l.text));
 
@@ -200,9 +177,11 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Click(SettingsPanel.BackButton);
 
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.IsFalse(Find<SettingsPanel>().IsOpen, "BACK did not close the settings");
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "BACK left the player on the board instead of the menu");
-            Assert.IsFalse(Find<WorkbenchPanel>().IsOpen, "BACK left the workbench up over the menu");
+            Assert.IsTrue(workbench.IsOpen, "BACK did not go back to the workbench");
+            Assert.IsFalse(workbench.StartPageShowing, "BACK put up the start page");
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "BACK left the circuit it was opened over");
         }
 
         /// <summary>
@@ -230,7 +209,6 @@ namespace BitSorter.PlayMode.Tests
                 Assert.AreSame(Looks.SchematicLight, Look.Current, "the game did not come back in the look chosen");
                 Assert.AreEqual(Looks.SchematicLight.Code, Preferences.GetInt(Look.PreferenceKey, 0), "the choice was not kept");
                 Assert.IsTrue(Find<SettingsPanel>().IsOpen, "the switch did not come back to Settings");
-                Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu came up over Settings");
                 Assert.AreEqual(SchematicPalette.Current.Accent,
                     OnScreen(SettingsPanel.LookButton(Looks.SchematicLight)).resolvedStyle.borderLeftColor,
                     "the look in use should be the chosen button");
@@ -238,8 +216,8 @@ namespace BitSorter.PlayMode.Tests
                     "the page is not in the look chosen");
 
                 yield return Click(SettingsPanel.BackButton);
-                yield return Click(MainMenu.WorkbenchButton);
                 WorkbenchPanel workbench = Find<WorkbenchPanel>();
+                workbench.ShowSample(1);   // the reference, whose wire a is 1 at 20
                 workbench.Seek(20.0);
                 yield return null;
                 yield return null;
@@ -253,33 +231,7 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
-        /// <summary>
-        /// Analytics listens to the level session of the scene loaded now, and to the new one after a change of look loads
-        /// the game again. It subscribed once, to the first scene loaded, so after a change of look -- or in any scene loaded
-        /// after the first -- it heard no level started and none solved (the #84 review).
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Analytics_ListensToTheSceneLoaded_AndToTheNewOneAfterAChangeOfLook()
-        {
-            yield return TestScene.Load();
-            Assert.IsTrue(GameAnalytics.Listening, "analytics does not hear the scene loaded");
-            yield return OpenSettings();
-
-            try
-            {
-                yield return Click(SettingsPanel.LookButton(Looks.SchematicLight));
-                for (int frame = 0; frame < 600 && LookSwitch.Busy; frame++)
-                    yield return null;
-                Assert.IsFalse(LookSwitch.Busy, "sanity: the switch finished");
-                Assert.IsTrue(GameAnalytics.Listening, "after a change of look analytics hears the old, unloaded scene");
-            }
-            finally
-            {
-                Look.Use(null);
-            }
-        }
-
-        /// <summary>Sound moved from the menu to here, and still switches the sound.</summary>
+        /// <summary>SOUND switches the sound, as N does from anywhere.</summary>
         [UnityTest]
         public IEnumerator TheSoundSetting_SwitchesTheSound()
         {
@@ -336,41 +288,32 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// MUSIC and EFFECTS each switch their own setting, and are greyed out and locked while the
-        /// sound is off -- still saying what they are set to.
+        /// MUSIC switches the music, and is greyed out and locked while the sound is off -- still saying what it is set to.
         /// </summary>
         [UnityTest]
-        public IEnumerator TheMusicAndEffectsSwitches_WorkUnderTheSoundSwitch()
+        public IEnumerator TheMusicSwitch_WorksUnderTheSoundSwitch()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
 
             Assert.IsFalse(GameAudio.MusicOn, "a fresh machine has the music off (Part 15a)");
-            Assert.IsTrue(GameAudio.EffectsOn, "and the effects on");
 
             yield return Click(SettingsPanel.MusicButton);
             Assert.IsTrue(GameAudio.MusicOn, "MUSIC did not switch the music on");
-            Assert.IsTrue(GameAudio.EffectsOn, "MUSIC switched the effects as well");
-
-            yield return Click(SettingsPanel.EffectsButton);
-            Assert.IsFalse(GameAudio.EffectsOn, "EFFECTS did not switch the effects off");
 
             yield return Click(SettingsPanel.SoundButton);
             Assert.IsTrue(GameAudio.Muted, "sanity: SOUND should have switched everything off");
 
             ShellButton music = OnScreen(SettingsPanel.MusicButton);
-            ShellButton effects = OnScreen(SettingsPanel.EffectsButton);
             Assert.IsFalse(music.enabledSelf, "MUSIC can still be pressed with the sound off");
-            Assert.IsFalse(effects.enabledSelf, "EFFECTS can still be pressed with the sound off");
             StringAssert.Contains("ON", music.text, "a greyed-out MUSIC stopped saying what it is set to");
 
             yield return Click(SettingsPanel.SoundButton);
-            Assert.IsTrue(music.enabledSelf && effects.enabledSelf, "the switches stayed locked with the sound back on");
+            Assert.IsTrue(music.enabledSelf, "MUSIC stayed locked with the sound back on");
 
             // Put back: the fixture shares its scratch preferences between tests.
             yield return Click(SettingsPanel.MusicButton);
-            yield return Click(SettingsPanel.EffectsButton);
-            Assert.IsTrue(!GameAudio.MusicOn && GameAudio.EffectsOn, "sanity: both should be back as they started");
+            Assert.IsFalse(GameAudio.MusicOn, "sanity: the music should be back as it started");
         }
 
         /// <summary>
@@ -538,26 +481,15 @@ namespace BitSorter.PlayMode.Tests
             foreach (Graphic graphic in counter.Box.GetComponentsInChildren<Graphic>(true))
                 Assert.IsFalse(graphic.raycastTarget, $"'{graphic.name}' in the counter would take a click");
 
-            // On a board, the corner also has the help badge under it.
-            yield return Click(SettingsPanel.BackButton);
-            Find<MainMenu>().Show(false);
-            yield return null;
-            yield return null;
-
-            GameObject badge = GameObject.Find("Help badge");
-            Assert.IsNotNull(badge, "sanity: the help badge should be on the board");
-            Assert.IsFalse(ScreenRect(counter.Box).Overlaps(ScreenRect(badge.GetComponent<RectTransform>())),
-                "the counter sits on the help badge");
-
             FrameRate.SetCounter(false);   // the fixture shares its scratch preferences
             yield return null;
             Assert.IsFalse(counter.IsShowing, "the counter stayed up once switched off");
         }
 
         /// <summary>
-        /// SHORTCUT KEYS, beside REDUCED MOTION, hides every key drawn beside a button and shows them again: the caps over the
-        /// run buttons and the keys under MENU and the help badge, and Q and E beside the level's counter (asked for
-        /// 2026-10-26). Shown to begin with; the caption says which, and fits either way.
+        /// SHORTCUT KEYS, beside REDUCED MOTION, hides every key drawn beside a button and shows them again: the workbench's
+        /// caps beside its buttons (asked for 2026-10-26, when the 4.x board's run buttons, MENU and help badge had them too).
+        /// Shown to begin with; the caption says which, and fits either way.
         /// </summary>
         [UnityTest]
         public IEnumerator ShortcutKeys_HidesEveryKeyBesideAButton_AndShowsThemAgain()
@@ -577,19 +509,21 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(SettingsPanel.KeysCaption(false), keys.text);
 
             yield return Click(SettingsPanel.BackButton);
-            Find<MainMenu>().Show(false);
-            yield return null;
-            yield return null;
 
+            // The workbench's caps are the shell's, beside its buttons (WorkbenchDockPlayTests holds them in full); the uGUI
+            // ones, where a drawing's own button has one, by their alpha.
+            List<VisualElement> caps = Find<WorkbenchPanel>().Shell.Root.Query(className: ShellTheme.KeyCapClass).ToList();
             KeyCapView[] marked = Object.FindObjectsByType<KeyCapView>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            Assert.IsNotEmpty(marked, "sanity: the board has keys beside its buttons");
+            Assert.Greater(caps.Count, 5, "sanity: the workbench has keys beside its buttons");
+            foreach (VisualElement cap in caps)
+                Assert.IsFalse(cap.visible, $"a key beside '{cap.parent?.name}' is still drawn");
             foreach (KeyCapView cap in marked)
                 Assert.IsFalse(cap.Drawn, $"'{cap.name}' under '{cap.transform.parent.name}' is still drawn");
-            StringAssert.DoesNotContain("Q ", StatusBanner.Counter(3, 10, KeyCaps.Shown), "Q has gone from the counter");
-            StringAssert.Contains("‹", StatusBanner.Counter(3, 10, KeyCaps.Shown), "and its arrow stays");
 
             KeyCaps.SetShown(true);   // the fixture shares its scratch preferences
             yield return null;
+            foreach (VisualElement cap in caps)
+                Assert.IsTrue(cap.visible, $"a key beside '{cap.parent?.name}' did not come back");
             foreach (KeyCapView cap in marked)
                 Assert.IsTrue(cap.Drawn, $"'{cap.name}' did not come back");
         }
@@ -702,7 +636,7 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// Escape goes back to the settings too, and no further: the settings do not take the same
-        /// press to go back to the menu.
+        /// press to go back to the workbench.
         /// </summary>
         [UnityTest]
         public IEnumerator Escape_GoesBackFromTheCreditsToTheSettings_AndNoFurther()
@@ -717,7 +651,6 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.IsFalse(Find<CreditsPanel>().IsOpen, "Escape did not close the credits");
             Assert.IsTrue(Find<SettingsPanel>().IsOpen, "one Escape went through the settings as well");
-            Assert.IsFalse(Find<MainMenu>().IsOpen, "one Escape went all the way back to the menu");
         }
 
         /// <summary>
@@ -970,9 +903,7 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ResetProgress_AsksBeforeItForgetsAnything()
         {
             yield return TestScene.Load();
-            yield return APlayerWithProgress();
-            Find<MainMenu>().Show(true);
-            yield return null;
+            yield return AStudentWithProgress();
             yield return OpenSettings();
 
             string saved = SaveGuard.Read();
@@ -1017,9 +948,7 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator CancellingTheQuestion_LeavesTheSaveAlone()
         {
             yield return TestScene.Load();
-            yield return APlayerWithProgress();
-            Find<MainMenu>().Show(true);
-            yield return null;
+            yield return AStudentWithProgress();
             yield return OpenSettings();
 
             string saved = SaveGuard.Read();
@@ -1031,8 +960,8 @@ namespace BitSorter.PlayMode.Tests
             OnScreen(SettingsPanel.ResetButton);
             Assert.AreEqual(2, Find<ProgressTracker>().Store.CompletedCount, "CANCEL forgot progress");
             Assert.AreEqual(saved, SaveGuard.Read(), "CANCEL changed the save file");
-            Assert.AreEqual(Find<LevelSession>().AvailableLevels[1], Find<LevelSession>().LevelName,
-                "CANCEL moved the player off their level");
+            Assert.AreEqual(ExerciseCatalog.Run[1].Id, Find<WorkbenchPanel>().ExerciseOpen?.Id,
+                "CANCEL moved the student off their exercise");
         }
 
         /// <summary>Escape backs out of the question first, and only then out of the screen.</summary>
@@ -1055,10 +984,10 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             yield return null;
 
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.IsFalse(settings.IsOpen, "Escape did not leave the settings");
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "Escape did not go back to the menu");
-            Assert.IsFalse(Find<LevelSelectPanel>().IsShowing,
-                "the Escape that left the settings also opened the level list");
+            Assert.IsTrue(workbench.IsOpen, "Escape did not go back to the workbench");
+            Assert.IsFalse(workbench.StartPageShowing, "the Escape that left the settings also did the workbench's");
         }
 
         // -----------------------------------------------------------------
@@ -1066,154 +995,36 @@ namespace BitSorter.PlayMode.Tests
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Saying yes forgets the exercises -- the levels' solves, boards, milestones and hints -- on disk as well as in
-        /// memory, and puts the player on the first level with nothing on it. Circuits are kept (Part 15g): see
-        /// <c>WorkbenchCanvasPlayTests</c>.
+        /// Saying yes forgets the exercises -- their solves, milestones and hints -- on disk as well as in memory, and the
+        /// exercise open goes, MY CIRCUIT in its place. What it keeps (Part 15g) is <c>WorkbenchCanvasPlayTests</c>'.
         /// </summary>
         [UnityTest]
-        public IEnumerator ConfirmingTheReset_EmptiesTheSave_AndStartsOnTheFirstLevel()
+        public IEnumerator ConfirmingTheReset_ForgetsTheExercises()
         {
             yield return TestScene.Load();
-            yield return APlayerWithProgress();
-            Find<MainMenu>().Show(true);
-            yield return null;
+            yield return AStudentWithProgress();
             yield return OpenSettings();
 
             yield return Click(SettingsPanel.ResetButton);
             yield return Click(SettingsPanel.ConfirmButton);
 
-            LevelSession session = Find<LevelSession>();
             ProgressStore store = Find<ProgressTracker>().Store;
 
-            Assert.AreEqual(0, store.CompletedCount, "solved levels survived the reset");
-            Assert.IsFalse(store.HasMilestone(TutorialLevel.Key), "the tutorial is still marked seen");
-            Assert.IsFalse(store.HasMilestone(ChapterCard.Milestone), "the chapter card is still marked seen");
-            Assert.IsFalse(store.HasSeenHint(HintRules.Collision), "a hint is still marked read");
-            Assert.IsNull(store.BoardFor(session.AvailableLevels[1]), "the second level's circuit survived");
+            Assert.AreEqual(0, store.CompletedCount, "solved exercises survived the reset");
+            Assert.IsFalse(store.HasMilestone(AMilestone), "a milestone is still marked seen");
+            Assert.IsFalse(store.HasSeenHint(SimulatorHints.Clock), "a hint is still marked read");
 
             ProgressFile file = JsonUtility.FromJson<ProgressFile>(SaveGuard.Read());
-            Assert.IsEmpty(file.completed, "the file still lists solved levels");
-            Assert.IsEmpty(file.boards, "the file still holds a board -- the one on screen, saved on the way out");
+            Assert.IsEmpty(file.completed, "the file still lists solved exercises");
             Assert.IsEmpty(file.milestones, "the file still holds a milestone");
             Assert.IsEmpty(file.hintsSeen, "the file still lists a hint as read");
 
-            Assert.AreEqual(session.AvailableLevels[0], session.LevelName, "the reset left the player off the first level");
-            Assert.IsTrue(session.Blueprint.IsEmpty, "the first level came back with a circuit on it");
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsNull(workbench.ExerciseOpen, "the exercise open was kept through the reset");
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey, "MY CIRCUIT did not take its place");
 
             Assert.IsTrue(Find<SettingsPanel>().IsOpen, "the settings closed without saying what happened");
             OnScreen(SettingsPanel.ResetButton);
-        }
-
-        /// <summary>
-        /// After a reset the tutorial offers itself again, even though it already ran this session.
-        /// </summary>
-        /// <remarks>
-        /// It offers itself once a session, so a player who walked away from it is not put back in
-        /// it. A reset is the player asking to be new, and the milestone going is only half of that.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator AfterAReset_TheTutorialOffersItselfAgain()
-        {
-            yield return TestScene.Load();
-
-            TutorialDirector director = Find<TutorialDirector>();
-            LevelSession session = Find<LevelSession>();
-
-            // Seen this session and walked away from: the case that would otherwise never offer again.
-            Find<MainMenu>().Show(false);
-            yield return null;
-            director.Begin();
-            yield return null;
-            session.LoadLevel(session.AvailableLevels[0]);
-            yield return null;
-            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
-
-            Find<MainMenu>().Show(true);
-            yield return null;
-            yield return OpenSettings();
-            yield return Click(SettingsPanel.ResetButton);
-            yield return Click(SettingsPanel.ConfirmButton);
-            yield return Click(SettingsPanel.BackButton);
-
-            Assert.AreEqual("START", StartLabel(), "the menu does not read like a new game's");
-
-            yield return Click("Continue");
-
-            for (int frame = 0; frame < 10 && !director.IsRunning; frame++)
-                yield return null;
-
-            Assert.IsTrue(director.IsRunning, "the tutorial did not offer itself after the reset");
-            Assert.AreEqual(TutorialLevel.Key, session.LevelName, "the tutorial's board did not load");
-        }
-
-        private static string StartLabel()
-        {
-            GameObject button = GameObject.Find("Continue");
-            Assert.IsNotNull(button, "the menu has no Continue row");
-            return button.GetComponentInChildren<TextMeshProUGUI>().text;
-        }
-
-        /// <summary>
-        /// After a reset free play opens on the setup it had: its boards are the student's, and a reset starts only the
-        /// exercises over (Part 15g). It opened on the default setup while a reset emptied the whole save.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator AfterAReset_FreePlayKeepsItsSetup()
-        {
-            yield return TestScene.Load();
-
-            LevelSession session = Find<LevelSession>();
-            SandboxPanel sandbox = Find<SandboxPanel>();
-
-            Find<MainMenu>().Show(false);
-            yield return null;
-            sandbox.Open();
-            yield return null;
-            yield return null;
-
-            int opening = session.Level.Fixtures.Count;
-
-            OnSetup("Sources", "+").onClick.Invoke();
-            yield return null;
-            yield return null;
-            Assert.AreEqual(opening + 1, session.Level.Fixtures.Count, "sanity: the extra source did not appear");
-
-            Assert.IsTrue(Find<ProgressTracker>().ResetProgress(), "sanity: the reset did not run");
-            yield return null;
-
-            sandbox.Open();
-            yield return null;
-            yield return null;
-
-            Assert.AreEqual(SandboxLevel.Key, session.LevelName, "sanity: free play did not reopen");
-            Assert.AreEqual(opening + 1, session.Level.Fixtures.Count,
-                "free play lost its setup in the reset");
-        }
-
-        /// <summary>The - or + on a setup row, found by sitting at the height of its caption.</summary>
-        private static Button OnSetup(string caption, string glyph)
-        {
-            GameObject root = GameObject.Find("Sandbox setup");
-            Assert.IsNotNull(root, "sanity: the setup panel is not showing");
-
-            float row = float.NaN;
-            foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>())
-            {
-                if (label.text == caption)
-                    row = label.rectTransform.anchoredPosition.y;
-            }
-
-            foreach (Button button in root.GetComponentsInChildren<Button>())
-            {
-                if (button.name == $"step {glyph}"
-                    && Mathf.Abs(button.GetComponent<RectTransform>().anchoredPosition.y - row) < 0.5f)
-                {
-                    return button;
-                }
-            }
-
-            Assert.Fail($"no '{glyph}' on the {caption} row");
-            return null;
         }
     }
 }

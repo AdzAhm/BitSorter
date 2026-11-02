@@ -3,78 +3,22 @@ using System;
 namespace BitSorter.View
 {
     /// <summary>
-    /// When the background track changes, and which one comes next.
+    /// Which recording Settings opens on, apart from Unity so it can be tested without a scene.
     /// </summary>
     /// <remarks>
-    /// Pure, so the answer can be tested without a scene, an AudioSource or a frame loop -- the same
-    /// reason <see cref="HintRules"/> and <see cref="MenuRules"/> exist. <see cref="GameAudio"/> is
-    /// left with the part that genuinely needs Unity: the fade and the clip swap.
-    ///
-    /// **The track changes only when the level does.** Three things follow from that, and each one
-    /// is a way this could have gone wrong:
-    ///
-    /// It never switches mid-level, so a track cannot change under a player halfway through working
-    /// something out. There is no timer here at all -- a level load is the only event that moves it.
-    ///
-    /// It never switches on a retry. Reset and re-entering the same level both re-fire
-    /// <c>LevelLoaded</c>, so cycling on every load would change the music each time a player failed
-    /// a level -- drawing attention to exactly the level they are already stuck on.
-    ///
-    /// It never switches immediately after boot. The first level loads during <c>Start</c>, a moment
-    /// after the music began, and cycling there would cross-fade the opening a second after the
-    /// player first heard it.
-    ///
-    /// Which track comes next is <see cref="MusicBag"/>'s answer: a shuffle, but a fair one.
+    /// Which generated track a session plays is <see cref="MusicBag"/>'s answer: a shuffle, but a fair one. The 4.x game
+    /// moved the music on as its level changed; with the levels gone (Part 16a) a session keeps its first track.
     /// </remarks>
     public static class MusicRules
     {
         /// <summary>
-        /// Whether a level load should move the music on.
-        /// </summary>
-        /// <param name="playingUnder">Level the current track was chosen for, or null at boot.</param>
-        /// <param name="loading">Level being loaded now.</param>
-        public static bool ChangesTrack(string playingUnder, string loading)
-        {
-            // Nothing has played under a level yet. The track picked at startup belongs to the first
-            // level rather than to the menu, so the first load adopts it instead of replacing it.
-            if (string.IsNullOrEmpty(playingUnder))
-                return false;
-
-            // A retry, a reset, or stepping back into the level already on screen.
-            return !string.Equals(playingUnder, loading, StringComparison.Ordinal);
-        }
-
-        /// <summary>
-        /// Whether the menu's own music should be playing, given which panels are up.
-        /// </summary>
-        /// <remarks>
-        /// The main menu and the level list are both full-screen panels for choosing what to play
-        /// next, and the menu's music belongs to that, not to the main menu specifically -- opening
-        /// the level list over a level used to drop the player into silence-but-for-the-level-track
-        /// while they browsed seventeen rows.
-        ///
-        /// This does not bend "the track changes only when the level does". Neither panel is a
-        /// level change: the level's own clip is kept underneath and resumes when the panel closes,
-        /// which is exactly what the main menu already did. It only widens what counts as being in
-        /// a menu.
-        ///
-        /// Settings counts for the same reason, and more plainly: it is reached only from the main
-        /// menu and goes back to it, and without it here the music faded to the level's track and
-        /// back again on the way through. The credits are reached only from Settings, and count as
-        /// part of it.
-        /// </remarks>
-        /// <param name="settingsOpen">Settings, or the credits reached from it.</param>
-        public static bool WantsMenuMusic(bool mainMenuOpen, bool levelListOpen, bool settingsOpen) =>
-            mainMenuOpen || levelListOpen || settingsOpen;
-
-        /// <summary>
-        /// Which of the main menu's tracks a session opens on: either, by chance.
+        /// Which of the recordings a session opens on: either, by chance.
         /// </summary>
         /// <remarks>
         /// From the session's own seed, so that seed stays the only random thing about the music.
         /// The menu always used to open on its first track, and the second came on only once the
         /// first had played to its end -- two and a half minutes -- so a player could restart any
-        /// number of times and never hear it. After the first, the menu's tracks take turns;
+        /// number of times and never hear it. After the first, the tracks take turns;
         /// <see cref="GameAudio"/> keeps the turn.
         /// </remarks>
         public static int FirstMenuTrack(int seed, int count)

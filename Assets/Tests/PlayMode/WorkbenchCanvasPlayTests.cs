@@ -88,7 +88,6 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>The workbench open on MY CIRCUIT, blank, its run made.</summary>
         private static IEnumerator OpenMyCircuit()
         {
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.IsTrue(workbench.IsOpen);
             if (workbench.Sample != 0)
@@ -225,7 +224,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Space_PlaysAndPausesOnItsRelease_AndWithADragPansInstead()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
 
@@ -1026,7 +1024,6 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>The workbench open on the reference circuit, paused, its run made.</summary>
         private static IEnumerator OpenTheReference()
         {
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(1);
             yield return null;
@@ -1229,7 +1226,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADoubleClickStepsInsideABlock_AndTheBreadcrumbAndAltUp_StepOut()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(2);   // the full adder
             yield return null;
@@ -1406,7 +1402,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator MakeBlock_AsksForAName_AndEnterMakesTheBlock_WhereEscapeMakesNothing()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(2);   // the full adder
             yield return null;
@@ -1477,7 +1472,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AnArraysCopies_AreInItsInspector_AndItIsSteppedIntoAtItsFirstCopy()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             int four = -1;
             for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
@@ -1542,7 +1536,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AWrittenBlock_OpensItsCode_TypingApplies_AndAFaultIsMarkedAndListed()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;
@@ -1756,7 +1749,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator WhileAFieldHasTheKeyboard_NoWorkbenchKeyActs_AndCtrlVPastesPartsOnlyOnTheCircuit()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;
@@ -1820,7 +1812,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheCodeEditor_AnswersUndoTabCommentAndSave()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;
@@ -1919,7 +1910,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheCodeTab_ShowsTheModuleAsItPrints_AndFollowsTheDrawing()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -1968,7 +1958,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator OverTheGateBudget_TheTranscriptWarns_AndAClickOpensTiming()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -2095,7 +2084,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheTimingTab_LightsThePathPicked_AndFollowsARegistersClockToQ()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -2159,7 +2147,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheTimingTab_MeasuresTheWorst_AndSTEPTESTMakesTheStimulus()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -2198,7 +2185,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheLibrary_HoldsTheDesignToItsCells()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -2239,7 +2225,6 @@ namespace BitSorter.PlayMode.Tests
         {
             const float OneLine = 26f;
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Reference"));
             yield return null;
@@ -2275,7 +2260,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheListingKeepsTheKeysOnlyWhileTextIsSelected_AndGivesThemToTheCodeClicked()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;
@@ -2345,7 +2329,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator FileExportProject_SavesAZipOfTheFilesAndARunScript()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Full adder"));
             yield return null;
@@ -2377,7 +2360,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator FileExportProject_ExportsTheCodeOnScreen_AndRefusesCodeThatDoesNotApply()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;
@@ -2472,7 +2454,6 @@ namespace BitSorter.PlayMode.Tests
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench), ("broken.sv", "module broken (input a;\nendmodule\n"),
                 (".git/HEAD", "ref: refs/heads/main\n"), (".git/config", "[core]\n"));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
 
@@ -2512,7 +2493,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator CompareWithModelSim_SaysTheyAgree_OrFindsTheFirstDifference()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(WorkbenchSamples.All.ToList().FindIndex(s => s.Name == "Counter"));
             yield return null;
@@ -2600,7 +2580,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(0);
             yield return null;
@@ -2637,7 +2616,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator FileNewRenameDeleteAndOpen_KeepEachCircuitApart()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(0);
             yield return null;
@@ -2696,7 +2674,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator FileOpen_PagesThroughEveryCircuit()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(0);
             yield return null;
@@ -2730,7 +2707,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ResetProgress_KeepsTheCircuits_AndTheOneOpen()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(0);
             yield return null;
@@ -2783,7 +2759,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ResetProgress_WithAnExerciseOpen_ForgetsItsAnswer_AndOpensTheStartPage()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(0);
             yield return null;
@@ -2910,7 +2885,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -2977,7 +2951,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("wide_and.sv", WideAnd), ("wide_and_tb.sv", WideAndBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -3008,7 +2981,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -3052,7 +3024,6 @@ namespace BitSorter.PlayMode.Tests
             PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
                 "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -3081,7 +3052,6 @@ namespace BitSorter.PlayMode.Tests
             PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
                 "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -3155,7 +3125,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheZoomControls_FollowTheirWindowsZoom_AndADragZoomsIt()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.Pause();
@@ -3215,7 +3184,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheWaves_StandOnWholePixels_AtAnyDockHeight()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.Pause();
@@ -3253,7 +3221,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("mux2.sv", TemplateMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
 
@@ -3315,7 +3282,6 @@ namespace BitSorter.PlayMode.Tests
         {
             PutInTheImportFolder(("mux2.sv", TemplateMux), ("mux2_tb.sv", ImportedMuxBench));
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
             workbench.ImportFromFolder();
@@ -3348,7 +3314,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheWheelOverTheCodesLineNumbers_ScrollsTheCode()
         {
             yield return TestScene.Load();
-            yield return Click(MainMenu.WorkbenchButton);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(SampleNamed("Written adder"));
             yield return null;

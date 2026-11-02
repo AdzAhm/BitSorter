@@ -5,93 +5,32 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Remembers what the player did: which levels are solved, what is on each board, and the best
-    /// each has been solved.
+    /// The save, loaded once as the scene starts, and starting the exercises over.
     /// </summary>
     /// <remarks>
-    /// A thin shell around <see cref="ProgressStore"/>, which is a plain class so it can be tested
-    /// against a scratch file without a scene. Everything interesting lives there; this decides
-    /// *when* to record.
-    ///
-    /// Boards are saved on the way out of a level, on a solve and on quit -- and, because quitting
-    /// never reaches the game in a browser, also <see cref="SaveDelay"/> after the board stops
-    /// changing and whenever the game loses focus. A browser tab closes or reloads without telling
-    /// the game anything, so the first three alone lost an unsolved board back to the last level
-    /// switch, and a free-play circuit built without leaving was lost entirely. Waiting for the board
-    /// to settle keeps it to one write for a burst of edits -- a run of scroll notches on a wire is
-    /// one write, not one a notch.
+    /// A thin shell around <see cref="ProgressStore"/>, which is a plain class so it can be tested against a scratch file
+    /// without a scene. The workbench keeps its documents, solves and hints through the store itself; this owns the store
+    /// and says when the exercises have been started over. It saved and restored the 4.x game's boards and recorded its
+    /// solves until Part 16a deleted the game.
     /// </remarks>
     public sealed class ProgressTracker : MonoBehaviour
     {
-        [SerializeField] private LevelSession _session;
-        [SerializeField] private SimulationRunner _runner;
-
         [Tooltip("Leave empty for the real save. Set to test against a scratch file.")]
         [SerializeField] private string _pathOverride;
 
         private ProgressStore _store;
 
-        /// <summary>How long the board must stay unchanged before it is written.</summary>
-        public const float SaveDelay = 0.5f;
-
-        /// <summary>The graph revision last seen, the one last written, and when it was first seen.</summary>
-        /// <remarks>
-        /// Every edit, undo, redo and RUN rebuilds the graph, so a new revision is a board that may
-        /// have changed. A rebuild that changed nothing, such as RUN, costs one write of the same board.
-        /// </remarks>
-        private int _seenRevision = -1;
-
-        /// <inheritdoc cref="_seenRevision"/>
-        private int _savedRevision = -1;
-
-        /// <inheritdoc cref="_seenRevision"/>
-        private float _seenAt;
-
         /// <summary>The store, loaded. Null only before Awake has run.</summary>
         public ProgressStore Store => _store;
 
         /// <summary>
-        /// Whether the last solve beat the gate record, for the win panel to read.
+        /// Raised once <see cref="ResetProgress"/> has forgotten the exercises, for anything that keeps its own copy of
+        /// something the save said: the workbench lets an exercise open go.
         /// </summary>
-        /// <remarks>
-        /// Set inside the call that settles the run, so it is already current on whichever frame
-        /// anything first sees the pass.
-        /// </remarks>
-        public bool BeatGateRecord { get; private set; }
-
-        /// <inheritdoc cref="BeatGateRecord"/>
-        public bool BeatLatencyRecord { get; private set; }
-
-        /// <summary>
-        /// Raised with the level's file name each time a level is solved.
-        /// </summary>
-        /// <remarks>
-        /// Exists so anything else that cares about a solve does not have to re-derive it, including
-        /// the rule that the tutorial and free play are not levels. Fires on every solve, including
-        /// re-solves of a level already recorded.
-        /// </remarks>
-        public event Action<string> LevelSolved;
-
-        /// <summary>
-        /// Raised once <see cref="ResetProgress"/> has emptied the save, for anything that keeps its
-        /// own copy of something the save said.
-        /// </summary>
-        /// <remarks>
-        /// Most of the game asks the store every time and needs no telling. What this is for is the
-        /// memory the store cannot reach: the tutorial remembering it has already run this session,
-        /// and free play holding its setup. Left alone, a reset would bring back neither the
-        /// tutorial nor the opening setup until the game was restarted.
-        /// </remarks>
         public event Action ProgressReset;
-
-        /// <summary>Whether a reset is under way, during which boards are neither saved nor restored.</summary>
-        private bool _resetting;
 
         private void Awake()
         {
-            if (_session == null) _session = FindFirstObjectByType<LevelSession>();
-            if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
-
             _store = new ProgressStore(
                 string.IsNullOrWhiteSpace(_pathOverride) ? ProgressStore.DefaultPath : _pathOverride);
 
@@ -99,270 +38,30 @@ namespace BitSorter.View
 
             if (_store.LastError != null)
             {
-                // A warning rather than an error: the game is fine, the record is not, and the player
-                // loses nothing they can see except some ticks in the level list.
+                // A warning rather than an error: the simulator is fine, the record is not.
                 Debug.LogWarning($"BitSorter: could not read progress -- {_store.LastError}");
             }
         }
 
-        private void OnEnable()
-        {
-            if (_session == null)
-                return;
-
-            _session.LevelUnloading += SaveBoard;
-            _session.LevelLoaded += RestoreBoard;
-            _session.RunEnded += OnRunEnded;
-        }
-
-        private void OnDisable()
-        {
-            if (_session == null)
-                return;
-
-            _session.LevelUnloading -= SaveBoard;
-            _session.LevelLoaded -= RestoreBoard;
-            _session.RunEnded -= OnRunEnded;
-        }
-
-        /// <summary>Quitting is the other way a board goes missing.</summary>
-        private void OnApplicationQuit()
-        {
-            if (_session != null && _session.IsLoaded)
-                SaveBoard(_session.LevelName);
-        }
-
         /// <summary>
-        /// Writes the board once it has stopped changing -- see the remarks on this class.
+        /// Starts the exercises over (Part 15g): every solved exercise, its saved answer and best, the milestones and the
+        /// first-time hints are forgotten, and the student's circuits are kept -- MY CIRCUIT and every named circuit
+        /// (<see cref="ProgressStore.ForgetTheExercises"/>). Sound and data settings are not progress and live in
+        /// PlayerPrefs, so they stay as they are.
         /// </summary>
-        /// <remarks>
-        /// Polls a revision number and nothing else, so a frame with nothing new costs two
-        /// comparisons and allocates nothing. Nothing reads the file mid-frame, so when in the frame
-        /// this runs does not matter.
-        /// </remarks>
-        private void Update()
-        {
-            if (_store == null || _runner == null || _session == null || !_session.IsLoaded)
-                return;
-
-            int revision = _runner.GraphRevision;
-
-            if (revision != _seenRevision)
-            {
-                _seenRevision = revision;
-                _seenAt = Time.unscaledTime;
-            }
-
-            if (_seenRevision != _savedRevision && Time.unscaledTime - _seenAt >= SaveDelay)
-                SaveTheOpenBoard();
-        }
-
-        /// <summary>
-        /// Losing focus writes the board at once: switching tab or window, which in a browser is
-        /// often the last thing before the tab is closed.
-        /// </summary>
-        private void OnApplicationFocus(bool focused)
-        {
-            if (!focused)
-                SaveTheOpenBoard();
-        }
-
-        /// <inheritdoc cref="OnApplicationFocus"/>
-        private void OnApplicationPause(bool paused)
-        {
-            if (paused)
-                SaveTheOpenBoard();
-        }
-
-        /// <summary>Writes the open board now, rather than once it has stopped changing: before the game is loaded again.</summary>
-        public void SaveNow() => SaveTheOpenBoard();
-
-        private void SaveTheOpenBoard()
-        {
-            _savedRevision = _seenRevision;
-
-            if (_session != null && _session.IsLoaded)
-                SaveBoard(_session.LevelName);
-        }
-
-        /// <summary>
-        /// Records a solve in the same call that settles the run.
-        /// </summary>
-        /// <remarks>
-        /// This used to be an Update watching for the state to become Passed, and the win panel
-        /// watched for the same thing in an Update of its own. Unity does not define which of the two
-        /// runs first, so the panel could present before the solve was recorded and show the previous
-        /// record. Recording here means the record is current before anything can see the pass.
-        /// </remarks>
-        private void OnRunEnded(RunState state)
-        {
-            if (state == RunState.Passed && _store != null && _session.IsLoaded)
-                RecordSolve();
-        }
-
-        // -----------------------------------------------------------------
-        // Starting over
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Starts the exercises over (Part 15g): every solved exercise, its saved answer and best, the tutorial and the
-        /// first-time hints are forgotten -- the 4.x game's levels with them, since they share the exercises' names -- and
-        /// the student's circuits are kept: MY CIRCUIT, every named circuit, the free-play boards and their blocks
-        /// (<see cref="ProgressStore.ForgetTheExercises"/>). It used to empty the whole save, circuits included.
-        /// </summary>
-        /// <remarks>
-        /// The level is switched first and the save emptied after, so that anything written on the
-        /// way out of the old level -- its board, or the tutorial recording itself finished -- is
-        /// emptied with the rest. The switch still restores the first level's saved board on the way
-        /// in, so boards are neither saved nor restored until the reset is over; the one on screen is
-        /// the empty board the switch starts from.
-        ///
-        /// Sound and data settings are not progress and live in PlayerPrefs, so they stay as they are.
-        /// </remarks>
         /// <returns>False if there is no save to reset, which only happens before Awake.</returns>
         public bool ResetProgress()
         {
             if (_store == null)
                 return false;
 
-            _resetting = true;
-
-            try
-            {
-                if (_session != null && _session.AvailableLevels.Count > 0)
-                    _session.LoadLevel(_session.AvailableLevels[0]);
-
-                var exercises = new HashSet<string>(StringComparer.Ordinal);
-                foreach (BitSorter.Board.Exercise exercise in ExerciseCatalog.Run)
-                    exercises.Add(exercise.Id);
-                _store.ForgetTheExercises(exercises);
-            }
-            finally
-            {
-                _resetting = false;
-            }
-
-            BeatGateRecord = false;
-            BeatLatencyRecord = false;
+            var exercises = new HashSet<string>(StringComparer.Ordinal);
+            foreach (BitSorter.Board.Exercise exercise in ExerciseCatalog.Run)
+                exercises.Add(exercise.Id);
+            _store.ForgetTheExercises(exercises);
 
             ProgressReset?.Invoke();
             return true;
         }
-
-        // -----------------------------------------------------------------
-        // Boards
-        // -----------------------------------------------------------------
-
-        private void SaveBoard(string levelName)
-        {
-            if (_store == null || _resetting || string.IsNullOrEmpty(levelName))
-                return;
-
-            // The tutorial always starts empty. Its steps are predicates over the board, so a
-            // restored circuit would satisfy every step the instant it loaded and the whole thing
-            // would jump to its ending. Free play is the opposite and deliberately keeps its board,
-            // which is why this names the tutorial rather than asking IsOffCatalogue.
-            if (levelName == TutorialLevel.Key)
-                return;
-
-            _store.SaveBoard(levelName, BoardSerializer.ToSaved(levelName, _session.Blueprint));
-        }
-
-        private void RestoreBoard(LevelDefinition level)
-        {
-            if (_store == null || _resetting || level == null)
-                return;
-
-            // The tutorial always starts from an empty board -- see SaveBoard. Guarded on the way in
-            // as well as on the way out, because a save written before that guard existed still
-            // carries a finished tutorial circuit, and restoring one would satisfy every step the
-            // instant it loaded.
-            if (_session.LevelName == TutorialLevel.Key)
-                return;
-
-            SavedBoard saved = _store.BoardFor(_session.LevelName);
-
-            if (saved == null)
-                return;
-
-            Vector2Int extents = _runner != null ? _runner.HalfExtents : new Vector2Int(4, 2);
-            int dropped = BoardSerializer.Restore(saved, level, _session.Blueprint, extents);
-
-            if (dropped > 0)
-            {
-                // Loud, because the player is about to see a board that is not the one they left.
-                // Silently restoring a partial circuit would read as the game having eaten their work.
-                Debug.LogWarning(
-                    $"BitSorter: {dropped} saved item(s) on '{_session.LevelName}' no longer fit the " +
-                    "level and were dropped.");
-            }
-
-            // The session already rebuilt from an empty blueprint before announcing the level, so it
-            // has to rebuild again now that there is something in it.
-            _session.ResetBoard();
-        }
-
-        // -----------------------------------------------------------------
-        // Records
-        // -----------------------------------------------------------------
-
-        private void RecordSolve()
-        {
-            string level = _session.LevelName;
-
-            // Not a level in the run, so it is not a level that can be completed. The tutorial is
-            // graded -- it ends on a real pass, which is the point -- and without this it would land
-            // in the completed list, inflate CompletedCount, and take a personal best beside levels
-            // it is not one of.
-            if (LevelCatalog.IsOffCatalogue(level))
-                return;
-
-            _store.MarkComplete(level);
-
-            // The gates inside a block count, so a circuit built of blocks and the same one built
-            // loose share a best.
-            int gates = _session.GateCount();
-
-            int latency = MeasuredLatency();
-
-            _store.RecordBest(level, gates, latency,
-                out bool gatesBeaten, out bool latencyBeaten);
-
-            BeatGateRecord = gatesBeaten;
-            BeatLatencyRecord = latencyBeaten;
-
-            // Saved immediately rather than at the next level switch. A player who solves something
-            // and then closes the game has done the one thing most worth remembering.
-            SaveBoard(level);
-
-            // Last, so a throwing subscriber cannot cost the player their record.
-            LevelSolved?.Invoke(level);
-        }
-
-        /// <summary>
-        /// The worst source-to-sink latency the winning run showed, in ticks, or zero if none.
-        /// </summary>
-        /// <remarks>
-        /// <see cref="LevelGrader.WorstLatency"/> itself, so the record and the maxLatency ceiling
-        /// cannot measure different things. Read off the run that just passed, so it describes the
-        /// circuit the player actually built.
-        /// </remarks>
-        private int MeasuredLatency()
-        {
-            if (_runner == null || !_runner.IsReady)
-                return 0;
-
-            int worst = LevelGrader.WorstLatency(
-                _runner.View, _session.Level, _runner.FixtureNodeIds, out string _);
-
-            return Mathf.Max(0, worst);
-        }
-
-        /// <summary>Whether a level has ever been solved. False before Awake.</summary>
-        public bool IsComplete(string levelName) => _store != null && _store.IsComplete(levelName);
-
-        public int BestGates(string levelName) => _store != null ? _store.BestGates(levelName) : 0;
-
-        public int BestLatency(string levelName) => _store != null ? _store.BestLatency(levelName) : 0;
     }
 }

@@ -37,7 +37,7 @@ namespace BitSorter.LogicCore.Tests
             const BindingFlags Declared =
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
-            string[] offenders = typeof(BitRenderer).Assembly.GetTypes()
+            string[] offenders = typeof(WorkbenchPanel).Assembly.GetTypes()
                 .Where(type => typeof(MonoBehaviour).IsAssignableFrom(type))
                 .Where(type => type.GetMethod("OnGUI", Declared) != null)
                 .Select(type => type.Name)

@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using Unity.Services.Analytics;
 using Unity.Services.Core;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UnityConsent;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// Reports two events to Unity Analytics: a level was started, and a level was solved.
+    /// Reports two events to Unity Analytics: an exercise was started, and an exercise was solved -- named <c>levelStarted</c>
+    /// and <c>levelSolved</c> as the 4.x game's levels were, whose names the thirty exercises keep.
     /// </summary>
     /// <remarks>
-    /// The question this exists to answer is where players give up, which the default session data
-    /// cannot say. Starts against solves, per level, can.
+    /// The question this exists to answer is where students give up, which the default session data
+    /// cannot say. Starts against solves, per exercise, can.
     ///
     /// It is a static bootstrap rather than a MonoBehaviour on purpose.
     /// <see cref="Editor.HalfAdderDemoSceneBuilder"/> is the only authority on scene contents, so a
@@ -22,9 +22,8 @@ namespace BitSorter.View
     /// transform. The game ships one scene, so a hook after that scene loads runs exactly once.
     ///
     /// Events are queued until data collection has actually started. Initialising Unity Services is
-    /// asynchronous, but the first level loads in <see cref="LevelSession"/>'s Start, which happens
-    /// first -- so without the queue the opening level's start would be dropped, and that is one of
-    /// the numbers most worth having.
+    /// asynchronous, and the simulator can open on an exercise before it has -- so without the queue
+    /// that exercise's start would be dropped, and that is one of the numbers most worth having.
     ///
     /// Both events are flushed as they happen. Volume is a handful per session, and the alternative
     /// is losing precisely the interesting ones: a player who gives up closes the tab, taking any
@@ -50,12 +49,6 @@ namespace BitSorter.View
             get => Preferences.GetInt(ConsentKey, 1) != 0;
             private set => Preferences.SetInt(ConsentKey, value ? 1 : 0);
         }
-
-        /// <summary>
-        /// Whether analytics is hearing the levels of the scene loaded now: what it listens to is that scene's own session.
-        /// For the tests, which cannot see an event that is never sent.
-        /// </summary>
-        public static bool Listening => _session != null && _session.gameObject.scene.isLoaded;
 
         /// <summary>Turns reporting on or off and tells the SDK, for the DATA switch in Settings.</summary>
         /// <remarks>
@@ -92,8 +85,6 @@ namespace BitSorter.View
 
         private static bool _collecting;
         private static bool _unavailable;
-        private static LevelSession _session;
-        private static ProgressTracker _tracker;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static async void Boot()
@@ -107,8 +98,6 @@ namespace BitSorter.View
             _unavailable = false;
 
             Subscribe();
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-            SceneManager.sceneLoaded += OnSceneLoaded;
 
             try
             {
@@ -158,72 +147,15 @@ namespace BitSorter.View
             }
         }
 
-        private static void Subscribe()
-        {
-            if (_session == null) _session = UnityEngine.Object.FindFirstObjectByType<LevelSession>();
-            if (_tracker == null) _tracker = UnityEngine.Object.FindFirstObjectByType<ProgressTracker>();
+        // The workbench reports an exercise itself (ExerciseStarted, ExerciseSolved). The 4.x game's level session and
+        // tracker were listened to here, and the scenes a change of look loads with them, until Part 16a deleted the game.
+        private static void Subscribe() => Application.quitting += OnQuitting;
 
-            if (_session != null)
-                _session.LevelLoaded += OnLevelLoaded;
-
-            if (_tracker != null)
-                _tracker.LevelSolved += OnLevelSolved;
-
-            AppLaunch.GameCameOnScreen += OnGameCameOnScreen;
-            Application.quitting += OnQuitting;
-        }
-
-        /// <summary>
-        /// A scene loaded after the first has a session and a tracker of its own, and those are what is listened to from then
-        /// on. Boot runs once, for the first scene, so a change of look -- which loads the game again (<see cref="LookSwitch"/>)
-        /// -- left analytics listening to the old scene's, destroyed, and nothing was reported for the rest of the session
-        /// (the #84 review).
-        /// </summary>
-        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            Unsubscribe();
-            Subscribe();
-        }
-
-        private static void Unsubscribe()
-        {
-            if (_session != null)
-                _session.LevelLoaded -= OnLevelLoaded;
-
-            if (_tracker != null)
-                _tracker.LevelSolved -= OnLevelSolved;
-
-            AppLaunch.GameCameOnScreen -= OnGameCameOnScreen;
-            Application.quitting -= OnQuitting;
-
-            _session = null;
-            _tracker = null;
-        }
-
-        // LevelLoaded carries the definition; the file name is the stable identity and the key
-        // progress is stored under, so that is what gets reported rather than the display title.
-        private static void OnLevelLoaded(LevelDefinition level)
-        {
-            // In the simulator a level is loaded under the workbench at launch, where nobody sees it (Part 15a): it is
-            // reported started when the 4.x game first comes on screen, as one under the 4.x title screen was.
-            if (AppLaunch.GameShown)
-                Record(AnalyticsRules.LevelStarted, _session != null ? _session.LevelName : null);
-        }
-
-        private static void OnGameCameOnScreen()
-        {
-            if (_session != null)
-                Record(AnalyticsRules.LevelStarted, _session.LevelName);
-        }
-
-        private static void OnLevelSolved(string levelName)
-        {
-            Record(AnalyticsRules.LevelSolved, levelName);
-        }
+        private static void Unsubscribe() => Application.quitting -= OnQuitting;
 
         /// <summary>
         /// An exercise opened on the workbench (Part 15d), reported as a level started under its id, once a session: the same
-        /// event and the same parameter as a 4.x level's, so a level and its exercise count as one place where people stop.
+        /// event and the same parameter the 4.x game's levels were reported with, so the data reads on from theirs.
         /// </summary>
         public static void ExerciseStarted(string id) => Record(AnalyticsRules.LevelStarted, id);
 

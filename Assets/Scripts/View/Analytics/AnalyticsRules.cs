@@ -70,10 +70,7 @@ namespace BitSorter.View
             if (unavailable || !reporting || alreadySentThisSession)
                 return false;
 
-            if (string.IsNullOrEmpty(levelName))
-                return false;
-
-            return !LevelCatalog.IsOffCatalogue(levelName);
+            return !string.IsNullOrEmpty(levelName);
         }
 
         /// <summary>The key an event is remembered under, so each pair is counted once.</summary>

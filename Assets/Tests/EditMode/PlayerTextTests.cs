@@ -10,20 +10,18 @@ namespace BitSorter.LogicCore.Tests
     /// Everything the player reads, checked against the interface it describes.
     /// </summary>
     /// <remarks>
-    /// Player-facing text lives in five places -- the levels' `goal` and `hint`, `HintRules`,
-    /// `TutorialScript`, `ControlsReference`, and labels built into the panels -- and nothing
-    /// connected any of them to the buttons they name. So when the help badge changed from "!" to
-    /// "?", `four-corners` went on telling players to press "!" and shipped that way. Nothing
-    /// recompiled, no test turned red, and it was found by someone looking at the screen.
+    /// Player-facing text lives in many places -- the exercises' `goal` and `hint`, Settings, ABOUT BITSORTER, the
+    /// credits, and labels built into the panels -- and nothing connected any of them to the buttons they name. So when
+    /// the 4.x game's help badge changed from "!" to "?", a level went on telling players to press "!" and shipped that
+    /// way. Nothing recompiled, no test turned red, and it was found by someone looking at the screen. (The 4.x levels,
+    /// hints, tutorial and controls were gathered here too, until Part 16a deleted the game; the simulator's own hints and
+    /// tutorial are held by <c>SimulatorHintTests</c>.)
     ///
     /// This is the seam that was missing. It cannot check that the writing is any good; it can check
     /// that the writing still describes the game.
     /// </remarks>
     public class PlayerTextTests
     {
-        /// <summary>The board the levels are parsed against. Same as <c>CurriculumTests</c>.</summary>
-        private static readonly Vector2Int Board = new Vector2Int(4, 2);
-
         /// <summary>One string a player can read, and where it came from.</summary>
         private readonly struct Line
         {
@@ -52,38 +50,11 @@ namespace BitSorter.LogicCore.Tests
         {
             var lines = new List<Line>();
 
-            foreach (TextAsset asset in Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath))
+            foreach (BitSorter.Board.Exercise exercise in ExerciseCatalog.Run)
             {
-                LevelLoadResult parsed = LevelLoader.Parse(asset.text, Board);
-
-                Assert.IsTrue(parsed.IsValid, asset.name + ": " + parsed.Error);
-
-                lines.Add(new Line(asset.name + ".goal", parsed.Level.Goal));
-                lines.Add(new Line(asset.name + ".hint", parsed.Level.Hint));
+                lines.Add(new Line(exercise.Id + ".goal", exercise.Goal));
+                lines.Add(new Line(exercise.Id + ".hint", exercise.Hint));
             }
-
-            foreach (string id in HintRules.All)
-                lines.Add(new Line("HintRules." + id, HintRules.TextFor(id)));
-
-            foreach (TutorialStep step in TutorialScript.Steps)
-                lines.Add(new Line("TutorialScript." + step.Id, step.Text));
-
-            // The lines said in place of a step, which are on the same strip.
-            lines.Add(new Line("TutorialScript.RecoveryText", TutorialScript.RecoveryText(new BoardFacts(
-                TutorialLevel.Part, true, true, true, false, false, runFailed: true))));
-            lines.Add(new Line("TutorialScript.CorrectionText", TutorialScript.CorrectionText(new BoardFacts(
-                TutorialLevel.Part, false, false, false, false, false, partOnCell: TutorialLevel.Decoy))));
-            lines.Add(new Line("TutorialScript.CorrectionText elsewhere", TutorialScript.CorrectionText(new BoardFacts(
-                TutorialLevel.Decoy, false, false, false, false, false, partElsewhere: true))));
-            lines.Add(new Line("TutorialScript.CorrectionText both", TutorialScript.CorrectionText(new BoardFacts(
-                TutorialLevel.Decoy, false, false, false, false, false,
-                partOnCell: TutorialLevel.Decoy, partElsewhere: true))));
-
-            foreach (ControlEntry control in ControlsReference.All)
-                lines.Add(new Line("ControlsReference", control.Text));
-
-            // Beside the list rather than in it, and on the timing diagram's strip.
-            lines.Add(new Line("ControlsReference.TimingZoom", ControlsReference.TimingZoom.Text));
 
             // Settings, whose words are constants rather than literals inside its builder.
             lines.Add(new Line("SettingsPanel.AudioText", SettingsPanel.AudioText));
@@ -101,14 +72,10 @@ namespace BitSorter.LogicCore.Tests
             foreach ((string heading, string text) in WorkbenchPanel.AboutStory)
                 lines.Add(new Line("WorkbenchPanel.AboutStory " + heading, text));
 
-            // What Q and E say where they cannot go.
-            lines.Add(new Line("SimulationInput.BeforeTheFirst", SimulationInput.BeforeTheFirst));
-            lines.Add(new Line("SimulationInput.NotALevel", SimulationInput.NotALevel));
-
             lines.Add(new Line("CreditsPanel.HelpText", CreditsPanel.HelpText));
 
             // The credits. Gaps are the roll's own spacing and carry no text on purpose.
-            foreach (Credits.Line line in Credits.Roll(MainMenu.Tagline, "v0.0.0"))
+            foreach (Credits.Line line in Credits.Roll(Credits.Tagline, "v0.0.0"))
             {
                 if (line.Kind != Credits.Kind.Gap)
                     lines.Add(new Line("Credits." + line.Kind, line.Text));
@@ -132,10 +99,10 @@ namespace BitSorter.LogicCore.Tests
             Assert.Greater(lines.Count, 30,
                 "the text gatherer found almost nothing, so every check below is vacuous");
 
-            // Nine levels contribute two lines each, and the other three sources are all non-empty.
-            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.EndsWith(".goal")).Count, 9);
-            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.StartsWith("HintRules")).Count, 3);
-            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.StartsWith("TutorialScript")).Count, 6);
+            // Every exercise contributes its goal and its hint, and Settings and the credits are non-empty.
+            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.EndsWith(".goal")).Count, 30);
+            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.StartsWith("SettingsPanel")).Count, 5);
+            Assert.GreaterOrEqual(lines.FindAll(l => l.Source.StartsWith("Credits.")).Count, 5);
         }
 
         [Test]
@@ -151,6 +118,9 @@ namespace BitSorter.LogicCore.Tests
         // -----------------------------------------------------------------
         // Buttons the text tells the player to press
         // -----------------------------------------------------------------
+
+        /// <summary>The key that opens the keyboard map, as <c>WorkbenchKeys</c> shows it.</summary>
+        private const string KeyMapSymbol = "?";
 
         /// <summary>"press X", and "press X or Y", however it is capitalised.</summary>
         private static readonly Regex Press =
@@ -180,13 +150,14 @@ namespace BitSorter.LogicCore.Tests
         /// here, and asserting against a list of key names would mean restating the bindings a third
         /// time -- the drift this test exists to prevent.
         ///
-        /// The badge is the only such symbol in the game. If a second one ever appears, it belongs in
-        /// the set below rather than in a second copy of this test.
+        /// The keyboard map's key, <c>?</c> (<c>WorkbenchKeys</c>, Slash), is the only such symbol in the simulator, as the
+        /// 4.x game's help badge was in that game. If a second one ever appears, it belongs in the set below rather than in
+        /// a second copy of this test.
         /// </remarks>
         [Test]
         public void EverySymbolThePlayerIsToldToPress_IsOneTheInterfaceShows()
         {
-            var shown = new HashSet<string> { HelpPanel.BadgeGlyph };
+            var shown = new HashSet<string> { KeyMapSymbol };
             var wrong = new List<string>();
 
             foreach (Line line in EverythingAPlayerReads())
@@ -204,7 +175,7 @@ namespace BitSorter.LogicCore.Tests
 
             CollectionAssert.IsEmpty(wrong,
                 "text naming a button the interface does not have:\n  " + string.Join("\n  ", wrong)
-                + "\nthe badge currently shows \"" + HelpPanel.BadgeGlyph + "\"");
+                + "\nthe keyboard map's key is \"" + KeyMapSymbol + "\"");
         }
 
         /// <summary>

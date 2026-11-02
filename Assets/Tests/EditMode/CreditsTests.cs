@@ -16,7 +16,7 @@ namespace BitSorter.LogicCore.Tests
         {
             var text = new List<string>();
 
-            foreach (Credits.Line line in Credits.Roll(MainMenu.Tagline, version))
+            foreach (Credits.Line line in Credits.Roll(Credits.Tagline, version))
                 text.Add(line.Text);
 
             return text;
@@ -34,7 +34,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void EveryMenuTrack_IsCreditedAsProminentlyAsTheMaker()
         {
-            IReadOnlyList<Credits.Line> roll = Credits.Roll(MainMenu.Tagline, "v9.9.9");
+            IReadOnlyList<Credits.Line> roll = Credits.Roll(Credits.Tagline, "v9.9.9");
 
             bool headed = false;
 
@@ -72,7 +72,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void EveryRole_IsTheMakers()
         {
-            IReadOnlyList<Credits.Line> roll = Credits.Roll(MainMenu.Tagline, "v9.9.9");
+            IReadOnlyList<Credits.Line> roll = Credits.Roll(Credits.Tagline, "v9.9.9");
             int roles = 0;
 
             for (int i = 0; i < roll.Count; i++)
@@ -158,7 +158,7 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void TheRoll_EndsOnItsFarewell_WithTheCopyrightAndVersion()
         {
-            IReadOnlyList<Credits.Line> roll = Credits.Roll(MainMenu.Tagline, "v9.9.9");
+            IReadOnlyList<Credits.Line> roll = Credits.Roll(Credits.Tagline, "v9.9.9");
 
             int farewells = 0;
             int at = -1;

@@ -46,7 +46,8 @@ namespace BitSorter.LogicCore.Tests
                     direct.Add(name);
             }
 
-            Assert.Greater(readers, 10, "sanity: the scan found hardly any key readers, so it is looking in the wrong place");
+            // Eight since Part 16a took the 4.x game's readers with it; more than ten before.
+            Assert.Greater(readers, 5, "sanity: the scan found hardly any key readers, so it is looking in the wrong place");
             Assert.IsEmpty(direct,
                 "these read Keyboard.current, so their keys fire while a name is being typed: " +
                 string.Join(", ", direct));

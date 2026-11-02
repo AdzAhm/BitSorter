@@ -530,54 +530,6 @@ namespace BitSorter.LogicCore.Tests
         }
 
         // -----------------------------------------------------------------
-        // Which track is playing
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void TheFirstLevelOfASession_KeepsTheTrackItStartedOn()
-        {
-            // The first level loads a moment after the music begins, during LevelSession's Start.
-            // Cycling there would cross-fade the opening a second after the player first heard it.
-            Assert.IsFalse(MusicRules.ChangesTrack(null, "route-the-bit"));
-            Assert.IsFalse(MusicRules.ChangesTrack(string.Empty, "route-the-bit"));
-        }
-
-        [Test]
-        public void ReloadingTheSameLevel_DoesNotChangeTheTrack()
-        {
-            // Reset and re-entry both re-fire LevelLoaded. Cycling on every load would change the
-            // music each time a player failed a level -- drawing attention to the one level they are
-            // already stuck on.
-            Assert.IsFalse(MusicRules.ChangesTrack("balance-the-paths", "balance-the-paths"));
-        }
-
-        [Test]
-        public void MovingToADifferentLevel_ChangesTheTrack()
-        {
-            Assert.IsTrue(MusicRules.ChangesTrack("route-the-bit", "the-long-way-round"));
-        }
-
-        [Test]
-        public void TheTutorialAndTheSandbox_AreLevelChangesLikeAnyOther()
-        {
-            // Neither is in the catalogue, but both load through LevelSession and both are somewhere
-            // the player has deliberately gone. There is no reason for the music to treat them apart.
-            Assert.IsTrue(MusicRules.ChangesTrack("route-the-bit", TutorialLevel.Key));
-            Assert.IsTrue(MusicRules.ChangesTrack(TutorialLevel.Key, SandboxLevel.Key));
-        }
-
-        [Test]
-        public void TheMenusMusic_PlaysUnderEveryScreenOffTheMenu()
-        {
-            // Settings is reached only from the main menu and goes back to it. Leaving it out faded
-            // the music to the level's track and back again on the way through.
-            Assert.IsTrue(MusicRules.WantsMenuMusic(true, false, false), "the main menu");
-            Assert.IsTrue(MusicRules.WantsMenuMusic(false, true, false), "the level list");
-            Assert.IsTrue(MusicRules.WantsMenuMusic(false, false, true), "the settings");
-            Assert.IsFalse(MusicRules.WantsMenuMusic(false, false, false), "the board");
-        }
-
-        // -----------------------------------------------------------------
         // The shuffle
         // -----------------------------------------------------------------
 

@@ -98,36 +98,6 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// A 0 glows in a colour of its own: lifted for bloom it still reads as a colour, not as
-        /// white, and it stands apart from the wire it travels on.
-        /// </summary>
-        /// <remarks>
-        /// Two earlier decisions meet here. A 0 was made to glow because unlit it was a small grey
-        /// dot a player lost track of; lit, the shipped one washed out to near-white and read like a
-        /// 1. And the first draft of the new look went back to an unlit 0, dim teal, which vanished
-        /// into its cyan wire. What survives both is a 0 that glows in its own hue. That it glows at
-        /// all -- and less than a 1 -- is BitEmissionTests' to say.
-        /// </remarks>
-        [Test]
-        public void AZero_GlowsInItsOwnColour()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Color lifted = BitVisuals.Emissive(look.Colours.BitZero);
-                Color shown = new Color(Mathf.Clamp01(lifted.r), Mathf.Clamp01(lifted.g), Mathf.Clamp01(lifted.b));
-
-                float max = Mathf.Max(shown.r, Mathf.Max(shown.g, shown.b));
-                float min = Mathf.Min(shown.r, Mathf.Min(shown.g, shown.b));
-
-                Assert.GreaterOrEqual((max - min) / max, 0.4f,
-                    $"{look.Name}: a 0 lifted for bloom washes out towards white");
-
-                Assert.Greater(Distance(shown, look.Colours.WireCore), 0.3f,
-                    $"{look.Name}: a 0 is drawn close to the colour of the wire it travels on");
-            }
-        }
-
-        /// <summary>
         /// The chosen button -- the part in hand, the level being played, the speed in use -- stands
         /// out from the buttons beside it, at full strength.
         /// </summary>

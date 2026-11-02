@@ -7,8 +7,8 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// <see cref="UiEscape"/>: the list of things over the board that take Escape before the main
-    /// menu, and the rule that nothing reading Escape is left off it.
+    /// <see cref="UiEscape"/>: the list of things over the workbench that take Escape one at a time, and the rule that
+    /// nothing reading Escape is left off it.
     /// </summary>
     public class UiEscapeTests
     {
@@ -72,11 +72,10 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// Every script that reads Escape is a full-screen panel, the main menu that opens on it, or
-        /// a member of <see cref="UiEscape"/> that joins it.
+        /// Every script that reads Escape is a full-screen panel or a member of <see cref="UiEscape"/> that joins it.
         /// </summary>
         /// <remarks>
-        /// The solved card, a hint and the help panel each sat over the board, closed on Escape and
+        /// The 4.x game's solved card, a hint and the help panel each sat over the board, closed on Escape and
         /// were not modals -- and each was found the same way, by one press closing it and opening the
         /// main menu too. The list makes a fourth one easy to get right; this makes it impossible to
         /// get wrong quietly.
@@ -99,17 +98,16 @@ namespace BitSorter.LogicCore.Tests
                 string name = Path.GetFileName(path);
 
                 bool panel = source.Contains(": FullScreenPanel");
-                bool opener = name == "MainMenu.cs";
                 bool member = source.Contains("IHoldsEscape") && source.Contains("UiEscape.Join(this)");
 
-                if (!panel && !opener && !member)
+                if (!panel && !member)
                     loose.Add(name);
             }
 
             Assert.Greater(readers, 3, "sanity: the search found almost nothing that reads Escape");
             CollectionAssert.IsEmpty(loose,
                 "these read Escape without being a full-screen panel or joining UiEscape, so one press " +
-                "can close them and open the main menu as well: " + string.Join(", ", loose));
+                "can close them and do something else as well: " + string.Join(", ", loose));
         }
     }
 

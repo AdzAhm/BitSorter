@@ -97,27 +97,17 @@ namespace BitSorter.LogicCore.Tests
         }
 
         [Test]
-        public void FreePlayAndTheTutorial_AreNeverReported()
+        public void EveryExercise_IsReportable()
         {
-            // Both would answer the question these events exist for -- which level people stop at --
-            // wrongly, and in opposite directions. Free play can never be solved, so a start from it
-            // reads as someone giving up; the tutorial is solved by everybody who finishes it.
-            Assert.IsFalse(AnalyticsRules.ShouldReport(SandboxLevel.Key, true, false));
-            Assert.IsFalse(AnalyticsRules.ShouldReport(TutorialLevel.Key, true, false));
-        }
+            // The guard has to be narrow. One that swallowed a real exercise would quietly cost the
+            // measurement, and nothing else would notice. (The 4.x game's free play and tutorial were kept out
+            // here too, until Part 16a deleted them.)
+            Assert.IsNotEmpty(ExerciseCatalog.Run, "no exercises found");
 
-        [Test]
-        public void EveryShippedLevel_IsReportable()
-        {
-            // The guard has to be narrow. One that swallowed a real level would quietly cost the
-            // measurement, and nothing else would notice.
-            TextAsset[] assets = Resources.LoadAll<TextAsset>(LevelLoader.ResourcePath);
-            Assert.IsNotEmpty(assets, "no level files found");
-
-            foreach (TextAsset asset in assets)
+            foreach (BitSorter.Board.Exercise exercise in ExerciseCatalog.Run)
             {
-                Assert.IsTrue(AnalyticsRules.ShouldReport(asset.name, true, false),
-                    $"'{asset.name}' is a real level and should be reported");
+                Assert.IsTrue(AnalyticsRules.ShouldReport(exercise.Id, true, false),
+                    $"'{exercise.Id}' is an exercise and should be reported");
             }
         }
 

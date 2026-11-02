@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using BitSorter.LogicCore;
 using UnityEngine;
 
 namespace BitSorter.View
@@ -128,36 +127,6 @@ namespace BitSorter.View
         /// </remarks>
         public static Sprite FlipFlop(BodyStyle style = BodyStyle.Filled) =>
             Body("flipFlop", style, InFlipFlop);
-
-        /// <summary>Radius of a block's corners, in the -1..1 space of its texture.</summary>
-        private const float BlockCorner = 0.30f;
-
-        /// <summary>
-        /// Texels kept whole at each edge of a block's box when it is stretched: its corner, and the
-        /// rim a glass or outlined body draws inside the edge, so what stretches is plain fill.
-        /// </summary>
-        private const int BlockSlice = 40;
-
-        /// <summary>
-        /// A block's box: a rounded rectangle in the look's body style, nine-sliced, so one sprite
-        /// draws a box one cell tall or three.
-        /// </summary>
-        /// <remarks>
-        /// Not <see cref="RoundedSquare"/>, which is a squircle with no straight edge to stretch --
-        /// the reason panels have their own shape. Drawn at the texel size a gate is, so its edge, rim
-        /// and corners look like a gate's at any height: a texel is a node's width over the texture's.
-        /// </remarks>
-        public static Sprite BlockBody(BodyStyle style = BodyStyle.Filled)
-        {
-            var border = new Vector4(BlockSlice, BlockSlice, BlockSlice, BlockSlice);
-            float pixelsPerUnit = NodeSize / PortGeometry.NodeSize;
-
-            return style == BodyStyle.Filled
-                ? Mask("block", NodeSize, InBlock, border, pixelsPerUnit)
-                : Styled("block:" + style, style, InBlock, border, pixelsPerUnit);
-        }
-
-        private static bool InBlock(Vector2 p) => InRoundedRect(p, BlockCorner);
 
         // -----------------------------------------------------------------
         // Interface chrome
@@ -322,59 +291,6 @@ namespace BitSorter.View
         /// <summary>How wide a digit's stroke is, and how soft its edge, on the sprite's -1..1 square.</summary>
         private const float DigitStroke = 0.24f;
         private const float DigitSoftness = 0.05f;
-
-        /// <summary>
-        /// A bit's value drawn as its digit, in a neon stroke: a tall rounded 0, and a 1 with a flag
-        /// and a foot.
-        /// </summary>
-        /// <remarks>
-        /// Stroked rather than filled, like a neon sign, so it keeps its shape when it blooms --
-        /// a filled glyph blooms into a blob, and a stroke into a glowing letter. The 1 has a foot
-        /// so it cannot be read as a bar or an l, and so it carries about as much light as the 0.
-        ///
-        /// Taller than it is wide, both of them, so a digit is never mistaken for the round
-        /// socket it is travelling towards.
-        /// </remarks>
-        public static Sprite BitGlyph(Bit value) => value == Bit.One
-            ? Field("digit:1", DigitSize, p => Stroked(OneDistance(p)))
-            : Field("digit:0", DigitSize, p => Stroked(ZeroDistance(p)));
-
-        /// <summary>
-        /// A bit that is being held -- in a socket, or inside a register -- as a disc with its
-        /// digit cut out of it, like a stamped coin.
-        /// </summary>
-        /// <remarks>
-        /// A disc and not the stroked digit a bit in flight is, because a socket already has a
-        /// meaning for hollow: a ring is an empty socket, and a stroked 0 in one would read as
-        /// nothing there. The disc says full; the cut says which value.
-        ///
-        /// The disc is exactly <see cref="Circle"/>'s, so the register's held bit keeps the
-        /// geometry <see cref="PortGeometry"/> pins to that sprite.
-        /// </remarks>
-        public static Sprite HeldBit(Bit value) => value == Bit.One
-            ? Mask("held:1", NodeSize, p =>
-                InCircle(p, CircleRadius) && OneDistance(p / CoinDigit) * CoinDigit > CoinStroke * 0.5f)
-            : Mask("held:0", NodeSize, p =>
-                InCircle(p, CircleRadius) && ZeroDistance(p / CoinDigit) * CoinDigit > CoinStroke * 0.5f);
-
-        /// <summary>
-        /// Builds every sprite a bit can be drawn as in the current look, so none is built mid-run.
-        /// </summary>
-        /// <remarks>
-        /// Each is otherwise built the first time it is drawn, which is always mid-run -- and a held
-        /// bit's supersampled disc took 65-80 ms in the editor. Called as the board is set up, where
-        /// a load already costs a moment and nothing on it is moving.
-        /// </remarks>
-        public static void WarmBits()
-        {
-            if (Look.Current.Bits != BitStyle.Digit)
-                return;
-
-            BitGlyph(Bit.Zero);
-            BitGlyph(Bit.One);
-            HeldBit(Bit.Zero);
-            HeldBit(Bit.One);
-        }
 
         /// <summary>
         /// A cross, stroked like the digits: laid over a waiting bit that an imminent collision

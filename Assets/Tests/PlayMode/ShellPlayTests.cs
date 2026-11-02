@@ -58,9 +58,6 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>The workbench open, its fade done, its run paused at its start.</summary>
         private static IEnumerator OpenTheWorkbench()
         {
-            GameObject menuButton = GameObject.Find(MainMenu.WorkbenchButton);
-            Assert.IsNotNull(menuButton, "sanity: the game boots into the main menu");
-            menuButton.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             for (int frame = 0; frame < 240 && UiFade.AnyMoving; frame++)
                 yield return null;
             yield return null;
@@ -103,7 +100,6 @@ namespace BitSorter.PlayMode.Tests
             Move(_mouse.position, at);
             yield return null;
             Assert.IsTrue(ShellPanel.OverControlAt(at), "the shell says a control is under the pointer");
-            Assert.IsTrue(Find<PointerGate>().PointerOverUi, "and the board's pointer gate counts the shell as interface");
 
             // A tap: press and release in one frame, the case the frame-start sample exists for.
             Press(_mouse.leftButton);
@@ -484,9 +480,6 @@ namespace BitSorter.PlayMode.Tests
             ShellPanel.Submit(ShellPanel.Find<Button>(WorkbenchPanel.SettingsButton));
             yield return null;
             Assert.IsTrue(workbench.Shell.Visible, "Settings is a page of it, since Part 15g");
-            ShellPanel.Submit(ShellPanel.Find<Button>(SettingsPanel.GameButton));
-            yield return null;
-            Assert.IsFalse(workbench.Shell.Visible, "and gone with it, under the 4.x game");
         }
 
         [UnityTest]

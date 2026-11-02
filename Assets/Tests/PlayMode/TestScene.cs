@@ -11,11 +11,10 @@ namespace BitSorter.PlayMode.Tests
     /// <remarks>
     /// The second half is the part that matters, and it was learned the hard way. A fixture that
     /// loads the game and simply finishes leaves it loaded for whatever runs next -- and NUnit orders
-    /// fixtures alphabetically, so `AudioPlayTests` ran first and handed a fully built game to
-    /// `PointerArbitrationPlayTests`, which builds its own canvas and assumes nothing else is on
-    /// screen. Two of its four tests went red without a line of its code changing: the main menu is a
-    /// full-screen panel, so the pointer was over UI at every coordinate, and `PointerGate` correctly
-    /// reported that the interface owned the mouse.
+    /// fixtures alphabetically, so `AudioPlayTests` ran first and handed a fully built game to the 4.x
+    /// game's `PointerArbitrationPlayTests`, which built its own canvas and assumed nothing else was on
+    /// screen. Two of its four tests went red without a line of its code changing: the main menu was a
+    /// full-screen panel, so the pointer was over UI at every coordinate.
     ///
     /// That is a test leaking into another test, which is worse than either test failing -- the
     /// failure appears in the fixture that is still correct, and points nowhere near the cause.
@@ -47,19 +46,29 @@ namespace BitSorter.PlayMode.Tests
         private static int _cleared;
 
         /// <summary>
-        /// Loads the game as 4.x booted, its title screen up over the board, on a driven clock, and lets it finish waking up:
-        /// what every fixture written before Part 15a expects (<see cref="AppLaunch.Classic"/>).
+        /// Loads the game on a driven clock, lets it finish waking up, and opens the reference circuit -- the first sample --
+        /// with the start page down: where every workbench fixture written before Part 16a begins.
         /// </summary>
-        internal static IEnumerator Load() => Load(classic: true);
-
-        /// <summary>Loads the game as it opens since Part 15a: the simulator, on the last thing open or the start page.</summary>
-        internal static IEnumerator LoadSimulator() => Load(classic: false);
-
-        private static IEnumerator Load(bool classic)
+        /// <remarks>
+        /// Until Part 16a this booted the 4.x game, its title screen up over the board, and a fixture reached the workbench
+        /// through the title screen's button. That opened it without a launch, on MY CIRCUIT when there was anything in it
+        /// and the reference circuit until there was -- on a test's fresh save, the reference circuit, which is what those
+        /// fixtures go on to draw, run and click. A fixture that wants MY CIRCUIT opens it (<c>ShowSample(0)</c>);
+        /// <see cref="LoadSimulator"/> is the game as it opens, on the start page.
+        /// </remarks>
+        internal static IEnumerator Load()
         {
-            AppLaunch.Classic = classic;
-            AppLaunch.Forget();
+            yield return LoadSimulator();
 
+            WorkbenchPanel workbench = Object.FindFirstObjectByType<WorkbenchPanel>();
+            if (workbench != null)
+                workbench.ShowSample(1);
+            yield return null;
+        }
+
+        /// <summary>Loads the game as it opens: the simulator, on the last thing open or the start page.</summary>
+        internal static IEnumerator LoadSimulator()
+        {
             // Before the load, so the frames the scene takes to wake are driven too. The reference
             // shots choose a 120th before they load, and that choice stands.
             if (Time.captureDeltaTime <= 0f)
@@ -78,9 +87,10 @@ namespace BitSorter.PlayMode.Tests
         /// The save is deleted here, after the unload, because the game writes it until it is gone.
         /// Every fixture also deletes it in its [TearDown], and Unity Test Framework runs that before
         /// the [UnityTearDown] that calls this -- with the game still loaded, so a write in the frames
-        /// the unload took was there for the next test's load. <c>ProgressTracker</c> writes the
-        /// board half a second after it last changed, by real time, so that leak would have come and
-        /// gone with how long frames took rather than with anything in the tests.
+        /// the unload took was there for the next test's load. The workbench writes MY CIRCUIT half a
+        /// second after its last edit, by real time (as the 4.x game's <c>ProgressTracker</c> wrote its
+        /// board), so that leak would come and go with how long frames took rather than with anything
+        /// in the tests.
         /// </remarks>
         internal static IEnumerator Clear()
         {
@@ -105,8 +115,6 @@ namespace BitSorter.PlayMode.Tests
 
             // Real time back, whatever step the test left: the next fixture may not load the game.
             Time.captureDeltaTime = 0f;
-            AppLaunch.Classic = false;
-            AppLaunch.Forget();
         }
     }
 }

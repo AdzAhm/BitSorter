@@ -58,7 +58,7 @@ namespace BitSorter.View
             ("WHERE IT CAME FROM", "BitSorter began as BitSorter 4.x, a puzzle game: bits fall through logic gates into bins, "
                 + "over thirty levels from a single wire to a serial adder. Version 5.0 rebuilt it into a simulator for the "
                 + "Digital Systems and Computer Structure course. The thirty levels live on as its exercises, and the original "
-                + "game is still there, under Settings: THE 4.x GAME."),
+                + "game, version 4.0.0, can still be played on Unity Play."),
         };
 
         public const string AboutMaker = "BitSorter 5.0   ·   made by Ahmad Zoabi   ·   ZADZ";

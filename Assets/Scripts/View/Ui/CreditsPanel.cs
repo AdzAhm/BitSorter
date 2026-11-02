@@ -141,7 +141,7 @@ namespace BitSorter.View
             _roll.style.alignItems = Align.Center;
             _page.Add(_roll);
 
-            IReadOnlyList<Credits.Line> lines = Credits.Roll(MainMenu.Tagline, MainMenu.VersionText);
+            IReadOnlyList<Credits.Line> lines = Credits.Roll(Credits.Tagline, Credits.VersionText);
             foreach (Credits.Line line in lines)
             {
                 if (line.Kind == Credits.Kind.Gap)

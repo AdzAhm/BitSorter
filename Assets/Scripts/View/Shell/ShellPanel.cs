@@ -18,8 +18,8 @@ namespace BitSorter.View
     ///
     /// **The bridges** (each held by <c>ShellPlayTests</c>):
     /// - *Pointer.* The event system sees the panel as one nameless object, so "is the pointer over a control" is asked
-    ///   of the panel itself (<see cref="OverControlAt"/>), and <see cref="WorkbenchControlSample"/> and
-    ///   <see cref="PointerGate"/> ask it too.
+    ///   of the panel itself (<see cref="OverControlAt"/>), and <see cref="WorkbenchControlSample"/> asks it too.
+    ///   (So did the 4.x board's arbiter of the mouse, until Part 16a.)
     /// - *Keyboard.* A focused shell text field is not the event system's selection, so <see cref="UiText.Typing"/>
     ///   asks <see cref="Typing"/> as well -- derived from the panel's focus each time, never set.
     /// - *Escape and Enter in a field* let it go a frame later (<see cref="ShellTheme.Field"/>), so the press that
@@ -283,15 +283,6 @@ namespace BitSorter.View
                         return true;
                 return false;
             }
-        }
-
-        /// <summary>Whether anything of a shell panel up is under a point of the screen: <see cref="PointerGate"/>'s "over the interface".</summary>
-        public static bool OverAnyAt(Vector2 screenPoint)
-        {
-            foreach (ShellPanel shell in Live)
-                if (shell.PickAt(screenPoint) != null)
-                    return true;
-            return false;
         }
 
         /// <summary>Whether a control of a shell panel -- a button, a field, a slider -- is under a point of the screen.</summary>

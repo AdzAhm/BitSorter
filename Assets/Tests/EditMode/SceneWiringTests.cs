@@ -138,6 +138,8 @@ namespace BitSorter.LogicCore.Tests
         /// look like success.
         ///
         /// The numbers are floors rather than exact counts, so adding a component does not fail this
+        /// (they were 60 references and 20 components until Part 16a took the 4.x game out of the scene,
+        /// which left 14 references)
         /// -- but losing most of them does.
         /// </remarks>
         [Test]
@@ -145,7 +147,7 @@ namespace BitSorter.LogicCore.Tests
         {
             List<Reference> references = ReferencesInScene();
 
-            Assert.Greater(references.Count, 60,
+            Assert.Greater(references.Count, 10,
                 "the scene parse found almost no object references, so the wiring check below is " +
                 "vacuous -- most likely Unity's serialisation format changed");
 
@@ -154,11 +156,11 @@ namespace BitSorter.LogicCore.Tests
             foreach (Reference reference in references)
                 components.Add(reference.Component);
 
-            Assert.Greater(components.Count, 20,
+            Assert.Greater(components.Count, 4,
                 "far fewer BitSorter components in the scene than the builder adds");
 
             // A few the game cannot run without, named so a silent parse failure cannot pass.
-            foreach (string expected in new[] { "LevelSession", "SimulationRunner", "ProgressTracker" })
+            foreach (string expected in new[] { "WorkbenchPanel", "SettingsPanel", "GameAudio" })
             {
                 CollectionAssert.Contains(components, expected,
                     expected + " is missing from the saved scene");

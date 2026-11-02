@@ -67,7 +67,8 @@ namespace BitSorter.PlayMode.Tests
 
         private static IEnumerator Click(string name)
         {
-            // The workbench's toolbar is the shell's (Part 11a): a button there is pressed as Enter on it would.
+            // The workbench's toolbar is the shell's (Part 11a): a button there is pressed as Enter on it would. The
+            // circuit window's own buttons, FIT among them, are uGUI.
             UnityEngine.UIElements.Button shell = ShellPanel.Find<UnityEngine.UIElements.Button>(name);
             if (shell != null)
             {
@@ -82,13 +83,6 @@ namespace BitSorter.PlayMode.Tests
 
             yield return null;
             yield return null;
-        }
-
-        private static IEnumerator OpenTheWorkbench()
-        {
-            Assert.IsTrue(Find<MainMenu>().IsOpen, "sanity: the game should boot into the main menu");
-            yield return Click(MainMenu.WorkbenchButton);
-            Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "the Workbench row did not open the workbench");
         }
 
         private static Color Drawn(string signal)
@@ -106,14 +100,13 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator TheWorkbench_OpensFromTheMenu_PlaysFromTheStart_AndComesBackFromSettingsAsItWas()
+        public IEnumerator ACircuitOpened_PlaysFromTheStart_AndComesBackFromSettingsAsItWas()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            Assert.IsFalse(Find<MainMenu>().IsOpen, "the menu stayed up under the workbench");
-            Assert.IsTrue(workbench.Playing, "the run should start playing as the workbench opens");
+            Assert.IsTrue(workbench.IsOpen, "sanity: the game opens on the workbench");
+            Assert.IsTrue(workbench.Playing, "the run should start playing as the circuit opens");
 
             double started = workbench.Time;
             for (int frame = 0; frame < 30; frame++)
@@ -123,10 +116,9 @@ namespace BitSorter.PlayMode.Tests
             // There is no BACK since Part 15a: SETTINGS goes over the workbench, and its BACK comes back to it as it was.
             yield return Click(WorkbenchPanel.SettingsButton);
             Assert.IsTrue(workbench.IsOpen, "Settings is a page of the workbench's own (Part 15g)");
-            Assert.IsTrue(Find<SettingsPanel>().IsShowing && Find<SettingsPanel>().OverTheSimulator);
+            Assert.IsTrue(Find<SettingsPanel>().IsShowing);
             yield return Click(SettingsPanel.BackButton);
             Assert.IsTrue(workbench.IsOpen, "Settings' BACK did not come back to the workbench");
-            Assert.IsFalse(Find<MainMenu>().IsOpen, "nor to the title screen");
             Assert.IsTrue(workbench.Playing, "still playing, as it was left");
         }
 
@@ -135,7 +127,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Escape_NeverLeavesTheWorkbench()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
             yield return null;
 
             for (int press = 0; press < 2; press++)
@@ -147,7 +138,6 @@ namespace BitSorter.PlayMode.Tests
             }
 
             Assert.IsTrue(Find<WorkbenchPanel>().IsOpen, "Escape left the workbench");
-            Assert.IsFalse(Find<MainMenu>().IsOpen, "Escape went back to the title screen");
         }
 
         /// <summary>
@@ -158,7 +148,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator DraggingTheSlider_ShowsThatMomentsColours()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             SchematicPalette palette = SchematicPalette.Current;
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -188,7 +177,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Restart_StartsAgainFromNothing()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return DragTo(20f);
@@ -233,7 +221,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheKeys_PlayReplayStepZoomAndFit()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
             yield return null;
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -268,7 +255,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator PointingAtAWire_LightsItsNet_AndSaysWhatDrivesIt()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -296,7 +282,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheWheel_ZoomsAboutTheCursor_ADragMovesTheCircuit_AndFitPutsItBack()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.IsTrue(workbench.IsFitted, "the circuit should open whole");
@@ -359,7 +344,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheWheelOverTheWaveform_ZoomsTimeAboutTheCursor_AndShiftMovesThroughIt()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -413,7 +397,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AZoomedWaveform_PagesOnAfterThePlayhead_AndAReplayFollowsItAgain()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -484,7 +467,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheSampleChip_StepsThroughTheSamples_EachPlayedFromTheStart()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.AreEqual(1, workbench.Sample, "with nothing in MY CIRCUIT, the workbench should open on the reference circuit");
@@ -554,7 +536,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ABlocksPortNames_AreWrittenInsideItsBox()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(2);   // the full adder
@@ -640,7 +621,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ShiftAndAClickOnTheWaves_SeeksThePlayhead_SnappedToAnEdgeOrAWholeUnit()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             int a = RowLabelled(workbench, "a");
@@ -684,7 +664,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AClick_PlacesTheCursor_AndTheSpanIsWritten()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -728,7 +707,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ARowsMenu_SetsItsRadix_XStepsIt_AndRemoveTakesItOut()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -763,7 +741,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Escape_ClosesTheRowMenuFirst_AndAClickOffItNeverSeeks()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -793,7 +770,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ARowAndItsWire_LightEachOther_AndDeleteTakesTheRowOut()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -837,7 +813,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator PlusSignal_SearchesEverySignal_AndAddsTheOneChosen()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(2);   // the full adder
@@ -882,7 +857,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AltAndAClickOnAWire_AddsItsSignal()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -917,7 +891,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Grouping_PutsRowsUnderAHeader_AClickShutsIt_AndUngroupPutsThemBack()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(2);   // the full adder
@@ -954,7 +927,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator FullNames_NameEveryRowByItsPath_AndWidenTheColumn()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -976,7 +948,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Rename_GivesARowANameOfItsOwn()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1017,7 +988,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator PlayingToTheTestbenchsStop_PausesThere_AndPlayRunsTheRunOn()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.SetSpeed(Playback.InstantSpeed);
@@ -1044,7 +1014,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheSpeed_StepsAlongItsLadder_ByKeyAndByButton()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.AreEqual("3.2 ps/s", workbench.SpeedText, "3.2 a second to begin with");
@@ -1070,7 +1039,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Step_GoesFromEdgeToEdge_OfTheSelectedRow()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowSample(3);   // the counter
@@ -1100,7 +1068,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator RunTo_PausesThePlayheadThere()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.SetSpeed(Playback.InstantSpeed);
@@ -1130,7 +1097,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheRunToField_GivesTheKeysBack_AfterEnterAndAfterEscape()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1169,7 +1135,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheRunToField_ShowsItsMomentFromItsStart_AfterALongerTimeWasTyped()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1214,7 +1179,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADoubleClickPastTheRunsEnd_ChangesNothing()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1252,7 +1216,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADoubleClickOnABitInput_FlipsIt_AndTheRunIsPlayedAgain()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1283,7 +1246,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator AReplayFinishedOutsideAFrame_IsTheRunShown()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1311,7 +1273,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADoubleClickOnABus_AsksForItsValue_AndSetsItOverTheStretch()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1341,7 +1302,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ADoubleClickOnAnOutputOrAClock_IsRefused_AndTheChipSaysWhy()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1368,7 +1328,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheUnit_ChangesByButtonAndByKey_AndEveryTimeIsWrittenInIt()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1396,7 +1355,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator UndoAndRedo_ByKey_TakeAnEditBackAndMakeItAgain()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1434,7 +1392,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator E_SavesTheRunAsAVcd_AndTheChipSaysWhere()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1471,7 +1428,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator ThePng_IsTheWaveformInSchematicLight_WhateverLookIsOnScreen()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1514,7 +1470,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator BreakOnValue_FromARowsMenu_PausesWhereTheSignalTakesIt()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();
@@ -1553,7 +1508,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator TheMenuForAMoment_SetsABreakpointThere_AndTakesItAway()
         {
             yield return TestScene.Load();
-            yield return OpenTheWorkbench();
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.Pause();

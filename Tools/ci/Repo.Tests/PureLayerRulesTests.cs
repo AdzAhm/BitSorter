@@ -29,9 +29,6 @@ namespace BitSorter.Ci.Tests
             ["Sim"] = new[] { "BitSorter.SystemVerilog" },
             ["Board"] = new[] { "BitSorter.SystemVerilog", "BitSorter.Sim" },
             ["ViewModel"] = new[] { "BitSorter.SystemVerilog", "BitSorter.Sim", "BitSorter.Board" },
-
-            // The 4.x engine, frozen until it is deleted. Held to the asmdef rule only.
-            ["LogicCore"] = new string[0],
         };
 
         private static readonly string[] NewLayers = { "SystemVerilog", "Sim", "Board", "ViewModel" };

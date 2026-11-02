@@ -1,38 +1,30 @@
-using BitSorter.LogicCore;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace BitSorter.View
 {
     /// <summary>
-    /// Plays the game's cues by watching the things that already happen, rather than by being told.
+    /// The music: one of the generated tracks while the simulator is up, and the recordings while Settings or the credits are
+    /// -- off until the player switches it on (Part 15a). Polled, as everything that watches the screen here is.
     /// </summary>
     /// <remarks>
-    /// Every source here is a counter or a state that some other component already maintains, polled
-    /// against a cached copy -- the idiom the renderers all use. Nothing needed an event, and nothing
-    /// in LogicCore or SimulationRunner had to change to make a sound.
+    /// The 4.x game's cues -- a tick, a gate firing, a bit landing, a collision, a solve -- went with its board in Part 16a,
+    /// and with them the EFFECTS switch, which had nothing left to switch. The track no longer changes as a level loads, since
+    /// none does: a session plays the one its shuffle deals first.
     ///
-    /// Needs an AudioListener in the scene or every cue plays to nobody, silently and with no
-    /// warning. The scene builder puts one on the camera.
+    /// Needs an AudioListener in the scene or the music plays to nobody, silently and with no warning. The scene builder puts
+    /// one on the camera.
     /// </remarks>
     [RequireComponent(typeof(AudioSource))]
     public sealed class GameAudio : MonoBehaviour
     {
-        [SerializeField] private SimulationRunner _runner;
-        [SerializeField] private LevelSession _session;
-        [SerializeField] private BitRenderer _bits;
-        [SerializeField] private MainMenu _menu;
-
-        [Tooltip("The level list, which carries the menu's music too. Found by type when empty.")]
-        [SerializeField] private LevelSelectPanel _levels;
-
-        [Tooltip("The settings, which carry the menu's music too. Found by type when empty.")]
+        [Tooltip("The settings, which carry the menu's music. Found by type when empty.")]
         [SerializeField] private SettingsPanel _settings;
 
         [Tooltip("The credits, reached from the settings, which carry it too. Found by type when empty.")]
         [SerializeField] private CreditsPanel _credits;
 
-        [Tooltip("Played while the main menu is showing, one after another. Imported, not generated: " +
+        [Tooltip("Played while Settings or the credits are showing, one after another. Imported, not generated: " +
                  "see Credits.MenuMusic, which the credits roll shows.")]
         [SerializeField] private MenuTrack[] _menuTracks = System.Array.Empty<MenuTrack>();
 
@@ -51,14 +43,11 @@ namespace BitSorter.View
             public float LoudnessDb;
         }
 
-        [Tooltip("Scales every cue. Zero is silence.")]
+        [Tooltip("Scales the music. Zero is silence.")]
         [Range(0f, 1f)]
         [SerializeField] private float _masterVolume = 0.8f;
 
-        [Tooltip("Most gate cues in one frame. A wide circuit can fire many at once.")]
-        [SerializeField] private int _gateBurstLimit = 3;
-
-        [Tooltip("Seconds to fade down and back up when the track changes at a level boundary.")]
+        [Tooltip("Seconds to fade down and back up when the music changes between the simulator and Settings.")]
         [SerializeField] private float _switchSeconds = 0.7f;
 
         [Tooltip("Milliseconds per frame spent building the next track while this one plays.")]
@@ -68,7 +57,7 @@ namespace BitSorter.View
         private const int BakeSlice = 1024;
 
         /// <summary>
-        /// The per-frame budget while a level change is waiting on its track. Half a frame at 60 Hz:
+        /// The per-frame budget while the music is waiting on its track. Half a frame at 60 Hz:
         /// fast enough that the wait is a second or two, and still no frame anyone would see drop.
         /// </summary>
         private const float UrgentBakeMilliseconds = 8f;
@@ -91,10 +80,7 @@ namespace BitSorter.View
         /// </summary>
         private AudioClip _levelClip;
 
-        /// <summary>
-        /// The source the music plays on, as opposed to the one firing cues. Read-only to everyone
-        /// else; exposed so a test can ask what is playing, as <see cref="CuesPlayed"/> is.
-        /// </summary>
+        /// <summary>The source the music plays on. Read-only to everyone else; exposed so a test can ask what is playing.</summary>
         public AudioSource MusicSource => _musicSource;
 
         /// <summary>Whether the source holds a menu track.</summary>
@@ -120,36 +106,27 @@ namespace BitSorter.View
         private AudioSource _source;
         private AudioSource _musicSource;
 
-        /// <summary>The shuffle the level tracks are drawn from. Seeded once, in Awake.</summary>
+        /// <summary>The shuffle the session's track is dealt from. Seeded once, in Awake.</summary>
         private MusicBag _bag;
 
         /// <summary>Track currently loaded into the source.</summary>
         private int _track;
 
-        /// <summary>Track that should be playing. Differs from <see cref="_track"/> mid-switch.</summary>
+        /// <summary>Track that should be playing: the shuffle's first, all session.</summary>
         private int _wanted;
-
-        /// <summary>Level the current track was chosen for. Null until the first one loads.</summary>
-        private string _playingUnder;
 
         /// <summary>Fade multiplier, 0 to 1. Rides down and back up across a track change.</summary>
         private float _gain = 1f;
 
-        /// <summary>Whether the game is silenced -- the music and every cue.</summary>
+        /// <summary>Whether the game is silenced.</summary>
         /// <remarks>
         /// Kept in <see cref="Preferences"/> -- PlayerPrefs behind a redirectable seam -- rather
         /// than in the progress file. It describes this machine's
         /// speakers, not the player's circuits, and someone who copies a save to another computer
         /// should not carry a mute across with it.
         ///
-        /// The switch for the whole game, which N reaches from anywhere. Music and effects each
-        /// have their own switch under it (<see cref="MusicOn"/>, <see cref="EffectsOn"/>), asked for
-        /// in a playtest, 2026-09-26 -- this used to argue that one switch was enough, because
-        /// every cue says something the screen also says. That holds for information, not for
-        /// taste: somebody can want the music gone and the clicks kept, or the other way round.
-        ///
-        /// This used to silence only the music while the clock carried on ticking twice a second,
-        /// which is the one sound somebody reaching for mute most wants gone.
+        /// The switch for the whole game, which N reaches from anywhere; the music has its own switch under it
+        /// (<see cref="MusicOn"/>).
         ///
         /// The PlayerPrefs key still says music. Renaming it would reset the preference of anyone
         /// who had already turned the sound off, which is a worse trade than a stale key name.
@@ -170,14 +147,12 @@ namespace BitSorter.View
         /// cannot be changed by a route that forgets to update the source.
         ///
         /// The loop is muted rather than stopped, so it keeps its playback position and unmuting
-        /// does not restart the phrase from the top. The cues need no equivalent: they are fired
-        /// one at a time and <see cref="Play"/> simply declines to fire them.
+        /// does not restart the phrase from the top.
         /// </remarks>
         public void SetMuted(bool muted) => Muted = muted;
 
         /// <summary>Where <see cref="MusicOn"/> is kept: the audio tests switch it on, since it starts off (Part 15a).</summary>
         public const string MusicKey = "bitsorter.music.on";
-        private const string EffectsKey = "bitsorter.effects.on";
 
         /// <summary>Whether the music plays when the sound is on. Off until the player switches it on (Part 15a).</summary>
         /// <remarks>
@@ -194,18 +169,8 @@ namespace BitSorter.View
             private set => Preferences.SetInt(MusicKey, value ? 1 : 0);
         }
 
-        /// <summary>Whether the sound effects play when the sound is on. See <see cref="MusicOn"/>.</summary>
-        public static bool EffectsOn
-        {
-            get => Preferences.GetInt(EffectsKey, 1) != 0;
-            private set => Preferences.SetInt(EffectsKey, value ? 1 : 0);
-        }
-
         /// <summary>Switches the music, and remembers it. Applied by the next frame's DriveMusic.</summary>
         public void SetMusic(bool on) => MusicOn = on;
-
-        /// <summary>Switches the sound effects, and remembers it.</summary>
-        public void SetEffects(bool on) => EffectsOn = on;
 
         /// <summary>Whether the music source should be silent: the sound off, or the music.</summary>
         private static bool MusicSilent => Muted || !MusicOn;
@@ -215,11 +180,9 @@ namespace BitSorter.View
         /// <summary>The volume a machine starts at: all of the game's own mix.</summary>
         public const int DefaultVolume = 100;
 
-        /// <summary>The player's volume, 0 to 100 percent, over the music and every cue alike.</summary>
+        /// <summary>The player's volume, 0 to 100 percent.</summary>
         /// <remarks>
-        /// One volume for everything, for the reason there is one mute: every cue says something the
-        /// screen also says, so there is nothing to gain from balancing the two. It scales the
-        /// game's own mix rather than replacing it, so 100 is exactly how the game sounded before
+        /// It scales the game's own mix rather than replacing it, so 100 is exactly how the game sounded before
         /// there was a slider. Kept in <see cref="Preferences"/> beside the mute, and like the mute
         /// it describes this machine's speakers, not the player's progress -- a reset keeps it.
         /// </remarks>
@@ -245,28 +208,16 @@ namespace BitSorter.View
         /// <summary>Writes out a volume staged during a drag.</summary>
         public static void KeepVolume() => Preferences.Save();
 
-        /// <summary>The scale every sound is played at: the game's own mix, times the player's volume.</summary>
+        /// <summary>The scale the music is played at: the game's own mix, times the player's volume.</summary>
         private float Master => _masterVolume * Volume / 100f;
-
-        private int _tick = -1;
-        private int _gatesFired;
-        private int _binsLanded;
-        private int _corrupted;
-        private RunState _state = RunState.Editing;
 
         private void Awake()
         {
-            if (_runner == null) _runner = FindFirstObjectByType<SimulationRunner>();
-            if (_session == null) _session = FindFirstObjectByType<LevelSession>();
-            if (_bits == null) _bits = FindFirstObjectByType<BitRenderer>();
-            if (_menu == null) _menu = FindFirstObjectByType<MainMenu>();
-            if (_levels == null) _levels = FindFirstObjectByType<LevelSelectPanel>();
             if (_settings == null) _settings = FindFirstObjectByType<SettingsPanel>();
             if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
 
-            // The seed is the only random thing about the music: a different shuffle per session,
-            // so two evenings on the same levels are not the same evening, and which of the menu's
-            // tracks the game opens on. Everything after it is deterministic.
+            // The seed is the only random thing about the music: which track a session plays, and which of the
+            // recordings Settings opens on. Everything after it is deterministic.
             int seed = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
 
             _bag = new MusicBag(ProceduralAudio.MusicTracks, seed);
@@ -276,28 +227,6 @@ namespace BitSorter.View
             _source = GetComponent<AudioSource>();
             _source.playOnAwake = false;
             _source.spatialBlend = 0f;   // 2D; the board is not a place
-        }
-
-        /// <summary>
-        /// A level load is the only thing that moves the music on.
-        /// </summary>
-        /// <remarks>
-        /// Subscribed in OnEnable, which runs before every Start -- including
-        /// <see cref="LevelSession"/>'s, where the first level loads. So the first event can
-        /// arrive before <see cref="Start"/> below has built the music source at all, and the
-        /// handler has to be safe with none. <see cref="MusicRules.ChangesTrack"/> is what makes
-        /// it so: with nothing playing under a level yet, the first load changes nothing.
-        /// </remarks>
-        private void OnEnable()
-        {
-            if (_session != null)
-                _session.LevelLoaded += OnLevelLoaded;
-        }
-
-        private void OnDisable()
-        {
-            if (_session != null)
-                _session.LevelLoaded -= OnLevelLoaded;
         }
 
         /// <summary>
@@ -317,16 +246,6 @@ namespace BitSorter.View
                 Destroy(_ready);
         }
 
-        private void OnLevelLoaded(LevelDefinition level)
-        {
-            string key = _session != null ? _session.LevelName : null;
-
-            if (MusicRules.ChangesTrack(_playingUnder, key))
-                _wanted = _bag.Advance();
-
-            _playingUnder = key;
-        }
-
         /// <summary>
         /// Builds the music source. Always -- whether the player wants to hear it is
         /// <see cref="Muted"/>'s business, not this method's.
@@ -339,12 +258,10 @@ namespace BitSorter.View
         /// </remarks>
         private void Start()
         {
-            // Its own source, not PlayOneShot. The loop needs to hold a playback position and be
-            // stoppable, and mixing it into the cue source would have every collision duck it.
+            // Its own source: the loop needs to hold a playback position and be stoppable.
             //
-            // Nothing is put on it yet. Whether the first thing heard is a menu track or a level
-            // track depends on whether the main menu is up, and that is only known once every Start
-            // has run -- the menu opens itself in its own. The first DriveMusic decides.
+            // Nothing is put on it yet. Whether the first thing heard is a recording or the generated track depends on
+            // whether Settings is up, and that is only known once every Start has run. The first DriveMusic decides.
             _musicSource = gameObject.AddComponent<AudioSource>();
             _musicSource.playOnAwake = false;
             _musicSource.spatialBlend = 0f;
@@ -354,124 +271,36 @@ namespace BitSorter.View
 
         private void Update()
         {
-            // Before the readiness check: muting should work on the menu, where there is no graph.
             Keyboard keyboard = UiText.Keyboard;
 
             if (keyboard != null && keyboard.nKey.wasPressedThisFrame)
                 ToggleMute();
 
-            // Before the readiness check too: a track change is triggered by a level load, and a
-            // level load is exactly the moment the runner is briefly not ready.
             DriveMusic();
-
-            if (_runner == null || !_runner.IsReady)
-                return;
-
-            SimulationView view = _runner.View;
-
-            ReadClock(view);
-            ReadCollisions(view);
-            ReadBits();
-            ReadVerdict();
         }
 
         /// <summary>
-        /// One tick, one click.
+        /// Builds the session's track a little each frame, so it is ready before it is wanted.
         /// </summary>
         /// <remarks>
-        /// Reads CurrentTick rather than hooking the tick loop, so the runner keeps knowing nothing
-        /// about audio. A rebuild resets the tick to zero, which shows up here as the count going
-        /// backwards and is simply re-baselined rather than played.
-        /// </remarks>
-        private void ReadClock(SimulationView view)
-        {
-            int now = view.CurrentTick;
-
-            if (now == _tick)
-                return;
-
-            bool advanced = now > _tick && _tick >= 0;
-            _tick = now;
-
-            if (advanced)
-                Play(Cue.Tick);
-        }
-
-        private void ReadCollisions(SimulationView view)
-        {
-            int now = view.CorruptedCount;
-
-            if (now > _corrupted)
-                Play(Cue.Collide);   // same frame as the meter's punch and the spark burst
-
-            _corrupted = now;
-        }
-
-        private void ReadBits()
-        {
-            if (_bits == null)
-                return;
-
-            // Capped. A wide circuit can fire six gates on one tick, and six copies of the same clip
-            // in one frame is a click, not six sounds.
-            int gates = Mathf.Min(_bits.GateFiredCount - _gatesFired, _gateBurstLimit);
-            for (int i = 0; i < gates; i++)
-                Play(Cue.Gate);
-
-            _gatesFired = _bits.GateFiredCount;
-
-            int landed = Mathf.Min(_bits.BinLandedCount - _binsLanded, _gateBurstLimit);
-            for (int i = 0; i < landed; i++)
-                Play(Cue.Land);
-
-            _binsLanded = _bits.BinLandedCount;
-        }
-
-        private void ReadVerdict()
-        {
-            if (_session == null)
-                return;
-
-            RunState now = _session.State;
-
-            if (now != _state && now == RunState.Passed)
-                Play(Cue.Win);
-
-            _state = now;
-        }
-
-        /// <summary>
-        /// Builds the next track a little each frame, so it is ready before it is wanted.
-        /// </summary>
-        /// <remarks>
-        /// The next track is the one being switched to if a switch is under way, and otherwise the
-        /// one the shuffle will deal next. Building one takes a few hundred milliseconds; spread at a
-        /// couple of milliseconds a frame it is done in a few seconds, long before a player finishes
-        /// a level, and nobody sees it happen.
-        ///
-        /// At most two tracks are held: the one playing and the one ready -- plus, while it is being
-        /// built, the buffer it is built in. Every track used to stay for the session, which at two
-        /// dozen tracks is more browser heap than the whole game otherwise uses.
+        /// Building one takes a few hundred milliseconds; spread at a couple of milliseconds a frame it is done in a few
+        /// seconds, and nobody sees it happen. Only the one track a session plays is built: in 4.x the next level's was built
+        /// ahead too, and with no level changes it would be a second track held for nothing.
         /// </remarks>
         private void BakeAhead(bool urgent)
         {
             if (_bag == null)
                 return;
 
-            // The level track still to be built comes first: none yet, at boot under the menu, or
-            // the one a level change is switching to. Otherwise, the one the shuffle deals next.
-            int next = _levelClip == null || _wanted != _track ? _wanted : _bag.PeekNext();
-
-            // A bag of one: the next track is this one, already built, and there is nothing to do.
+            int next = _wanted;
             if (_levelClip != null && next == _track)
-                return;
+                return;   // built and on the source
 
             if (_ready != null)
             {
                 if (_readyTrack == next)
                     return;
 
-                // The shuffle moved on past it -- two level changes inside one build.
                 Destroy(_ready);
                 _ready = null;
                 _readyTrack = -1;
@@ -498,9 +327,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// It always is by the time a switch reaches here, because <see cref="DriveMusic"/> holds a
-        /// switch until the track is built. The one exception is the very first frame, when there
-        /// is no main menu to play over the wait: the build is finished on the spot, at startup,
-        /// as it always was.
+        /// switch until the track is built. The one exception is the very first frame: the build is finished on the spot,
+        /// at startup, as it always was.
         /// </remarks>
         private AudioClip TakeClip(int track)
         {
@@ -653,27 +481,22 @@ namespace BitSorter.View
             Mathf.Pow(10f, (ProceduralAudio.MusicLoudnessDb - _menuTracks[_menuTrack].LoudnessDb) / 20f);
 
         /// <summary>
-        /// Whether the menu's own music should be playing: a menu is up, and there is some.
+        /// Whether the recordings should be playing: Settings or the credits are up, and there are some.
         /// </summary>
         /// <remarks>
         /// Polled, the house pattern, rather than told. Without menu tracks -- a scene built without
-        /// them -- the menu simply plays the level music, as it did before it had any of its own.
-        /// Which panels count is <see cref="MusicRules.WantsMenuMusic"/>'s to say.
+        /// them -- Settings simply plays the generated music.
         /// </remarks>
         private bool MenuWanted =>
-            MusicRules.WantsMenuMusic(
-                _menu != null && _menu.IsOpen,
-                _levels != null && _levels.IsShowing,
-                (_settings != null && _settings.IsShowing) || (_credits != null && _credits.IsShowing)) &&
+            ((_settings != null && _settings.IsShowing) || (_credits != null && _credits.IsShowing)) &&
             _menuTracks != null && _menuTracks.Length > 0 && _menuTracks[_menuTrack].Clip != null;
 
         /// <summary>
-        /// Puts the right thing on the source: the current menu track, or the level's track.
+        /// Puts the right thing on the source: the current menu track, or the session's generated track.
         /// </summary>
         /// <remarks>
-        /// The level's clip is kept while the menu plays, so going back to the level resumes the
-        /// same track -- the track changes only when the level does. Any other level clip this
-        /// replaces is destroyed: nothing caches tracks, so one left behind would be three megabytes
+        /// The generated clip is kept while a recording plays, so going back resumes the same track. Any other
+        /// clip this replaces is destroyed: nothing caches tracks, so one left behind would be three megabytes
         /// held until the game closed. A menu track is an imported asset and is never destroyed;
         /// leaving it unloads its audio data instead -- compressed, never decoded: in a browser the
         /// file the <c>audio</c> element plays, which is most of its cost there.
@@ -743,14 +566,11 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Puts the menu's next track on the source: the session's random pick the first time, and
-        /// the other one every time after -- when one ends, and every time the menu is opened again.
+        /// Puts the next recording on the source: the session's random pick the first time, and
+        /// the other one every time after -- when one ends, and every time Settings is opened again.
         /// </summary>
         /// <remarks>
-        /// Opening the menu used to start the same track from the top every time, and the other was
-        /// only heard if the menu stayed up until the first had finished. Moving on at every start
-        /// means a player who dips into the menu hears both, and never the same opening twice
-        /// running.
+        /// Moving on at every start means a player who dips into Settings hears both, and never the same opening twice running.
         /// </remarks>
         private void PutMenuTrackOn()
         {
@@ -766,28 +586,6 @@ namespace BitSorter.View
             _musicSource.loop = false;   // they take turns rather than looping
             _onMenu = true;
             _menuStarted = false;
-        }
-
-        /// <summary>
-        /// How many cues have actually been played this session.
-        /// </summary>
-        /// <remarks>
-        /// A counter to watch, exactly like the `GateFiredCount` this class already polls off
-        /// <see cref="BitRenderer"/>. A one-shot is fired and forgotten, so there is otherwise
-        /// nothing to ask about whether the game made a sound -- and "mute actually silences the
-        /// cues, not only the music" is the one thing about this class worth proving.
-        /// </remarks>
-        public int CuesPlayed { get; private set; }
-
-        private void Play(Cue cue)
-        {
-            float master = Master;
-
-            if (Muted || !EffectsOn || _source == null || master <= 0f)
-                return;
-
-            _source.PlayOneShot(ProceduralAudio.Clip(cue), ProceduralAudio.VolumeOf(cue) * master);
-            CuesPlayed++;
         }
     }
 }

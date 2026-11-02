@@ -2,30 +2,31 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using BitSorter.LogicCore;
 using BitSorter.View;
 using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
-using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// Screenshots of the game in a fixed set of states, for judging how it looks.
+    /// Screenshots of the simulator in a fixed set of states, for judging how it looks.
     /// </summary>
     /// <remarks>
     /// Not a test of behaviour, and <see cref="ExplicitAttribute"/> so it never runs as part of the
     /// suite: it runs when asked for by name, from <c>BitSorter/Capture Reference Shots</c>.
     ///
     /// It is a Play Mode fixture rather than a menu item that drives the game, because driving the
-    /// game is playing it. Loading a level, placing gates and running a circuit go through
-    /// <see cref="ProgressTracker"/> exactly as a player's would -- and the first screenshots of
-    /// this redesign were taken that way, by hand, and marked half-adder solved on the
+    /// game is using it. Opening an exercise, placing gates and checking a circuit go through
+    /// <see cref="ProgressTracker"/> exactly as a student's would -- and the first screenshots of
+    /// the 4.x redesign were taken that way, by hand, and marked half-adder solved on the
     /// developer's own save with a stranger's circuit as its best. A fixture gets
     /// <see cref="SaveGuard"/>, analytics switched off and a clean scene for nothing.
+    ///
+    /// Shots 1 to 26 but 17 and 18 were of the 4.x game, and went with it in Part 16a; the numbers of the rest stand, so a
+    /// shot keeps its name across captures.
     ///
     /// Every frame is exactly <see cref="FrameSeconds"/> of game time, so each shot lands on the
     /// same animation phase however fast the editor happens to render. That is what makes two
@@ -41,20 +42,14 @@ namespace BitSorter.PlayMode.Tests
     ///
     /// An <see cref="InputTestFixture"/>, so the real mouse and keyboard are not in the picture.
     /// The game reads whatever pointer there is, and so did the capture: a click on the Game view
-    /// during a run put a refusal toast into two shots, and a pointer resting over the help badge
-    /// tinted it in two more -- both from someone using the editor while it ran.
+    /// during a run put a refusal toast into two shots of the 4.x board, and a pointer resting over
+    /// its help badge tinted it in two more -- both from someone using the editor while it ran.
     /// </remarks>
     [TestFixture, Explicit("Captures reference screenshots. Run on purpose, never as part of the suite.")]
     public class ReferenceShots : InputTestFixture
     {
         /// <summary>Game time per frame while capturing.</summary>
         private const float FrameSeconds = 1f / 120f;
-
-        /// <summary>The level most shots are staged on: two sources, two sinks, two gates.</summary>
-        private const string Level = "half-adder";
-
-        private static readonly Vector2Int High = new Vector2Int(0, 1);
-        private static readonly Vector2Int Low = new Vector2Int(0, -1);
 
         /// <summary>
         /// The look asked for, by <see cref="Look.Name"/>. "current" means whatever the game draws
@@ -102,7 +97,7 @@ namespace BitSorter.PlayMode.Tests
             SaveGuard.Release();
         }
 
-        /// <summary>The real scene, with the board's bloom set for the look being captured.</summary>
+        /// <summary>The real scene on the reference circuit (<see cref="TestScene.Load"/>), with the bloom set for the look being captured.</summary>
         private static IEnumerator LoadTheGame()
         {
             yield return TestScene.Load();
@@ -110,10 +105,13 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The moment every ambient pulse is shown at: the top of a collision warning's throb, so
-        /// the collision shot shows the warning at its clearest.
+        /// The moment every ambient pulse is shown at -- a caret's blink, a hint's breath.
         /// </summary>
-        private static float PinnedMoment => 1f / (4f * PortState.WarningHz);
+        /// <remarks>
+        /// The top of the 4.x board's collision warning's throb, at 3.5 Hz, so the collision shot showed the warning at its
+        /// clearest. The warning went with the 4.x game in Part 16a; the moment stays, so no shot moved with it.
+        /// </remarks>
+        private static float PinnedMoment => 1f / (4f * 3.5f);
 
         /// <summary>A keyboard and a mouse of the fixture's own, the mouse parked off the screen.</summary>
         /// <remarks>
@@ -173,404 +171,9 @@ namespace BitSorter.PlayMode.Tests
         // The shots
         // -----------------------------------------------------------------
 
-        /// <summary>The first thing anyone sees.</summary>
-        [UnityTest]
-        public IEnumerator Shot01_MainMenu()
-        {
-            yield return LoadTheGame();
-            yield return Frames(30);
-
-            Assert.IsTrue(UiModal.AnyOpen, "sanity: the game boots into the main menu");
-
-            yield return Capture("01-menu");
-        }
-
-        /// <summary>A finished circuit that has not been run: the parts list, the controls, the board.</summary>
-        [UnityTest]
-        public IEnumerator Shot02_Building()
-        {
-            yield return OpenOnTheBoard();
-            yield return BuildTheHalfAdder(wireEverything: true);
-            yield return Frames(30);
-
-            yield return Capture("02-building");
-        }
-
-        /// <summary>Bits part-way along their wires, on both stages of the circuit.</summary>
-        [UnityTest]
-        public IEnumerator Shot03_Running()
-        {
-            yield return OpenOnTheBoard();
-            yield return BuildTheHalfAdder(wireEverything: true);
-
-            Find<LevelSession>().Run();
-            yield return UntilTick(2);
-            yield return HalfATick();
-
-            Assert.Greater(BitsInFlight(), 0, "the run shot has no bits in flight");
-
-            yield return Capture("03-running");
-        }
-
         /// <summary>
-        /// A bit one tick from an occupied port: the warning throb on port, wire and bit at once.
-        /// </summary>
-        /// <remarks>
-        /// An AND with only one input wired. The first bit lands and waits, because the gate has
-        /// nothing on its other input; the second is on the wire behind it with nowhere to go.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot04_CollisionOneTickOut()
-        {
-            yield return OpenOnTheBoard();
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
-            int and = NodeOn(runner, Low);
-            Wire(session, runner.FixtureNodeIds["a"], and, 0);
-            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
-
-            session.Run();
-
-            // Advanced until the warning is up rather than to a tick worked out by hand, then held
-            // half a tick so the throb is caught between beats.
-            for (int frame = 0; frame < 2000 && !AnyCollisionImminent(runner); frame++)
-                yield return null;
-
-            Assert.IsTrue(AnyCollisionImminent(runner), "nothing on the board is about to collide");
-
-            yield return HalfATick();
-
-            Assert.IsTrue(AnyCollisionImminent(runner),
-                "the collision warning was gone half a tick later, so the shot would show nothing");
-
-            yield return Capture("04-collision");
-        }
-
-        /// <summary>The solved card over the board it was solved on.</summary>
-        [UnityTest]
-        public IEnumerator Shot05_Solved()
-        {
-            yield return OpenOnTheBoard();
-            yield return BuildTheHalfAdder(wireEverything: true);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            session.Run();
-
-            for (int tick = 0; tick < 100 && !runner.IsIdle(); tick++)
-                runner.StepOneTick();
-
-            yield return Frames(30);
-
-            Assert.AreEqual(RunState.Passed, session.State, "sanity: the half adder should pass");
-            Assert.IsTrue(Find<WinPanel>().IsShowing, "sanity: the solved card should be up");
-
-            yield return Capture("05-solved");
-        }
-
-        /// <summary>The level list, with both chapters and a few levels already solved.</summary>
-        [UnityTest]
-        public IEnumerator Shot06_LevelList()
-        {
-            yield return OpenOnTheBoard();
-
-            // Solved on the scratch save, so the list shows both kinds of row.
-            ProgressStore store = Find<ProgressTracker>().Store;
-            foreach (string level in new[] { "route-the-bit", "balance-the-paths", "the-long-way-round" })
-                store.MarkComplete(level);
-
-            Find<LevelSelectPanel>().Open();
-            yield return Frames(30);
-
-            Assert.IsTrue(Find<LevelSelectPanel>().IsShowing, "sanity: the list should be open");
-
-            yield return Capture("06-levels");
-        }
-
-        /// <summary>Free play, with its setup panel docked down the right.</summary>
-        [UnityTest]
-        public IEnumerator Shot07_FreePlay()
-        {
-            yield return OpenOnTheBoard();
-
-            Find<SandboxPanel>().Open();
-            yield return Frames(30);
-
-            Assert.AreEqual(SandboxLevel.Key, Find<LevelSession>().LevelName, "sanity: free play did not load");
-
-            yield return Capture("07-freeplay");
-        }
-
-        /// <summary>The help panel, open over a built board: the hint and the level's truth table.</summary>
-        [UnityTest]
-        public IEnumerator Shot08_Help()
-        {
-            yield return OpenOnTheBoard();
-            yield return BuildTheHalfAdder(wireEverything: true);
-
-            Press("Help badge");
-            yield return Frames(30);
-
-            Assert.IsTrue(IsUp("Help"), "sanity: the help panel should be open");
-
-            yield return Capture("08-help");
-        }
-
-        /// <summary>The chapter card, on the first level whose parts list holds a register.</summary>
-        [UnityTest]
-        public IEnumerator Shot09_ChapterCard()
-        {
-            yield return OpenOnTheBoard();
-            yield return LoadAndBuild(FirstRegisterLevel);
-            yield return Frames(30);
-
-            Assert.IsTrue(Find<ChapterCard>().IsShowing, "sanity: the chapter card should be up");
-
-            yield return Capture("09-chapter");
-        }
-
-        /// <summary>A clocked level being built: the register in the parts list, and the clock's pips.</summary>
-        [UnityTest]
-        public IEnumerator Shot10_Clocked()
-        {
-            yield return OpenOnTheBoard();
-            Find<ProgressTracker>().Store.MarkMilestone(ChapterCard.Milestone);
-
-            yield return LoadAndBuild(ClockedLevel);
-            yield return Frames(30);
-
-            Assert.IsFalse(Find<ChapterCard>().IsShowing, "sanity: the chapter card should have been seen");
-            Assert.IsTrue(IsUp("Clock"), "sanity: a clocked level shows its clock");
-
-            yield return Capture("10-clocked");
-        }
-
-        /// <summary>The tutorial's intro strip, holding the board until START or SKIP.</summary>
-        /// <remarks>
-        /// On a save with no tutorial milestone, closing the menu starts the tutorial by itself --
-        /// which is the way almost every player first meets it.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot11_TutorialIntro()
-        {
-            yield return LoadTheGame();
-            FixTheSparks();
-            Find<MainMenu>().Show(false);
-
-            for (int frame = 0; frame < 120 && !TutorialDirector.HoldingTheBoard; frame++)
-                yield return null;
-
-            Assert.IsTrue(TutorialDirector.HoldingTheBoard, "sanity: the tutorial should be on its intro");
-
-            yield return Frames(30);
-            yield return Capture("11-tutorial");
-        }
-
-        /// <summary>The card the tutorial ends on: every control, in two columns.</summary>
-        [UnityTest]
-        public IEnumerator Shot12_TutorialCard()
-        {
-            yield return OpenOnTheBoard();
-
-            Find<TutorialCard>().Show(true);
-            yield return Frames(30);
-
-            Assert.IsTrue(Find<TutorialCard>().IsShowing, "sanity: the tutorial's card should be up");
-
-            yield return Capture("12-tutorial-card");
-        }
-
-        /// <summary>
-        /// A first-time hint, on the row under the banner, raised by what the board did.
-        /// </summary>
-        /// <remarks>
-        /// The board from the collision shot: an AND fed on one input only, so its first bit waits
-        /// for a partner that never comes and the bits behind it pile up. Whichever lesson that
-        /// raises first -- a stall or a collision -- is the one pictured; both are drawn the same way.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot13_FirstTimeHint()
-        {
-            yield return OpenOnTheBoard();
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
-            int and = NodeOn(runner, Low);
-            Wire(session, runner.FixtureNodeIds["a"], and, 0);
-            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
-
-            session.Run();
-
-            HintBanner hint = Find<HintBanner>();
-
-            for (int frame = 0; frame < 3000 && !hint.IsShowing; frame++)
-                yield return null;
-
-            Assert.IsTrue(hint.IsShowing, "no first-time hint came up");
-
-            yield return Frames(30);
-            yield return Capture("13-hint");
-        }
-
-        /// <summary>
-        /// A register holding a 1 mid-run, with the 0 it started with on its way out: the one
-        /// shot of a machine's state.
-        /// </summary>
-        /// <remarks>
-        /// Added when bits started saying their value by shape. None of the other shots has a
-        /// register in it, so nothing pictured the bit a sequential level is about -- and a change
-        /// that made it unreadable would have passed every capture.
-        ///
-        /// Its first-time hint is marked seen, so the banner does not cover the board it explains.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot14_RegisterHolding()
-        {
-            yield return OpenOnTheBoard();
-
-            ProgressStore store = Find<ProgressTracker>().Store;
-            store.MarkMilestone(ChapterCard.Milestone);
-            store.MarkHintSeen(HintRules.Register);
-
-            yield return LoadAndBuild(FirstRegisterLevel);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-            var middle = new Vector2Int(0, 0);
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.Register, middle), "could not place the register");
-            int register = NodeOn(runner, middle);
-            Wire(session, runner.FixtureNodeIds["in"], register, 0);
-            Wire(session, register, runner.FixtureNodeIds["out"], 0);
-
-            session.Run();
-
-            for (int frame = 0; frame < 2000 && !Holds(runner, register, Bit.One); frame++)
-                yield return null;
-
-            Assert.IsTrue(Holds(runner, register, Bit.One), "the register never took a 1");
-
-            yield return HalfATick();
-
-            Assert.IsTrue(Holds(runner, register, Bit.One), "the register let go of its 1 within half a tick");
-            Assert.Greater(BitsInFlight(), 0, "the register shot has nothing in flight beside it");
-
-            yield return Capture("14-register");
-        }
-
-        private static bool Holds(SimulationRunner runner, int id, Bit value) =>
-            runner.View.GetNode(id) is RegisterNode register && register.State == value;
-
-        /// <summary>
-        /// The tutorial pointing at a button: the step that asks for RUN, with its ring round it.
-        /// </summary>
-        /// <remarks>
-        /// Added after a ring on the interface turned out to be a filled slab drawn over RUN, its
-        /// caption lost underneath, on exactly the step that asks for it -- and no shot had a
-        /// tutorial ring on the interface in it, so all fourteen passed.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot15_TutorialRingOnAButton()
-        {
-            yield return LoadTheGame();
-            FixTheSparks();
-            Find<MainMenu>().Show(false);
-
-            for (int frame = 0; frame < 120 && !TutorialDirector.HoldingTheBoard; frame++)
-                yield return null;
-
-            Assert.IsTrue(TutorialDirector.HoldingTheBoard, "sanity: the tutorial should be on its intro");
-
-            Find<TutorialPanel>().Next();
-            yield return Frames(2);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(Find<PlacementController>().TrySelect(TutorialLevel.Part), "could not pick up the NOT");
-            Assert.IsTrue(session.TryPlaceGate(TutorialLevel.Part, TutorialLevel.GateCell), "could not place the NOT");
-
-            int gate = NodeOn(runner, TutorialLevel.GateCell);
-            Wire(session, runner.FixtureNodeIds[TutorialLevel.SourceId], gate, 0);
-            Wire(session, gate, runner.FixtureNodeIds[TutorialLevel.SinkId], 0);
-
-            // Past the step that asks for a longer wire, whose ring is on the board, not the
-            // interface: the wire from A into the NOT, scrolled up once at its middle.
-            int source = runner.FixtureNodeIds[TutorialLevel.SourceId];
-            Vector2 middle = (PortGeometry.PositionOf(runner.PositionOf(source), false, 0, 1)
-                              + PortGeometry.PositionOf(runner.PositionOf(gate), true, 0, 1)) * 0.5f;
-            Assert.IsTrue(session.TryChangeWireDelay(middle, 1), "could not lengthen the wire");
-
-            // The step that asks for RUN, with a ring on the interface round the button.
-            for (int frame = 0; frame < 120 && !RingOnTheInterface(); frame++)
-                yield return null;
-
-            Assert.IsTrue(RingOnTheInterface(), "no ring went up on the interface");
-
-            yield return Frames(30);
-            yield return Capture("15-tutorial-ring");
-        }
-
-        /// <summary>
-        /// A collision one tick out that will take the waiting bit too: red, and the waiting bit
-        /// crossed out.
-        /// </summary>
-        /// <remarks>
-        /// The pair to the collision shot, which is the other outcome. The two were told apart by
-        /// amber and red alone until the cross; this is the shot that shows it. The same board: an
-        /// AND fed from A, whose 0 waits while a 1 comes up behind it.
-        ///
-        /// Waits for the flash of the collision before it to end, rather than for half a tick: a
-        /// port mid-flash outranks its warning, and the flash is longer than half a tick.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot16_CollisionThatTakesBoth()
-        {
-            yield return OpenOnTheBoard();
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
-            int and = NodeOn(runner, Low);
-            Wire(session, runner.FixtureNodeIds["a"], and, 0);
-            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
-
-            session.Run();
-
-            for (int frame = 0; frame < 2000 && !AnyCollisionTakesBoth(runner); frame++)
-                yield return null;
-
-            Assert.IsTrue(AnyCollisionTakesBoth(runner), "no collision coming takes the waiting bit too");
-
-            PortRenderer ports = Find<PortRenderer>();
-            var port = new PortAddress(NodeOn(runner, Low), true, 0);
-
-            // One frame first: the tick that brought this collision up also ended the one before,
-            // and whether the port has started that one's flash yet depends on which of it and the
-            // runner updated first this frame. "Not flashing" before then means "not yet".
-            yield return null;
-
-            for (int frame = 0; frame < 240 && ports.IsFlashing(port); frame++)
-                yield return null;
-
-            yield return Frames(2);
-
-            Assert.IsTrue(AnyCollisionTakesBoth(runner), "the warning was over before the last collision's flash");
-            Assert.IsTrue(ports.IsMarkedDoomed(port), "the waiting bit is not crossed out");
-
-            yield return Capture("16-collision-both");
-        }
-
-        /// <summary>
-        /// The settings, asking whether to reset: all three sections, and the one question in the
-        /// game whose answer cannot be taken back.
+        /// The settings, over the reference circuit, asking whether to reset: the one question in the game whose answer
+        /// cannot be taken back.
         /// </summary>
         [UnityTest]
         public IEnumerator Shot17_SettingsAsking()
@@ -578,7 +181,7 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.SettingsButton));
             yield return Frames(2);
 
             ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(SettingsPanel.ResetButton));   // a page of the shell's (Part 15g)
@@ -609,7 +212,7 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find("Settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.SettingsButton));
             yield return Frames(2);
 
             ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(SettingsPanel.CreditsButton));
@@ -625,198 +228,6 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("18-credits");
         }
 
-        /// <summary>The help panel's K-map: the half adder's SUM map, the same panel as shot 8's table.</summary>
-        [UnityTest]
-        public IEnumerator Shot19_HelpKMap()
-        {
-            yield return OpenOnTheBoard();
-            yield return BuildTheHalfAdder(wireEverything: true);
-
-            Press("Help badge");
-            yield return Frames(30);
-
-            Press("Help map tab sum");
-            yield return Frames(30);
-
-            Assert.IsTrue(IsUp("Help"), "sanity: the help panel should be open");
-            Assert.IsTrue(IsUp("Help map tab sum"), "sanity: the half adder should have a map for SUM");
-
-            yield return Capture("19-help-kmap");
-        }
-
-        /// <summary>
-        /// Four lanes built: the 4:1 mux as a tree of three, on the 11 by 7 board, with the waiting
-        /// select lines' delays on their wires.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Shot20_FourLanes()
-        {
-            yield return OpenOnTheBoard();
-
-            // Every shot starts from a fresh save, where the first wire given a delay raises the
-            // first-time hint about scrolling one -- over the board this shot is of. Shot 13 is the
-            // picture of a first-time hint.
-            Find<ProgressTracker>().Store.MarkHintSeen(HintRules.WireDelay);
-
-            yield return LoadAndBuild("four-lanes");
-            yield return BuildFourLanes();
-            yield return Frames(30);
-
-            Assert.AreEqual(new Vector2Int(5, 3), Find<PlacementGrid>().HalfExtents, "sanity: not on the level's own board");
-            Assert.AreEqual(21, Find<LevelSession>().Blueprint.Wires.Count, "sanity: the tree is not fully wired");
-
-            yield return Capture("20-four-lanes");
-        }
-
-        /// <summary>
-        /// Free play on a second board, named through the naming panel, with a gate wired on it: the
-        /// BOARD section with somewhere to step back to.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Shot21_NamedBoard()
-        {
-            yield return OpenOnTheBoard();
-
-            Find<SandboxPanel>().Open();
-            yield return Frames(2);
-
-            Press("Board new");
-            yield return Frames(2);
-
-            Press("Board rename");
-            yield return Frames(2);
-
-            NameBoardPanel namer = Find<NameBoardPanel>();
-            namer.SetTyped("Half adder, my way");
-            Press("Name ok");
-            yield return Frames(2);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-            var cell = new Vector2Int(0, 2);
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, cell), "could not place the XOR");
-            int xor = NodeOn(runner, cell);
-            Wire(session, runner.FixtureNodeIds["A"], xor, 0);
-            Wire(session, runner.FixtureNodeIds["B"], xor, 1);
-            Wire(session, xor, runner.FixtureNodeIds["OUT 1"], 0);
-
-            yield return Frames(30);
-
-            Assert.IsFalse(namer.IsShowing, "sanity: the naming panel should have closed");
-            Assert.AreEqual("Half adder, my way",
-                GameObject.Find("Board name").GetComponent<TMPro.TextMeshProUGUI>().text, "sanity: the name did not take");
-
-            yield return Capture("21-named-board");
-        }
-
-        /// <summary>
-        /// The three levels that open on a broken circuit, as they open: the start on the board and
-        /// START OVER on the button, before anything has been touched.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Shot22_OutOfStep() => OpensOnItsCircuit("out-of-step", "a", "22-out-of-step");
-
-        /// <inheritdoc cref="Shot22_OutOfStep"/>
-        [UnityTest]
-        public IEnumerator Shot23_WrongPart() => OpensOnItsCircuit("wrong-part", "a", "23-wrong-part");
-
-        /// <inheritdoc cref="Shot22_OutOfStep"/>
-        [UnityTest]
-        public IEnumerator Shot24_Miscount() => OpensOnItsCircuit("miscount", "in", "24-miscount");
-
-        /// <summary>
-        /// The timing diagram open mid-run, with W1 on a wire whose bits collide.
-        /// </summary>
-        /// <remarks>
-        /// Shot 04's board: an AND with only A wired in, so A's bits pile up at its first input.
-        /// A's second 0 lands on the first (only the arrival dies), then A's first 1 lands on the
-        /// held 0 (both die) -- W1 shows 0, then 0 and 1 each crossed, then the 1 that got in. The
-        /// sources run their streams above it and the bins stay empty, which is the lesson: nothing
-        /// reaches CARRY while the AND waits on an input that never comes.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator Shot25_TimingDiagram()
-        {
-            yield return OpenOnTheBoard();
-
-            // The board and the diagram, not the lessons a first collision and stall bring up.
-            ProgressStore store = Find<ProgressTracker>().Store;
-            store.MarkHintSeen(HintRules.Collision);
-            store.MarkHintSeen(HintRules.Stalled);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
-            int and = NodeOn(runner, Low);
-            int a = runner.FixtureNodeIds["a"];
-            Wire(session, a, and, 0);
-            Wire(session, and, runner.FixtureNodeIds["carry"], 0);
-
-            Edge aIntoTheAnd = null;
-
-            for (int id = 0; id < runner.View.EdgeCount; id++)
-            {
-                Edge edge = runner.View.GetEdge(id);
-
-                if (edge != null && edge.Source.Owner.Id == a && edge.Target.Owner.Id == and)
-                    aIntoTheAnd = edge;
-            }
-
-            Assert.IsNotNull(aIntoTheAnd, "sanity: A's wire into the AND was not built");
-            Assert.AreEqual(ProbeToggle.Added, Find<ProbeController>().Toggle(aIntoTheAnd), "W1 did not go in");
-
-            WaveformPanel diagram = Find<WaveformPanel>();
-            diagram.Badge.onClick.Invoke();
-            yield return Frames(2);
-
-            // Tick 4, with both collisions recorded and A's last bit still on its wire. By tick 5
-            // it has landed, nothing is in flight, and the run is over with no middle to wait for.
-            session.Run();
-            yield return UntilTick(4);
-            yield return HalfATick();
-
-            int w1 = diagram.RowCount - WaveformPanel.WireRows;
-            Assert.IsTrue(diagram.TryCell(w1, 2, out WaveCell second) && second.Collided,
-                "W1 shows no collision at tick 2, so the shot would show none");
-            Assert.IsTrue(diagram.TryCell(w1, 3, out WaveCell third) && third.Collided,
-                "W1 shows no collision at tick 3");
-
-            yield return Capture("25-timing-diagram");
-        }
-
-        /// <summary>
-        /// Four at once built and running: four full adders in boxes down a staircase on the 13 by 9
-        /// board, the carry handed from box to box and the upper columns' bits waiting on their
-        /// wires for it.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Shot26_FourAtOnce()
-        {
-            yield return OpenOnTheBoard();
-
-            // The first wire given a delay raises the first-time hint about scrolling one, over the
-            // board this shot is of, as in shot 20.
-            Find<ProgressTracker>().Store.MarkHintSeen(HintRules.WireDelay);
-
-            yield return LoadAndBuild("four-at-once");
-            BuildFourAtOnce();
-            yield return Frames(30);
-
-            LevelSession session = Find<LevelSession>();
-            Assert.AreEqual(new Vector2Int(6, 4), Find<PlacementGrid>().HalfExtents, "sanity: not on the level's own board");
-            Assert.AreEqual(4, Find<SimulationRunner>().Circuit.Blocks.Count, "sanity: not four boxes");
-            Assert.AreEqual(17, session.Blueprint.Wires.Count, "sanity: the adder is not fully wired");
-
-            // Tick 6: bit 0's sums landing, carries between the boxes, A3 and B3 still on their way.
-            session.Run();
-            yield return UntilTick(6);
-            yield return HalfATick();
-
-            yield return Capture("26-four-at-once");
-        }
-
         /// <summary>
         /// 5.0's workbench preview at 13.5 ns, two changes on their way: NOT B's fall, and the
         /// second AND's rise that the next nanosecond will swallow. The Schematic look's first shot.
@@ -827,7 +238,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -848,7 +258,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -874,7 +283,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -904,7 +312,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -940,7 +347,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -977,7 +383,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1007,7 +412,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1057,7 +461,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1131,7 +534,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1202,7 +604,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1239,7 +640,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1281,7 +681,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1311,7 +710,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1335,7 +733,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1357,7 +754,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1386,7 +782,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1415,7 +810,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1450,7 +844,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1473,7 +866,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1526,7 +918,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1562,7 +953,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1587,7 +977,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1646,7 +1035,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1681,7 +1069,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1705,7 +1092,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1734,7 +1120,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1923,7 +1308,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1951,7 +1335,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -1980,7 +1363,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2008,7 +1390,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2052,7 +1433,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2128,7 +1508,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2159,7 +1538,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2196,7 +1574,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2236,7 +1613,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2279,7 +1655,6 @@ namespace BitSorter.PlayMode.Tests
             yield return LoadTheGame();
             yield return Frames(2);
 
-            GameObject.Find(MainMenu.WorkbenchButton).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -2359,275 +1734,6 @@ namespace BitSorter.PlayMode.Tests
             session.Finish();
         }
 
-        private static IEnumerator OpensOnItsCircuit(string level, string fixture, string shot)
-        {
-            yield return LoadTheGame();
-            FixTheSparks();
-
-            // The board as it opens, not the lessons that come up over it on a first visit: the
-            // held wire-delay hint, the register's hint and the chapter card.
-            ProgressStore store = Find<ProgressTracker>().Store;
-            store.MarkMilestone(TutorialLevel.Key);
-            store.MarkMilestone(ChapterCard.Milestone);
-            store.MarkHintSeen(HintRules.WireDelay);
-            store.MarkHintSeen(HintRules.Register);
-            Find<MainMenu>().Show(false);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.LoadLevel(level), $"{level} did not load");
-
-            for (int frame = 0; frame < 60 && !runner.FixtureNodeIds.ContainsKey(fixture); frame++)
-                yield return null;
-
-            Assert.IsTrue(session.HasStart && session.IsAtStart, $"sanity: {level} did not open on its circuit");
-
-            yield return Frames(30);
-            yield return Capture(shot);
-        }
-
-        private static bool AnyCollisionTakesBoth(SimulationRunner runner)
-        {
-            for (int id = 0; id < runner.View.EdgeCount; id++)
-            {
-                Edge edge = runner.View.GetEdge(id);
-
-                if (edge != null && PortState.WillCollide(edge, out bool heldBitDies) && heldBitDies)
-                    return true;
-            }
-
-            return false;
-        }
-
-        // -----------------------------------------------------------------
-        // Staging
-        // -----------------------------------------------------------------
-
-        /// <summary>The first level with a register in its parts list, where the chapter card fires.</summary>
-        private const string FirstRegisterLevel = "one-clock-late";
-
-        /// <summary>The first level with a clock -- a register alone needs none; a loop does.</summary>
-        private const string ClockedLevel = "flip-on-one";
-
-        /// <summary>Loads a level and waits until the board has been built from it.</summary>
-        private static IEnumerator LoadAndBuild(string level)
-        {
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-            int before = runner.GraphRevision;
-
-            Assert.IsTrue(session.LoadLevel(level), $"{level} did not load");
-
-            for (int frame = 0; frame < 60 && runner.GraphRevision == before; frame++)
-                yield return null;
-
-            Assert.AreNotEqual(before, runner.GraphRevision, $"{level} loaded but was never built");
-        }
-
-        /// <summary>Clicks a button on the canvas by its object's name.</summary>
-        private static void Press(string name)
-        {
-            GameObject target = GameObject.Find(name);
-            Assert.IsNotNull(target, $"sanity: there is no '{name}' on screen to press");
-
-            Button button = target.GetComponent<Button>();
-            Assert.IsNotNull(button, $"sanity: '{name}' is not a button");
-
-            button.onClick.Invoke();
-        }
-
-        /// <summary>Whether a piece of interface with this name is on screen.</summary>
-        private static bool IsUp(string name)
-        {
-            GameObject target = GameObject.Find(name);
-            return target != null && target.activeInHierarchy;
-        }
-
-        /// <summary>
-        /// Whether the tutorial has a ring up on the interface -- round a button or a parts-list
-        /// row -- rather than on the board, where its rings share the name.
-        /// </summary>
-        private static bool RingOnTheInterface()
-        {
-            foreach (Image ring in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
-            {
-                if (ring.name == "Tutorial ring" && ring.gameObject.activeInHierarchy)
-                    return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Past the menu and onto <see cref="Level"/>, with the tutorial marked as done.
-        /// </summary>
-        /// <remarks>
-        /// SaveGuard hands every test a fresh save, and a fresh save is exactly what the tutorial
-        /// offers itself on -- it would adopt its own board the moment the menu closed.
-        /// </remarks>
-        private static IEnumerator OpenOnTheBoard()
-        {
-            yield return LoadTheGame();
-            FixTheSparks();
-
-            Find<ProgressTracker>().Store.MarkMilestone(TutorialLevel.Key);
-            Find<MainMenu>().Show(false);
-
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.LoadLevel(Level), $"{Level} did not load");
-
-            for (int frame = 0; frame < 60 && !runner.FixtureNodeIds.ContainsKey("a"); frame++)
-                yield return null;
-
-            Assert.IsTrue(runner.FixtureNodeIds.ContainsKey("a"), "the level loaded but was never built");
-        }
-
-        /// <summary>
-        /// Gives every particle system the same seed, so a spark flies the same way in every run.
-        /// </summary>
-        /// <remarks>
-        /// A particle system seeds itself afresh each time it plays unless told otherwise, so two
-        /// captures of unchanged code differed by up to 129 levels in every shot with sparks in it.
-        /// Fixing the frame time made everything else repeatable; this makes the sparks repeatable
-        /// too, which is what lets a before-and-after diff mean something. The game keeps its
-        /// random sparks -- only the pictures need to repeat.
-        /// </remarks>
-        private static void FixTheSparks()
-        {
-            foreach (ParticleSystem system in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
-            {
-                // A seed may only be set on a system that is stopped and empty.
-                system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                system.useAutoRandomSeed = false;
-                system.randomSeed = 20260922;
-            }
-        }
-
-        /// <summary>
-        /// low = d0 s0' + d1 s0, high = d2 s0' + d3 s0, out = low s1' + high s1 -- the circuit
-        /// FourLanesLevelTests solves the level with.
-        /// </summary>
-        private static IEnumerator BuildFourLanes()
-        {
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            var notS1 = new Vector2Int(-3, -1);
-            var notS0 = new Vector2Int(-3, -2);
-            var andD0 = new Vector2Int(-1, 3);
-            var andD1 = new Vector2Int(-1, 2);
-            var andD2 = new Vector2Int(-1, 1);
-            var andD3 = new Vector2Int(-1, 0);
-            var orLow = new Vector2Int(1, 2);
-            var orHigh = new Vector2Int(1, 0);
-            var andLow = new Vector2Int(3, 2);
-            var andHigh = new Vector2Int(3, -1);
-            var orOut = new Vector2Int(4, 0);
-
-            foreach (Vector2Int cell in new[] { notS1, notS0 })
-                Assert.IsTrue(session.TryPlaceGate(GateKind.Not, cell), $"could not place a NOT on {cell}");
-
-            foreach (Vector2Int cell in new[] { andD0, andD1, andD2, andD3, andLow, andHigh })
-                Assert.IsTrue(session.TryPlaceGate(GateKind.And, cell), $"could not place an AND on {cell}");
-
-            foreach (Vector2Int cell in new[] { orLow, orHigh, orOut })
-                Assert.IsTrue(session.TryPlaceGate(GateKind.Or, cell), $"could not place an OR on {cell}");
-
-            int Fixture(string id) => runner.FixtureNodeIds[id];
-            int On(Vector2Int cell) => NodeOn(runner, cell);
-
-            Wire(session, Fixture("s0"), On(notS0), 0);
-            Wire(session, Fixture("d0"), On(andD0), 0, delay: 2);
-            Wire(session, On(notS0), On(andD0), 1);
-            Wire(session, Fixture("d2"), On(andD2), 0, delay: 2);
-            Wire(session, On(notS0), On(andD2), 1);
-            Wire(session, Fixture("d1"), On(andD1), 0);
-            Wire(session, Fixture("s0"), On(andD1), 1);
-            Wire(session, Fixture("d3"), On(andD3), 0);
-            Wire(session, Fixture("s0"), On(andD3), 1);
-
-            Wire(session, On(andD0), On(orLow), 0);
-            Wire(session, On(andD1), On(orLow), 1, delay: 2);
-            Wire(session, On(andD2), On(orHigh), 0);
-            Wire(session, On(andD3), On(orHigh), 1, delay: 2);
-
-            Wire(session, Fixture("s1"), On(notS1), 0);
-            Wire(session, On(orLow), On(andLow), 0);
-            Wire(session, On(notS1), On(andLow), 1, delay: 3);
-            Wire(session, On(orHigh), On(andHigh), 0);
-            Wire(session, Fixture("s1"), On(andHigh), 1, delay: 4);
-
-            Wire(session, On(andLow), On(orOut), 0);
-            Wire(session, On(andHigh), On(orOut), 1);
-            Wire(session, On(orOut), Fixture("out"), 0);
-
-            yield return null;
-        }
-
-        /// <summary>
-        /// The ripple FourAtOnceLevelTests solves the level with: bit i's A and B wait 2i + 1 ticks,
-        /// CIN two, and each box's carry out goes to the carry in of the box below.
-        /// </summary>
-        private static void BuildFourAtOnce()
-        {
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-            BlockDefinition fa = session.Level.BlockNamed("FA");
-
-            foreach (Vector2Int cell in new[] { new Vector2Int(-4, 3), new Vector2Int(-2, 1), new Vector2Int(0, -1), new Vector2Int(2, -3) })
-                Assert.IsTrue(session.TryPlaceBlock(fa, cell), $"could not place an FA on {cell}");
-
-            // Each wire rebuilds the board, so a box is looked up afresh every time. Its anchors keep
-            // their ids -- wires add edges, not nodes -- but nothing here needs to know that.
-            int Fixture(string id) => runner.FixtureNodeIds[id];
-            BuiltBlock Box(int bit) => runner.Circuit.Blocks[bit];
-
-            for (int bit = 0; bit < 4; bit++)
-            {
-                Wire(session, Fixture("a" + bit), Box(bit).InputAnchors[0], 0, delay: 2 * bit + 1);
-                Wire(session, Fixture("b" + bit), Box(bit).InputAnchors[1], 0, delay: 2 * bit + 1);
-                Wire(session, Box(bit).OutputAnchors[0], Fixture("s" + bit), 0);
-            }
-
-            Wire(session, Fixture("cin"), Box(0).InputAnchors[2], 0, delay: 2);
-
-            for (int bit = 0; bit < 3; bit++)
-                Wire(session, Box(bit).OutputAnchors[1], Box(bit + 1).InputAnchors[2], 0);
-
-            Wire(session, Box(3).OutputAnchors[1], Fixture("cout"), 0);
-        }
-
-        /// <summary>An XOR for the sum and an AND for the carry, each fed by both sources.</summary>
-        private static IEnumerator BuildTheHalfAdder(bool wireEverything)
-        {
-            LevelSession session = Find<LevelSession>();
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            Assert.IsTrue(session.TryPlaceGate(GateKind.Xor, High), "could not place the XOR");
-            Assert.IsTrue(session.TryPlaceGate(GateKind.And, Low), "could not place the AND");
-
-            int xor = NodeOn(runner, High);
-            int and = NodeOn(runner, Low);
-            int a = runner.FixtureNodeIds["a"];
-            int b = runner.FixtureNodeIds["b"];
-
-            Wire(session, a, xor, 0);
-            Wire(session, b, xor, 1);
-            Wire(session, a, and, 0);
-            Wire(session, b, and, 1);
-
-            if (wireEverything)
-            {
-                Wire(session, xor, runner.FixtureNodeIds["sum"], 0);
-                Wire(session, and, runner.FixtureNodeIds["carry"], 0);
-            }
-
-            yield return null;
-        }
-
         // -----------------------------------------------------------------
         // Time
         // -----------------------------------------------------------------
@@ -2636,41 +1742,6 @@ namespace BitSorter.PlayMode.Tests
         {
             for (int i = 0; i < count; i++)
                 yield return null;
-        }
-
-        /// <summary>Until the run has executed this many ticks, with a cap that fails loudly.</summary>
-        private static IEnumerator UntilTick(int tick)
-        {
-            SimulationRunner runner = Find<SimulationRunner>();
-
-            for (int frame = 0; frame < 2000 && runner.View.CurrentTick < tick; frame++)
-                yield return null;
-
-            Assert.GreaterOrEqual(runner.View.CurrentTick, tick, $"the run never reached tick {tick}");
-        }
-
-        /// <summary>
-        /// On to the middle of the current tick, so bits sit part-way along their wires.
-        /// </summary>
-        /// <remarks>
-        /// Waits on the runner's own progress rather than counting frames against an interval
-        /// written down here, which would be a second copy of the runner's number. Stops at the
-        /// tick boundary rather than wrapping into the next tick.
-        /// </remarks>
-        private static IEnumerator HalfATick()
-        {
-            SimulationRunner runner = Find<SimulationRunner>();
-            int tick = runner.View.CurrentTick;
-
-            for (int frame = 0; frame < 2000 && runner.TickProgress < 0.5f; frame++)
-            {
-                yield return null;
-
-                Assert.AreEqual(tick, runner.View.CurrentTick,
-                    "a whole tick went by while waiting for the middle of one");
-            }
-
-            Assert.GreaterOrEqual(runner.TickProgress, 0.5f, "the run never reached the middle of a tick");
         }
 
         // -----------------------------------------------------------------
@@ -2715,58 +1786,6 @@ namespace BitSorter.PlayMode.Tests
                 $"the screenshot '{name}' was never written -- is there a Game view to capture?");
 
             Debug.Log($"[ReferenceShots] {path}");
-        }
-
-        // -----------------------------------------------------------------
-        // Reading the board
-        // -----------------------------------------------------------------
-
-        private static int BitsInFlight()
-        {
-            SimulationRunner runner = Find<SimulationRunner>();
-            int count = 0;
-
-            for (int id = 0; id < runner.View.EdgeCount; id++)
-            {
-                Edge edge = runner.View.GetEdge(id);
-
-                if (edge != null)
-                    count += edge.InTransitCount;
-            }
-
-            return count;
-        }
-
-        private static bool AnyCollisionImminent(SimulationRunner runner)
-        {
-            for (int id = 0; id < runner.View.EdgeCount; id++)
-            {
-                Edge edge = runner.View.GetEdge(id);
-
-                if (edge != null && PortState.WillCollide(edge, out bool _))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static int NodeOn(SimulationRunner runner, Vector2Int cell)
-        {
-            for (int id = 0; id < runner.View.NodeCount; id++)
-            {
-                if (runner.TryCellOf(id, out Vector2Int at) && at == cell)
-                    return id;
-            }
-
-            Assert.Fail($"nothing on {cell}");
-            return -1;
-        }
-
-        private static void Wire(LevelSession session, int from, int to, int toPort, int delay = 1)
-        {
-            Assert.IsTrue(
-                session.TryConnect(new PortAddress(from, false, 0), new PortAddress(to, true, toPort), delay),
-                $"could not wire {from} to {to}");
         }
     }
 }

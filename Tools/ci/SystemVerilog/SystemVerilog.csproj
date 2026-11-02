@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    BitSorter 5.0's SystemVerilog layer, built without Unity, exactly as LogicCore.csproj builds the old
-    engine: the same source files, netstandard2.1 and C# 9, so code the editor would refuse is refused
-    here too. Docs/architecture-5.md says what the layer is for.
+    BitSorter 5.0's SystemVerilog layer, built without Unity: the same source files the editor compiles,
+    netstandard2.1 and C# 9, so code the editor would refuse is refused here too. Docs/architecture-5.md
+    says what the layer is for.
   -->
 
   <PropertyGroup>

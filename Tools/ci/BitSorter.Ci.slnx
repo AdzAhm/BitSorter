@@ -1,8 +1,4 @@
 <Solution>
-  <Folder Name="/4.x/">
-    <Project Path="LogicCore/LogicCore.csproj" />
-    <Project Path="LogicCore.Tests/LogicCore.Tests.csproj" />
-  </Folder>
   <Folder Name="/5.0/">
     <Project Path="SystemVerilog/SystemVerilog.csproj" />
     <Project Path="SystemVerilog.Tests/SystemVerilog.Tests.csproj" />
