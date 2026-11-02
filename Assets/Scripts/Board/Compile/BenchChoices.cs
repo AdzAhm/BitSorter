@@ -95,6 +95,44 @@ namespace BitSorter.Board
         }
 
         /// <summary>
+        /// <paramref name="project"/> with each of <paramref name="chosen"/> -- a parameter's name, one of its members -- that its
+        /// testbench offers set in its settings, as <see cref="BoardEditor.SetBenchParameter"/> sets one, but with no step and
+        /// no run: a sample, made afresh as it opens, on the program last chosen on it (Ahmad, 2026-11-02). A name the bench
+        /// has not, or a member it does not offer, is passed over, so what was remembered of an older sample never stops it
+        /// opening.
+        /// </summary>
+        public static Project Applied(Project project, IReadOnlyDictionary<string, string> chosen)
+        {
+            if (project == null || chosen == null || chosen.Count == 0)
+                return project;
+
+            ProjectSettings settings = project.Settings ?? new ProjectSettings();
+            Dictionary<string, string> values = null;
+            foreach (BenchChoice choice in Of(BoardCompiler.Compile(project), settings))
+            {
+                if (!chosen.TryGetValue(choice.Name, out string member) || member == choice.Chosen || !Offers(choice, member))
+                    continue;
+                if (values == null)
+                {
+                    values = new Dictionary<string, string>(StringComparer.Ordinal);
+                    if (settings.BenchParameters != null)
+                        foreach (KeyValuePair<string, string> pair in settings.BenchParameters)
+                            values[pair.Key] = pair.Value;
+                }
+                values[choice.Name] = member;
+            }
+            return values == null ? project : project with { Settings = settings with { BenchParameters = values } };
+        }
+
+        private static bool Offers(BenchChoice choice, string member)
+        {
+            foreach (string each in choice.Members)
+                if (each == member)
+                    return true;
+            return false;
+        }
+
+        /// <summary>
         /// The values <paramref name="given"/> sets on <paramref name="topName"/>'s own parameters, as the elaborator takes them:
         /// an enum member by name, a number as a literal. One the top cannot be given -- no such parameter, a localparam, a
         /// value that is neither -- is left out, so a testbench changed or replaced runs on its own values rather than failing.

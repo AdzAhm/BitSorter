@@ -1052,8 +1052,10 @@ failure side.
   there, never run on to where the last program's run had got to (`RunSession.RanOn`: only a run
   carried on past a `$stop` is replayed as far); the program running chosen again is no step, and
   a choice the design cannot be made with is refused in the elaborator's words. Kept with the
-  project (`ProjectSettings.BenchParameters`) -- a sample is made afresh as it opens, so it opens
-  on SUM again -- never refused by the lock, the first such parameter's alone, and given to
+  project (`ProjectSettings.BenchParameters`) -- a sample is made afresh as it opens, so the save keeps
+  the program last chosen on it, from a card, the chip or an undo of one, and puts it back as it
+  opens, no step to undo (`samplePrograms`, `BenchChoices.Applied`; Ahmad, 2026-11-02: it opened on SUM
+  every time) -- never refused by the lock, the first such parameter's alone, and given to
   ModelSim by an export as the member's value, by the testbench's path, `-G/tb/PROGRAM=1` (a bare
   `-GPROGRAM` sets every parameter of the name, a processor's image name among them; its name ModelSim reads as
   characters, and runs another program without a word), or said in a comment where only the

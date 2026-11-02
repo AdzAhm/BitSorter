@@ -4246,6 +4246,18 @@ with/against modelsim?").
   and changes it when a click lands, so the click lands somewhere else: the PROGRAM chooser, GATES' cap, the drawing and
   its code linked, stepping in and out, the controllers and COMPARE are left to be tried with it showing.
 
+**As built in M1 (morning decisions, 2026-11-02): ISA, and a sample's program remembered** (Ahmad answered the night's
+judgement calls on waking; his changes run M1 to M5 before Part 16).
+- **ISA.** The instruction test is called by its file's name: `rv_program_t` is `{SUM, FIBONACCI, ISA}`, the chip says
+  PROGRAM: ISA -- a member is shown in capitals, so no rule of `BenchChoice.Said` had to change -- and so do the start
+  page's cards.
+- **A sample opens on the program last chosen on it.** A sample is made afresh as it opens (15h-6c), so it opened on SUM
+  every time. The save keeps, for each sample, the program running whenever the chip sees it change -- chosen from a card
+  or the chip, or put back by an undo -- (`samplePrograms`, `ProgressStore.SetSampleProgram`), and
+  `BenchChoices.Applied` puts it into the sample's settings before its session opens: no step to undo, no second run, and
+  a member or a parameter the bench no longer offers passed over. Older saves read none. Held by `BenchChoicesTests` and
+  two Play Mode tests, one through a launch onto a sample planted in the save.
+
 ---
 
 ## 11. The parts

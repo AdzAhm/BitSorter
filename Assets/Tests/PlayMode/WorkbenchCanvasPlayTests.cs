@@ -3587,6 +3587,90 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen);
         }
 
+        private static int SampleIndex(string name)
+        {
+            for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+                if (WorkbenchSamples.All[i].Name == name)
+                    return i;
+            Assert.Fail("no sample " + name);
+            return -1;
+        }
+
+        /// <summary>
+        /// A sample opens on the program last chosen on it (Ahmad, 2026-11-02): it is made afresh as it opens, so the save
+        /// keeps the choice -- from a start-page card, the chip, or an undo of one -- and puts it back with no step to undo.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASample_OpensOnTheProgramLastChosenOnIt()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int index = SampleIndex("Pipelined RISC-V");
+            workbench.ShowHome();
+            yield return null;
+            yield return Click(WorkbenchPanel.ProcessorItem(index, "FIBONACCI"));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "opened on Fibonacci from its card");
+
+            IEnumerator Reopen()
+            {
+                workbench.ShowSample(1);           // another sample
+                yield return null;
+                yield return null;
+                workbench.ShowSample(index + 1);   // and back, as its name on the start page opens it
+                yield return null;
+                yield return null;
+            }
+
+            yield return Reopen();
+            Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "opened again on the program last chosen");
+            Assert.IsFalse(workbench.Session.Undo(), "put back as it opened: no step to undo");
+
+            yield return Click(WorkbenchPanel.ProgramButton);
+            yield return null;
+            yield return Click(ChoiceMenu.SlotName(2));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("ISA", workbench.Session.Choices.Single().Chosen, "ISA from the chip");
+            Assert.IsTrue(workbench.Session.Undo());
+            yield return null;
+            yield return null;
+            yield return Reopen();
+            Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "the undo remembered too: the program running is the one kept");
+
+            workbench.ShowHome();
+            yield return null;
+            yield return Click(WorkbenchPanel.ProcessorItem(index, "SUM"));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("SUM", workbench.Session.Choices.Single().Chosen, "its SUM card puts it back on SUM");
+
+            var saved = new ProgressStore(ProgressStore.DefaultPath);
+            saved.Load();
+            Assert.AreEqual("SUM", saved.SamplePrograms("Pipelined RISC-V")["PROGRAM"], "written to the save, for the next launch");
+        }
+
+        /// <summary>BitSorter launched onto a sample opens it on the program the save kept for it.</summary>
+        [UnityTest]
+        public IEnumerator ALaunchOntoASample_OpensItOnTheProgramKeptForIt()
+        {
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            store.LastOpen = Documents.SampleKey("Multicycle RISC-V");
+            store.SetSampleProgram("Multicycle RISC-V", "PROGRAM", "ISA");
+            store.SetSampleProgram("Pipelined RISC-V", "PROGRAM", "FIBONACCI");   // another sample's, which this one ignores
+            store.Save();
+
+            yield return TestScene.LoadSimulator();
+            for (int i = 0; i < 5; i++)
+                yield return null;
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.AreEqual("Multicycle RISC-V", WorkbenchSamples.Chip[workbench.Sample].Name, "sanity: launched onto the multicycle processor");
+            Assert.AreEqual("ISA", workbench.Session.Choices.Single().Chosen, "on the program kept for it");
+            Assert.IsFalse(workbench.Session.Undo(), "no step to undo");
+        }
+
         private static Rect WorldRect(RectTransform rect)
         {
             var corners = new Vector3[4];
