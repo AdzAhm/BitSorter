@@ -49,16 +49,22 @@ namespace BitSorter.Sim
         /// A memory read or written whole. A memory of 1-bit words declared with its range after the name -- logic s[1:0] --
         /// is most often a bus meant with its range before it, and is said so (Part 15i-2).
         /// </summary>
-        private static string MemoryUsedWhole(MemoryInfo memory, string name, bool written)
+        private static string MemoryUsedWhole(MemoryEntry entry, string name, bool written)
         {
+            MemoryInfo memory = entry.Memory;
             string said = written ? $"{name} is a memory: write it a word at a time, as {name}[i]."
                 : $"{name} is a memory, read a word at a time: {name}[i].";
-            if (memory.Width != 1 || memory.Depth < 2)
+            // A plain logic or bit of one bit a word, with one range after the name -- not a struct's, an enum's, nor rows of
+            // words (the review: logic s[4] and s[3:0][1:0] were told of ranges they never wrote).
+            PackedType type = entry.Type;
+            bool plain = type == null || (type.Struct == null && type.Enum == null && type.Element == null);
+            if (memory.Width != 1 || memory.Depth < 2 || !plain || (entry.Dims != null && entry.Dims.Length > 1))
                 return said;
-            string range = "[" + memory.Left.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":"
-                + memory.Right.ToString(System.Globalization.CultureInfo.InvariantCulture) + "]";
-            return said + $" With its range after its name, {name}{range} is {memory.Depth} separate 1-bit words; for a "
-                + $"{memory.Depth}-bit bus, put the range before the name: logic {range} {name}.";
+            string depth = memory.Depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string top = (memory.Depth - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string article = depth.StartsWith("8", StringComparison.Ordinal) || depth == "11" || depth == "18" ? "an" : "a";
+            return said + $" With its range after its name it is {depth} separate 1-bit words; for {article} {depth}-bit bus, " +
+                $"put the range before the name: {(type != null && type.TwoState ? "bit" : "logic")} [{top}:0] {name}.";
         }
 
         /// <summary>Whether building reported an error.</summary>
@@ -614,7 +620,7 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(32));
 
                 case MemoryEntry m:
-                    Error(e.Location, ElaborationCodes.BadSelect, MemoryUsedWhole(m.Memory, text, written: false));
+                    Error(e.Location, ElaborationCodes.BadSelect, MemoryUsedWhole(m, text, written: false));
                     return Expr.Constant(LogicVec.AllX(m.Memory.Width));
 
                 case TypeEntry _:
@@ -2885,7 +2891,7 @@ namespace BitSorter.Sim
                     return false;
 
                 case MemoryEntry m:
-                    Error(e.Location, ElaborationCodes.BadLValue, MemoryUsedWhole(m.Memory, name, written: true));
+                    Error(e.Location, ElaborationCodes.BadLValue, MemoryUsedWhole(m, name, written: true));
                     return false;
 
                 case null when e is NameExpression one && one.Path.Count == 1:

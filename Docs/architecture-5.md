@@ -4084,6 +4084,14 @@ word, and Icarus refuses the slip as well and takes it mended (`FriendlyErrorCas
   filled region. A red test came first.
 - Left as they were, already in the student's words: an instance with no name, `always_ff` with no event control. Left
   out as unsafe to answer: `&` for `&&` and a blocking `=` in an `always_ff`, both legal and sometimes meant.
+- **The Sonnet review found seven more (2026-11-02), all fixed**: a curly apostrophe before `{` was read as code but
+  neither said nor straightened; a header an include reads went out as typed (the export now straightens a project file
+  read as code -- `.sv`, `.svh`, `.v`, `.vh` -- and leaves a memory image as written); CODE lost its numbering for a module
+  with a look-alike (`CodeListing.BodyLine` now finds the text as printed); the `assign` answer was followed by a second
+  error saying the opposite (the assignment after it is now read as the one meant, and the answer names a missing `end`);
+  `logic s[4]` was told of a `[0:3]` it never wrote (the hint is now `logic [N-1:0] s`, and none for rows of words, a
+  struct's or an enum's); a straightened minus could join the character beside it (`a –-b` is written `a - -b`, the one
+  place a character becomes two); and a no-break space was read as a space with no word (said now, and straightened).
 
 ---
 

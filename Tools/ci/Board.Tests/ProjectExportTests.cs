@@ -119,6 +119,27 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        public void AnIncludedHeadersLookalikes_AreExportedAsRead_AndADataFileAsWritten()
+        {
+            // The 15i-2 review: a header an include reads is code too, and went out as typed.
+            var editor = new BoardEditor(Project.New("scratch") with
+            {
+                Files = new[]
+                {
+                    new ProjectFile { Name = "defs.svh", Text = "`define K 4’d3\n" },
+                    new ProjectFile { Name = "notes.hex", Text = "// ’ kept\n0f\n" },
+                },
+            });
+            Assert.IsTrue(editor.AddWrittenModule("m",
+                "`include \"defs.svh\"\nmodule m (output logic [3:0] y);\n    assign y = `K;\nendmodule\n").Done, "read and run, with a warning");
+            Project project = editor.Project;
+            Dictionary<string, string> files = Unzipped(ProjectExport.Zip(project, When));
+            string folder = ProjectExport.FolderOf(project);
+            Assert.AreEqual("`define K 4'd3\n", files[folder + "/defs.svh"]);
+            Assert.AreEqual("// ’ kept\n0f\n", files[folder + "/notes.hex"], "a memory image is data, written as it is");
+        }
+
+        [Test]
         public void TheProjectsOtherFiles_AreBesideTheModules_AndNotCompiled()
         {
             Project project = SampleBoards.Build("half_adder") with

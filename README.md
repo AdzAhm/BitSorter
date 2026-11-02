@@ -430,8 +430,9 @@ Ctrl+V pastes text in the code, and pastes parts only on the circuit. `?` lists
 every key. The classic first slips are answered with what to write instead: an
 `assign` inside an `always`, `logic s[1:0]` used as a bus, an `if`, `for` or `case`
 on a signal outside an `always`, an instance with no name, `always_comb @(...)`.
-Curly quotes and dashes pasted from a slide are read as `'`, `"` and `-`, with a
-warning, and exported that way, so ModelSim takes what ran here. Deleting a block
+Curly quotes, dashes and no-break spaces pasted from a slide are read as `'`, `"`,
+`-` and a space, with a warning, and exported that way -- in included headers too --
+so ModelSim takes what ran here. Deleting a block
 leaves its module, since that is your code; to delete
 the module itself, right-click its row under BLOCKS in PARTS. It asks first, and
 Ctrl+Z brings it back.

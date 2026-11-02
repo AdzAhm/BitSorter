@@ -152,7 +152,7 @@ namespace BitSorter.Board.Tests
             {
                 Name = "an instance with parameters and no name",
                 Typed = "module m (input logic a, b, output logic y);\n    and2 #(1) (.a(a), .b(b), .y(y));\nendmodule\n",
-                Line = 2, Says = "After and2 #(...), expected an instance name",
+                Line = 2, Says = "After and2 and its parameters, expected an instance name",
                 Mended = "module m (input logic a, b, output logic y);\n    and2 #(1) u1 (.a(a), .b(b), .y(y));\nendmodule\n",
                 Beside = new[] { AndTwo },
             };

@@ -1496,11 +1496,11 @@ namespace BitSorter.SystemVerilog.Syntax
             {
                 var instance = new ModuleInstance { Location = Current.Location };
                 // Its parameters given and no name after them (Part 15i-2): said as the one without parameters is.
-                if (Current.Is("(") && instantiation.Parameters.Count > 0)
+                bool unnamed = Current.Is("(") && instantiation.Parameters.Count > 0 && instantiation.Instances.Count == 0;
+                if (unnamed)
                     Error(Current.Location, DiagnosticCodes.Expected,
-                        $"After {instantiation.Module} #(...), expected an instance name -- '{instantiation.Module} #(...) u1 (...);' -- but found '('.");
-                instance.Name = Current.Is("(") && instantiation.Parameters.Count > 0 ? null
-                    : ExpectIdentifier($"a name for this {instantiation.Module}");
+                        $"After {instantiation.Module} and its parameters, expected an instance name -- '{instantiation.Module} #(...) u1 (...);' -- but found '('.");
+                instance.Name = unnamed ? null : ExpectIdentifier($"a name for this {instantiation.Module}");
                 instance.Name ??= "?";
 
                 if (Current.Is("["))

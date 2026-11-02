@@ -38,9 +38,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>
         /// <paramref name="text"/> with every look-alike read as code written as what it was read as -- an apostrophe, a
-        /// double quote, a minus -- and nothing else changed (Part 15i-2): what is exported is then what ran here, which
-        /// ModelSim and Icarus, refusing a curly quote, would otherwise not take. One character for one, so every line and
-        /// column stays where it was; a comment, and the text inside a string, are left as written.
+        /// double quote, a minus, a space -- and nothing else changed (Part 15i-2): what is exported is then what ran here,
+        /// which ModelSim and Icarus, refusing a curly quote, would otherwise not take. One character for one, so every line
+        /// stays where it was -- but a minus that would join the character beside it into another operator is kept apart by a
+        /// space. A comment, and the text inside a string, are left as written.
         /// </summary>
         public static string Straightened(string text)
         {
@@ -52,13 +53,43 @@ namespace BitSorter.SystemVerilog.Syntax
             if (lexer.Lookalikes.Count == 0)
                 return text;
 
-            char[] chars = text.ToCharArray();
-            foreach (int at in lexer.Lookalikes)
-                chars[at] = chars[at] == '‘' || chars[at] == '’' ? '\'' : chars[at] == '“' || chars[at] == '”' ? '"' : '-';
-            return new string(chars);
+            var replaced = new HashSet<int>(lexer.Lookalikes);
+            var written = new StringBuilder(text.Length + 4);
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (!replaced.Contains(i))
+                {
+                    written.Append(c);
+                    continue;
+                }
+                if (c == '‘' || c == '’')
+                {
+                    written.Append('\'');
+                }
+                else if (c == '“' || c == '”')
+                {
+                    written.Append('"');
+                }
+                else if (c == ' ' || c == '﻿')
+                {
+                    written.Append(' ');
+                }
+                else
+                {
+                    // A minus beside what it would join into another operator -- a –-b read as a - -b, not a --b -- is kept
+                    // apart from it by a space, the one place a character becomes two (the 15i-2 review).
+                    if (i > 0 && text[i - 1] == '-')
+                        written.Append(' ');
+                    written.Append('-');
+                    if (i + 1 < text.Length && (text[i + 1] == '-' || text[i + 1] == '>' || text[i + 1] == '=' || text[i + 1] == ':'))
+                        written.Append(' ');
+                }
+            }
+            return written.ToString();
         }
 
-        private static readonly char[] LookalikeCharacters = { '‘', '’', '“', '”', '–', '—', '−' };
+        private static readonly char[] LookalikeCharacters = { '‘', '’', '“', '”', '–', '—', '−', ' ', '﻿' };
 
         private sealed class State
         {
@@ -122,8 +153,21 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     char c = _text[_at];
 
-                    if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v' || c == ' ' || c == '﻿')
+                    if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v')
                     {
+                        Advance();
+                    }
+                    else if (c == ' ' || c == '﻿')
+                    {
+                        // Read as a space, as ever -- and, but for a byte-order mark the file starts with, said so and written as
+                        // one in an export, which ModelSim and Icarus refuse it in (the 15i-2 review).
+                        if (_at > 0 || c == ' ')
+                        {
+                            _diagnostics.Warning(Here, DiagnosticCodes.LookalikeCharacter,
+                                (c == ' ' ? "A no-break space" : "A byte-order mark") +
+                                " is not a space to every simulator; it was read as one. Code copied from a slide often has these.");
+                            Lookalikes.Add(_at);
+                        }
                         Advance();
                     }
                     else if (c == '\\' && (Peek(1) == '\n' || (Peek(1) == '\r' && Peek(2) == '\n')))
@@ -407,6 +451,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
                     if (size.Length == 0 && Peek(1) == '{')
                     {
+                        WarnIfCurly(apostrophe, start);   // the 15i-2 review: read as code, and was never said or straightened
                         Advance();
                         Advance();
                         Add(TokenKind.Symbol, "'{", start, logical);

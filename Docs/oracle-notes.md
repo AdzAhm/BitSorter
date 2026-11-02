@@ -399,6 +399,6 @@ Each slip BitSorter answers in a student's words, Icarus 12 refuses too -- but o
 | --- | --- | --- |
 | `assign y = a & b;` inside an `always_comb`, `always_ff` or `initial` | takes it: a procedural continuous assignment, with "cannot be synthesized" in an `always_comb` or `always_ff`, and "not yet fully supported" -- its right side read once | refuses it: not run, and never what a course design wants |
 | `’` or `–` pasted into code | "syntax error" | reads it as `'` or `-` with a warning, and exports it so |
-| `logic s[1:0]` assigned `{a, b}` | stops on an internal assertion | refuses it, saying to put the range before the name |
+| `logic s[1:0]` given `{a, b}` by an `assign` | stops on an internal assertion; in an `always_comb`, "sorry: ... not yet supported" | refuses it, saying to put the range before the name |
 
 The standard has the procedural `assign`, so BitSorter is the one short here; it is said in its answer.
