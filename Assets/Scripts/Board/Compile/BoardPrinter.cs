@@ -86,8 +86,9 @@ namespace BitSorter.Board
                 var text = new StringBuilder(head);
                 if (module.Module.IsWritten)
                 {
-                    // Its own text, as written (Part 12d): the tree the engine runs was read from it.
-                    text.Append("// ").Append(module.Module.Name).Append(Written).Append("\n\n").Append(module.Module.Source);
+                    // Its own text, as written (Part 12d): the tree the engine runs was read from it -- a look-alike pasted from
+                    // a slide written as what it was read as, or ModelSim would refuse what ran here (Part 15i-2).
+                    text.Append("// ").Append(module.Module.Name).Append(Written).Append("\n\n").Append(Lexer.Straightened(module.Module.Source));
                     printed.Add(new PrintedSource(module.Module.Name + ".sv", text.ToString()));
                     continue;
                 }

@@ -36,6 +36,30 @@ namespace BitSorter.SystemVerilog.Syntax
             return lexer.Tokens;
         }
 
+        /// <summary>
+        /// <paramref name="text"/> with every look-alike read as code written as what it was read as -- an apostrophe, a
+        /// double quote, a minus -- and nothing else changed (Part 15i-2): what is exported is then what ran here, which
+        /// ModelSim and Icarus, refusing a curly quote, would otherwise not take. One character for one, so every line and
+        /// column stays where it was; a comment, and the text inside a string, are left as written.
+        /// </summary>
+        public static string Straightened(string text)
+        {
+            if (string.IsNullOrEmpty(text) || text.IndexOfAny(LookalikeCharacters) < 0)
+                return text;
+
+            var lexer = new State(text, string.Empty, new DiagnosticBag());
+            lexer.Run();
+            if (lexer.Lookalikes.Count == 0)
+                return text;
+
+            char[] chars = text.ToCharArray();
+            foreach (int at in lexer.Lookalikes)
+                chars[at] = chars[at] == '‘' || chars[at] == '’' ? '\'' : chars[at] == '“' || chars[at] == '”' ? '"' : '-';
+            return new string(chars);
+        }
+
+        private static readonly char[] LookalikeCharacters = { '‘', '’', '“', '”', '–', '—', '−' };
+
         private sealed class State
         {
             private readonly string _text;
@@ -47,6 +71,9 @@ namespace BitSorter.SystemVerilog.Syntax
             private int _logicalLine = 1;
 
             public readonly List<Token> Tokens = new List<Token>();
+
+            /// <summary>Where each look-alike read as code is, by its place in the text: <see cref="Straightened"/>'s.</summary>
+            public readonly List<int> Lookalikes = new List<int>();
 
             public State(string text, string file, DiagnosticBag diagnostics)
             {
@@ -250,6 +277,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     _diagnostics.Warning(start, DiagnosticCodes.LookalikeCharacter,
                         $"'{c}' is a dash, not a minus sign; it was read as '-'. Code copied from a slide often has these.");
+                    Lookalikes.Add(_at);
                     Advance();
                     Add(TokenKind.Symbol, "-", start, logical);
                     return;
@@ -259,6 +287,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     _diagnostics.Warning(start, DiagnosticCodes.LookalikeCharacter,
                         $"'{c}' is a curly quote, not an apostrophe; it was read as \"'\". Code copied from a slide often has these.");
+                    Lookalikes.Add(_at);
                     Advance();
                     Add(TokenKind.Symbol, "'", start, logical);
                     return;
@@ -401,18 +430,24 @@ namespace BitSorter.SystemVerilog.Syntax
                 return true;
             }
 
+            /// <summary>Called with the text at the apostrophe, before it is read.</summary>
             private void WarnIfCurly(char apostrophe, SourceLocation at)
             {
-                if (apostrophe != '\'')
-                    _diagnostics.Warning(at, DiagnosticCodes.LookalikeCharacter,
-                        $"'{apostrophe}' is a curly quote, not an apostrophe; it was read as \"'\". Code copied from a slide often has these.");
+                if (apostrophe == '\'')
+                    return;
+                _diagnostics.Warning(at, DiagnosticCodes.LookalikeCharacter,
+                    $"'{apostrophe}' is a curly quote, not an apostrophe; it was read as \"'\". Code copied from a slide often has these.");
+                Lookalikes.Add(_at);
             }
 
             private void ReadString(SourceLocation start, int logical)
             {
                 if (_text[_at] != '"')
+                {
                     _diagnostics.Warning(start, DiagnosticCodes.LookalikeCharacter,
                         $"'{_text[_at]}' is a curly quote; it was read as '\"'. Code copied from a slide often has these.");
+                    Lookalikes.Add(_at);
+                }
 
                 Advance();
                 var value = new StringBuilder();
@@ -423,6 +458,8 @@ namespace BitSorter.SystemVerilog.Syntax
 
                     if (c == '"' || c == '“' || c == '”')
                     {
+                        if (c != '"')
+                            Lookalikes.Add(_at);
                         Advance();
                         Add(TokenKind.String, value.ToString(), start, logical);
                         return;
