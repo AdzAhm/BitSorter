@@ -478,7 +478,7 @@ namespace BitSorter.View
         {
             ShowSample(chip);
             if (_session != null && _session.Choices.Count > 0)
-                Said(_session.Choose(_session.Choices[0].Name, program));
+                Choose(_session.Choices[0].Name, program);
         }
 
         /// <summary>RECENT made again from the save: the circuits the latest opened first, as many as it shows.</summary>

@@ -48,9 +48,21 @@ namespace BitSorter.View
         /// <summary><paramref name="member"/> chosen for the testbench's <paramref name="name"/>, as the menu chooses it.</summary>
         public void Choose(string name, string member)
         {
-            if (_session != null && name != null && member != null)
-                Said(_session.Choose(name, member));
+            if (_session == null || name == null || member == null)
+                return;
+            BitSorter.Board.EditResult result = _session.Choose(name, member);
+            Said(result);
+            // The run the choice makes is shown whole when it takes over, its own length: the last program's window would
+            // leave the playhead off its end (the 15h-6c shots: TEST's moment 6000 under SUM's 1,350).
+            if (result.Done)
+                _fitWavesOnSwitch = true;
         }
+
+        /// <summary>Whether the next run to take over is shown whole: one a program was chosen for.</summary>
+        private bool _fitWavesOnSwitch;
+
+        /// <summary>The window the waves show, for the tests.</summary>
+        public BitSorter.ViewModel.WaveView WaveWindow => _wave?.View;
 
         /// <summary>
         /// Each frame: the chip up while the testbench has a choice and no exercise has the row's end, saying what is chosen.

@@ -1658,7 +1658,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.ShowSample(index);
             yield return Frames(2);
             workbench.Pause();
-            Assert.IsTrue(workbench.Session.Choose("PROGRAM", program).Done, program);
+            workbench.Choose("PROGRAM", program);   // as the chip's menu chooses: the waves shown whole once it runs
             workbench.Session.Finish();
             yield return Frames(2);
             Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing of its code");

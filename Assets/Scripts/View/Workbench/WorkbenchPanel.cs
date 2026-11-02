@@ -1744,6 +1744,13 @@ namespace BitSorter.View
             Relabel();
             SliderEnd(_model.End);
             RebuildStage(keepViews: true);
+
+            // Another program is another run, its own length: shown whole, as a circuit opens (Part 15h-6c).
+            if (_fitWavesOnSwitch)
+            {
+                _fitWavesOnSwitch = false;
+                _wave?.View.Fit(_model.End);
+            }
         }
 
         /// <summary>A model's default rows as a list: its layout's ports, by their keys.</summary>
