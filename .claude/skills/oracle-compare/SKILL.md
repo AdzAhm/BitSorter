@@ -26,7 +26,9 @@ MSYS_NO_PATHCONV=1 "$ms/vsim.exe" -c -voptargs=+acc top -do "vcd file d.vcd; vcd
 - `MSYS_NO_PATHCONV=1` for any `-G/top/NAME=value`: Git Bash turns `/top/...` into a Windows path.
 - A bare `-GNAME=value` sets every parameter of that name in the design, an instance's as well as the top's.
 - ModelSim dumps a module's vector input a bit at a time (`a [3]` ... `a [0]`); `VcdReader` joins them.
-- Its transcript puts `# ` before every line; `ModelSimRun.Printed` gives the design's own lines.
+- Its transcript puts `# ` before every line; `ModelSimRun.Printed` gives the design's own lines from `run -all` on,
+  leaving out ModelSim's remarks -- and so a design's own line that starts as one does (`** `, `Errors: `, `Break in `).
+  `ModelSim.RunDo` runs an exported project's own run.do.
 
 ## Where Icarus is
 

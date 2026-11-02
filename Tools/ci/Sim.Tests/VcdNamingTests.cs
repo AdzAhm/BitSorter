@@ -86,5 +86,39 @@ namespace BitSorter.Sim.Tests
             CollectionAssert.AreEqual(traces["tb.a"].Changes, traces["tb.dut.a"].Changes, "the port reads as what drives it");
             Assert.AreEqual("1011", traces["tb.dut.a"].Changes[2].Bits);
         }
+
+        /// <summary>
+        /// The review's cases (2026-11-02): an ascending range dumped a bit at a time reads as written, leftmost first; a
+        /// dump with no $enddefinitions still has its split vectors; and a file made to break the reader reads as what can be
+        /// read, never throwing.
+        /// </summary>
+        [Test]
+        public void AnAscendingRange_ReadsAsWritten_AndAFileMadeToBreakTheReader_DoesNot()
+        {
+            string[] ascending =
+            {
+                "$scope module tb $end", "$scope module u $end",
+                "$var wire 1 ! b [0] $end", "$var wire 1 \" b [1] $end", "$var wire 1 # b [2] $end", "$var wire 1 $ b [3] $end",
+                "$upscope $end", "$upscope $end", "$enddefinitions $end",
+                "#0", "1!", "0\"", "0#", "0$",
+                "#5", "0!", "1#", "1$",
+            };
+            var traces = VcdReader.Read(new StringReader(string.Join("\n", ascending)));
+            Assert.AreEqual("1000", traces["tb.u.b"].Changes[0].Bits, "b [0] is the leftmost bit of [0:3]");
+            Assert.AreEqual("0011", traces["tb.u.b"].Changes[1].Bits);
+
+            string noEnd = "$scope module tb $end\n$var wire 1 ! a [1] $end\n$var wire 1 \" a [0] $end\n#0\n1!\n0\"\n";
+            Assert.AreEqual("10", VcdReader.Read(new StringReader(noEnd))["tb.a"].Changes[0].Bits, "no $enddefinitions");
+
+            foreach (string broken in new[]
+            {
+                "$scope module t $end $var wire -1 ! a $end $enddefinitions $end #0 1!",
+                "$scope module t $end $var wire 2000000000 ! a $end $enddefinitions $end #0 b1 !",
+                "$scope module t $end $var wire 1 ! a [0] $end $var wire 1 \" a [2000000000] $end $enddefinitions $end #0 1! 1\"",
+                "$scope module t $end $var wire 1 ! a [-5] $end $var wire 1 \" a [2147483647] $end $enddefinitions $end #0 1!",
+                "#notanumber b", "$var", "b", "$scope", "$scope module",
+            })
+                Assert.DoesNotThrow(() => VcdReader.Read(new StringReader(broken)), broken);
+        }
     }
 }

@@ -179,10 +179,17 @@ namespace BitSorter.Sim
     ///
     /// **A vector dumped a bit at a time is read back whole** (Part 15i-4): ModelSim writes a module's
     /// vector input as one variable a bit -- <c>a [7]</c> to <c>a [0]</c> -- which read by name alone
-    /// was eight signals called <c>a</c>, the last of them, bit 0, standing for the whole.
+    /// was eight signals called <c>a</c>, the last of them, bit 0, standing for the whole. Its bits are
+    /// placed in the order they are declared, leftmost first, so <c>[0:3]</c> reads as it is written.
+    ///
+    /// **A file made to break it reads as what can be read**: a width past <see cref="MostBits"/> or
+    /// under 1, or a bit index no number holds, leaves that variable out rather than throwing.
     /// </remarks>
     public static class VcdReader
     {
+        /// <summary>The widest variable read; a wider one, or one of no width, is left out.</summary>
+        public const int MostBits = 1 << 16;
+
         public static Dictionary<string, VcdTrace> Read(TextReader input)
         {
             if (input == null) throw new ArgumentNullException(nameof(input));
@@ -203,7 +210,7 @@ namespace BitSorter.Sim
                 switch (t)
                 {
                     case "$scope":
-                        scopes.Add(tokens[i + 2]);
+                        scopes.Add(i + 2 < tokens.Length ? tokens[i + 2] : "");
                         i = SkipToEnd(tokens, i);
                         continue;
 
@@ -214,7 +221,11 @@ namespace BitSorter.Sim
 
                     case "$var":
                     {
-                        int width = int.Parse(tokens[i + 2]);
+                        if (i + 4 >= tokens.Length || !int.TryParse(tokens[i + 2], out int width) || width < 1 || width > MostBits)
+                        {
+                            i = SkipToEnd(tokens, i);
+                            continue;
+                        }
                         string id = tokens[i + 3];
                         string name = string.Join(".", scopes.Concat(new[] { tokens[i + 4] }));
 
@@ -244,7 +255,8 @@ namespace BitSorter.Sim
 
                     case "$enddefinitions":
                         foreach (SplitVector vector in split.Values)
-                            traces[vector.Name] = vector.Made();
+                            if (vector.Indices.Count <= MostBits)
+                                traces[vector.Name] = vector.Made();
                         i = SkipToEnd(tokens, i);
                         continue;
 
@@ -260,7 +272,8 @@ namespace BitSorter.Sim
 
                 if (t[0] == '#')
                 {
-                    time = long.Parse(t.Substring(1));
+                    if (!long.TryParse(t.Substring(1), out time))
+                        time = 0;
                     continue;
                 }
 
@@ -268,6 +281,8 @@ namespace BitSorter.Sim
 
                 if (first == 'b')
                 {
+                    if (i + 1 >= tokens.Length || t.Length < 2)
+                        continue;
                     Record(byId, tokens[i + 1], time, t.Substring(1).ToLowerInvariant());
                     RecordBit(bitsById, tokens[i + 1], time, t.Substring(1).ToLowerInvariant());
                     i++;
@@ -276,13 +291,17 @@ namespace BitSorter.Sim
                 {
                     i++;
                 }
-                else if (first == '0' || first == '1' || first == 'x' || first == 'z')
+                else if ((first == '0' || first == '1' || first == 'x' || first == 'z') && t.Length > 1)
                 {
                     Record(byId, t.Substring(1), time, first.ToString());
                     RecordBit(bitsById, t.Substring(1), time, first.ToString());
                 }
             }
 
+            // A dump with no $enddefinitions: its split vectors, made as their first change came.
+            foreach (SplitVector vector in split.Values)
+                if (vector.Trace != null && !traces.ContainsKey(vector.Name))
+                    traces[vector.Name] = vector.Trace;
             return traces;
         }
 
@@ -313,23 +332,29 @@ namespace BitSorter.Sim
             }
         }
 
-        /// <summary>A vector dumped a bit at a time: its bits' indices, and its value as they change.</summary>
+        /// <summary>
+        /// A vector dumped a bit at a time: its bits' indices in the order declared -- leftmost first, as ModelSim writes
+        /// both <c>[7:0]</c> and <c>[0:3]</c> -- and its value as they change. Made once.
+        /// </summary>
         private sealed class SplitVector
         {
             public SplitVector(string name) => Name = name;
 
             public readonly string Name;
             public readonly List<int> Indices = new List<int>();
+            public readonly Dictionary<int, int> Place = new Dictionary<int, int>();
             public VcdTrace Trace;
             public char[] Value;
-            public int Highest;
 
             public VcdTrace Made()
             {
-                Highest = Indices.Max();
-                int width = Highest - Indices.Min() + 1;
-                Value = Enumerable.Repeat('x', width).ToArray();
-                return Trace = new VcdTrace(Name, width);
+                if (Trace != null)
+                    return Trace;
+                foreach (int index in Indices)
+                    if (!Place.ContainsKey(index))
+                        Place[index] = Place.Count;
+                Value = Enumerable.Repeat('x', Place.Count).ToArray();
+                return Trace = new VcdTrace(Name, Place.Count);
             }
         }
 
@@ -340,9 +365,10 @@ namespace BitSorter.Sim
 
             foreach ((SplitVector vector, int index) in list)
             {
-                if (vector.Trace == null)
-                    vector.Made();
-                vector.Value[vector.Highest - index] = bits[bits.Length - 1];
+                if (vector.Indices.Count > MostBits || bits.Length == 0)
+                    continue;
+                vector.Made();
+                vector.Value[vector.Place[index]] = bits[bits.Length - 1];
                 string full = new string(vector.Value);
                 List<(long Time, string Bits)> changes = vector.Trace.Changes;
                 if (changes.Count > 0 && changes[changes.Count - 1].Time == time)
