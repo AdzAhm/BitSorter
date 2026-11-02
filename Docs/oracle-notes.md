@@ -390,3 +390,33 @@ narrower (SV0405). Icarus 12 is a quieter judge, so the oracle checks the lint o
 
 The corpus is held to none of the four (`DesignLintTests.TheCorpus_RaisesNone`): every one of its designs is
 driven, read, driven once and sized to fit, which is the course's style.
+
+## ModelSim (Part 15i-4, ModelSim ASE 2020.1, 2026-11-02)
+
+Every corpus testbench runs under ModelSim as well as Icarus (`BehaviouralOracleTests`), compared on every signal and
+every printed line. Where ModelSim settles what the standard leaves open another way than Icarus -- whom BitSorter
+follows -- or prints in its own style, the test names it (`ModelSimDiffers`) and it is written here; nothing else is
+let through.
+
+| Testbench | ModelSim | Icarus 12 and BitSorter |
+| --- | --- | --- |
+| `scheduling`, S1: an `initial` raising `r1` at time 0, written before the `always @(posedge r1)` | starts the `always` first, so it sees the edge: `q1` is 1 | start the `initial` first: `q1` stays x |
+| `printing`, `$display("%5d|%-5d|%05d|%3h|%8b|")` | `%05d` is padded with spaces, `%3h` and `%8b` with zeros: `    5|005|00000101` | `00005|  5|    0101` |
+| `printing`, a value read through the hierarchy in an `initial` at time 0 | before the logic under it has settled: x | after |
+| `expressions`, `$random` with no seed | its own first seed | Icarus's |
+| `reals`, a real printed with no format, and `%d` beside it | the shortest exact form, `2.5 0.3333333333333333`, and `%d` padded to its width | `2.50000 0.333333`, `%d` unpadded |
+
+Two things the harness learned:
+- ModelSim keeps, in the time step a `$stop` ends the run in, what ran before the `$stop` -- before that step's NBA
+  region -- where Icarus keeps nothing of it. That step is left out of both comparisons.
+- It dumps a module's vector input one variable a bit, `a [7]` to `a [0]`. `VcdReader` read them as eight signals
+  called `a`, the last of them, bit 0, standing for the whole. It reads them back whole now.
+
+**And one bug it found in BitSorter**: an exported run.do gave a chosen program as `-GPROGRAM=1`, which sets every
+parameter called PROGRAM in the design, a processor's memory's image name among them -- ModelSim opened "" and the
+program never ran. It gives `-G/<testbench>/PROGRAM=1` now (Part 15h-6c's export, fixed in 15i-4 with a red test first).
+
+**Races.** On every race-shaped testbench tried -- the traffic light's button pressed with `=` on the edge, two
+`always @(posedge clk)` written with `=` in either order -- ModelSim and Icarus settled it the same way, and so does
+BitSorter. The standard leaves each open, and a simulator, or a setting of one, may settle it otherwise: that is what
+the race warning (Part 15i-3) is for.

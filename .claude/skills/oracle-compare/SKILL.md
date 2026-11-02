@@ -13,6 +13,21 @@ the delay contract both are held to.
 **The standard wins.** Where Icarus and the SystemVerilog standard disagree, BitSorter follows the
 standard and the difference goes in `Docs/oracle-notes.md` (from Part 2). The oracle is a second opinion.
 
+**ModelSim is a second oracle** (Part 15i-4): `Tools/ci/Oracle/ModelSim.cs`, found in `MODELSIM_HOME`, on
+PATH or under `C:\intelFPGA\<version>\modelsim_ase\win32aloem` (ASE 20.1 here), never on CI. The corpus
+testbenches run under it in `BehaviouralOracleTests` beside Icarus. By hand:
+
+```bash
+ms=/c/intelFPGA/20.1/modelsim_ase/win32aloem
+"$ms/vlib.exe" work < /dev/null; "$ms/vlog.exe" -sv design.sv < /dev/null
+MSYS_NO_PATHCONV=1 "$ms/vsim.exe" -c -voptargs=+acc top -do "vcd file d.vcd; vcd add -r /*; run -all; quit -f" < /dev/null
+```
+
+- `MSYS_NO_PATHCONV=1` for any `-G/top/NAME=value`: Git Bash turns `/top/...` into a Windows path.
+- A bare `-GNAME=value` sets every parameter of that name in the design, an instance's as well as the top's.
+- ModelSim dumps a module's vector input a bit at a time (`a [3]` ... `a [0]`); `VcdReader` joins them.
+- Its transcript puts `# ` before every line; `ModelSimRun.Printed` gives the design's own lines.
+
 ## Where Icarus is
 
 - Windows: `C:\iverilog\bin\iverilog.exe` and `vvp.exe` (Icarus 12). **Not on PATH**; call it by full

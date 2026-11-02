@@ -25,25 +25,40 @@ namespace BitSorter.Ci.Oracle
     /// </remarks>
     public class BehaviouralOracleTests
     {
-        [TestCase("behavioural/scheduling.sv", "scheduling", null, null)]
-        [TestCase("behavioural/traffic_light.sv", "traffic_light_tb", null, null)]
-        [TestCase("delays/probes.sv", "probes", "probes.vcd", null)]
-        [TestCase("behavioural/multiplier.sv", "multiplier_tb", null, null)]
-        [TestCase("behavioural/two_state.sv", "two_state_tb", null, null)]
-        [TestCase("behavioural/subroutines.sv", "subroutines_tb", null, null)]
-        [TestCase("behavioural/function_sensitivity.sv", "function_sensitivity", null, null)]
-        [TestCase("behavioural/expressions.sv", "expressions_tb", null, null)]
-        [TestCase("behavioural/data_types.sv", "data_types_tb", null, null)]
-        [TestCase("behavioural/testbench_control.sv", "testbench_control_tb", null, null)]
-        [TestCase("behavioural/library.sv", "library_tb", null, null)]
-        [TestCase("behavioural/reals.sv", "reals_tb", null, null)]
-        [TestCase("behavioural/interfaces.sv", "interfaces_tb", null, null)]
-        [TestCase("behavioural/shared_bus.sv", "shared_bus_tb", null, null)]
-        [TestCase("system/printing.sv", "printing", null, null)]
-        [TestCase("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin")]
-        [TestCase("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex")]
+        /// <summary>Every testbench of the corpus with its own top, the file it dumps itself to if it does, and its data.</summary>
+        internal static IEnumerable<TestCaseData> Testbenches() => new[]
+        {
+            new TestCaseData("behavioural/scheduling.sv", "scheduling", null, null),
+            new TestCaseData("behavioural/traffic_light.sv", "traffic_light_tb", null, null),
+            new TestCaseData("delays/probes.sv", "probes", "probes.vcd", null),
+            new TestCaseData("behavioural/multiplier.sv", "multiplier_tb", null, null),
+            new TestCaseData("behavioural/two_state.sv", "two_state_tb", null, null),
+            new TestCaseData("behavioural/subroutines.sv", "subroutines_tb", null, null),
+            new TestCaseData("behavioural/function_sensitivity.sv", "function_sensitivity", null, null),
+            new TestCaseData("behavioural/expressions.sv", "expressions_tb", null, null),
+            new TestCaseData("behavioural/data_types.sv", "data_types_tb", null, null),
+            new TestCaseData("behavioural/testbench_control.sv", "testbench_control_tb", null, null),
+            new TestCaseData("behavioural/library.sv", "library_tb", null, null),
+            new TestCaseData("behavioural/reals.sv", "reals_tb", null, null),
+            new TestCaseData("behavioural/interfaces.sv", "interfaces_tb", null, null),
+            new TestCaseData("behavioural/shared_bus.sv", "shared_bus_tb", null, null),
+            new TestCaseData("system/printing.sv", "printing", null, null),
+            new TestCaseData("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin"),
+            new TestCaseData("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex"),
+        };
+
+        [TestCaseSource(nameof(Testbenches))]
         public void TheTestbench_AgreesWithIcarus_OnEverySignal(string file, string top, string ownDump, string data) =>
-            AgreesWithIcarus(file, top, ownDump, data, null);
+            Agrees("Icarus", file, top, ownDump, data, null);
+
+        /// <summary>
+        /// The same testbenches under ModelSim, the course's own simulator (Part 15i-4): a second oracle, which a race --
+        /// what two simulators may settle differently -- would show where Icarus alone could not. Skipped where ModelSim is
+        /// not installed, as on CI.
+        /// </summary>
+        [TestCaseSource(nameof(Testbenches))]
+        public void TheTestbench_AgreesWithModelSim_OnEverySignal(string file, string top, string ownDump, string data) =>
+            Agrees("ModelSim", file, top, ownDump, data, null);
 
         /// <summary>The images every processor's program needs: all three programs', each with what it should leave, and the data.</summary>
         private const string Programs =
@@ -69,13 +84,51 @@ namespace BitSorter.Ci.Oracle
         {
             var name = new NameExpression();
             name.Path.Add(program);
-            AgreesWithIcarus(file, top, null, Programs, (new Dictionary<string, Expression> { ["PROGRAM"] = name }, $"{top}.PROGRAM={value}"));
+            Agrees("Icarus", file, top, null, Programs, (new Dictionary<string, Expression> { ["PROGRAM"] = name }, $"{top}.PROGRAM={value}"));
         }
 
-        private static void AgreesWithIcarus(string file, string top, string ownDump, string data,
+        /// <summary>Each processor and program under ModelSim, its PROGRAM given by -G as an exported run.do gives it.</summary>
+        [TestCase("processor/scpu.sv", "scpu_tb", "SUM", 0)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "FIBONACCI", 1)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "TEST", 2)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "SUM", 0)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "FIBONACCI", 1)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "TEST", 2)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "SUM", 0)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "FIBONACCI", 1)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "TEST", 2)]
+        public void EachProcessor_RunsEachProgram_AsModelSimDoes(string file, string top, string program, int value)
+        {
+            var name = new NameExpression();
+            name.Path.Add(program);
+            Agrees("ModelSim", file, top, null, Programs, (new Dictionary<string, Expression> { ["PROGRAM"] = name }, $"/{top}/PROGRAM={value}"));
+        }
+
+        /// <summary>
+        /// Where ModelSim settles what the standard leaves open another way than Icarus -- whom BitSorter follows -- or prints
+        /// a value in its own style (Part 15i-4): by testbench, the signals and the printed lines (counted from 1) not held to
+        /// it, each written in Docs/oracle-notes.md, "ModelSim". Nothing else is let through.
+        /// </summary>
+        private static readonly Dictionary<string, (string[] Signals, int[] Lines)> ModelSimDiffers =
+            new Dictionary<string, (string[], int[])>(StringComparer.Ordinal)
+            {
+                // Which of an initial and an always written before it starts first at time 0 (S1): ModelSim, the always.
+                ["scheduling"] = (new[] { "scheduling.q1" }, new int[0]),
+                // $random with no seed: each simulator's own first seed.
+                ["expressions_tb"] = (new string[0], new[] { 13, 14, 15 }),
+                // A real printed with no format, and %d's width beside one: each simulator's own style.
+                ["reals_tb"] = (new string[0], new[] { 1, 2 }),
+                // %05d, %3h and %8b's padding; and a value read through the hierarchy at time 0, before or after the logic
+                // under it has settled -- which the standard leaves open.
+                ["printing"] = (new string[0], new[] { 7, 10 }),
+            };
+
+        /// <summary>The testbench run here and under <paramref name="with"/> -- Icarus or ModelSim -- and every signal, every printed line and every file it writes compared.</summary>
+        private static void Agrees(string with, string file, string top, string ownDump, string data,
             (Dictionary<string, Expression> Ours, string Theirs)? program)
         {
-            Icarus icarus = Icarus.Require();
+            Icarus icarus = with == "Icarus" ? Icarus.Require() : null;
+            ModelSim modelSim = with == "ModelSim" ? ModelSim.Require() : null;
             string[] dataFiles = data == null ? new string[0] : data.Split(',').Select(Corpus.File).ToArray();
 
             var files = new MemorySimFiles();
@@ -87,13 +140,18 @@ namespace BitSorter.Ci.Oracle
             RunResult result = sim.RunTo(1_000_000);
             Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
 
-            (Dictionary<string, VcdTrace> theirs, string printed, Dictionary<string, string> theirFiles) = RunIcarus(icarus, file, top, ownDump, dataFiles, program?.Theirs);
+            (Dictionary<string, VcdTrace> theirs, string[] icarusLines, Dictionary<string, string> theirFiles) = icarus != null
+                ? RunIcarus(icarus, file, top, ownDump, dataFiles, program?.Theirs)
+                : RunModelSim(modelSim, file, top, ownDump, dataFiles, program?.Theirs);
 
             // A $stop suspends the run here, and ends it under vvp -n, so the two agree up to it. Icarus's
             // dump loses the time step a $stop ends the run in (Docs/oracle-notes.md); with $finish it
-            // keeps it. So after a $stop, that last step is BitSorter's alone.
+            // keeps it. So after a $stop, that last step is BitSorter's alone. ModelSim's keeps what ran before the $stop in it --
+            // which, before its NBA region, is the order the step ran in (Part 15i-4) -- so it is left out of both.
             bool stopped = result.Status == RunStatus.Suspended;
             long until = stopped ? result.Time - 1 : result.Time;
+            (string[] Signals, int[] Lines) differs = modelSim != null && ModelSimDiffers.TryGetValue(top, out var known)
+                ? known : (new string[0], new int[0]);
 
             var wrong = new List<string>();
             int compared = 0, changes = 0;
@@ -103,14 +161,16 @@ namespace BitSorter.Ci.Oracle
                 SignalInfo info = design.Signals[s];
                 if (info.Local || info.Memory != null || info.IsString || info.IsReal)
                     continue;   // a string Icarus leaves out of its dump, and a real it dumps as a real: what the testbench prints of each is compared
+                if (Array.IndexOf(differs.Signals, info.Name) >= 0)
+                    continue;
 
                 if (!theirs.TryGetValue(info.Name, out VcdTrace trace))
                 {
-                    wrong.Add($"{info.Name}: not in Icarus's dump");
+                    wrong.Add($"{info.Name}: not in {with}'s dump");
                     continue;
                 }
 
-                string[] icarusChanges = trace.Changes.Select(c => $"{c.Time} {c.Bits}").ToArray();
+                string[] icarusChanges = trace.Changes.Where(c => c.Time <= until).Select(c => $"{c.Time} {c.Bits}").ToArray();
                 string[] bitSorterChanges = sim.History.SettledChanges(design.SignalAt(s))
                     .Where(c => c.Time <= until)
                     .Select(c => $"{c.Time} {c.Value.Format(SystemVerilog.Radix.Binary)}")
@@ -119,19 +179,10 @@ namespace BitSorter.Ci.Oracle
                 changes += bitSorterChanges.Length;
 
                 if (!icarusChanges.SequenceEqual(bitSorterChanges))
-                    wrong.Add($"{info.Name}\n      BitSorter {string.Join(", ", bitSorterChanges)}\n      Icarus    {string.Join(", ", icarusChanges)}");
+                    wrong.Add($"{info.Name}\n      BitSorter {string.Join(", ", bitSorterChanges)}\n      {with,-9} {string.Join(", ", icarusChanges)}");
             }
 
             // The transcript: what the testbench printed, line by line.
-            string[] icarusLines = printed.Replace("\r", "").Split('\n')
-                .Where(line => !line.StartsWith("VCD info:", StringComparison.Ordinal)
-                    && !line.StartsWith("WARNING:", StringComparison.Ordinal)
-                    && !line.Contains(": $finish called at ")
-                    && !line.Contains(": $stop called at "))
-                .ToArray();
-            if (icarusLines.Length > 0 && icarusLines[icarusLines.Length - 1].Length == 0)
-                icarusLines = icarusLines.Take(icarusLines.Length - 1).ToArray();
-
             string[] bitSorterLines = sim.History.Messages
                 .Where(m => m.Severity == Severity.Info && !m.Text.StartsWith("$finish", StringComparison.Ordinal) && !m.Text.StartsWith("$stop", StringComparison.Ordinal))
                 .Select(m => m.Text)
@@ -146,8 +197,8 @@ namespace BitSorter.Ci.Oracle
             {
                 string ours = i < bitSorterLines.Length ? bitSorterLines[i] : "(nothing)";
                 string theirsLine = i < icarusLines.Length ? icarusLines[i] : "(nothing)";
-                if (ours != theirsLine)
-                    misprinted.Add($"line {i + 1}\n      BitSorter [{ours}]\n      Icarus    [{theirsLine}]");
+                if (ours != theirsLine && Array.IndexOf(differs.Lines, i + 1) < 0)
+                    misprinted.Add($"line {i + 1}\n      BitSorter [{ours}]\n      {with,-9} [{theirsLine}]");
             }
 
             // The files the testbench wrote (Part L6), word for word.
@@ -157,15 +208,15 @@ namespace BitSorter.Ci.Oracle
             {
                 files.TryRead(path, out string ours);
                 if (!theirFiles.TryGetValue(path, out string icarusText))
-                    miswritten.Add($"{path}: BitSorter wrote it, Icarus did not");
+                    miswritten.Add($"{path}: BitSorter wrote it, {with} did not");
                 else if (ours.Replace("\r", "") != icarusText.Replace("\r", ""))
-                    miswritten.Add($"{path}\n      BitSorter [{ours.Replace("\n", "\\n")}]\n      Icarus    [{icarusText.Replace("\r", "").Replace("\n", "\\n")}]");
+                    miswritten.Add($"{path}\n      BitSorter [{ours.Replace("\n", "\\n")}]\n      {with,-9} [{icarusText.Replace("\r", "").Replace("\n", "\\n")}]");
             }
 
             TestContext.WriteLine($"{top}: finished at {result.Time}; {compared} signals, {changes} settled changes, {bitSorterLines.Length} lines printed compared");
-            Assert.IsEmpty(miswritten, $"{miswritten.Count} files differ from Icarus's:\n  " + string.Join("\n  ", miswritten));
-            Assert.IsEmpty(wrong, $"{wrong.Count} signals disagree with Icarus:\n  " + string.Join("\n  ", wrong.Take(16)));
-            Assert.IsEmpty(misprinted, $"{misprinted.Count} printed lines differ from Icarus's:\n  " + string.Join("\n  ", misprinted.Take(16)));
+            Assert.IsEmpty(miswritten, $"{miswritten.Count} files differ from {with}'s:\n  " + string.Join("\n  ", miswritten));
+            Assert.IsEmpty(wrong, $"{wrong.Count} signals disagree with {with}:\n  " + string.Join("\n  ", wrong.Take(16)));
+            Assert.IsEmpty(misprinted, $"{misprinted.Count} printed lines differ from {with}'s:\n  " + string.Join("\n  ", misprinted.Take(16)));
             Assert.Greater(compared, 0);
         }
 
@@ -187,7 +238,7 @@ namespace BitSorter.Ci.Oracle
         /// Icarus's dump of the design -- the one it writes itself, named <paramref name="ownDump"/>, or one
         /// asked for beside it -- and what it printed.
         /// </summary>
-        private static (Dictionary<string, VcdTrace>, string, Dictionary<string, string>) RunIcarus(Icarus icarus, string file, string top, string ownDump, string[] dataFiles,
+        private static (Dictionary<string, VcdTrace>, string[], Dictionary<string, string>) RunIcarus(Icarus icarus, string file, string top, string ownDump, string[] dataFiles,
             string parameter = null)
         {
             string folder = Path.Combine(Path.GetTempPath(), "bitsorter-oracle-generated", Guid.NewGuid().ToString("N"));
@@ -213,13 +264,40 @@ namespace BitSorter.Ci.Oracle
                 foreach (string path in Directory.GetFiles(run.Folder))
                     written[Path.GetFileName(path)] = File.ReadAllText(path);
 
+                // Icarus's own remarks on its standard output (where its dump went, its warnings, "$finish called") are not the design's.
+                string[] lines = run.Simulate.StandardOutput.Replace("\r", "").Split('\n')
+                    .Where(line => !line.StartsWith("VCD info:", StringComparison.Ordinal)
+                        && !line.StartsWith("WARNING:", StringComparison.Ordinal)
+                        && !line.Contains(": $finish called at ")
+                        && !line.Contains(": $stop called at "))
+                    .ToArray();
+                if (lines.Length > 0 && lines[lines.Length - 1].Length == 0)
+                    lines = lines.Take(lines.Length - 1).ToArray();
+
                 using var vcd = new StreamReader(Path.Combine(run.Folder, ownDump ?? "oracle.vcd"));
-                return (VcdReader.Read(vcd), run.Simulate.StandardOutput, written);
+                return (VcdReader.Read(vcd), lines, written);
             }
             finally
             {
                 Directory.Delete(folder, recursive: true);
             }
+        }
+
+        /// <summary>ModelSim's dump of the design -- every signal, or the one the design writes itself -- and what it printed.</summary>
+        private static (Dictionary<string, VcdTrace>, string[], Dictionary<string, string>) RunModelSim(ModelSim modelSim, string file, string top, string ownDump,
+            string[] dataFiles, string parameter = null)
+        {
+            string design = Corpus.File(file);
+            using ModelSimRun run = modelSim.Simulate(new[] { design }, top, new[] { Path.GetDirectoryName(design) }, TimeSpan.FromMinutes(3), dataFiles,
+                parameter != null ? new[] { parameter } : null, ownDump);
+            Assert.IsTrue(run.Succeeded, run.Explain());
+
+            var written = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string path in Directory.GetFiles(run.Folder))
+                written[Path.GetFileName(path)] = File.ReadAllText(path);
+
+            using var vcd = new StreamReader(Path.Combine(run.Folder, ownDump ?? "oracle.vcd"));
+            return (VcdReader.Read(vcd), run.Printed(), written);
         }
     }
 }

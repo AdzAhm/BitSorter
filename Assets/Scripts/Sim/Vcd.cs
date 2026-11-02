@@ -176,6 +176,10 @@ namespace BitSorter.Sim
     /// keep only the last, and a "change" to the value it already had is dropped, so two dumps of the
     /// same waveform read back the same. A vector written short is extended as the format says: with x
     /// or z if its leftmost digit is x or z, else with 0. Real values are skipped.
+    ///
+    /// **A vector dumped a bit at a time is read back whole** (Part 15i-4): ModelSim writes a module's
+    /// vector input as one variable a bit -- <c>a [7]</c> to <c>a [0]</c> -- which read by name alone
+    /// was eight signals called <c>a</c>, the last of them, bit 0, standing for the whole.
     /// </remarks>
     public static class VcdReader
     {
@@ -185,6 +189,8 @@ namespace BitSorter.Sim
 
             var traces = new Dictionary<string, VcdTrace>(StringComparer.Ordinal);
             var byId = new Dictionary<string, List<VcdTrace>>(StringComparer.Ordinal);
+            var split = new Dictionary<string, SplitVector>(StringComparer.Ordinal);
+            var bitsById = new Dictionary<string, List<(SplitVector Vector, int Index)>>(StringComparer.Ordinal);
             var scopes = new List<string>();
             long time = 0;
 
@@ -211,6 +217,22 @@ namespace BitSorter.Sim
                         int width = int.Parse(tokens[i + 2]);
                         string id = tokens[i + 3];
                         string name = string.Join(".", scopes.Concat(new[] { tokens[i + 4] }));
+
+                        // One bit of a vector dumped a bit at a time: "a [3]", a width of 1 and a single index.
+                        string range = i + 5 < tokens.Length ? tokens[i + 5] : "$end";
+                        if (width == 1 && range.Length > 2 && range[0] == '[' && range[range.Length - 1] == ']' && range.IndexOf(':') < 0
+                            && int.TryParse(range.Substring(1, range.Length - 2), out int index))
+                        {
+                            if (!split.TryGetValue(name, out SplitVector vector))
+                                split[name] = vector = new SplitVector(name);
+                            vector.Indices.Add(index);
+                            if (!bitsById.TryGetValue(id, out List<(SplitVector, int)> bits))
+                                bitsById[id] = bits = new List<(SplitVector, int)>();
+                            bits.Add((vector, index));
+                            i = SkipToEnd(tokens, i);
+                            continue;
+                        }
+
                         var trace = new VcdTrace(name, width);
                         traces[name] = trace;
                         if (!byId.TryGetValue(id, out List<VcdTrace> list))
@@ -219,6 +241,12 @@ namespace BitSorter.Sim
                         i = SkipToEnd(tokens, i);
                         continue;
                     }
+
+                    case "$enddefinitions":
+                        foreach (SplitVector vector in split.Values)
+                            traces[vector.Name] = vector.Made();
+                        i = SkipToEnd(tokens, i);
+                        continue;
 
                     case "$dumpvars": case "$dumpall": case "$dumpon": case "$dumpoff": case "$end":
                         continue;
@@ -241,6 +269,7 @@ namespace BitSorter.Sim
                 if (first == 'b')
                 {
                     Record(byId, tokens[i + 1], time, t.Substring(1).ToLowerInvariant());
+                    RecordBit(bitsById, tokens[i + 1], time, t.Substring(1).ToLowerInvariant());
                     i++;
                 }
                 else if (first == 'r')
@@ -250,6 +279,7 @@ namespace BitSorter.Sim
                 else if (first == '0' || first == '1' || first == 'x' || first == 'z')
                 {
                     Record(byId, t.Substring(1), time, first.ToString());
+                    RecordBit(bitsById, t.Substring(1), time, first.ToString());
                 }
             }
 
@@ -279,6 +309,46 @@ namespace BitSorter.Sim
                 if (changes.Count > 0 && changes[changes.Count - 1].Bits == full)
                     continue;
 
+                changes.Add((time, full));
+            }
+        }
+
+        /// <summary>A vector dumped a bit at a time: its bits' indices, and its value as they change.</summary>
+        private sealed class SplitVector
+        {
+            public SplitVector(string name) => Name = name;
+
+            public readonly string Name;
+            public readonly List<int> Indices = new List<int>();
+            public VcdTrace Trace;
+            public char[] Value;
+            public int Highest;
+
+            public VcdTrace Made()
+            {
+                Highest = Indices.Max();
+                int width = Highest - Indices.Min() + 1;
+                Value = Enumerable.Repeat('x', width).ToArray();
+                return Trace = new VcdTrace(Name, width);
+            }
+        }
+
+        private static void RecordBit(Dictionary<string, List<(SplitVector Vector, int Index)>> bitsById, string id, long time, string bits)
+        {
+            if (!bitsById.TryGetValue(id, out List<(SplitVector Vector, int Index)> list))
+                return;
+
+            foreach ((SplitVector vector, int index) in list)
+            {
+                if (vector.Trace == null)
+                    vector.Made();
+                vector.Value[vector.Highest - index] = bits[bits.Length - 1];
+                string full = new string(vector.Value);
+                List<(long Time, string Bits)> changes = vector.Trace.Changes;
+                if (changes.Count > 0 && changes[changes.Count - 1].Time == time)
+                    changes.RemoveAt(changes.Count - 1);
+                if (changes.Count > 0 && changes[changes.Count - 1].Bits == full)
+                    continue;
                 changes.Add((time, full));
             }
         }

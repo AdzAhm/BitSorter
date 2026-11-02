@@ -492,7 +492,12 @@ failure side.
   5.0's pure layers built against netstandard2.1 (Unity's profile, so an API
   Unity lacks fails here first), the repository rules, and the Icarus oracle.
   CI installs Icarus and sets `BITSORTER_REQUIRE_ICARUS`, so a skipped oracle
-  there is a failure rather than a quiet pass.
+  there is a failure rather than a quiet pass. **ModelSim is the second oracle**
+  (Part 15i-4, `Tools/ci/Oracle/ModelSim.cs`): every corpus testbench runs under
+  it too where it is installed -- this machine's Intel Starter Edition -- and is
+  skipped where it is not, CI among them, since it is licensed and no runner has
+  it. What it settles otherwise than Icarus is named, each case written in
+  `Docs/oracle-notes.md`, and nothing else is let through.
 - **Nothing from the course comes into this repository.** Its files hold
   student ID numbers and the university's own code, the repository is public,
   and git keeps everything. Examples are written from scratch in the course's

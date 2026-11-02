@@ -4062,6 +4062,21 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the code and for a clock's period (`DrawingEditTests`); in Play Mode an import unlocked, its mux deleted with Delete, the question
   answered, and Ctrl+Z.
 
+**As built in Part 15i-4: ModelSim as a second oracle** (Ahmad, 2026-11-02: "yeah do these 2", for same-instant races in
+course-style testbenches above all).
+- **`Tools/ci/Oracle/ModelSim.cs`**, beside `Icarus.cs`: found in `MODELSIM_HOME`, on PATH, or in the Intel Starter
+  Edition's folders; `vlib work`, `vlog -sv`, then `vsim -c -voptargs=+acc` with a do-script that dumps every signal to a
+  VCD and runs to the end. Missing is always a skip -- CI has no ModelSim, and Icarus remains the oracle it requires.
+- **`BehaviouralOracleTests`** runs every corpus testbench, and each processor with each program, under either
+  simulator through one comparison (`Agrees`): every signal, every printed line, every file written. ModelSim's own
+  settlements of what the standard leaves open, and its printing style, are named by testbench (`ModelSimDiffers`) and
+  written in `Docs/oracle-notes.md`.
+- **Found**: `VcdReader` read a vector dumped a bit at a time as its bit 0 (fixed, with a test); a `$stop`'s last step is
+  kept differently by the two (left out of both); and **an exported run.do's `-GPROGRAM=1` set the processors' memories'
+  image name too**, so a chosen program never ran in ModelSim -- now `-G/<testbench>/PROGRAM=1`, a red test first.
+- **Tests**: 26 under ModelSim -- 17 corpus testbenches and 9 processor runs -- all agreeing but the named differences;
+  `VcdNamingTests.AVectorDumpedABitAtATime_ReadsBackWhole`.
+
 ---
 
 ## 11. The parts

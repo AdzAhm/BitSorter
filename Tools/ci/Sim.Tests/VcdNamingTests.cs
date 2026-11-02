@@ -48,5 +48,43 @@ namespace BitSorter.Sim.Tests
             Assert.AreEqual(1, Count(text, "$scope module top $end"), text);
             CollectionAssert.Contains(VcdReader.Read(new StringReader(text)).Keys, "top.y");
         }
+
+        /// <summary>
+        /// ModelSim dumps a module's vector input a bit at a time -- a [3] to a [0] -- and they read back as one vector, a
+        /// [3] its leftmost (Part 15i-4): read by name alone they were four signals called a, bit 0 standing for all of them.
+        /// </summary>
+        [Test]
+        public void AVectorDumpedABitAtATime_ReadsBackWhole()
+        {
+            string[] dump =
+            {
+                "$timescale 1ps $end",
+                "$scope module tb $end",
+                "$var reg 4 ! a [3:0] $end",
+                "$scope module dut $end",
+                "$var wire 1 \" a [3] $end",
+                "$var wire 1 # a [2] $end",
+                "$var wire 1 $ a [1] $end",
+                "$var wire 1 % a [0] $end",
+                "$upscope $end",
+                "$upscope $end",
+                "$enddefinitions $end",
+                "#0",
+                "$dumpvars",
+                "b0000 !",
+                "0\"", "0#", "0$", "0%",
+                "$end",
+                "#5",
+                "b1010 !",
+                "1\"", "1$",
+                "#9",
+                "b1011 !",
+                "1%",
+            };
+            var traces = VcdReader.Read(new StringReader(string.Join("\n", dump)));
+            Assert.AreEqual(4, traces["tb.dut.a"].Width);
+            CollectionAssert.AreEqual(traces["tb.a"].Changes, traces["tb.dut.a"].Changes, "the port reads as what drives it");
+            Assert.AreEqual("1011", traces["tb.dut.a"].Changes[2].Bits);
+        }
     }
 }
