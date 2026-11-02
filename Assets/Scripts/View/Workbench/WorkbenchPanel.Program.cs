@@ -54,7 +54,7 @@ namespace BitSorter.View
             BitSorter.Board.EditResult result = _session.Choose(name, member);
             Said(result);
             // The run the choice makes is shown whole when it takes over, its own length: the last program's window would
-            // leave the playhead off its end (the 15h-6c shots: TEST's moment 6000 under SUM's 1,350).
+            // leave the playhead off its end (the 15h-6c shots: ISA's moment 6000 under SUM's 1,350).
             if (result.Done && _session.Replay != null)   // the program running chosen again makes no run
                 _fitWavesOnSwitch = true;
         }

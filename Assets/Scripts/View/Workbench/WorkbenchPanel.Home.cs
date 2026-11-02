@@ -478,7 +478,7 @@ namespace BitSorter.View
         {
             ShowSample(chip);
             if (_session != null && _session.Choices.Count > 0 && _session.Choices[0].Chosen != program)
-                Choose(_session.Choices[0].Name, program);   // SUM, which it opens on, is no step
+                Choose(_session.Choices[0].Name, program);   // the program it opens on -- the one last chosen, else SUM -- is no step
         }
 
         /// <summary>RECENT made again from the save: the circuits the latest opened first, as many as it shows.</summary>

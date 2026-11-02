@@ -96,32 +96,26 @@ namespace BitSorter.Board
 
         /// <summary>
         /// <paramref name="project"/> with each of <paramref name="chosen"/> -- a parameter's name, one of its members -- that its
-        /// testbench offers set in its settings, as <see cref="BoardEditor.SetBenchParameter"/> sets one, but with no step and
-        /// no run: a sample, made afresh as it opens, on the program last chosen on it (Ahmad, 2026-11-02). A name the bench
-        /// has not, or a member it does not offer, is passed over, so what was remembered of an older sample never stops it
-        /// opening.
+        /// testbench offers chosen as <see cref="BoardEditor.SetBenchParameter"/> chooses one, the run measured again to where
+        /// that choice stops it, on an editor of its own so the document it returns carries no step: a sample, made afresh as
+        /// it opens, on the program last chosen on it (Ahmad, 2026-11-02). A name the bench has not, a member it does not
+        /// offer, or one the design cannot be made with is passed over, so what was remembered of an older sample never stops
+        /// it opening.
         /// </summary>
         public static Project Applied(Project project, IReadOnlyDictionary<string, string> chosen)
         {
             if (project == null || chosen == null || chosen.Count == 0)
                 return project;
 
-            ProjectSettings settings = project.Settings ?? new ProjectSettings();
-            Dictionary<string, string> values = null;
-            foreach (BenchChoice choice in Of(BoardCompiler.Compile(project), settings))
+            BoardEditor editor = null;
+            foreach (BenchChoice choice in Of(BoardCompiler.Compile(project), project.Settings ?? new ProjectSettings()))
             {
                 if (!chosen.TryGetValue(choice.Name, out string member) || member == choice.Chosen || !Offers(choice, member))
                     continue;
-                if (values == null)
-                {
-                    values = new Dictionary<string, string>(StringComparer.Ordinal);
-                    if (settings.BenchParameters != null)
-                        foreach (KeyValuePair<string, string> pair in settings.BenchParameters)
-                            values[pair.Key] = pair.Value;
-                }
-                values[choice.Name] = member;
+                editor ??= new BoardEditor(project);
+                editor.SetBenchParameter(choice.Name, member);   // refused, it leaves the sample as it was made
             }
-            return values == null ? project : project with { Settings = settings with { BenchParameters = values } };
+            return editor?.Project ?? project;
         }
 
         private static bool Offers(BenchChoice choice, string member)

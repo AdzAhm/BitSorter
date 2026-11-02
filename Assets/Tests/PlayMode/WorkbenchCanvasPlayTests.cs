@@ -3612,6 +3612,7 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             yield return null;
             Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "opened on Fibonacci from its card");
+            long fibonacciEnd = workbench.Session.Project.Stimulus.End;
 
             IEnumerator Reopen()
             {
@@ -3625,6 +3626,8 @@ namespace BitSorter.PlayMode.Tests
 
             yield return Reopen();
             Assert.AreEqual("FIBONACCI", workbench.Session.Choices.Single().Chosen, "opened again on the program last chosen");
+            Assert.AreEqual(fibonacciEnd, workbench.Session.Project.Stimulus.End,
+                "run to where Fibonacci stops, as when it was chosen -- not cut off at SUM's end (the M1 review)");
             Assert.IsFalse(workbench.Session.Undo(), "put back as it opened: no step to undo");
 
             yield return Click(WorkbenchPanel.ProgramButton);
@@ -3668,6 +3671,8 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             Assert.AreEqual("Multicycle RISC-V", WorkbenchSamples.Chip[workbench.Sample].Name, "sanity: launched onto the multicycle processor");
             Assert.AreEqual("ISA", workbench.Session.Choices.Single().Chosen, "on the program kept for it");
+            long sumEnd = WorkbenchSamples.Chip[workbench.Sample].Build().Stimulus.End;
+            Assert.Greater(workbench.Session.Project.Stimulus.End, sumEnd, "run to where ISA stops, far past SUM's end (the M1 review)");
             Assert.IsFalse(workbench.Session.Undo(), "no step to undo");
         }
 

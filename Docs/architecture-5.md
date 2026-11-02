@@ -3910,7 +3910,8 @@ testbench with a parameter of an enum type; and 2026-11-02, the processors a sec
   as far as the run it replaces only when that one was carried on past a `$stop` (`RunSession.RanOn`) -- an undo of a
   choice, or SUM after ISA, was run on to the longer program's end until the review. The drawing of code is made again
   with the choice (keyed on `BenchParameters` as well as the modules). A sample is made afresh each time it is opened,
-  so its choice is not kept from one launch to the next: it opens on SUM. Only a testbench's parameters are a choice:
+  so its choice was not kept from one launch to the next, and it opened on SUM -- until M1 (below), which keeps it in the
+  save. Only a testbench's parameters are a choice:
   a design run without one is elaborated as written. The start page's RISC-V
   PROCESSORS, under EXERCISES: a card for each, its name opening it, a line, and SUM, FIBONACCI and ISA opening it on
   that program; the three leave SAMPLES.
