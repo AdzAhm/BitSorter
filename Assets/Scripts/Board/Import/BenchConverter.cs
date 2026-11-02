@@ -66,7 +66,7 @@ namespace BitSorter.Board
             CompiledProject compiled = BoardCompiler.Compile(project);
             if (!compiled.Succeeded)
                 return Refused("The project does not compile, so its testbench cannot be run to see what it drives: " + First(compiled.Diagnostics));
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             if (elaboration.HasErrors)
                 return Refused("The project does not elaborate, so its testbench cannot be run to see what it drives.");
 

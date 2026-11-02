@@ -399,7 +399,7 @@ namespace BitSorter.Board
             CompiledProject compiled = BoardCompiler.Compile(editor.Project);
             if (!compiled.Succeeded)
                 return "The code written from the drawing does not compile.";
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();   // with the program chosen, as the session's design (the 15h-6c review)
             if (elaboration.HasErrors)
                 return "The code written from the drawing does not elaborate: " + elaboration.Diagnostics[0].Message;
             Design after = elaboration.Design;

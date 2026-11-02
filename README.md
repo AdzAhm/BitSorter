@@ -316,12 +316,13 @@ does, with the credits at its foot) and SETTINGS -- and no BACK:
 `Esc` closes whatever is on top and never leaves the workbench. The music is off
 until you switch it on in Settings.
 
-**Three RISC-V processors** are among the samples: an RV32I single-cycle, multicycle
-and pipelined one, written from the RISC-V specification, each running the same
-small program -- the sum of 1 to 10, the first ten Fibonacci numbers, and every
-instruction they run once, checking itself. Open one to read its drawing,
-double-click a block to step inside, and compare how many clock cycles each takes:
-408, 1,568 and 482.
+**Three RISC-V processors** have a section of their own on the start page: an RV32I
+single-cycle, multicycle and pipelined one, written from the RISC-V specification.
+Each runs any of three small programs -- the sum of 1 to 10, the first ten Fibonacci
+numbers, or every instruction they run once, checking itself -- picked from the
+PROGRAM chip beside the run, or straight from the start page. Open one to read its
+drawing, double-click a block to step inside, and compare how many clock cycles each
+takes: for the instruction test, 316, 1,204 and 346.
 
 Every pin nothing is wired to yet has a short lead with an open circle at its end:
 point at one and it lights, and a drag from there draws a wire. While you draw one,

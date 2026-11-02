@@ -1,0 +1,331 @@
+// rv_isa, one of the three programs BitSorter's RV32I processors run: every instruction they run
+// once -- each branch both ways -- checking itself, the results from 0x140 and at 0x1f8 how many
+// of its checks held.
+// Assembled from the listing beside each word; word n is the instruction at byte address 4n.
+// Written for BitSorter's oracle; not taken from any course material.
+014000ef  // 000: jal ra, every             3. every instruction once, from 0x140
+1fb02c23  // 004: sw s11, 0x1f8(zero)       how many of the checks held
+00100293  // 008: addi t0, zero, 1
+7e502e23  // 00c: sw t0, 0x7fc(zero)        done: the testbench watches for this store
+0000006f  // 010: jal zero, end             and wait (end)
+14000493  // 014: addi s1, zero, 0x140      where the results go (every)
+00000d93  // 018: addi s11, zero, 0         checks held
+f0f01637  // 01c: lui a2, 0xf0f01           a negative word
+23460613  // 020: addi a2, a2, 564
+0a500693  // 024: addi a3, zero, 165        a small positive one
+00500713  // 028: addi a4, zero, 5          a shift
+abcde2b7  // 02c: lui t0, 0xabcde
+0054a023  // 030: sw t0, 0(s1)              lui
+00448493  // 034: addi s1, s1, 4
+abcdefb7  // 038: lui t6, 0xabcde
+01f29463  // 03c: bne t0, t6, skip1
+001d8d93  // 040: addi s11, s11, 1
+00001297  // 044: auipc t0, 0x1             <- here
+0054a023  // 048: sw t0, 0(s1)              auipc
+00448493  // 04c: addi s1, s1, 4
+00001fb7  // 050: lui t6, 0x1
+044f8f93  // 054: addi t6, t6, 68
+01f29463  // 058: bne t0, t6, skip2
+001d8d93  // 05c: addi s11, s11, 1
+00d602b3  // 060: add t0, a2, a3
+0054a023  // 064: sw t0, 0(s1)              add
+00448493  // 068: addi s1, s1, 4
+f0f01fb7  // 06c: lui t6, 0xf0f01
+2d9f8f93  // 070: addi t6, t6, 729
+01f29463  // 074: bne t0, t6, skip3
+001d8d93  // 078: addi s11, s11, 1
+40d602b3  // 07c: sub t0, a2, a3
+0054a023  // 080: sw t0, 0(s1)              sub
+00448493  // 084: addi s1, s1, 4
+f0f01fb7  // 088: lui t6, 0xf0f01
+18ff8f93  // 08c: addi t6, t6, 399
+01f29463  // 090: bne t0, t6, skip4
+001d8d93  // 094: addi s11, s11, 1
+00e692b3  // 098: sll t0, a3, a4
+0054a023  // 09c: sw t0, 0(s1)              sll
+00448493  // 0a0: addi s1, s1, 4
+00001fb7  // 0a4: lui t6, 0x1
+4a0f8f93  // 0a8: addi t6, t6, 1184
+01f29463  // 0ac: bne t0, t6, skip5
+001d8d93  // 0b0: addi s11, s11, 1
+00d622b3  // 0b4: slt t0, a2, a3
+0054a023  // 0b8: sw t0, 0(s1)              slt: the negative one is less
+00448493  // 0bc: addi s1, s1, 4
+00100f93  // 0c0: addi t6, zero, 1
+01f29463  // 0c4: bne t0, t6, skip6
+001d8d93  // 0c8: addi s11, s11, 1
+00d632b3  // 0cc: sltu t0, a2, a3
+0054a023  // 0d0: sw t0, 0(s1)              sltu: but not without its sign
+00448493  // 0d4: addi s1, s1, 4
+00000f93  // 0d8: addi t6, zero, 0
+01f29463  // 0dc: bne t0, t6, skip7
+001d8d93  // 0e0: addi s11, s11, 1
+00d642b3  // 0e4: xor t0, a2, a3
+0054a023  // 0e8: sw t0, 0(s1)              xor
+00448493  // 0ec: addi s1, s1, 4
+f0f01fb7  // 0f0: lui t6, 0xf0f01
+291f8f93  // 0f4: addi t6, t6, 657
+01f29463  // 0f8: bne t0, t6, skip8
+001d8d93  // 0fc: addi s11, s11, 1
+00e652b3  // 100: srl t0, a2, a4
+0054a023  // 104: sw t0, 0(s1)              srl
+00448493  // 108: addi s1, s1, 4
+07878fb7  // 10c: lui t6, 0x7878
+091f8f93  // 110: addi t6, t6, 145
+01f29463  // 114: bne t0, t6, skip9
+001d8d93  // 118: addi s11, s11, 1
+40e652b3  // 11c: sra t0, a2, a4
+0054a023  // 120: sw t0, 0(s1)              sra
+00448493  // 124: addi s1, s1, 4
+ff878fb7  // 128: lui t6, 0xff878
+091f8f93  // 12c: addi t6, t6, 145
+01f29463  // 130: bne t0, t6, skip10
+001d8d93  // 134: addi s11, s11, 1
+00d662b3  // 138: or t0, a2, a3
+0054a023  // 13c: sw t0, 0(s1)              or
+00448493  // 140: addi s1, s1, 4
+f0f01fb7  // 144: lui t6, 0xf0f01
+2b5f8f93  // 148: addi t6, t6, 693
+01f29463  // 14c: bne t0, t6, skip11
+001d8d93  // 150: addi s11, s11, 1
+00d672b3  // 154: and t0, a2, a3
+0054a023  // 158: sw t0, 0(s1)              and
+00448493  // 15c: addi s1, s1, 4
+02400f93  // 160: addi t6, zero, 36
+01f29463  // 164: bne t0, t6, skip12
+001d8d93  // 168: addi s11, s11, 1
+f9c60293  // 16c: addi t0, a2, -100
+0054a023  // 170: sw t0, 0(s1)              addi
+00448493  // 174: addi s1, s1, 4
+f0f01fb7  // 178: lui t6, 0xf0f01
+1d0f8f93  // 17c: addi t6, t6, 464
+01f29463  // 180: bne t0, t6, skip13
+001d8d93  // 184: addi s11, s11, 1
+0c86a293  // 188: slti t0, a3, 200
+0054a023  // 18c: sw t0, 0(s1)              slti
+00448493  // 190: addi s1, s1, 4
+00100f93  // 194: addi t6, zero, 1
+01f29463  // 198: bne t0, t6, skip14
+001d8d93  // 19c: addi s11, s11, 1
+0646b293  // 1a0: sltiu t0, a3, 100
+0054a023  // 1a4: sw t0, 0(s1)              sltiu
+00448493  // 1a8: addi s1, s1, 4
+00000f93  // 1ac: addi t6, zero, 0
+01f29463  // 1b0: bne t0, t6, skip15
+001d8d93  // 1b4: addi s11, s11, 1
+fff6c293  // 1b8: xori t0, a3, -1
+0054a023  // 1bc: sw t0, 0(s1)              xori: not
+00448493  // 1c0: addi s1, s1, 4
+f5a00f93  // 1c4: addi t6, zero, -166
+01f29463  // 1c8: bne t0, t6, skip16
+001d8d93  // 1cc: addi s11, s11, 1
+7006e293  // 1d0: ori t0, a3, 0x700
+0054a023  // 1d4: sw t0, 0(s1)              ori
+00448493  // 1d8: addi s1, s1, 4
+7a500f93  // 1dc: addi t6, zero, 1957
+01f29463  // 1e0: bne t0, t6, skip17
+001d8d93  // 1e4: addi s11, s11, 1
+3f067293  // 1e8: andi t0, a2, 0x3f0
+0054a023  // 1ec: sw t0, 0(s1)              andi
+00448493  // 1f0: addi s1, s1, 4
+23000f93  // 1f4: addi t6, zero, 560
+01f29463  // 1f8: bne t0, t6, skip18
+001d8d93  // 1fc: addi s11, s11, 1
+00769293  // 200: slli t0, a3, 7
+0054a023  // 204: sw t0, 0(s1)              slli
+00448493  // 208: addi s1, s1, 4
+00005fb7  // 20c: lui t6, 0x5
+280f8f93  // 210: addi t6, t6, 640
+01f29463  // 214: bne t0, t6, skip19
+001d8d93  // 218: addi s11, s11, 1
+00965293  // 21c: srli t0, a2, 9
+0054a023  // 220: sw t0, 0(s1)              srli
+00448493  // 224: addi s1, s1, 4
+00788fb7  // 228: lui t6, 0x788
+809f8f93  // 22c: addi t6, t6, -2039
+01f29463  // 230: bne t0, t6, skip20
+001d8d93  // 234: addi s11, s11, 1
+40965293  // 238: srai t0, a2, 9
+0054a023  // 23c: sw t0, 0(s1)              srai
+00448493  // 240: addi s1, s1, 4
+fff88fb7  // 244: lui t6, 0xfff88
+809f8f93  // 248: addi t6, t6, -2039
+01f29463  // 24c: bne t0, t6, skip21
+001d8d93  // 250: addi s11, s11, 1
+00002283  // 254: lw t0, 0(zero)
+0054a023  // 258: sw t0, 0(s1)              lw
+00448493  // 25c: addi s1, s1, 4
+5a5a1fb7  // 260: lui t6, 0x5a5a1
+f0ff8f93  // 264: addi t6, t6, -241
+01f29463  // 268: bne t0, t6, skip22
+001d8d93  // 26c: addi s11, s11, 1
+1ec02823  // 270: sw a2, 0x1f0(zero)
+1f002283  // 274: lw t0, 0x1f0(zero)        read back at once
+0054a023  // 278: sw t0, 0(s1)              sw
+00448493  // 27c: addi s1, s1, 4
+f0f01fb7  // 280: lui t6, 0xf0f01
+234f8f93  // 284: addi t6, t6, 564
+01f29463  // 288: bne t0, t6, skip23
+001d8d93  // 28c: addi s11, s11, 1
+00000293  // 290: addi t0, zero, 0
+00d68463  // 294: beq a3, a3, over_beq_a3_a3  taken
+00128293  // 298: addi t0, t0, 1            skipped when taken
+00228293  // 29c: addi t0, t0, 2            <- over_beq_a3_a3
+0054a023  // 2a0: sw t0, 0(s1)              beq, taken
+00448493  // 2a4: addi s1, s1, 4
+00200f93  // 2a8: addi t6, zero, 2
+01f29463  // 2ac: bne t0, t6, skip24
+001d8d93  // 2b0: addi s11, s11, 1
+00000293  // 2b4: addi t0, zero, 0
+00d60463  // 2b8: beq a2, a3, over_beq_a2_a3  not taken
+00128293  // 2bc: addi t0, t0, 1            skipped when taken
+00228293  // 2c0: addi t0, t0, 2            <- over_beq_a2_a3
+0054a023  // 2c4: sw t0, 0(s1)              beq, not taken
+00448493  // 2c8: addi s1, s1, 4
+00300f93  // 2cc: addi t6, zero, 3
+01f29463  // 2d0: bne t0, t6, skip25
+001d8d93  // 2d4: addi s11, s11, 1
+00000293  // 2d8: addi t0, zero, 0
+00d69463  // 2dc: bne a3, a3, over_bne_a3_a3  not taken
+00128293  // 2e0: addi t0, t0, 1            skipped when taken
+00228293  // 2e4: addi t0, t0, 2            <- over_bne_a3_a3
+0054a023  // 2e8: sw t0, 0(s1)              bne, not taken
+00448493  // 2ec: addi s1, s1, 4
+00300f93  // 2f0: addi t6, zero, 3
+01f29463  // 2f4: bne t0, t6, skip26
+001d8d93  // 2f8: addi s11, s11, 1
+00000293  // 2fc: addi t0, zero, 0
+00d61463  // 300: bne a2, a3, over_bne_a2_a3  taken
+00128293  // 304: addi t0, t0, 1            skipped when taken
+00228293  // 308: addi t0, t0, 2            <- over_bne_a2_a3
+0054a023  // 30c: sw t0, 0(s1)              bne, taken
+00448493  // 310: addi s1, s1, 4
+00200f93  // 314: addi t6, zero, 2
+01f29463  // 318: bne t0, t6, skip27
+001d8d93  // 31c: addi s11, s11, 1
+00000293  // 320: addi t0, zero, 0
+00d64463  // 324: blt a2, a3, over_blt_a2_a3  taken
+00128293  // 328: addi t0, t0, 1            skipped when taken
+00228293  // 32c: addi t0, t0, 2            <- over_blt_a2_a3
+0054a023  // 330: sw t0, 0(s1)              blt, taken
+00448493  // 334: addi s1, s1, 4
+00200f93  // 338: addi t6, zero, 2
+01f29463  // 33c: bne t0, t6, skip28
+001d8d93  // 340: addi s11, s11, 1
+00000293  // 344: addi t0, zero, 0
+00c6c463  // 348: blt a3, a2, over_blt_a3_a2  not taken
+00128293  // 34c: addi t0, t0, 1            skipped when taken
+00228293  // 350: addi t0, t0, 2            <- over_blt_a3_a2
+0054a023  // 354: sw t0, 0(s1)              blt, not taken
+00448493  // 358: addi s1, s1, 4
+00300f93  // 35c: addi t6, zero, 3
+01f29463  // 360: bne t0, t6, skip29
+001d8d93  // 364: addi s11, s11, 1
+00000293  // 368: addi t0, zero, 0
+00d65463  // 36c: bge a2, a3, over_bge_a2_a3  not taken
+00128293  // 370: addi t0, t0, 1            skipped when taken
+00228293  // 374: addi t0, t0, 2            <- over_bge_a2_a3
+0054a023  // 378: sw t0, 0(s1)              bge, not taken
+00448493  // 37c: addi s1, s1, 4
+00300f93  // 380: addi t6, zero, 3
+01f29463  // 384: bne t0, t6, skip30
+001d8d93  // 388: addi s11, s11, 1
+00000293  // 38c: addi t0, zero, 0
+00c6d463  // 390: bge a3, a2, over_bge_a3_a2  taken
+00128293  // 394: addi t0, t0, 1            skipped when taken
+00228293  // 398: addi t0, t0, 2            <- over_bge_a3_a2
+0054a023  // 39c: sw t0, 0(s1)              bge, taken
+00448493  // 3a0: addi s1, s1, 4
+00200f93  // 3a4: addi t6, zero, 2
+01f29463  // 3a8: bne t0, t6, skip31
+001d8d93  // 3ac: addi s11, s11, 1
+00000293  // 3b0: addi t0, zero, 0
+00d66463  // 3b4: bltu a2, a3, over_bltu_a2_a3  not taken
+00128293  // 3b8: addi t0, t0, 1            skipped when taken
+00228293  // 3bc: addi t0, t0, 2            <- over_bltu_a2_a3
+0054a023  // 3c0: sw t0, 0(s1)              bltu, not taken
+00448493  // 3c4: addi s1, s1, 4
+00300f93  // 3c8: addi t6, zero, 3
+01f29463  // 3cc: bne t0, t6, skip32
+001d8d93  // 3d0: addi s11, s11, 1
+00000293  // 3d4: addi t0, zero, 0
+00c6e463  // 3d8: bltu a3, a2, over_bltu_a3_a2  taken
+00128293  // 3dc: addi t0, t0, 1            skipped when taken
+00228293  // 3e0: addi t0, t0, 2            <- over_bltu_a3_a2
+0054a023  // 3e4: sw t0, 0(s1)              bltu, taken
+00448493  // 3e8: addi s1, s1, 4
+00200f93  // 3ec: addi t6, zero, 2
+01f29463  // 3f0: bne t0, t6, skip33
+001d8d93  // 3f4: addi s11, s11, 1
+00000293  // 3f8: addi t0, zero, 0
+00d67463  // 3fc: bgeu a2, a3, over_bgeu_a2_a3  taken
+00128293  // 400: addi t0, t0, 1            skipped when taken
+00228293  // 404: addi t0, t0, 2            <- over_bgeu_a2_a3
+0054a023  // 408: sw t0, 0(s1)              bgeu, taken
+00448493  // 40c: addi s1, s1, 4
+00200f93  // 410: addi t6, zero, 2
+01f29463  // 414: bne t0, t6, skip34
+001d8d93  // 418: addi s11, s11, 1
+00000293  // 41c: addi t0, zero, 0
+00c6f463  // 420: bgeu a3, a2, over_bgeu_a3_a2  not taken
+00128293  // 424: addi t0, t0, 1            skipped when taken
+00228293  // 428: addi t0, t0, 2            <- over_bgeu_a3_a2
+0054a023  // 42c: sw t0, 0(s1)              bgeu, not taken
+00448493  // 430: addi s1, s1, 4
+00300f93  // 434: addi t6, zero, 3
+01f29463  // 438: bne t0, t6, skip35
+001d8d93  // 43c: addi s11, s11, 1
+00002283  // 440: lw t0, 0(zero)
+00128313  // 444: addi t1, t0, 1            the word just loaded, at once
+0064a023  // 448: sw t1, 0(s1)              lw, then used at once
+00448493  // 44c: addi s1, s1, 4
+5a5a1fb7  // 450: lui t6, 0x5a5a1
+f10f8f93  // 454: addi t6, t6, -240
+01f31463  // 458: bne t1, t6, skip36
+001d8d93  // 45c: addi s11, s11, 1
+00000293  // 460: addi t0, zero, 0
+1f002383  // 464: lw t2, 0x1f0(zero)
+00c38463  // 468: beq t2, a2, over_loaded   compares the word just loaded
+00128293  // 46c: addi t0, t0, 1            skipped
+00228293  // 470: addi t0, t0, 2            <- over_loaded
+0054a023  // 474: sw t0, 0(s1)              a branch on a word just loaded
+00448493  // 478: addi s1, s1, 4
+00200f93  // 47c: addi t6, zero, 2
+01f29463  // 480: bne t0, t6, skip37
+001d8d93  // 484: addi s11, s11, 1
+00000293  // 488: addi t0, zero, 0
+1f002383  // 48c: lw t2, 0x1f0(zero)
+00c39463  // 490: bne t2, a2, over_unequal  not taken: the word just loaded is a2
+00128293  // 494: addi t0, t0, 1
+00228293  // 498: addi t0, t0, 2            <- over_unequal
+0054a023  // 49c: sw t0, 0(s1)              a branch on a word just loaded, not taken
+00448493  // 4a0: addi s1, s1, 4
+00300f93  // 4a4: addi t6, zero, 3
+01f29463  // 4a8: bne t0, t6, skip38
+001d8d93  // 4ac: addi s11, s11, 1
+0080036f  // 4b0: jal t1, after_jal         <- the_jal
+f9cd8d93  // 4b4: addi s11, s11, -100       never runs
+0064a023  // 4b8: sw t1, 0(s1)              jal links (after_jal)
+00448493  // 4bc: addi s1, s1, 4
+00000fb7  // 4c0: lui t6, 0x0
+4b4f8f93  // 4c4: addi t6, t6, 1204
+01f31463  // 4c8: bne t1, t6, skip39
+001d8d93  // 4cc: addi s11, s11, 1
+00000397  // 4d0: auipc t2, 0               <- the_auipc
+01138367  // 4d4: jalr t1, 17(t2)           an odd target: bit 0 cleared
+f9cd8d93  // 4d8: addi s11, s11, -100       never runs
+f9cd8d93  // 4dc: addi s11, s11, -100       never runs
+00000e17  // 4e0: auipc t3, 0               where it landed, which must be even (landed)
+0064a023  // 4e4: sw t1, 0(s1)              jalr links
+00448493  // 4e8: addi s1, s1, 4
+00000fb7  // 4ec: lui t6, 0x0
+4d8f8f93  // 4f0: addi t6, t6, 1240
+01f31463  // 4f4: bne t1, t6, skip40
+001d8d93  // 4f8: addi s11, s11, 1
+01c4a023  // 4fc: sw t3, 0(s1)              jalr lands with bit 0 cleared
+00448493  // 500: addi s1, s1, 4
+00000fb7  // 504: lui t6, 0x0
+4e0f8f93  // 508: addi t6, t6, 1248
+01fe1463  // 50c: bne t3, t6, skip41
+001d8d93  // 510: addi s11, s11, 1
+00008067  // 514: jalr zero, 0(ra)          return

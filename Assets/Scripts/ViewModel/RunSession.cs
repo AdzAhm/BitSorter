@@ -89,9 +89,18 @@ namespace BitSorter.ViewModel
                 return false;
 
             if (Slicer.Horizon > Model.End)
+            {
                 Model.Extend(Slicer.Horizon);
+                RanOn = true;
+            }
             return true;
         }
+
+        /// <summary>
+        /// Whether the run has been carried on past its own end: a replay of it goes as far (Part 15h-6c's review). One that
+        /// ends where its own testbench does -- another program's, or an undo's -- is never run on to the last one's end.
+        /// </summary>
+        public bool RanOn { get; private set; }
 
         /// <summary>
         /// One frame's share of making the run: a slice, then the model reads what it recorded. True

@@ -328,16 +328,19 @@ namespace BitSorter.ViewModel
         // The code elaborated as it is now, made once for the document's modules, and its scopes by their paths: what steps
         // through code are found and checked in, and what the drawing of code is drawn from.
         private IReadOnlyList<Module> _designModules;
+        private IReadOnlyDictionary<string, string> _designParameters, _drawnParameters;
         private Design _design;
         private readonly Dictionary<string, int> _scopes = new Dictionary<string, int>(StringComparer.Ordinal);
 
         private Design DesignOf(Project project, CompiledProject compiled)
         {
-            if (ReferenceEquals(_designModules, project.Modules))
+            // The program chosen is the design's too (Part 15h-6c): another changes no module and every value.
+            if (ReferenceEquals(_designModules, project.Modules) && ReferenceEquals(_designParameters, project.Settings?.BenchParameters))
                 return _design;
-            Elaboration elaboration = Elaborator.Elaborate(compiled.Tree, compiled.Top);
+            Elaboration elaboration = compiled.Elaborate();
             _design = elaboration.HasErrors ? null : elaboration.Design;
             _designModules = project.Modules;
+            _designParameters = project.Settings?.BenchParameters;
             _scopes.Clear();
             if (_design != null)
                 for (int i = 0; i < _design.Scopes.Count; i++)
@@ -938,7 +941,9 @@ namespace BitSorter.ViewModel
         /// </summary>
         private RtlDrawing DrawingOf(Project project, CompiledProject compiled, string path, string module, bool gates)
         {
-            bool same = ReferenceEquals(_drawnModules, project.Modules) && _drawnPath == path && _drawing?.Module.Name == module;
+            // The program chosen is the design's too (Part 15h-6c; the review: the drawing kept the last one's elaboration).
+            bool same = ReferenceEquals(_drawnModules, project.Modules) && ReferenceEquals(_drawnParameters, project.Settings?.BenchParameters)
+                && _drawnPath == path && _drawing?.Module.Name == module;
             if (same && _drawnGates == gates)
                 return _drawing;
             if (!same)
@@ -968,6 +973,7 @@ namespace BitSorter.ViewModel
             }
             _drawnGates = gates;
             _drawnModules = project.Modules;
+            _drawnParameters = project.Settings?.BenchParameters;
             _drawnPath = path;
             return _drawing;
         }
@@ -1450,6 +1456,49 @@ namespace BitSorter.ViewModel
         /// </summary>
         public EditResult SetLibrary(GateLibrary library) => Unchangeable ?? Edited(Editor.SetLibrary(library));   // it retimes the gates
 
+        /// <summary>
+        /// What the testbench lets the run choose (Part 15h-6c) -- a processor's PROGRAM: its enum's members and the one chosen
+        /// -- for the workbench's chips; none when its top has no parameter of an enum type. Read once for each document.
+        /// </summary>
+        public IReadOnlyList<BenchChoice> Choices
+        {
+            get
+            {
+                if (!ReferenceEquals(_choicesFor, Project))
+                {
+                    _choicesFor = Project;
+                    _choices = BitSorter.Board.BenchChoices.Of(BoardCompiler.Compile(Project), Project.Settings);
+                }
+                return _choices;
+            }
+        }
+
+        private Project _choicesFor;
+        private IReadOnlyList<BenchChoice> _choices = Array.Empty<BenchChoice>();
+
+        /// <summary>
+        /// <paramref name="member"/> chosen for the testbench's <paramref name="name"/> -- PROGRAM, FIBONACCI -- one undo step,
+        /// and the run made again with it (<see cref="BoardEditor.SetBenchParameter"/>). Not refused while the circuit is
+        /// locked: it changes what is run, never the circuit or its code.
+        /// </summary>
+        public EditResult Choose(string name, string member)
+        {
+            BenchChoice choice = null;
+            foreach (BenchChoice each in Choices)
+                if (each.Name == name)
+                    choice = each;
+            if (choice == null)
+                return EditResult.Refused("The testbench has no parameter called " + name + " to choose.");
+            bool known = false;
+            foreach (string each in choice.Members)
+                known |= each == member;
+            if (!known)
+                return EditResult.Refused(name + " has no " + member + ": it is one of " + string.Join(", ", choice.Members) + ".");
+            if (choice.Chosen == member)
+                return EditResult.Ok();   // the program running: no step, and no run made again (the review)
+            return Edited(Editor.SetBenchParameter(name, member));
+        }
+
         /// <summary>The document counted in <paramref name="unit"/> (<see cref="BoardEditor.SetSettings"/>), and replayed: nothing is rescaled, everything is relabelled.</summary>
         public EditResult SetUnit(string unit) =>
             unit == Unit ? EditResult.Ok() : Replayed(Editor.SetSettings(Project.Settings with { TimeUnit = unit }), 0);
@@ -1504,8 +1553,9 @@ namespace BitSorter.ViewModel
 
             Replay.Frame();
 
-            // The shown run may have been run on past its end at a $stop; the replay goes as far, once.
-            if (!_replayRanOn && Replay.Done && Replay.Model.End < Run.Model.End)
+            // The shown run may have been run on past its end at a $stop; the replay goes as far, once. A shown run that was
+            // not is its own length, and so is the replay: another program's, an undo's (Part 15h-6c; the review).
+            if (!_replayRanOn && Run.RanOn && Replay.Done && Replay.Model.End < Run.Model.End)
             {
                 _replayRanOn = true;
                 Replay.RunOn(Run.Model.End);
@@ -1513,7 +1563,7 @@ namespace BitSorter.ViewModel
 
             double target = Math.Min(Math.Max(0.0, shown), Run.Model.End);
             bool caughtUp = Made(Replay) >= target - Epsilon && (Replay.Model.End >= Run.Model.End || Replay.Done);
-            bool cannotGoOn = Replay.Done && (_replayRanOn || Replay.Model.End >= Run.Model.End);
+            bool cannotGoOn = Replay.Done && (_replayRanOn || !Run.RanOn || Replay.Model.End >= Run.Model.End);
 
             if (caughtUp || cannotGoOn)
             {
@@ -1539,7 +1589,7 @@ namespace BitSorter.ViewModel
             if (Replay != null)
             {
                 Replay.Finish();
-                if (Replay.Model.End < Run.Model.End && Replay.RunOn(Run.Model.End))
+                if (Run.RanOn && Replay.Model.End < Run.Model.End && Replay.RunOn(Run.Model.End))
                     Replay.Finish();
                 TakeOver();
             }

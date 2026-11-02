@@ -136,6 +136,14 @@ namespace BitSorter.Board
 
         /// <summary>What a register placed starts at: an exercise's <c>registerStart</c>, or null for x (Part 15d).</summary>
         public SystemVerilog.LogicVec? RegisterStart { get; init; }
+
+        /// <summary>
+        /// What the testbench's own parameters are given, by name (Part 15h-6c): a processor's PROGRAM, an enum member as the
+        /// code names it -- <c>FIBONACCI</c> -- or a number, as a simulator's command line gives one. Null for none, each
+        /// taking what its declaration gives it. Kept with the project, so it opens on the program last chosen
+        /// (<see cref="BenchChoices"/>).
+        /// </summary>
+        public IReadOnlyDictionary<string, string> BenchParameters { get; init; }
     }
 
     /// <summary>
