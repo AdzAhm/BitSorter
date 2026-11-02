@@ -140,6 +140,11 @@ namespace BitSorter.Ci.Oracle
             RunResult result = sim.RunTo(1_000_000);
             Assert.That(result.Status, Is.EqualTo(RunStatus.Finished).Or.EqualTo(RunStatus.Suspended), string.Join("\n", sim.History.Messages));
 
+            // None of the corpus's testbenches races (Part 15i-3): what the two simulators are held to agree on is never a
+            // value either could settle another way.
+            CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Severity == Severity.Warning && m.Text.Contains("blocking assignment at the edge"))
+                .Select(m => m.Text), "a race in the corpus");
+
             (Dictionary<string, VcdTrace> theirs, string[] icarusLines, Dictionary<string, string> theirFiles) = icarus != null
                 ? RunIcarus(icarus, file, top, ownDump, dataFiles, program?.Theirs)
                 : RunModelSim(modelSim, file, top, ownDump, dataFiles, program?.Theirs);

@@ -179,6 +179,24 @@ namespace BitSorter.Sim
 
         public EdgeKind Edge { get; }
         public Expr Value { get; }
+
+        /// <summary>The one signal it reads -- @(posedge clk)'s clk -- or -1 for an expression of several or none (Part 15i-3).</summary>
+        public int Signal
+        {
+            get
+            {
+                if (_signal == Unread)
+                {
+                    var reads = new List<int>(2);
+                    Value?.CollectReads(reads);
+                    _signal = reads.Count == 1 ? reads[0] : -1;
+                }
+                return _signal;
+            }
+        }
+
+        private const int Unread = -2;
+        private int _signal = Unread;
     }
 
     /// <summary>An event control's expressions: <c>@(posedge clk, posedge rst)</c> is two.</summary>

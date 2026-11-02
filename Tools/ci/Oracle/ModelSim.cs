@@ -26,7 +26,8 @@ namespace BitSorter.Ci.Oracle
         /// <summary>vsim, or a result with no output if the compile failed.</summary>
         public ProcessResult Simulate { get; }
 
-        public bool Succeeded => Compile.Succeeded && Simulate.Succeeded && !Simulate.StandardOutput.Contains("# ** Error");
+        public bool Succeeded => Compile.Succeeded && Simulate.Succeeded && !Simulate.StandardOutput.Contains("# ** Error")
+            && !Simulate.StandardOutput.Contains("# ** Fatal");
 
         public string Explain() =>
             !Compile.Succeeded
@@ -46,7 +47,8 @@ namespace BitSorter.Ci.Oracle
                 if (!raw.StartsWith("#", StringComparison.Ordinal))
                     continue;
                 string line = raw.Length > 1 && raw[1] == ' ' ? raw.Substring(2) : raw.Substring(1);
-                if (line == " run -all")
+                // Echoed as "# run -all" or, after another command on the line, "#  run -all" (the 15i-4 review).
+                if (line.Trim() == "run -all")
                 {
                     running = true;
                     continue;
@@ -140,6 +142,13 @@ namespace BitSorter.Ci.Oracle
                     ". These tests run where it is installed, as the course's ModelSim is.");
             return modelSim;
         }
+
+        /// <summary>
+        /// Runs an exported project's own run.do in <paramref name="folder"/>, as a student types <c>do run.do</c> -- without
+        /// the window -- and quits: what COMPARE WITH MODELSIM'S RUN is given (Part 15i-5).
+        /// </summary>
+        public ProcessResult RunDo(string folder, TimeSpan? timeout = null) =>
+            ProcessRunner.Run(Tool("vsim"), new[] { "-c", "-do", "do run.do; quit -f" }, folder, timeout ?? TimeSpan.FromMinutes(3));
 
         /// <summary>
         /// Compiles <paramref name="sources"/> and runs <paramref name="top"/> to its end, every signal dumped to
