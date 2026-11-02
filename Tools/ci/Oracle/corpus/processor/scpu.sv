@@ -306,7 +306,7 @@ module scpu #(
 endmodule
 
 module scpu_tb;
-    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // Which program it runs: SUM, FIBONACCI or ISA (rv32i.svh). In the body, not a #( ) list, where a project's module
     // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
     parameter rv_program_t PROGRAM = SUM;
 

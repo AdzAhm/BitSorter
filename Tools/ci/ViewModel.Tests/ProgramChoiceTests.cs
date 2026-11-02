@@ -50,7 +50,7 @@ namespace BitSorter.ViewModel.Tests
         {
             WorkbenchSession session = Pipelined();
             session.Locked = true;
-            Assert.IsTrue(session.Choose("PROGRAM", "TEST").Done, "the lock keeps the circuit and its code, not what is run");
+            Assert.IsTrue(session.Choose("PROGRAM", "ISA").Done, "the lock keeps the circuit and its code, not what is run");
             session.Finish();
             StringAssert.Contains("every instruction once: 41 of 41 checks held", Printed(session));
         }
@@ -131,7 +131,7 @@ namespace BitSorter.ViewModel.Tests
 
             EditResult member = session.Choose("PROGRAM", "QUICKSORT");
             Assert.IsFalse(member.Done);
-            StringAssert.Contains("SUM, FIBONACCI, TEST", member.Refusal);
+            StringAssert.Contains("SUM, FIBONACCI, ISA", member.Refusal);
             Assert.IsFalse(session.Choose("SPEED", "SUM").Done, "a parameter it has no choice of");
             Assert.AreEqual("SUM", session.Choices.Single().Chosen);
         }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BitSorter.Board;
+using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.UIElements;
 using ShellButton = UnityEngine.UIElements.Button;
@@ -53,7 +54,7 @@ namespace BitSorter.View
             BitSorter.Board.EditResult result = _session.Choose(name, member);
             Said(result);
             // The run the choice makes is shown whole when it takes over, its own length: the last program's window would
-            // leave the playhead off its end (the 15h-6c shots: TEST's moment 6000 under SUM's 1,350).
+            // leave the playhead off its end (the 15h-6c shots: ISA's moment 6000 under SUM's 1,350).
             if (result.Done && _session.Replay != null)   // the program running chosen again makes no run
                 _fitWavesOnSwitch = true;
         }
@@ -77,12 +78,38 @@ namespace BitSorter.View
             if (!ReferenceEquals(choice, _shownChoice))
             {
                 _shownChoice = choice;
+                RememberTheProgram(choice);
                 _programButton.style.display = choice != null ? DisplayStyle.Flex : DisplayStyle.None;
                 if (choice != null)
                     SetText(_programButton, choice.Name + ": " + (choice.Chosen != null ? BenchChoice.Said(choice.Chosen).ToUpperInvariant() : "AS WRITTEN"));
                 if (!ExerciseControlsShown && Chip != null)
                     Chip.style.right = ProgramChipRoom();
             }
+        }
+
+        /// <summary>
+        /// Sample <paramref name="sample"/> made afresh, on the program last chosen on it (Ahmad, 2026-11-02): the save keeps
+        /// it, since a sample is never kept itself, and it is put in before the run is made -- no step, no second run.
+        /// </summary>
+        private static Project SampleOnItsProgram(int sample)
+        {
+            Project built = WorkbenchSamples.Chip[sample].Build();
+            ProgressStore store = Store();
+            return store == null ? built : BenchChoices.Applied(built, store.SamplePrograms(WorkbenchSamples.Chip[sample].Name));
+        }
+
+        /// <summary>
+        /// The program running on a sample kept as the one it opens on next: whenever the chip sees it change, so a choice
+        /// from the chip or a start-page card, and an undo of one, are each remembered. A circuit of one's own keeps its
+        /// choice in its document already.
+        /// </summary>
+        private void RememberTheProgram(BenchChoice choice)
+        {
+            if (_sample == 0 || choice?.Chosen == null)
+                return;
+            ProgressStore store = Store();
+            if (store != null && store.SetSampleProgram(WorkbenchSamples.Chip[_sample].Name, choice.Name, choice.Chosen))
+                store.Save();
         }
 
         /// <summary>The room the chip takes at the row's end, with its gap; none while it is down.</summary>

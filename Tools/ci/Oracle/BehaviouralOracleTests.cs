@@ -73,13 +73,13 @@ namespace BitSorter.Ci.Oracle
         /// </summary>
         [TestCase("processor/scpu.sv", "scpu_tb", "SUM", 0)]
         [TestCase("processor/scpu.sv", "scpu_tb", "FIBONACCI", 1)]
-        [TestCase("processor/scpu.sv", "scpu_tb", "TEST", 2)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "ISA", 2)]
         [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "SUM", 0)]
         [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "FIBONACCI", 1)]
-        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "TEST", 2)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "ISA", 2)]
         [TestCase("processor/pcpu.sv", "pcpu_tb", "SUM", 0)]
         [TestCase("processor/pcpu.sv", "pcpu_tb", "FIBONACCI", 1)]
-        [TestCase("processor/pcpu.sv", "pcpu_tb", "TEST", 2)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "ISA", 2)]
         public void EachProcessor_RunsEachProgram_AsIcarusDoes(string file, string top, string program, int value)
         {
             var name = new NameExpression();
@@ -90,13 +90,13 @@ namespace BitSorter.Ci.Oracle
         /// <summary>Each processor and program under ModelSim, its PROGRAM given by -G as an exported run.do gives it.</summary>
         [TestCase("processor/scpu.sv", "scpu_tb", "SUM", 0)]
         [TestCase("processor/scpu.sv", "scpu_tb", "FIBONACCI", 1)]
-        [TestCase("processor/scpu.sv", "scpu_tb", "TEST", 2)]
+        [TestCase("processor/scpu.sv", "scpu_tb", "ISA", 2)]
         [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "SUM", 0)]
         [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "FIBONACCI", 1)]
-        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "TEST", 2)]
+        [TestCase("processor/mcpu.sv", "mcpu_demo_tb", "ISA", 2)]
         [TestCase("processor/pcpu.sv", "pcpu_tb", "SUM", 0)]
         [TestCase("processor/pcpu.sv", "pcpu_tb", "FIBONACCI", 1)]
-        [TestCase("processor/pcpu.sv", "pcpu_tb", "TEST", 2)]
+        [TestCase("processor/pcpu.sv", "pcpu_tb", "ISA", 2)]
         public void EachProcessor_RunsEachProgram_AsModelSimDoes(string file, string top, string program, int value)
         {
             var name = new NameExpression();

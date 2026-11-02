@@ -1044,7 +1044,7 @@ failure side.
   sample and leaves the page (Part 15g: it did nothing there); so is EXERCISES' page (`WorkbenchPanel.Exercises.cs`), and
   either up is `PageShowing`. **The start page gives the three RISC-V processors a section
   of their own** (Part 15h-6c, Ahmad, 2026-11-02): RISC-V PROCESSORS under EXERCISES, a card each
-  with its name, a line on what it shows, and SUM, FIBONACCI and TEST, each opening it on that
+  with its name, a line on what it shows, and SUM, FIBONACCI and ISA, each opening it on that
   program; they are not rows of SAMPLES, though the S chip still steps through them. **A
   testbench with a parameter of an enum type has a PROGRAM chip** (Part 15h-6c) at the controls'
   row's right end -- PROGRAM: FIBONACCI -- its menu the enum's members, choosing one step of the
@@ -1052,8 +1052,10 @@ failure side.
   there, never run on to where the last program's run had got to (`RunSession.RanOn`: only a run
   carried on past a `$stop` is replayed as far); the program running chosen again is no step, and
   a choice the design cannot be made with is refused in the elaborator's words. Kept with the
-  project (`ProjectSettings.BenchParameters`) -- a sample is made afresh as it opens, so it opens
-  on SUM again -- never refused by the lock, the first such parameter's alone, and given to
+  project (`ProjectSettings.BenchParameters`) -- a sample is made afresh as it opens, so the save keeps
+  the program last chosen on it, from a card, the chip or an undo of one, and puts it back as it
+  opens, no step to undo (`samplePrograms`, `BenchChoices.Applied`; Ahmad, 2026-11-02: it opened on SUM
+  every time) -- never refused by the lock, the first such parameter's alone, and given to
   ModelSim by an export as the member's value, by the testbench's path, `-G/tb/PROGRAM=1` (a bare
   `-GPROGRAM` sets every parameter of the name, a processor's image name among them; its name ModelSim reads as
   characters, and runs another program without a word), or said in a comment where only the

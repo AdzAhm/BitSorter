@@ -42,7 +42,7 @@ namespace BitSorter.Board
         /// <summary>The parameter's name: <c>PROGRAM</c>.</summary>
         public string Name { get; }
 
-        /// <summary>Its enum's members, in the order declared: <c>SUM</c>, <c>FIBONACCI</c>, <c>TEST</c>.</summary>
+        /// <summary>Its enum's members, in the order declared: <c>SUM</c>, <c>FIBONACCI</c>, <c>ISA</c>.</summary>
         public IReadOnlyList<string> Members { get; }
 
         /// <summary>The member its declaration gives it, or null when that is no member by name.</summary>
@@ -92,6 +92,38 @@ namespace BitSorter.Board
                 result.Add(new BenchChoice(p.Name, members, declared, chosen, ValuesOf(@enum)));
             }
             return result;
+        }
+
+        /// <summary>
+        /// <paramref name="project"/> with each of <paramref name="chosen"/> -- a parameter's name, one of its members -- that its
+        /// testbench offers chosen as <see cref="BoardEditor.SetBenchParameter"/> chooses one, the run measured again to where
+        /// that choice stops it, on an editor of its own so the document it returns carries no step: a sample, made afresh as
+        /// it opens, on the program last chosen on it (Ahmad, 2026-11-02). A name the bench has not, a member it does not
+        /// offer, or one the design cannot be made with is passed over, so what was remembered of an older sample never stops
+        /// it opening.
+        /// </summary>
+        public static Project Applied(Project project, IReadOnlyDictionary<string, string> chosen)
+        {
+            if (project == null || chosen == null || chosen.Count == 0)
+                return project;
+
+            BoardEditor editor = null;
+            foreach (BenchChoice choice in Of(BoardCompiler.Compile(project), project.Settings ?? new ProjectSettings()))
+            {
+                if (!chosen.TryGetValue(choice.Name, out string member) || member == choice.Chosen || !Offers(choice, member))
+                    continue;
+                editor ??= new BoardEditor(project);
+                editor.SetBenchParameter(choice.Name, member);   // refused, it leaves the sample as it was made
+            }
+            return editor?.Project ?? project;
+        }
+
+        private static bool Offers(BenchChoice choice, string member)
+        {
+            foreach (string each in choice.Members)
+                if (each == member)
+                    return true;
+            return false;
         }
 
         /// <summary>

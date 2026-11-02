@@ -509,7 +509,7 @@ module scpu #(
 endmodule
 
 module scpu_tb;
-    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // Which program it runs: SUM, FIBONACCI or ISA (rv32i.svh). In the body, not a #( ) list, where a project's module
     // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
     parameter rv_program_t PROGRAM = SUM;
 
@@ -1005,7 +1005,7 @@ endmodule
 // every instruction once -- so the three processors can be compared on each: the start page's multicycle sample
 // (Part 15h-6, the three programs Part 15h-6c).
 module mcpu_demo_tb;
-    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // Which program it runs: SUM, FIBONACCI or ISA (rv32i.svh). In the body, not a #( ) list, where a project's module
     // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
     parameter rv_program_t PROGRAM = SUM;
 
@@ -1858,7 +1858,7 @@ module pcpu #(
 endmodule
 
 module pcpu_tb;
-    // Which program it runs: SUM, FIBONACCI or TEST (rv32i.svh). In the body, not a #( ) list, where a project's module
+    // Which program it runs: SUM, FIBONACCI or ISA (rv32i.svh). In the body, not a #( ) list, where a project's module
     // sees what it includes: a simulator's command line sets it all the same, as -P does, and so does an instantiation.
     parameter rv_program_t PROGRAM = SUM;
 
@@ -1933,8 +1933,8 @@ endmodule
 `define RV32I_SVH
 
 // The programs a processor's testbench can run, its PROGRAM (Part 15h-6c): the sum of 1 to 10, the first ten
-// Fibonacci numbers, or every instruction once, checking itself.
-typedef enum {SUM, FIBONACCI, TEST} rv_program_t;
+// Fibonacci numbers, or the instruction set -- ISA, every instruction once -- checking itself.
+typedef enum {SUM, FIBONACCI, ISA} rv_program_t;
 
 localparam logic [6:0] OP_LUI    = 7'b0110111;
 localparam logic [6:0] OP_AUIPC  = 7'b0010111;

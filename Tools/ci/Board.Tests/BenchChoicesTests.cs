@@ -74,6 +74,38 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(10, editor.Project.Stimulus.End);
         }
 
+        /// <summary>
+        /// A sample is made afresh as it opens, so the program last chosen on it is put back into its settings -- no step, no
+        /// run -- and what the bench does not offer is passed over (Ahmad, 2026-11-02).
+        /// </summary>
+        [Test]
+        public void AProgramRemembered_IsPutBack_AndWhatTheBenchDoesNotOfferIsPassedOver()
+        {
+            Project project = Imported();
+
+            Project applied = BenchChoices.Applied(project, new Dictionary<string, string> { ["PROGRAM"] = "FIBONACCI" });
+            Assert.AreEqual("FIBONACCI", ChoiceOf(applied).Chosen);
+            Assert.AreEqual("FIBONACCI", applied.Settings.BenchParameters["PROGRAM"]);
+            Assert.AreEqual(project.Modules, applied.Modules, "the circuit itself untouched");
+            var chosenByHand = new BoardEditor(project);
+            Assert.IsTrue(chosenByHand.SetBenchParameter("PROGRAM", "FIBONACCI").Done);
+            Assert.AreEqual(20, applied.Stimulus.End,
+                "measured again to where FIBONACCI stops, as choosing it measures (the M1 review: it was left at SUM's 10, and the run cut short)");
+            Assert.AreEqual(chosenByHand.Project.Stimulus.End, applied.Stimulus.End);
+
+            Assert.AreSame(project, BenchChoices.Applied(project, new Dictionary<string, string> { ["PROGRAM"] = "SUM" }),
+                "the program the sample opens on anyway: nothing to put back");
+            Assert.AreSame(project, BenchChoices.Applied(project, new Dictionary<string, string> { ["PROGRAM"] = "TEST2" }),
+                "a member the bench no longer has: passed over, and the sample opens as it is");
+            Assert.AreSame(project, BenchChoices.Applied(project, new Dictionary<string, string> { ["SPEED"] = "FAST" }),
+                "a parameter the bench has not");
+            Assert.AreSame(project, BenchChoices.Applied(project, null));
+
+            var withoutABench = new BoardEditor(Project.New("plain")).Project;
+            Assert.AreSame(withoutABench, BenchChoices.Applied(withoutABench, new Dictionary<string, string> { ["PROGRAM"] = "SUM" }),
+                "a project with no testbench offers nothing");
+        }
+
         [Test]
         public void AChoiceTheDesignCannotBeMadeWith_IsRefused_InTheCodesWords_AndLeavesNoStep()
         {
@@ -99,6 +131,9 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("nowhere", result.Refusal, "the elaborator's own words");
             Assert.IsFalse(editor.CanUndo);
             Assert.AreEqual("NARROW", ChoiceOf(editor.Project).Chosen);
+
+            Assert.AreSame(import.Project, BenchChoices.Applied(import.Project, new Dictionary<string, string> { ["SIZE"] = "TOO_WIDE" }),
+                "remembered, it is passed over: a sample opens as it was made, never fails to open (the M1 review)");
         }
 
         [Test]

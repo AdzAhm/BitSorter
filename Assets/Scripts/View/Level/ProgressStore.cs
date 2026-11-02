@@ -105,6 +105,22 @@ namespace BitSorter.View
         /// bests were in ticks of a token game, and mean nothing here. Absent, so none, in every older file.
         /// </summary>
         public ExerciseBestRecord[] exerciseBests;
+
+        /// <summary>
+        /// The program last chosen on each sample (Ahmad, 2026-11-02): a sample is made afresh as it opens, so its PROGRAM is
+        /// kept here and put back as it opens again. A new key, absent -- each sample on its own program -- in every file
+        /// from before it.
+        /// </summary>
+        public SampleProgramRecord[] samplePrograms;
+    }
+
+    /// <summary>A program chosen on a sample, as the save holds it: the sample's name, the parameter, the member chosen.</summary>
+    [Serializable]
+    public sealed class SampleProgramRecord
+    {
+        public string sample;
+        public string parameter;
+        public string member;
     }
 
     /// <summary>
@@ -191,6 +207,7 @@ namespace BitSorter.View
         private readonly List<string> _locked = new List<string>();
         private readonly List<SavedProject> _imported = new List<SavedProject>();
         private string _lastOpen = "";
+        private readonly List<SampleProgramRecord> _samplePrograms = new List<SampleProgramRecord>();
         private readonly Dictionary<string, (int Gates, long? Settle)> _exerciseBests = new Dictionary<string, (int Gates, long? Settle)>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
@@ -305,6 +322,7 @@ namespace BitSorter.View
             _locked.Clear();
             _imported.Clear();
             _lastOpen = "";
+            _samplePrograms.Clear();
             _exerciseBests.Clear();
             LoadedFormat = 0;
 
@@ -408,6 +426,10 @@ namespace BitSorter.View
                     foreach (ExerciseBestRecord best in file.exerciseBests)
                         if (best != null && !string.IsNullOrEmpty(best.id))
                             _exerciseBests[best.id] = (best.gates, best.settle >= 0 ? best.settle : (long?)null);
+                if (file.samplePrograms != null)
+                    foreach (SampleProgramRecord chosen in file.samplePrograms)
+                        if (chosen != null)
+                            SetSampleProgram(chosen.sample, chosen.parameter, chosen.member);
             }
             catch (Exception exception)
             {
@@ -496,6 +518,7 @@ namespace BitSorter.View
                     imported = _imported.ToArray(),
                     lastOpen = _lastOpen,
                     exerciseBests = ExerciseBestRecords(),
+                    samplePrograms = _samplePrograms.ToArray(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -536,6 +559,7 @@ namespace BitSorter.View
             _locked.Clear();
             _imported.Clear();
             _lastOpen = "";
+            _samplePrograms.Clear();
             _exerciseBests.Clear();
             Save();
         }
@@ -756,6 +780,38 @@ namespace BitSorter.View
                 if (string.Equals(_imported[i].key, key, StringComparison.Ordinal))
                     return i;
             return -1;
+        }
+
+        /// <summary>The programs last chosen on <paramref name="sample"/>, by parameter; empty for none.</summary>
+        public IReadOnlyDictionary<string, string> SamplePrograms(string sample)
+        {
+            var chosen = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (SampleProgramRecord record in _samplePrograms)
+                if (string.Equals(record.sample, sample, StringComparison.Ordinal))
+                    chosen[record.parameter] = record.member;
+            return chosen;
+        }
+
+        /// <summary>
+        /// Keeps <paramref name="member"/> as the program last chosen for <paramref name="parameter"/> on <paramref name="sample"/>;
+        /// whether that changed anything. Not written until <see cref="Save"/>.
+        /// </summary>
+        public bool SetSampleProgram(string sample, string parameter, string member)
+        {
+            if (string.IsNullOrEmpty(sample) || string.IsNullOrEmpty(parameter) || string.IsNullOrEmpty(member))
+                return false;
+            foreach (SampleProgramRecord record in _samplePrograms)
+            {
+                if (!string.Equals(record.sample, sample, StringComparison.Ordinal) || !string.Equals(record.parameter, parameter, StringComparison.Ordinal))
+                    continue;
+                if (string.Equals(record.member, member, StringComparison.Ordinal))
+                    return false;
+                record.member = member;
+                return true;
+            }
+
+            _samplePrograms.Add(new SampleProgramRecord { sample = sample, parameter = parameter, member = member });
+            return true;
         }
 
         /// <summary>Whether the document under <paramref name="key"/> is locked against change (Part 15h-4d).</summary>
