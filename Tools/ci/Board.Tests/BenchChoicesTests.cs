@@ -138,7 +138,10 @@ namespace BitSorter.Board.Tests
             Assert.IsTrue(editor.SetBenchParameter("PROGRAM", "FIBONACCI").Done);
             CompiledProject compiled = BoardCompiler.Compile(editor.Project);
             string script = ProjectExport.RunDo(editor.Project, compiled, BoardPrinter.Print(compiled));
-            StringAssert.Contains("vsim -voptargs=+acc -GPROGRAM=1 work.tb", script);
+            // The testbench's own: -GPROGRAM=1 sets every parameter of that name in the design, and a processor's memory takes
+            // its image's file name by one, so ModelSim opened "" and the program never ran (found by the ModelSim oracle,
+            // Part 15i-4). Given by the testbench's path, it is the testbench's alone.
+            StringAssert.Contains("vsim -voptargs=+acc -G/tb/PROGRAM=1 work.tb", script);
             StringAssert.Contains("# PROGRAM is FIBONACCI, given as its value", script);
         }
 
