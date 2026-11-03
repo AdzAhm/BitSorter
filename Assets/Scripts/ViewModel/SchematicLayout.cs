@@ -257,15 +257,27 @@ namespace BitSorter.ViewModel
         /// The net with a wire within <paramref name="within"/> of <paramref name="point"/> (stage
         /// units, y down), the nearest if several are, or -1.
         /// </summary>
+        /// <remarks>
+        /// Asked every frame the pointer is on the circuit, playing or not (Part 16e's performance pass): a pointer standing
+        /// still at the same reach is answered from the last ask, which nothing else can change -- the nets are the layout's,
+        /// and a layout is never changed -- as the pin under it is (<see cref="CanvasEditor.Point"/>). The walk is by index:
+        /// foreach over the branches' interface was an enumerator on the heap a net under Mono and IL2CPP, 40 bytes each.
+        /// </remarks>
         public int NetAt(Vec2 point, float within)
         {
+            if (_netAsked && point.Equals(_netAskedAt) && within == _netAskedWithin)
+                return _netAnswer;
+
             int best = -1;
             float bestSquared = within * within;
 
-            for (int n = 0; n < Nets.Count; n++)
+            IReadOnlyList<NetLayout> nets = Nets;
+            for (int n = 0; n < nets.Count; n++)
             {
-                foreach (StageRoute branch in Nets[n].Branches)
+                IReadOnlyList<StageRoute> branches = nets[n].Branches;
+                for (int b = 0; b < branches.Count; b++)
                 {
+                    StageRoute branch = branches[b];
                     for (int i = 1; i < branch.PointCount; i++)
                     {
                         float squared = SquaredDistance(point, branch.Point(i - 1), branch.Point(i));
@@ -278,8 +290,18 @@ namespace BitSorter.ViewModel
                 }
             }
 
+            _netAsked = true;
+            _netAskedAt = point;
+            _netAskedWithin = within;
+            _netAnswer = best;
             return best;
         }
+
+        // The last ask of NetAt and its answer.
+        private bool _netAsked;
+        private Vec2 _netAskedAt;
+        private float _netAskedWithin;
+        private int _netAnswer = -1;
 
         private static float SquaredDistance(Vec2 p, Vec2 a, Vec2 b)
         {
