@@ -140,6 +140,10 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>Every word on the canvas reads at 4.5:1 (WCAG's for text), the quietest included.</summary>
+        /// <remarks>
+        /// The second cursor's time, and the span to it, are words in the cursor's colour (<c>WaveformView</c>), as a code
+        /// editor's warning is: held to 4.5:1 since the accessibility review (2026-11-03), where Schematic Light's was 4.10.
+        /// </remarks>
         [Test]
         public void OnTheCanvas_TextIsReadable()
         {
@@ -148,7 +152,10 @@ namespace BitSorter.EditMode.Tests
                 SchematicPalette c = look.Canvas;
 
                 foreach ((string what, Color colour) in new[]
-                         { ("text", c.Text), ("secondary text", c.TextDim), ("a delay", c.Muted), ("the playhead's time", c.Accent) })
+                         {
+                             ("text", c.Text), ("secondary text", c.TextDim), ("a delay", c.Muted), ("the playhead's time", c.Accent),
+                             ("the second cursor's time", c.Cursor),
+                         })
                 {
                     Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Ground), 4.5f,
                         $"{look.Name}: {what} is not 4.5:1 against the canvas's ground");
