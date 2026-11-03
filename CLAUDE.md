@@ -567,7 +567,11 @@ stretch that way.
   real mouse and keyboard are swapped for the fixture's own -- a click on the
   Game view mid-capture once put a refusal toast into two shots -- so **two
   captures of the same code are identical to the pixel**; a refactor that claims
-  to change nothing is held to that, with no tolerance. It needs the Game view,
+  to change nothing is held to that, with no tolerance. **In one editor session,
+  that is**: a restarted editor makes the code's font again, and its glyphs come
+  out a level or two apart in a few pixels -- shots 43, 44, 66 and 73 moved by 2 to
+  7 pixels after a restart on 2026-11-03, the same on v5 as on the change being
+  held -- so after a restart capture the base again before comparing. It needs the Game view,
   so not batch mode. **The README's GIFs are recorded the same way**, by the
   Explicit `ReadmeGifs` fixture (`Assets/Tests/PlayMode/ReadmeGifs.cs`: a scenario
   a GIF, its frames in `Captures/gifs/<name>`) and made from those frames by
