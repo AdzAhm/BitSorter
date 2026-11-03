@@ -4493,6 +4493,29 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   rule lets F2 and F8 through, the two a browser does not take.
 - **Smaller things.** `SettingsPanel.FitScale` and its test, `WorkbenchPanel.GoUnder`, and the migration: `Migrator` is
   `NameFrom` and nothing else, `LegacyCircuit` and its types are deleted, and `MigratorTests` holds the naming rule alone.
+- **Packages and engine modules.** Gone from `Packages/manifest.json`: Visual Scripting, Timeline, 2D Animation,
+  SpriteShape, Tilemap Extras, 2D Tooling, the Aseprite and PSD importers, Multiplayer Center and Unity Version Control's
+  plug-in; then the 2D Tilemap Editor, and the engine modules Cloth, Terrain Physics, Vehicles, Wind, Umbra, Vector
+  Graphics, Asset Bundle, the WWW, texture and asset-bundle web requests, and Adaptive Performance. A module was taken out
+  only when no package in the lock depends on it and no source -- in `Assets`, `Tools`, or any package the lock resolves,
+  AI Assistant included -- names one of its public types where its namespace is in scope, outside an `#if` keyed to that
+  very module; the types were read out of the module's own assemblies, not guessed from its name. **Most of the rest
+  stays because a package's editor code names them unguarded**, and an assembly that loses a module it names stops
+  compiling: TextMesh Pro's editor in uGUI (`TMP_PackageUtilities`) lists `NavMeshData`, `AudioClip`,
+  `AnimatorOverrideController`, `PhysicsMaterial2D`, `Tilemaps.Tile` and `VideoClip`, so AI, Audio, Animation, Physics 2D,
+  Tilemap and Video stay; URP's editor names `ParticleSystemRenderer`, `PlayableDirector` and `VisionUtility`, so Particle
+  System, Director and Accessibility stay; 2D Sprite's menu makes `Rigidbody2D`s; AI Assistant uses animation, audio,
+  video, screen capture and `DownloadHandlerAudioClip`. Physics and Terrain are dependencies of
+  `render-pipelines.core`. **The legacy Unity Analytics module stays too**, though nothing names its types: Unity
+  Services Analytics registers `AnalyticsSettings.OnRequireInBuildHandler` (`CoreStatsIntegration`) to keep the engine's
+  analytics in a build, which is a question about what is collected, not a tidy (see "Analytics" in CLAUDE.md). **XR and
+  VR stay** for now: every use is keyed to them (`ENABLE_XR_MODULE`, `ENABLE_VR_MODULE`,
+  `UNITY_INPUT_SYSTEM_ENABLE_XR`), but the Test Framework reads `XRSettings` under a bare `#if ENABLE_XR`, which has to be
+  shown not to be a define of this editor before they go. `Packages/packages-lock.json` was written as the Package
+  Manager writes it -- what is still reachable, each depth its shortest distance from the manifest -- a rule that
+  replays the first removal to the very lock Unity wrote. What the download gains is for the release build's row in
+  `Docs/distribution.md`: a module that is off adds no engine code to a stripped build, but one nothing referenced was
+  stripped already.
 - **Left, though nothing in the app reads it:** `ButtonRole.Primary` and `Destructive` and the palette's two colours for them
   (`UiTheme.Button_` and `KeyCap` are still called, with Secondary and Quiet, and draw over their fill), and `UiModal`'s
   guard above. Both are a rule rather than a leftover, and a later tidy can take them.
