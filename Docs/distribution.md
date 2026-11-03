@@ -140,10 +140,14 @@ is not compressed. 4.0.0's was 16,931,273 bytes; Part 16 records each cut it mak
 | After Part 16a deleted the 4.x game (2026-11-02) | 7,688,213 | 7,063,474 | 15,046,579 |
 | Before Part 16b's optimisation skills (2026-11-03) | not recorded | not recorded | 11,380,796 |
 | After them, before the `optimize-web` pass (v5 `332b89a`, 2026-11-03) | 7,506,410 | 3,273,372 | 11,070,792 |
+| After the `optimize-web` pass (2026-11-03) | 7,501,966 | 3,255,925 | 11,048,901 |
 
 Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. Part 16b then
 took the sound out, and the two menu recordings with it, about 3.6 MB of the data; its skills took a further
-310,004 bytes. The framework is 172,878 bytes of that last build and the loader 118,132.
+310,004 bytes, and the `optimize-web` pass 21,891 more -- 17,447 off the data, where the shaders went, and 4,444 off
+the wasm: less than the 37 KB its pieces measured alone, since Brotli had shared much of their bytes with what stays.
+The framework is 172,878 bytes of that last build and the loader 118,132. From 4.0.0's 16,931,273, the download is
+5,882,372 bytes smaller, 34.7%.
 
 **Where the last of those bytes are** (`v5 332b89a`, measured by unpacking the build: the data file is a list of
 files, its `data.unity3d` a Unity asset bundle, and each piece was Brotli-compressed on its own at quality 11, so
