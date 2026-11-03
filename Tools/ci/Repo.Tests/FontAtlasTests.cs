@@ -17,8 +17,9 @@ namespace BitSorter.Ci.Tests
     /// Read from the assets' YAML, so it needs no editor. A power of two because a glyph's UVs are its rect over the
     /// atlas's size, and over a power of two that division is exact: a cropped atlas samples every texel as the larger
     /// one did. IBM Plex Sans was baked into 2048 by 1024 with its glyphs ending 603 texels across, and its bold into
-    /// 1024 square with its glyphs ending at 329: more than half of each atlas held nothing. A dynamic atlas grows as
-    /// glyphs are added, and is held by nothing here.
+    /// 1024 square with its glyphs ending at 329: more than half of each atlas held nothing. Both were cut down to the
+    /// columns their glyphs use, 1024 by 1024 and 512 by 1024, every glyph's texels where they were. A dynamic atlas
+    /// grows as glyphs are added, and is held by nothing here.
     /// </remarks>
     public class FontAtlasTests
     {
