@@ -78,5 +78,35 @@ namespace BitSorter.Ci.Tests
             Assert.IsTrue(setting.Success, "the URP global settings have no URPTerrainShaderSetting with m_IncludeTerrainShaders");
             Assert.AreEqual("0", setting.Groups[1].Value, "URP's terrain shaders go into every build again");
         }
+
+        /// <summary>
+        /// The main camera draws only its ground colour, under the workbench's opaque ground, and HDR was there for the
+        /// bloom: with it URP's 2D renderer drew the camera into screen-sized float targets of its own and copied them to
+        /// the screen every frame. The scene builder is the authority on the scene, so both say so -- the scene as built,
+        /// and the builder that builds it again.
+        /// </summary>
+        [Test]
+        public void TheMainCamera_DrawsWithoutHdr_InTheSceneAndItsBuilder()
+        {
+            string[] cameras = Regex.Split(Read("Assets/Scenes/HalfAdderDemo.unity"), @"^--- ", RegexOptions.Multiline)
+                .Where(block => block.StartsWith("!u!20 ")).ToArray();
+
+            Assert.AreEqual(1, cameras.Length, "the scene should hold one camera");
+            Assert.AreEqual("0", FieldIn(cameras[0], "m_HDR", "the scene's camera"), "the scene's camera draws in HDR again");
+
+            string builder = Regex.Replace(Read("Assets/Scripts/View/Editor/HalfAdderDemoSceneBuilder.cs"), "//[^\n]*", "");
+            StringAssert.IsMatch(@"\bcamera\.allowHDR\s*=\s*false\s*;", builder, "the scene builder makes a camera that draws in HDR");
+        }
+
+        /// <summary>
+        /// Paired with the test above, which would say nothing if HDR were off for every camera: the URP asset allows it, so
+        /// the main camera's own switch is what turns it off. And it is kept on for <c>WaveformPng</c>'s camera, which draws
+        /// the PNG through it -- off, the picture's pixels would change.
+        /// </summary>
+        [Test]
+        public void TheUrpAsset_AllowsHdr_SoACameraChoosesIt()
+        {
+            Assert.AreEqual("1", FieldIn(Read("Assets/Settings/UniversalRP.asset"), "m_SupportsHDR", "UniversalRP.asset"));
+        }
     }
 }

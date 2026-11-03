@@ -4564,6 +4564,18 @@ nothing recompiles.
   URP 17.3 puts its three terrain-detail shaders -- a lit one, with URP's lighting variants, and two for grass -- in a build
   "even if not referenced" while it is on, and the last build's runtime list shows they went in. Nothing in BitSorter is a
   terrain, and a terrain is the only thing that asks the URP asset for them; off, it is handed none.
+- **The main camera draws without HDR** (`HalfAdderDemoSceneBuilder.CreateCamera`, `allowHDR = false`, and the scene's
+  `m_HDR`). HDR was there for the bloom. With it, URP's 2D renderer gave the camera colour targets of its own -- two,
+  screen-sized, in packed 32-bit float -- and a depth target, drew into them and copied the result to the screen every
+  frame (`Renderer2DRendergraph.GetRenderPassInputs`: an HDR camera needs a colour texture): by the formats' sizes 27 to
+  33 MB of video memory at 1920 by 1080, and a full-screen copy a frame. Without it the camera clears the screen itself,
+  and the overlay is drawn on it as before, so nothing on screen changes: the workbench's ground is an opaque scrim over
+  the whole canvas. (The camera's colour is the one the scene was built with, 5, 4, 12, in every look; it would long since
+  have shown on Schematic Light's paper if any of it were seen.) **The URP asset keeps HDR**, since `WaveformPng`'s camera
+  draws the PNG through it -- into a float target, then into the picture -- and drawn straight into the picture its
+  blended edges, and its paper's blue, could come out a level apart. Where URP must convert to sRGB on its way to the
+  screen (`Display.main.requiresSrgbBlitToBackbuffer`, which a browser's canvas may want) the camera keeps targets of its
+  own, in 8-bit colour of the same size, and saves nothing; whether a browser is such a place, a browser build will tell.
 
 ---
 

@@ -84,6 +84,12 @@ namespace BitSorter.View.EditorTools
         /// No post-processing, so none is asked for: <c>renderPostProcessing</c> stays at URP's default, off. Until Part
         /// 16b the camera ran bloom and SMAA on this empty image every frame -- an overlay is drawn after
         /// post-processing, so neither ever touched anything on screen.
+        ///
+        /// **And no HDR**, which was there for the bloom. With it, URP's 2D renderer drew this camera into screen-sized
+        /// float targets of its own -- two colour, one depth -- and copied the result to the screen every frame; without
+        /// it the camera clears the screen itself, and the workbench's opaque ground covers what it cleared either way.
+        /// The URP asset keeps HDR: <see cref="WaveformPng"/>'s camera draws the PNG through it, and
+        /// leaving it there leaves the picture as it was.
         /// </remarks>
         private static Camera CreateCamera()
         {
@@ -98,6 +104,7 @@ namespace BitSorter.View.EditorTools
             camera.backgroundColor = Palette.Current.Ground;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
+            camera.allowHDR = false;
 
             return camera;
         }
