@@ -194,6 +194,55 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(2, Top(workbench).Parts.Count, "Ctrl+Z brought both back, in one step");
         }
 
+        /// <summary>
+        /// The circuit is kept the moment BitSorter loses the focus, not half a second after its last edit (the 16c pilot): an
+        /// edit made and the window closed at once was lost, and a browser tab put behind another never wrote it at all.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnEdit_IsKeptAtOnce_WhenBitSorterLosesTheFocus()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.TakeFromStrip("xor"));
+            yield return ClickAt(workbench, new BoardPoint(4, -2));
+            Assert.AreEqual(1, Top(workbench).Parts.Count, "sanity: placed");
+
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            Assert.IsTrue(store.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()),
+                "MY CIRCUIT in the save");
+            Assert.AreEqual(1, kept.TopModule.Parts.Count, "with the edit just made");
+        }
+
+        /// <summary>
+        /// A save that fails says so on the chip (the 16c pilot: every keep failed in silence, a whole session's work held only
+        /// in the window): here a folder stands where the save writes first.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASaveThatFails_SaysSoOnTheChip()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            string blocker = ProgressStore.DefaultPath + ".tmp";
+            System.IO.Directory.CreateDirectory(blocker);
+            try
+            {
+                Assert.IsTrue(workbench.TakeFromStrip("xor"));
+                yield return ClickAt(workbench, new BoardPoint(4, -2));
+                workbench.ShowSample(3);   // leaving MY CIRCUIT keeps it at once
+                yield return null;
+                yield return null;
+                StringAssert.StartsWith("BitSorter could not save", workbench.ChipText);
+            }
+            finally
+            {
+                System.IO.Directory.Delete(blocker, true);
+            }
+        }
+
         [UnityTest]
         public IEnumerator MyCircuit_IsKept_AndTheWorkbenchOpensOnItWhenItHasAnythingInIt()
         {
