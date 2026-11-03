@@ -1,5 +1,6 @@
 using BitSorter.Board;
 using BitSorter.Sim;
+using BitSorter.SystemVerilog.Syntax;
 
 namespace BitSorter.ViewModel
 {
@@ -46,10 +47,13 @@ namespace BitSorter.ViewModel
             if (top == null || top.IsWritten)
                 return Step.TakeTheNot;
 
+            // Read every frame the tutorial runs: its lists walked by index, never through an enumerator Mono and IL2CPP make on
+            // the heap, and its ports found without listing them (Part 16e, LessonCostTests).
             int not = -1;
-            foreach (Part part in top.Parts)
-                if (part is GatePart gate && gate.Kind == GateKind.Not)
-                    not = part.Id;
+            IReadOnlyList<Part> parts = top.Parts;
+            for (int i = 0; i < parts.Count; i++)
+                if (parts[i] is GatePart gate && gate.Kind == GateKind.Not)
+                    not = gate.Id;
             if (not < 0)
                 return inHand != null && inHand.Kind == CatalogKind.Gate && inHand.Gate == GateKind.Not ? Step.PutItDown : Step.TakeTheNot;
 
@@ -61,21 +65,34 @@ namespace BitSorter.ViewModel
             return Step.Check;
         }
 
+        /// <summary>The port called <paramref name="name"/>, an input before an output, as <see cref="Module.Ports"/> lists them; -1 for none.</summary>
         private static int PortId(Module top, string name)
         {
-            foreach (PortPart port in top.Ports)
-                if (port.Name == name)
+            int output = -1;
+            IReadOnlyList<Part> parts = top.Parts;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (!(parts[i] is PortPart port) || port.Name != name)
+                    continue;
+                if (port.Direction == PortDirection.Input)
                     return port.Id;
-            return -1;
+                if (output < 0 && port.Direction == PortDirection.Output)
+                    output = port.Id;
+            }
+            return output;
         }
 
         /// <summary>Whether a wire joins <paramref name="from"/> to <paramref name="to"/>, either way round.</summary>
         private static bool Wired(Module top, int from, int to)
         {
-            foreach (Wire wire in top.Wires)
+            IReadOnlyList<Wire> wires = top.Wires;
+            for (int i = 0; i < wires.Count; i++)
+            {
+                Wire wire = wires[i];
                 if (!wire.From.IsTap && !wire.To.IsTap &&
                     ((wire.From.Pin.Part == from && wire.To.Pin.Part == to) || (wire.From.Pin.Part == to && wire.To.Pin.Part == from)))
                     return true;
+            }
             return false;
         }
     }

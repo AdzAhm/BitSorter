@@ -62,6 +62,11 @@ namespace BitSorter.ViewModel
             if (!seen(Clock) && project.Stimulus != null && project.Stimulus.Clocks.Count > 0)
                 return Clock;
 
+            // Every hint the run itself can earn seen -- where a student soon is, and asked every half second with no hint up --
+            // nothing more is due: the ports are not listed, nor their names made (Part 16e, LessonCostTests).
+            if (seen(GateDelay) && seen(HighZ) && seen(Glitch))
+                return null;
+
             // A written top's ports are its header's (the #90 review: on code the glitch and z hints never came).
             var inputs = new List<SignalId>();
             var outputs = new List<SignalId>();
