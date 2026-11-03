@@ -4629,6 +4629,14 @@ nothing recompiles.
   includes with no setting to leave them out; and the render graph's settings, compilation caching and the validity
   checks the editor's tests want.
 
+**As built in Part 16: the tech-debt sweep** (2026-11-03), of what 16a, 16b and 16e left. As in 16b's tidy, nothing was
+removed until a search of `Assets`, `Tools`, `ProjectSettings` and `Packages` found nothing that reads it but what went with
+it; each commit says what it gained and how that was measured. Nothing drawn changes.
+
+- **`FrameRecorder` is gone.** 16a kept it for the README's GIFs, but 16e's `ReadmeGifs` records them itself, with its own
+  copy of `Downscale`, so nothing added the recorder to an object any more and no scene or prefab holds its script. It was
+  behind `UNITY_EDITOR`, so no build changes.
+
 ---
 
 ## 11. The parts

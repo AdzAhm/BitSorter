@@ -836,9 +836,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// A capture scaled down to <paramref name="width"/>, keeping its aspect: <c>FrameRecorder.Downscale</c>, which the 4.x
-        /// README's animation was made with, down to the sRGB correction -- the project renders in linear colour space and the
-        /// capture comes back already encoded, which a PNG would encode again.
+        /// A capture scaled down to <paramref name="width"/>, keeping its aspect: the 4.x README's animation was made the same
+        /// way, by a <c>FrameRecorder</c> deleted once this replaced it, down to the sRGB correction -- the project renders in
+        /// linear colour space and the capture comes back already encoded, which a PNG would encode again.
         /// </summary>
         private static Texture2D Downscale(Texture2D source, int width)
         {
