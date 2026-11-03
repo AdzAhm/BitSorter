@@ -81,8 +81,8 @@ namespace BitSorter.ViewModel
 
             long last = -1;
             foreach (VcdTrace trace in theirs.Values)
-                if (trace.Changes.Count > 0)
-                    last = Math.Max(last, trace.Changes[trace.Changes.Count - 1].Time);
+                if (trace.Kept.Count > 0)
+                    last = Math.Max(last, trace.Kept[trace.Kept.Count - 1].Time);
             long until = Math.Max(0, Math.Min(end - 1, last - 1));
             var missing = new List<string>();
             var atStart = new List<string>();
@@ -108,7 +108,7 @@ namespace BitSorter.ViewModel
                     if (change.Time <= until)
                         mine.Add((change.Time, change.Value.Format(Radix.Binary)));
 
-                if (FirstDifference(mine, trace.Changes, info.Width, until, out bool fromStart) is (long at, string here, string there)
+                if (FirstDifference(mine, trace.Kept, info.Width, until, out bool fromStart) is (long at, string here, string there)
                     && (first == null || at < first || (at == first && string.CompareOrdinal(info.Name, signal) < 0)))
                 {
                     first = at;
@@ -126,13 +126,14 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// The first moment two signals' settled values differ, up to <paramref name="until"/>; null when they never do. A
-        /// difference from time 0 is <paramref name="fromStart"/>, and passed over until the two first agree.
+        /// difference from time 0 is <paramref name="fromStart"/>, and passed over until the two first agree. Each value is
+        /// held as it was kept -- the dump's as it wrote it, perhaps short -- and widened only once it is the difference
+        /// (the review of 16c): widened at every change, a dump of a wide signal written short made its width again for each.
         /// </summary>
-        private static (long, string, string)? FirstDifference(List<(long Time, string Bits)> mine, List<(long Time, string Bits)> theirs,
+        private static (long, string, string)? FirstDifference(List<(long Time, string Bits)> mine, IReadOnlyList<(long Time, string Bits)> theirs,
             int width, long until, out bool fromStart)
         {
-            string unknown = new string('x', Math.Max(1, width));
-            string here = unknown, there = unknown, startHere = null, startThere = null;
+            string here = null, there = null, startHere = null, startThere = null;   // none yet: x
             fromStart = false;
             bool starting = true;
             int i = 0, j = 0;
@@ -142,10 +143,10 @@ namespace BitSorter.ViewModel
                 if (next > until)
                     break;
                 while (i < mine.Count && mine[i].Time == next)
-                    here = Fit(mine[i++].Bits, width);
+                    here = mine[i++].Bits;
                 while (j < theirs.Count && theirs[j].Time == next)
-                    there = Fit(theirs[j++].Bits, width);
-                if (here == there)
+                    there = theirs[j++].Bits;
+                if (VcdReader.Same(here, there, width))
                 {
                     starting = false;
                     continue;
@@ -159,27 +160,16 @@ namespace BitSorter.ViewModel
                 }
                 if (fromStart && starting)
                     continue;
-                return (next, here, there);
+                return (next, VcdReader.Widen(here, width), VcdReader.Widen(there, width));
             }
 
             // Never once the same: no start, but a difference from time 0.
             if (fromStart && starting)
             {
                 fromStart = false;
-                return (0, startHere, startThere);
+                return (0, VcdReader.Widen(startHere, width), VcdReader.Widen(startThere, width));
             }
             return null;
-        }
-
-        /// <summary>Digits at <paramref name="width"/>: cut from the left, or extended as a VCD extends a short vector.</summary>
-        private static string Fit(string bits, int width)
-        {
-            if (string.IsNullOrEmpty(bits))
-                return new string('x', Math.Max(1, width));
-            if (bits.Length >= width)
-                return bits.Substring(bits.Length - width);
-            char pad = bits[0] == 'x' || bits[0] == 'z' ? bits[0] : '0';
-            return new string(pad, width - bits.Length) + bits;
         }
 
         /// <summary>The verdict, for the chip: in a few words.</summary>

@@ -118,5 +118,38 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains(gone, comparison.Lines(session.Unit).Last().Text);
             StringAssert.EndsWith("; 1 signal not in its dump", comparison.Verdict(session.Unit), "the chip says so too");
         }
+
+        [Test]
+        public void ADumpsValuesWrittenShort_AreComparedAsWritten_WidenedOnlyWhereTheyDiffer()
+        {
+            // The review of 16c: a dump's values are kept as it wrote them, and a comparison that widened each to the width the
+            // dump declared -- 65,536 bits here, for a 4-bit counter -- would make that width again at every change.
+            BitSorter.Sim.Elaboration elaboration = Elaborator.Elaborate(BitSorter.SystemVerilog.Syntax.SyntaxReader.ReadText(@"
+module t;
+    logic [3:0] w = 4'd0;
+    initial repeat (500) #1 w = w + 4'd1;
+endmodule", "t.sv"), null);
+            Assert.IsFalse(elaboration.HasErrors, string.Join("\n", elaboration.Diagnostics));
+            var sim = new Simulator(elaboration.Design);
+            sim.RunTo(600);
+
+            var dump = new System.Text.StringBuilder("$scope module t $end\n$var reg 65536 ! w [65535:0] $end\n$upscope $end\n$enddefinitions $end\n");
+            for (int k = 0; k <= 500; k++)
+                dump.Append($"#{k}\nb{System.Convert.ToString(k % 16, 2)} !\n");
+            Dictionary<string, VcdTrace> theirs = VcdReader.Read(new StringReader(dump.ToString()));
+
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            RunComparison same = RunComparison.Of(elaboration.Design, sim.History, 600, theirs);
+            long made = System.GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.IsTrue(same.Agree, same.Signal + " at " + same.Time);
+            Assert.AreEqual(499, same.Until);
+            Assert.Less(made, 4L << 20, $"comparing 500 changes made {made:N0} bytes");
+
+            theirs["t.w"].Changes[300] = (300, "1");
+            RunComparison differs = RunComparison.Of(elaboration.Design, sim.History, 600, theirs);
+            Assert.AreEqual(300, differs.Time);
+            Assert.AreEqual("1100", differs.Ours, "300 is 12 past the last 16");
+            Assert.AreEqual("0001", differs.Theirs, "widened to the design's width where it is shown");
+        }
     }
 }
