@@ -1051,7 +1051,8 @@ to; and a dedication to every student of Digital Systems and Computer Structure 
 course's name in full, as Ahmad asked (2026-10-29) -- naming no university.
 No line for the assistant that helped write it. The roll credits no music
 and no sound role since Part 16b, and `CreditsTests` holds it so. It rises at
-`CreditsPanel.Speed` and comes to rest on its farewell rather than rolling off
+`CreditsPanel.Speed` and comes to rest on its farewell -- HAPPY SIMULATING over the version (Ahmad, 2026-11-03; it was
+THANK YOU FOR PLAYING) -- rather than rolling off
 into an empty screen, and any key or click goes back to Settings.
 
 **Fullscreen is a desktop build's alone** (`DisplayRules.Offered`): in a
