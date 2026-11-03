@@ -108,6 +108,39 @@ namespace BitSorter.View
         private void Start() => Launch();
 
         /// <summary>
+        /// Set while a launch opens what was open last, until it has stayed up <see cref="SurvivedFrames"/> frames (Part 16b).
+        /// Found still set, the last launch stopped while opening it -- a browser out of memory stops the page -- and this one
+        /// opens the start page instead: BitSorter opens on the last thing open, so it would stop again on every launch, as
+        /// the pipelined processor once did (15h-6d).
+        /// </summary>
+        public const string OpeningKey = "BitSorter.Launch.Opening";
+
+        /// <summary>What the chip says when the last launch stopped while opening what was open.</summary>
+        public const string StoppedOpening =
+            "BitSorter stopped while opening what was open last, so it opened on the start page. RECENT opens it again.";
+
+        /// <summary>How many frames what a launch opened must stay up for the launch to count as over: half a second.</summary>
+        private const int SurvivedFrames = 30;
+
+        /// <summary>The frames left until what this launch opened counts as opened; 0 once it has, or with nothing opened.</summary>
+        private int _launchWatch;
+
+        /// <summary>The launch's mark taken off once what it opened has stayed up: called every frame.</summary>
+        private void WatchTheLaunch()
+        {
+            if (_launchWatch > 0 && --_launchWatch == 0)
+                Preferences.SetInt(OpeningKey, 0);
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (_launchWatch > 0)
+                Preferences.SetInt(OpeningKey, 0);   // closed on purpose, not stopped
+        }
+
+        // OnDestroy (WorkbenchPanel.cs) takes the mark off too: a scene unloaded -- a look changed, a test done -- is no stop.
+
+        /// <summary>
         /// Opens the workbench on what was open last (<see cref="Documents.LaunchKey"/>): that circuit, that sample, or with
         /// nothing, the start page over MY CIRCUIT, which Escape leaves it for.
         /// </summary>
@@ -118,6 +151,24 @@ namespace BitSorter.View
 
             ProgressStore store = Store();
             string key = Documents.LaunchKey(store != null ? store.LastOpen : null, DocumentKeys());
+
+            if (key != null && Preferences.GetInt(OpeningKey, 0) == 1)
+            {
+                Preferences.SetInt(OpeningKey, 0);
+                _documentKey = WorkbenchSamples.MyCircuitKey;
+                _launchSample = 0;
+                Open();
+                ShowHome();
+                Notice(StoppedOpening);
+                return;
+            }
+
+            // Marked before it opens: written out at once, so in a browser the mark is on its way before the open can stop it.
+            if (key != null)
+            {
+                Preferences.SetInt(OpeningKey, 1);
+                _launchWatch = SurvivedFrames;
+            }
 
             // An exercise open last opens again, while it is one of the run (Part 15d); one since taken out, the start page.
             string exerciseId = Documents.ExerciseOf(key);

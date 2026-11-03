@@ -442,6 +442,8 @@ namespace BitSorter.View
         {
             if (_tracker != null)
                 _tracker.ProgressReset -= ProgressWasReset;
+            if (_launchWatch > 0)
+                Preferences.SetInt(OpeningKey, 0);   // unloaded, not stopped: a look changed, a test done (Part 16b)
         }
 
         /// <summary>Opens the workbench, building it the first time, and plays the run from the start.</summary>
@@ -1445,6 +1447,7 @@ namespace BitSorter.View
 
         private void Update()
         {
+            WatchTheLaunch();
             if (!IsShowing || _model == null)
                 return;
 

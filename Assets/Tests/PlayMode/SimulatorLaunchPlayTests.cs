@@ -150,6 +150,33 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("adder", workbench.Session.Project.Top, "the circuit as it was kept");
         }
 
+        /// <summary>
+        /// A launch that stopped while opening what was open last opens the start page instead, and says so (Part 16b): a
+        /// browser that ran out of memory opening a big design would stop on every launch after. One that opens it marks
+        /// that it is opening, and takes the mark off once it has stayed up.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ALaunchThatStoppedWhileOpening_OpensTheStartPage_AndOneThatOpensTakesItsMarkOff()
+        {
+            Plant(store => store.LastOpen = Documents.SampleKey(WorkbenchSamples.All[2].Name));
+            Preferences.SetInt(WorkbenchPanel.OpeningKey, 1);   // as a launch that stopped part way through its open left it
+            yield return TestScene.LoadSimulator();
+            yield return null;
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.StartPageShowing, "the start page, not what stopped the last launch");
+            Assert.AreEqual(WorkbenchPanel.StoppedOpening, workbench.ChipText, "and why");
+            Assert.AreEqual(0, Preferences.GetInt(WorkbenchPanel.OpeningKey, 0), "the mark off: the next launch opens it again");
+            yield return TestScene.Clear();
+
+            Plant(store => store.LastOpen = Documents.SampleKey(WorkbenchSamples.All[2].Name));
+            yield return TestScene.LoadSimulator();
+            Assert.AreEqual(3, Find<WorkbenchPanel>().Sample, "opened as ever");
+            Assert.AreEqual(1, Preferences.GetInt(WorkbenchPanel.OpeningKey, 0), "marked while it opens");
+            for (int frame = 0; frame < 300 && Preferences.GetInt(WorkbenchPanel.OpeningKey, 0) == 1; frame++)
+                yield return null;
+            Assert.AreEqual(0, Preferences.GetInt(WorkbenchPanel.OpeningKey, 0), "the mark off once it has stayed up");
+        }
+
         [UnityTest]
         public IEnumerator ASampleOpenLast_IsWhatItOpensOnAgain_AndOneSinceGoneIsTheStartPage()
         {
