@@ -177,11 +177,9 @@ namespace BitSorter.ViewModel
         {
             get
             {
-                if (Selection.Parts.Count != 1)
+                if (!Selection.TryOnePart(out int part))
                     return -1;
-                foreach (int part in Selection.Parts)
-                    return Module?.FindPart(part) is Part found && PartGeometry.Resizable(found) && _hit.OutlineOf(part) != null ? part : -1;
-                return -1;
+                return Module?.FindPart(part) is Part found && PartGeometry.Resizable(found) && _hit.OutlineOf(part) != null ? part : -1;
             }
         }
 
@@ -1206,12 +1204,12 @@ namespace BitSorter.ViewModel
         {
             get
             {
-                if (Selection.Parts.Count == 1 && Selection.Wires.Count == 0)
-                    foreach (int part in Selection.Parts)
-                        return new CanvasTarget(CanvasTargetKind.Part, part: part);
-                if (Selection.Wires.Count == 1 && Selection.Parts.Count == 0)
-                    foreach (int wire in Selection.Wires)
-                        return new CanvasTarget(CanvasTargetKind.Wire, wire: wire);
+                // Asked every frame (the inspector): the one id read from the selection's own set, never through the
+                // interface, whose enumerator is boxed on the heap (Part 16e).
+                if (Selection.Wires.Count == 0 && Selection.TryOnePart(out int part))
+                    return new CanvasTarget(CanvasTargetKind.Part, part: part);
+                if (Selection.Parts.Count == 0 && Selection.TryOneWire(out int wire))
+                    return new CanvasTarget(CanvasTargetKind.Wire, wire: wire);
                 return CanvasTarget.Nothing;
             }
         }

@@ -173,6 +173,26 @@ namespace BitSorter.ViewModel
         public bool HasPart(int part) => _parts.Contains(part);
         public bool HasWire(int wire) => _wires.Contains(wire);
 
+        /// <summary>
+        /// The part selected when it is the only part selected, wires or none; false otherwise. Asked every frame -- the
+        /// inspector's one thing selected -- so read from the set itself: walked through <see cref="Parts"/>, its enumerator
+        /// is boxed on the heap, 40 bytes a frame (Part 16e).
+        /// </summary>
+        public bool TryOnePart(out int part) => TryOne(_parts, out part);
+
+        /// <summary>The wire selected when it is the only wire selected, parts or none; false otherwise (<see cref="TryOnePart"/>).</summary>
+        public bool TryOneWire(out int wire) => TryOne(_wires, out wire);
+
+        private static bool TryOne(HashSet<int> set, out int id)
+        {
+            id = -1;
+            if (set.Count != 1)
+                return false;
+            foreach (int only in set)
+                id = only;
+            return true;
+        }
+
         /// <summary>Whether <paramref name="target"/> is selected: its part, or its wire.</summary>
         public bool Has(CanvasTarget target) =>
             target.IsPart ? _parts.Contains(target.Part) : target.Kind == CanvasTargetKind.Wire && _wires.Contains(target.Wire);
