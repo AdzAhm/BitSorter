@@ -137,6 +137,9 @@ namespace BitSorter.View
         private Rect _browserAt;
         private float _browserFont;
 
+        // The body's corners, filled again each frame CodeMirror is placed: one array, not one a frame (Part 16e).
+        private readonly Vector3[] _corners = new Vector3[4];
+
         /// <summary>The wheel over the line numbers or the margins scrolls the code, as it does over the code itself.</summary>
         public void OnScroll(PointerEventData eventData) => _field?.OnScroll(eventData);
 
@@ -403,7 +406,7 @@ namespace BitSorter.View
             if (!shown)
                 return;
 
-            var corners = new Vector3[4];
+            Vector3[] corners = _corners;
             _body.GetWorldCorners(corners);   // a screen-space canvas: world is the screen's pixels
             Rect at = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
             Canvas canvas = _root.GetComponentInParent<Canvas>();
