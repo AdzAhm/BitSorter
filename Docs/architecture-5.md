@@ -4495,6 +4495,40 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   (`UiTheme.Button_` and `KeyCap` are still called, with Secondary and Quiet, and draw over their fill), and `UiModal`'s
   guard above. Both are a rule rather than a leftover, and a later tidy can take them.
 
+**As built in Part 16e: the docs and the words** (Ahmad, 2026-11-03, the pass before 5.0.0). With the 4.x game, the sound and the
+bloom gone, what was written about BitSorter and what it said to the user still described a puzzle game.
+
+- **The README** is written for the simulator from the code and this document: what it does, where each version lives (5.0 on
+  GitHub Pages and as a Windows zip on its release; 4.0.0 on Unity Play, its source the `v4.0.0` tag), the start page, drawing,
+  the waves, INPUTS, writing code, the drawing of code with GATES and the controllers, the course's tools, the Exercises by
+  chapter, the three processors, import, export and COMPARE WITH MODELSIM'S RUN, Settings and the four looks, the save, what it
+  teaches and leaves alone, how the engine simulates, and developing. An HTML comment stands where each GIF will go (drawing and
+  wiring, the waves, code, TIMING, LOGIC, CHECK, PROGRAM, COMPARE). **"What it collects" says what it said**: only words that named
+  what is gone changed (a level is an exercise, the main menu is SETTINGS, "the game" is BitSorter, "tick counts" are "timings"),
+  and `AnalyticsTests` still reads it.
+- **CONTRIBUTING** says the same for a contributor: what a simulator bug report needs, the three things that are not bugs (a
+  glitch, a race, a ranking), the `exercise` label where `level` was, the oracle and `dotnet test`, and the privacy rule.
+- **`.github`**: `exercise_idea.yml` replaces `level_idea.yml`; the bug report and feature request ask what a simulator needs (the
+  version, Windows or a browser, the look, what was drawn or written, the expected waves against the shown) and say not to paste
+  the course's material; the pull request template asks for `dotnet test` and an Icarus comparison. **The workflow is `tests.yml`,
+  "Tests"**, no longer `logic-core.yml`, "LogicCore tests": its steps are as they were, and the job is still `test`, which is what
+  a required check names (neither `v5` nor `main` has branch protection). The repository's `level` label wants renaming to
+  `exercise`.
+- **The version is 5.0.0**: `bundleVersion` in the player settings is its one source, read by the start page, the credits
+  (`Application.version`) and the browser template (`PRODUCT_VERSION`). `VersionTests` (`Tools/ci/Repo.Tests`) hold the README and
+  `Docs/distribution.md` to it and the two views to `Application.version`. `Docs/distribution.md` also says where each version
+  lives and loses the sandbox, LogicCore and the main menu. No tag was made; that is the release's.
+- **The credits end on HAPPY SIMULATING** (Ahmad's choice), the copyright and `v5.0.0` under it; their line under the title is the
+  About page's words, and "A GAME BY" is "MADE BY".
+- **Words**: Settings' STYLE line and the keyboard map's refusal of Escape say BitSorter where they said "the game", and the web
+  template's comments say exercises and circuits. `PlayerTextTests` now gathers STYLE's line and the start page's words, and
+  refuses game, level, bin, puzzle and player anywhere the user reads, but in two places: ABOUT BITSORTER's WHERE IT CAME FROM,
+  and the roll's GAME DESIGN and LEVEL DESIGN, Ahmad's roles of 2026-09-27 and his to change.
+- **Left**: those two roles; `LICENSE`'s "levels" (the licence's own words); `Docs/design.md`, `Docs/level-roadmap.md` and
+  `Docs/level-loaded-pipeline.md`, which are the 4.x game's notes and keep their history; `Docs/half-adder.gif`, which nothing
+  uses now; the scene's `Game UI` object, a name only the builder reads; the GIFs and a recapture of the Settings and credits
+  reference shots, which change with the text, both of which want the editor.
+
 ---
 
 ## 11. The parts
