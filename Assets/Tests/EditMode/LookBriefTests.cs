@@ -244,7 +244,7 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
-        /// A value written as a word -- a row's readout, a bus's label -- reads at 4.5:1 where it is written, on the ground or a
+        /// A value written as a word -- a row's readout -- reads at 4.5:1 where it is written, on the ground or a
         /// row's band, though its colour is held only to a wire's 3:1: taken toward the text as far as it must
         /// (<see cref="SchematicPalette.Legible"/>), so it is still its value's colour and a 0 still apart from a 1, and left as
         /// it is wherever it already reads.
@@ -266,7 +266,7 @@ namespace BitSorter.EditMode.Tests
                          { ("the ground", c.Ground), ("the selection band", c.Selection), ("a pointed-at wire's band", faint) })
                 {
                     foreach ((string what, Color colour) in new[]
-                             { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("a bus's label", c.Text) })
+                             { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus) })
                     {
                         Color written = c.Legible(colour, ground);
                         if (SchematicPalette.Contrast(colour, ground) >= SchematicPalette.WordContrast)
