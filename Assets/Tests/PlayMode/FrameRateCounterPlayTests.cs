@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
+using TMPro;
 using BitSorter.View;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -126,6 +127,50 @@ namespace BitSorter.PlayMode.Tests
                 "drawing the number made garbage beyond TextMeshPro's editor-only copy of the text");
 
             FrameRate.SetCounter(false);
+        }
+
+        /// <summary>
+        /// The counter's number reads on what it is drawn over -- the workbench's ground, in the top-right margin -- at
+        /// 4.5:1 (WCAG's for text) in every look.
+        /// </summary>
+        /// <remarks>
+        /// It took the interface's text colour, which both Schematic looks take from Neon Board: a near-white that over
+        /// Schematic Light's paper is 1.01:1, so a counter switched on there could not be seen (the accessibility review,
+        /// 2026-11-03). Each look is chosen before its load, as renderers take their colours when they build.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheFrameRateCounter_ReadsOnTheWorkbench_InEveryLook()
+        {
+            foreach (Look look in Look.All)
+            {
+                Look.Use(look);
+                try
+                {
+                    yield return TestScene.LoadSimulator();
+                    FrameRateCounter counter = Find<FrameRateCounter>();
+                    Assert.IsNotNull(counter, "sanity: the scene has a frame-rate counter");
+
+                    // The counter asks for the switch in its own Update: waited on, capped in frames and loud.
+                    FrameRate.SetCounter(true);
+                    for (int frame = 0; frame < 30 && !counter.IsShowing; frame++)
+                        yield return null;
+                    Assert.IsTrue(counter.IsShowing, $"sanity: {look.Name}: FPS COUNTER on puts the counter up");
+
+                    TextMeshProUGUI number = counter.Box.GetComponentInChildren<TextMeshProUGUI>(true);
+                    Assert.IsNotNull(number, "sanity: the counter writes its number with a label");
+
+                    Color ground = SchematicPalette.Current.Ground;
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(number.color, ground), 4.5f,
+                        $"{look.Name}: the counter's number is {SchematicPalette.Contrast(number.color, ground):F2}:1 on the workbench's ground");
+                }
+                finally
+                {
+                    FrameRate.SetCounter(false);
+                    Look.Use(null);
+                }
+
+                yield return TestScene.Clear();
+            }
         }
 
         /// <summary>
