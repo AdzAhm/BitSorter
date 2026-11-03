@@ -4442,7 +4442,10 @@ simulator for a course, and the music was its largest single item in the downloa
   (`WorkbenchKeys.GameKeys`) and is no longer: it is free for a binding of the workbench's own. Ctrl+N stays the
   browser's.
 - **The player ships without the audio system**: `m_DisableAudio` is set in `ProjectSettings/AudioManager.asset`. The
-  built-in audio module stays in the package manifest, since other modules depend on it.
+  built-in audio module stays in the package manifest, since other modules depend on it. Since Part 16's audio audit
+  `NoSoundTests`, a repository rule, holds that and what goes with it: no clip or mixer under `Assets`, no audio component
+  in the build list's scene or any prefab, no script using the audio API, and a pair proving its readers find one. The
+  URP scaffold's `SampleScene` and 2D scene template keep their camera's `AudioListener`, being in no build.
 - **Saves and settings:** the three PlayerPrefs keys for the sound, the music and the volume are no longer read. They stay
   where an older build wrote them, harmless. The README and `ProgressTracker.ResetProgress` said a reset kept the sound
   settings; they say display and data settings now.

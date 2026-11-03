@@ -2,8 +2,9 @@
 
   <!--
     Rules about the repository itself rather than about any one part of the game: no student ID
-    number and no copied course material anywhere in it (PrivacyScanTests), and the four pure layers
-    of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests).
+    number and no copied course material anywhere in it (PrivacyScanTests), the four pure layers
+    of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests), the shell built in
+    code (ShellRulesTests), the version stated once (VersionTests), and no sound (NoSoundTests).
 
     Its own tests live here rather than in Assets, because none of them is anything Unity needs to run.
     It references the layers so that building it builds them, against netstandard2.1 as Unity does.

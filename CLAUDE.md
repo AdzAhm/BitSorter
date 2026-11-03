@@ -986,7 +986,11 @@ stretch that way.
 - **BitSorter has no sound** since Part 16b (Ahmad, 2026-11-03: "remove the music
   and anything related to it"): the generated tracks, the two recordings, the sound,
   music and volume settings and the N key are gone, and the player ships with audio
-  disabled (`ProjectSettings/AudioManager.asset`).
+  disabled (`ProjectSettings/AudioManager.asset`). `NoSoundTests` (Repo.Tests) holds
+  it so: the switch off, no clip or mixer under Assets, no audio component in the
+  build's scene or a prefab, and no script using the audio API. The built-in audio
+  module stays in the manifest, since the director, video and web-request audio
+  modules depend on it.
 - **Anything shown to the player is derived, never restated.** A truth table is
   the engine run through every combination (`LogicTable`), a K-map is laid out
   from it, a state diagram is the engine run from its start (`StateExplorer`),
