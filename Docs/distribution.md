@@ -115,6 +115,9 @@ last clicked:
 | IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed BitSorter does not need |
 | Managed stripping | Medium | Removes code nothing reaches; at Minimal every package went in whole. It was Low, the conservative level, until 2026-10-15: no runtime script uses reflection, and the browser build was smoke-tested at Medium before it was kept, since the risks are in packages (Unity Services, the Input System, `JsonUtility`) |
 | WebAssembly 2023 | **On** | Native exceptions, bulk memory, BigInt and SIMD where the original feature set used JavaScript trampolines. Needs Chrome 91, Firefox 89 or Safari 16.4 |
+| Strip engine code | **On** | Engine modules no code calls stay out of the wasm |
+| Debug symbols | Off | Symbols are for a development build's stack traces, and would ride in the wasm or beside it |
+| Show diagnostics | Off | A development overlay; off, the page carries none of it |
 
 URP's post-processing is left out of the build whole: nothing BitSorter draws is
 post-processed, so the 2D renderer carries no post-processing data, and the sixteen shaders

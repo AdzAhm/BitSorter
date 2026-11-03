@@ -104,6 +104,13 @@ namespace BitSorter.View.Editor
             PlayerSettings.SetIl2CppCodeGeneration(UnityEditor.Build.NamedBuildTarget.WebGL,
                 UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
             PlayerSettings.SetManagedStrippingLevel(UnityEditor.Build.NamedBuildTarget.WebGL, ManagedStrippingLevel.Medium);
+
+            // The three the download also rests on, held here so a build cannot inherit them from a box last ticked in the
+            // dialog (2026-11-03, the optimize-web pass): engine code nothing calls left out of the wasm, no debug symbols in
+            // it or beside it, and no diagnostics overlay in the page. Each was already so in the project's settings.
+            PlayerSettings.stripEngineCode = true;
+            PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
+            PlayerSettings.WebGL.showDiagnostics = false;
         }
     }
 }
