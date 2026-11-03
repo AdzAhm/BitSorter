@@ -140,19 +140,10 @@ namespace BitSorter.View
                 Guide(painter, from, to, palette.Cursor);
 
             // A selected wire's corners (Part 10b-2): a square on each, filled with the ground so the wire does not run
-            // through it -- something to take hold of, and never a junction's dot, which is round.
-            foreach (Vector2 at in overlay.Handles)
-            {
-                painter.Rect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle, palette.Ground);
-                Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
-            }
-
-            // A selected block's handles (Part 16): the same squares, on its selection's outline, where a drag resizes it.
-            foreach (Vector2 at in overlay.ResizeHandles)
-            {
-                painter.Rect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle, palette.Ground);
-                Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
-            }
+            // through it -- something to take hold of, and never a junction's dot, which is round. A selected block's handles
+            // (Part 16) are the same squares, on its selection's outline, where a drag resizes it.
+            Handles(painter, overlay.Handles, palette);
+            Handles(painter, overlay.ResizeHandles, palette);
 
             if (overlay.Box is Rect2 box)
             {
@@ -198,7 +189,7 @@ namespace BitSorter.View
         /// <summary>How wide a wire being drawn is, and how big the rings on its ends are.</summary>
         private const float DraftWidth = 3f, EndRing = 6f;
 
-        /// <summary>Half a corner handle's side, in stage units.</summary>
+        /// <summary>Half a handle's side, in stage units: a wire's corner's, and a resizable block's.</summary>
         private const float Handle = 4f;
 
         /// <summary>The room round the drawing inside the minimap's edge, in window units.</summary>
@@ -280,6 +271,16 @@ namespace BitSorter.View
             float length = along.magnitude;
             Vector2 unit = length > 1e-4f ? along / length : new Vector2(1f, 0f);
             painter.Dashed(new StageRoute(new[] { from - unit * GuideOverrun, to + unit * GuideOverrun }), GuideWidth, colour, GuideDot, GuideGap);
+        }
+
+        /// <summary>A handle's square on each of <paramref name="points"/>: ground inside, an accent edge.</summary>
+        private static void Handles(VectorPainter painter, List<Vector2> points, SchematicPalette palette)
+        {
+            foreach (Vector2 at in points)
+            {
+                painter.Rect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle, palette.Ground);
+                Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
+            }
         }
 
         private static void Outlined(VectorPainter painter, Rect2 rect, Color colour, float width, float corner = 6f)
