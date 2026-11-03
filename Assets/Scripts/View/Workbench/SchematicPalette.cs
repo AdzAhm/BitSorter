@@ -184,6 +184,7 @@ namespace BitSorter.View
         {
             var copy = (SchematicPalette)MemberwiseClone();
             copy.Name = name;
+            copy._words = null;   // worked out from this palette's colours, which the copy may change
             change?.Invoke(copy);
             return copy;
         }
@@ -208,9 +209,30 @@ namespace BitSorter.View
 
         /// <summary>
         /// The colour <paramref name="value"/> is written in as a word on <see cref="Ground"/>: the digit in a change's ring,
-        /// which is filled with the ground. Its own colour (<see cref="Of"/>).
+        /// which is filled with the ground. Its own colour (<see cref="Of"/>) where that reads at <see cref="WordContrast"/>,
+        /// and otherwise lifted toward the text as far as it must (<see cref="Legible"/>) -- in Schematic Light a z and a bus,
+        /// 3.67:1 and 4.32 in their own colours, and in Classic a 0, 4.38 (the accessibility review, 2026-11-03). The wire
+        /// keeps its colour; only the word is lifted.
         /// </summary>
-        public Color WordOf(LogicVec value) => Of(value);
+        /// <remarks>
+        /// Every ring's digit asks it every frame, so the five value colours' words are worked out the first time it is asked
+        /// and kept: a palette is never changed in place, and <see cref="Derive"/> gives its copy none of them.
+        /// </remarks>
+        public Color WordOf(LogicVec value)
+        {
+            if (_words == null)
+                _words = new[] { Legible(Zero, Ground), Legible(One, Ground), Legible(Unknown, Ground), Legible(HighZ, Ground), Legible(Bus, Ground) };
+
+            Color ink = Of(value);
+            if (ink == Zero) return _words[0];
+            if (ink == One) return _words[1];
+            if (ink == Unknown) return _words[2];
+            if (ink == HighZ) return _words[3];
+            return ink == Bus ? _words[4] : Legible(ink, Ground);
+        }
+
+        // WordOf's five, in Of's colours' order -- 0, 1, x, z, a bus -- once it has been asked.
+        private Color[] _words;
 
         /// <summary>
         /// <paramref name="colour"/> with the alpha that makes it look <paramref name="opacity"/>

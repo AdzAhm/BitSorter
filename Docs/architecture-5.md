@@ -933,8 +933,8 @@ Precise, and no casing under the wires.
   index, never through an enumerator Mono and IL2CPP would make on the heap (Part 16e, `HoverCostTests`).
 - **Checked.** `LookBriefTests` holds every look's canvas, Classic's included, to the brief of section
   5: every value and outline 3:1 on its ground, every word 4.5:1 -- the second cursor's colour among
-  them, as its time is a word, and a row's readout lifted toward the text until it reads on the ground or
-  its band (`SchematicPalette.Legible`) -- a 0 and a 1 apart by weight as well as colour, z apart from
+  them, as its time is a word, and a row's readout and a ring's digit lifted toward the text until they
+  read on the ground or a row's band (`SchematicPalette.Legible`, `WordOf`) -- a 0 and a 1 apart by weight as well as colour, z apart from
   both and from an outline and a bus, and reduced motion leaving out glow and flash. `LookTests` holds the
   stored numbers, the chosen look and the default; `SettingsPlayTests` chooses Schematic Light through
   the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
