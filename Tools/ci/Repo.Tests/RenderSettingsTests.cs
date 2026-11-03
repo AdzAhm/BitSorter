@@ -64,5 +64,19 @@ namespace BitSorter.Ci.Tests
             Assert.AreEqual("{fileID: 0}", FieldIn(Read("Assets/Settings/Renderer2D.asset"), "m_PostProcessData", "Renderer2D.asset"),
                 "the 2D renderer names post-processing data again, and its shaders go into every build");
         }
+
+        /// <summary>
+        /// URP 17.3 puts its three terrain-detail shaders in a build "even if not referenced" while this setting is on, and
+        /// nothing in BitSorter is a terrain. Off, the URP asset hands a terrain no detail shader, which only a terrain asks for.
+        /// </summary>
+        [Test]
+        public void TerrainShaders_AreLeftOutOfTheBuild()
+        {
+            Match setting = Regex.Match(Read("Assets/UniversalRenderPipelineGlobalSettings.asset"),
+                @"type: \{class: URPTerrainShaderSetting,[^\n]*\n\s*data:\s*\n(?:[ \t]+m_\w+:[^\n]*\n)*?[ \t]+m_IncludeTerrainShaders:[ \t]*(\d)");
+
+            Assert.IsTrue(setting.Success, "the URP global settings have no URPTerrainShaderSetting with m_IncludeTerrainShaders");
+            Assert.AreEqual("0", setting.Groups[1].Value, "URP's terrain shaders go into every build again");
+        }
     }
 }

@@ -4560,6 +4560,10 @@ nothing recompiles.
   only when it is created, or when the box is ticked. `Assets/Settings/PostProcessData.asset`, the copy with its film
   grain emptied, is kept, though nothing points at it: whoever turns post-processing on again points the renderer at it,
   not at the package's, or the film-grain noise comes back (`Docs/distribution.md`).
+- **No terrain shaders in the build** (`URPTerrainShaderSetting`'s `m_IncludeTerrainShaders` off, in the global settings).
+  URP 17.3 puts its three terrain-detail shaders -- a lit one, with URP's lighting variants, and two for grass -- in a build
+  "even if not referenced" while it is on, and the last build's runtime list shows they went in. Nothing in BitSorter is a
+  terrain, and a terrain is the only thing that asks the URP asset for them; off, it is handed none.
 
 ---
 
