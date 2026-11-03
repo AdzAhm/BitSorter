@@ -89,7 +89,7 @@ namespace BitSorter.Board
                         PartOutline over = outlines.Find(o => mine.Left < o.Right + 0.5 && o.Left < mine.Right + 0.5 && mine.Bottom < o.Top + 0.5 && o.Bottom < mine.Top + 0.5);
                         if (over == null)
                             break;
-                        at = at.Moved(0, -(mine.Top - over.Bottom) - 1);
+                        at = at.Moved(0, -Math.Ceiling(((mine.Top - over.Bottom) + 1) * 4 - 1e-9) / 4);   // whole quarters, so its pins stay on the grid (the review of #140)
                     }
                     placed[part.Id] = at;
                     outlines.Add(PartGeometry.Placed(_project, part, at));
