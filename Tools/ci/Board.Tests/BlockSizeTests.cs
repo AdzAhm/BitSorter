@@ -133,6 +133,15 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(new Placement(new Point(3, -1), 0, false, 6, 4), editor.Project.Find("m").Layout.PlacementOf(block.Id));
         }
 
+        [Test]
+        public void Tidy_LaysAResizedBlockOutAtItsNaturalSize()
+        {
+            (Project project, BlockPart block) = Blocked(new Placement(new Point(0, 0), 0, false, 6, 4));
+            var editor = new BoardEditor(project);
+            Assert.IsTrue(editor.Tidy("m").Done);
+            Assert.IsFalse(editor.Project.Find("m").Layout.PlacementOf(block.Id).HasSize, "laid out as the drawing of code is, its size natural");
+        }
+
         // -----------------------------------------------------------------
         // On the drawing of code
         // -----------------------------------------------------------------

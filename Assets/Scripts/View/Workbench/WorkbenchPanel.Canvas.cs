@@ -279,7 +279,7 @@ namespace BitSorter.View
                     _editor.Do(command);
                     if (Mouse.current != null)
                         _canvasMenu.Open(Mouse.current.position.ReadValue(), _editor.Selection.Parts.Count, _editor.Selection.Wires.Count,
-                            _clip != null && !_clip.IsEmpty, _session.CanTidy);
+                            _clip != null && !_clip.IsEmpty, _session.CanTidy, _session.AnyResized(_editor.Selection.Parts));
                     return;
 
                 case CanvasGesture.Inspect:
@@ -373,6 +373,7 @@ namespace BitSorter.View
                 case CanvasMenuAction.Turn: CanvasEdit(_editor.Turn(1)); break;
                 case CanvasMenuAction.Mirror: CanvasEdit(_editor.Mirror()); break;
                 case CanvasMenuAction.RouteAgain: CanvasEdit(_editor.AutoRoute()); break;
+                case CanvasMenuAction.ResetSize: CanvasEdit(_session.ResetSize(_editor.Selection.Parts)); break;
                 case CanvasMenuAction.Tidy: Said(_session.Tidy()); break;
                 case CanvasMenuAction.Copy: CopySelected(); break;
                 case CanvasMenuAction.Cut: CutSelected(); break;

@@ -699,6 +699,114 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(1, workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Count(), "and its mux drawn again");
         }
 
+        /// <summary>Whether every wire on <paramref name="part"/> meets the pin it is on, as the session routes the circuit.</summary>
+        private static void WiresMeetThePinsOf(WorkbenchPanel workbench, Project project, Module module, int part, string when)
+        {
+            PartOutline placed = PartGeometry.Placed(project, module.FindPart(part), module.Layout.PlacementOf(part));
+            System.Collections.Generic.IReadOnlyDictionary<int, System.Collections.Generic.IReadOnlyList<BoardPoint>> routes =
+                workbench.Session.RoutesOf(project, module);
+            int met = 0;
+            foreach (Wire wire in module.Wires)
+                foreach ((Endpoint end, bool first) in new[] { (wire.From, true), (wire.To, false) })
+                    if (!end.IsTap && end.Pin.Part == part)
+                    {
+                        BoardPoint pin = placed.Pins.Single(p => p.Pin == end.Pin.Pin).At;
+                        System.Collections.Generic.IReadOnlyList<BoardPoint> route = routes[wire.Id];
+                        BoardPoint at = first ? route[0] : route[route.Count - 1];
+                        Assert.AreEqual(pin.X, at.X, 1e-9, $"{when}: {end.Pin.Pin}'s wire meets its pin");
+                        Assert.AreEqual(pin.Y, at.Y, 1e-9, $"{when}: {end.Pin.Pin}'s wire meets its pin");
+                        met++;
+                    }
+            Assert.Greater(met, 0, $"sanity, {when}: it has wires");
+        }
+
+        private static BoardPoint HandleOf(WorkbenchPanel workbench, Part part, int handle) =>
+            BlockResize.At(PartGeometry.Placed(workbench.Session.DrawnProject, part, workbench.Session.DrawnModule.Layout.PlacementOf(part.Id)),
+                handle, CanvasEditor.SelectedRoom);
+
+        /// <summary>
+        /// A block resized by its handles through the workbench's own pointer (Part 16, asked 2026-11-02): the full adder's h1
+        /// clicked, its right handle dragged two cells out and its bottom one a cell down -- a step each, its wires meeting its
+        /// pins after each, the status line saying what a handle does -- and Ctrl+Z twice putting it back; then the pipelined
+        /// processor's data memory, in the drawing of its code, made three cells taller the same way and kept with its module.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ABlock_IsResizedByItsHandles_ItsWiresFollow_AndCtrlZPutsItBack()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+
+            int h1 = Top(workbench).FindPart("h1").Id;
+            Placement start = Top(workbench).Layout.PlacementOf(h1);
+            yield return ClickAt(workbench, start.Position);
+            CollectionAssert.AreEqual(new[] { h1 }, workbench.Editor.Selection.Parts.ToArray(), "h1 selected");
+            Assert.AreEqual(h1, workbench.Editor.HandledPart, "its handles up");
+
+            BoardPoint right = HandleOf(workbench, Top(workbench).FindPart(h1), 3);
+            yield return PointAt(workbench, right);
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Handle), workbench.StatusText, "the status line says what a handle does");
+            yield return Drag(workbench, right, new BoardPoint(right.X + 2, right.Y));
+            workbench.Session.Finish();
+            yield return null;
+            Placement wider = Top(workbench).Layout.PlacementOf(h1);
+            Assert.AreEqual(5.0, wider.Width, 1e-9, "two cells wider");
+            Assert.AreEqual(start.Position.X + 1, wider.Position.X, 1e-9, "its left side where it was");
+            WiresMeetThePinsOf(workbench, workbench.Session.Project, Top(workbench), h1, "wider");
+
+            BoardPoint bottom = HandleOf(workbench, Top(workbench).FindPart(h1), 5);
+            yield return Drag(workbench, bottom, new BoardPoint(bottom.X, bottom.Y - 1));
+            workbench.Session.Finish();
+            yield return null;
+            Placement taller = Top(workbench).Layout.PlacementOf(h1);
+            Assert.AreEqual(PartGeometry.NaturalSize(workbench.Session.Project, Top(workbench).FindPart(h1)).Height + 1, taller.Height, 1e-9, "a cell taller");
+            Assert.AreEqual(5.0, taller.Width, 1e-9);
+            WiresMeetThePinsOf(workbench, workbench.Session.Project, Top(workbench), h1, "taller");
+
+            yield return Chord(_keyboard.zKey);
+            yield return Chord(_keyboard.zKey);
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual(start, Top(workbench).Layout.PlacementOf(h1), "Ctrl+Z twice: as it was");
+
+            // The pipelined processor's data memory, in the drawing of its code: kept with its module, by its key.
+            int index = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Pipelined RISC-V")
+                    index = i;
+            workbench.ShowSample(index);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing of its code");
+            Part dmem = workbench.Session.DrawnModule.FindPart("dmem");
+            Assert.IsNotNull(dmem, "sanity: the data memory is drawn");
+            workbench.FitView();
+            yield return null;
+            double natural = PartGeometry.NaturalSize(workbench.Session.DrawnProject, dmem).Height;
+            Placement dmemWas = workbench.Session.DrawnModule.Layout.PlacementOf(dmem.Id);
+            yield return ClickAt(workbench, dmemWas.Position);
+            Assert.AreEqual(dmem.Id, workbench.Editor.HandledPart, "the data memory selected, its handles up");
+            BoardPoint foot = HandleOf(workbench, dmem, 5);
+            yield return Drag(workbench, foot, new BoardPoint(foot.X, foot.Y - 3));
+            workbench.Session.Finish();
+            yield return null;
+
+            Module pcpu = workbench.Session.Project.Find(workbench.Session.Module);
+            Assert.IsTrue(pcpu.Arrangement.TryGetValue("inst:dmem", out Placement kept), "kept with its module, by its key");
+            Assert.AreEqual(natural + 3, kept.Height, 1e-9, "three cells taller");
+            dmem = workbench.Session.DrawnModule.FindPart("dmem");
+            Assert.AreEqual(natural + 3, workbench.Session.DrawnModule.Layout.PlacementOf(dmem.Id).Height, 1e-9, "drawn so");
+        }
+
         /// <summary>
         /// The drawing of code arranged by hand through the workbench's own controls (Part 15h-4f): an import unlocked, its mux
         /// dragged three cells right and kept there, the code untouched; TIDY up and pressed, laying it out by itself again;

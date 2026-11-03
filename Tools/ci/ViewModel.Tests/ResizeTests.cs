@@ -248,6 +248,25 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(b.Session.ResetSize(new[] { b.H1 }).Done, "RESET SIZE too");
         }
 
+        /// <summary>
+        /// The canvas draws a resized block at its size: its box and its pins where the hit map and the routes have them, so
+        /// every wire ends on its pin (shot 75's first capture: the handles round six cells, the block drawn at three, and
+        /// its wires bent across to where its pins were).
+        /// </summary>
+        [Test]
+        public void AResizedBlock_IsDrawnAtItsSize_ItsWiresEndingOnItsPins()
+        {
+            var b = new Bench();
+            Assert.IsTrue(b.Session.Move(new Dictionary<int, Placement> { [b.H1] = b.Start.WithSize(6, 4) }).Done);
+            b.Session.Finish();
+            SchematicLayout layout = b.Session.Run.Model.Layout;
+            PartLayout drawn = layout.Parts.Single(p => p.Part.Id == b.H1);
+            Assert.AreEqual((-3.0, -2.0, 3.0, 2.0), (drawn.Local.Left, drawn.Local.Bottom, drawn.Local.Right, drawn.Local.Top), "drawn six by four");
+            CollectionAssert.AreEqual(
+                PartGeometry.Local(b.Session.Project, b.Block, b.Start).Pins.Select(p => (p.Pin, p.At.X, p.At.Y)),
+                drawn.Local.Pins.Select(p => (p.Pin, p.At.X, p.At.Y)), "its pins where the routes end");
+        }
+
         [Test]
         public void TurningAndCopyingAResizedBlock_KeepItsSize()
         {

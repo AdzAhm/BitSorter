@@ -20,6 +20,9 @@ namespace BitSorter.View
         Mirror,
         RouteAgain,
 
+        /// <summary>The selected blocks given back their natural size (Part 16), where they stand.</summary>
+        ResetSize,
+
         /// <summary>The circuit laid out by itself (Part 15h-4f), as TIDY over it does.</summary>
         Tidy,
 
@@ -35,8 +38,8 @@ namespace BitSorter.View
 
     /// <summary>
     /// The menu a right-click on the circuit opens (Part 10d): line the selected parts up by an edge or their middles,
-    /// spread them evenly, turn or mirror them, put the selected wires back on the automatic route, tidy the whole circuit
-    /// (Part 15h-4f), copy, cut, paste, make a
+    /// spread them evenly, turn or mirror them, put the selected wires back on the automatic route, give resized blocks back
+    /// their natural size (Part 16), tidy the whole circuit (Part 15h-4f), copy, cut, paste, make a
     /// block of them (Part 12b) and take away. What every item does is the canvas editor's (<see cref="CanvasEditor"/>); what every workbench menu does
     /// -- its blocker, Escape, staying on the screen -- is <see cref="WaveMenu"/>'s. Items that do nothing for what is
     /// selected are left off.
@@ -72,6 +75,7 @@ namespace BitSorter.View
             Add(CanvasMenuAction.Turn, "TURN", breakBefore: true);
             Add(CanvasMenuAction.Mirror, "MIRROR");
             Add(CanvasMenuAction.RouteAgain, "ROUTE AGAIN");
+            Add(CanvasMenuAction.ResetSize, "RESET SIZE");
             Add(CanvasMenuAction.Tidy, "TIDY");
             Add(CanvasMenuAction.Copy, "COPY", breakBefore: true);
             Add(CanvasMenuAction.Cut, "CUT");
@@ -83,10 +87,11 @@ namespace BitSorter.View
 
         /// <summary>
         /// Opens the menu with its corner at <paramref name="screenPoint"/> for <paramref name="parts"/> parts and
-        /// <paramref name="wires"/> wires selected, PASTE only when <paramref name="canPaste"/> and TIDY only when
-        /// <paramref name="canTidy"/>. False, and shut, with nothing it could offer.
+        /// <paramref name="wires"/> wires selected, PASTE only when <paramref name="canPaste"/>, TIDY only when
+        /// <paramref name="canTidy"/> and RESET SIZE only when <paramref name="canResetSize"/>. False, and shut, with nothing
+        /// it could offer.
         /// </summary>
-        public bool Open(Vector2 screenPoint, int parts, int wires, bool canPaste, bool canTidy = false)
+        public bool Open(Vector2 screenPoint, int parts, int wires, bool canPaste, bool canTidy = false, bool canResetSize = false)
         {
             void Offer(CanvasMenuAction action, bool shown) => WaveMenu.Offer(_items[(int)action], shown);
 
@@ -102,6 +107,7 @@ namespace BitSorter.View
             Offer(CanvasMenuAction.Turn, parts > 0);
             Offer(CanvasMenuAction.Mirror, parts > 0);
             Offer(CanvasMenuAction.RouteAgain, wires > 0);
+            Offer(CanvasMenuAction.ResetSize, canResetSize);
             Offer(CanvasMenuAction.Tidy, canTidy);
             Offer(CanvasMenuAction.Copy, parts > 0);
             Offer(CanvasMenuAction.Cut, parts > 0);

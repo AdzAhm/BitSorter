@@ -144,7 +144,7 @@ namespace BitSorter.ViewModel
             foreach (Part part in module.Parts)
             {
                 Placement placement = module.Layout.PlacementOf(part.Id);
-                PartOutline local = PartGeometry.Local(project, part);
+                PartOutline local = PartGeometry.Local(project, part, placement);   // at its size, as Placed has it (Part 16)
 
                 if (part is PortPart port)
                 {

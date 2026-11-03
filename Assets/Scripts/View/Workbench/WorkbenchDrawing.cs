@@ -147,6 +147,13 @@ namespace BitSorter.View
                 Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
             }
 
+            // A selected block's handles (Part 16): the same squares, on its selection's outline, where a drag resizes it.
+            foreach (Vector2 at in overlay.ResizeHandles)
+            {
+                painter.Rect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle, palette.Ground);
+                Outlined(painter, Rect2.MinMaxRect(at.x - Handle, at.y - Handle, at.x + Handle, at.y + Handle), palette.Accent, SelectedWidth, corner: 1f);
+            }
+
             if (overlay.Box is Rect2 box)
             {
                 painter.Rect(box.xMin, box.yMin, box.xMax, box.yMax, palette.Over(palette.Accent, 0.12f));
@@ -577,7 +584,8 @@ namespace BitSorter.View
                 // An array of a block (Part 12c): its copies stacked behind it, one edge up and to the right.
                 if (!flashes && part.Part is BlockPart array && array.Copies > 1)
                 {
-                    const double behind = ArrayBehind, x0 = -BlockHalfWidth, x1 = BlockHalfWidth;
+                    const double behind = ArrayBehind;
+                    double x1 = BlockBodyHalf(part), x0 = -x1;
                     double top = part.Local.Top, bottom = part.Local.Bottom;
                     Vector2 left = part.ToStage(x0 + behind, top + behind), corner = part.ToStage(x1 + behind, top + behind);
                     Vector2 right = part.ToStage(x1 + behind, bottom + behind);
@@ -763,12 +771,12 @@ namespace BitSorter.View
                     break;
 
                 default:
-                    Box(into, part, -BlockHalfWidth, part.Local.Bottom, BlockHalfWidth, part.Local.Top, 0.12);
+                    Box(into, part, -BlockBodyHalf(part), part.Local.Bottom, BlockBodyHalf(part), part.Local.Top, 0.12);
                     break;
             }
         }
 
-        /// <summary>Half a block's box, in cells: its outline stops a lead short of its pins (Part 15g; it was a quarter cell).</summary>
+        /// <summary>Half an operator's box across, in cells: as a block's at its natural size, a lead short of its pins (Part 15g).</summary>
         private const double BlockHalfWidth = BlockHalf;
 
         /// <summary>How far, in cells, an array's copies are stacked behind its box, up and to the right; its name is raised as far.</summary>

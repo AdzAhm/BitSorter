@@ -2157,8 +2157,9 @@ namespace BitSorter.View
                     // running out of the box. A right-hand name ends at its pin, so its label, given by its
                     // left edge, starts a label's width before. A name has the box's width where nothing is
                     // across its row and half where something is -- the box is a lead narrower since Part
-                    // 15g -- and is cut short rather than run into the other (the 15g-3 review).
-                    double inside = SymbolGeometry.BlockHalf - 0.1;
+                    // 15g -- and is cut short rather than run into the other (the 15g-3 review). A block made wider by
+                    // its handles gives its names the room (Part 16).
+                    double inside = SymbolGeometry.BlockBodyHalf(part) - 0.1;
                     float whole = (float)(2 * inside) * part.Cell, half = whole / 2f - 4f;
                     foreach (BitSorter.Board.PinSpot pin in part.Local.Pins)
                     {

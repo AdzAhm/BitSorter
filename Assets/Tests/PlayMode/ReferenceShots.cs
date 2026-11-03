@@ -1676,6 +1676,41 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("74-workbench-program-chooser");
         }
 
+        /// <summary>
+        /// Part 16: the full adder's h1 made four cells wide and three tall by its handles and selected -- the eight handles on
+        /// its selection's outline, its pins spread down its sides, its port names given the room and its wires run to them.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot75_WorkbenchResizedBlock()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(2);   // the full adder
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            BitSorter.Board.Module top = workbench.Session.Project.TopModule;
+            int h1 = top.FindPart("h1").Id;
+            BitSorter.Board.Placement was = top.Layout.PlacementOf(h1);
+            Assert.IsTrue(workbench.Session.Move(new System.Collections.Generic.Dictionary<int, BitSorter.Board.Placement>
+            {
+                [h1] = was.Moved(0.5, 0).WithSize(4, 3),   // its left side where it was, clear of h2 and of cin's wire
+            }).Done, "sanity: resized");
+            workbench.Session.Finish();
+            yield return Frames(2);
+            workbench.Editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: h1)));   // as a click selects
+            workbench.FitView();
+            workbench.Seek(26.5);
+            yield return Frames(30);
+
+            Assert.AreEqual(h1, workbench.Editor.HandledPart, "sanity: its handles up");
+            yield return Capture("75-workbench-resized-block");
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

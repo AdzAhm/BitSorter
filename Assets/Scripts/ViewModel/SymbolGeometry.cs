@@ -28,6 +28,12 @@ namespace BitSorter.ViewModel
         /// <summary>Half a block's box, in cells: its pins, a cell and a half out, have a <see cref="Lead"/> each.</summary>
         public const double BlockHalf = 1.0;
 
+        /// <summary>
+        /// Half <paramref name="part"/>'s box across, in cells: a <see cref="Lead"/> in from its pins -- <see cref="BlockHalf"/>
+        /// at its natural size, wider once its handles have made it so (Part 16).
+        /// </summary>
+        public static double BlockBodyHalf(PartLayout part) => part.Local.Right - Lead;
+
         /// <summary>Half an operator's box, up and down, in cells: as wide as a block's, a cell tall, a shift's amount a lead above it.</summary>
         public const double OperatorHalfHeight = 0.5;
 
@@ -59,7 +65,7 @@ namespace BitSorter.ViewModel
                     return (-0.3, y);
 
                 case PartSymbol.Block:
-                    return (left ? -BlockHalf : BlockHalf, y);
+                    return (left ? -BlockBodyHalf(part) : BlockBodyHalf(part), y);
 
                 case PartSymbol.Operator:
                     if (pin.Facing == Facing.Up || down)
