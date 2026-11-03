@@ -214,6 +214,26 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
+        /// An undriven wire is not drawn in a part's outline colour, nor in a bus's: it is dashed as well, but a grey that is
+        /// the outline's own reads as part of the drawing rather than a value on it.
+        /// </summary>
+        /// <remarks>
+        /// The accessibility review of 2026-11-03 took Schematic Light's z to (112, 112, 108) to read as a word, which is its
+        /// outline's (110, 110, 106) to 0.014 and its bus's to 0.035; it was put back. The closest any look draws them is
+        /// Schematic's z and outline, 0.091 apart, and Schematic Light's z and bus, 0.097.
+        /// </remarks>
+        [Test]
+        public void OnTheCanvas_AnUndrivenWire_IsNotAnOutlineNorABus()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Assert.GreaterOrEqual(Distance(c.HighZ, c.Outline), 0.05f, $"{look.Name}: z is drawn in the outline's colour");
+                Assert.GreaterOrEqual(Distance(c.HighZ, c.Bus), 0.05f, $"{look.Name}: z is drawn in a bus's colour");
+            }
+        }
+
+        /// <summary>
         /// The second cursor stands 3:1 off the ground and apart from every value's colour and the
         /// playhead's, so it is never read as a wire or the moment shown (Part 9b-2b).
         /// </summary>
