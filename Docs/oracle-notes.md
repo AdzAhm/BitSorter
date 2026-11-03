@@ -344,6 +344,7 @@ pass and fail actions. Where Icarus 12 runs otherwise or not at all, BitSorter f
 | `e.triggered` | "Event name e can't have member names" | 1 from a trigger to the end of its time step (15.5.3) |
 | An assertion with no else fails | `ERROR: file:line:` and no message | an `$error` naming the assertion and its line |
 | Two processes resumed in one time step, by delays scheduled at different times | in the order the delays were scheduled | in the fixed order (`architecture-5.md`, section 5) -- a race either way, which the corpus keeps out |
+| A named fork's branches ended by a `disable` from another process, their parent at `wait fork` (probed 2026-11-03) | waits for good, even once another child ends | goes on as the last of them ends (9.6.1, 9.6.2). ModelSim 2020.1 goes on only once another child ends after the disable, and so waits for good where none does -- the watchdog idiom, ended from outside |
 
 ## Data types (Part L4, 2026-10-19)
 

@@ -1478,7 +1478,11 @@ namespace BitSorter.Sim
                     list.RemoveAt(i);
         }
 
-        /// <summary>Ends a process from outside -- <c>disable fork</c>, or the block that forked it disabled -- and every one it forked.</summary>
+        /// <summary>
+        /// Ends a process from outside -- <c>disable fork</c>, or the block that forked it disabled -- and every one it forked.
+        /// Ended, it has ended for whatever waits on it: a parent at <c>wait fork</c> goes on once its last child has (IEEE
+        /// 1800, 9.6.1), as it does when one runs out (the review of 16c: it waited for good).
+        /// </summary>
         private void Kill(int p)
         {
             if (!_done[p])
@@ -1486,6 +1490,7 @@ namespace BitSorter.Sim
                 Cancel(p);
                 _done[p] = true;
                 _blockedAt[p] = -1;
+                Ended(p);
             }
 
             foreach (int child in _children[p])
@@ -1517,6 +1522,10 @@ namespace BitSorter.Sim
                 if (q < 0 || q >= _processes.Length || _processes[q] != owner)
                     continue;
 
+                // Where it waits, before anything here ends: a branch ended may wake it at the join it ends, and a process
+                // inside the block goes on past the block, never from there.
+                bool inside = !_done[q] && _blockedAt[q] >= range.Start && _blockedAt[q] < range.End;
+
                 if (range.Fork)
                     KillForksIn(q, range);
 
@@ -1531,7 +1540,7 @@ namespace BitSorter.Sim
                     continue;
                 }
 
-                if (_done[q] || _blockedAt[q] < range.Start || _blockedAt[q] >= range.End)
+                if (!inside)
                     continue;
 
                 KillForksIn(q, range);
