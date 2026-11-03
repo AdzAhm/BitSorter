@@ -207,6 +207,12 @@ namespace BitSorter.View
         }
 
         /// <summary>
+        /// The colour <paramref name="value"/> is written in as a word on <see cref="Ground"/>: the digit in a change's ring,
+        /// which is filled with the ground. Its own colour (<see cref="Of"/>).
+        /// </summary>
+        public Color WordOf(LogicVec value) => Of(value);
+
+        /// <summary>
         /// <paramref name="colour"/> with the alpha that makes it look <paramref name="opacity"/>
         /// opaque over <see cref="Ground"/>, as a browser blends it.
         /// </summary>

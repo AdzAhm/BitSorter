@@ -2390,7 +2390,7 @@ namespace BitSorter.View
                 TextMeshProUGUI digit = _digits[i];
                 Show(digit, true);
                 SetText(digit, m.Text);
-                Color colour = palette.Of(m.Value);
+                Color colour = palette.WordOf(m.Value);
                 digit.color = new Color(colour.r, colour.g, colour.b, m.Alpha);
                 digit.rectTransform.anchoredPosition = new Vector2(m.Point.x, -m.Point.y);
 
