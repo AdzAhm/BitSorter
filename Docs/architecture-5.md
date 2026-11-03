@@ -4519,8 +4519,15 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   (`ENABLE_XR_MODULE`, `ENABLE_VR_MODULE`, `UNITY_INPUT_SYSTEM_ENABLE_XR`) but the Test Framework's `XRSettings` under a
   bare `#if ENABLE_XR`, and `ENABLE_XR` is no scripting define of 6000.3: the editor's own table of them (`ENABLE_VR`,
   `ENABLE_AR`, `ENABLE_CLOTH`, `ENABLE_WWW`, ...) has no such name, which turns up only in the XR assemblies' native
-  conditions. Off, URP and core render through their non-XR path -- what they did with no headset anyway -- and the Input
-  System registers no XR layouts. `Packages/packages-lock.json` was written as the Package
+  conditions. Off, URP and core compile their non-XR path, and the Input System registers no XR layouts. Every `#else`
+  of theirs gives what the XR path gave with no headset -- one view, no XR pass or display, and a lens flare's occlusion
+  (none here) the camera's own matrices, unjittered as they are without TAA -- but for one branch that
+  compiles only with XR off (`#if !(ENABLE_VR && ENABLE_XR_MODULE)` in `Renderer2DRendergraph`): the 2D renderer's
+  normal-map pass now reuses the camera's depth where the sizes match, where it always declared a `_NormalDepth` of its
+  own. Only a `Light2D` lit with normal maps, or normals under a sprite mask, runs that pass, and `HalfAdderDemo` has
+  neither (the two URP template scenes' global lights are in no build and no test), so nothing drawn changes; the
+  reference shots are what holds it. URP's shader build keeps its procedural-draw variants for XR only with a Universal
+  renderer, which a 2D renderer is not, so no variant changes either. `Packages/packages-lock.json` was written as the Package
   Manager writes it -- what is still reachable, each depth its shortest distance from the manifest -- a rule that
   replays the first removal to the very lock Unity wrote. What the download gains is for the release build's row in
   `Docs/distribution.md`: a module that is off adds no engine code to a stripped build, but one nothing referenced was
