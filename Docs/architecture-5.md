@@ -4715,6 +4715,13 @@ default resources), the bundle's LZ4HC blocks read, and each serialized file's o
 on its own; `Docs/distribution.md` has the table. Two thirds of the data is IL2CPP's metadata and nearly all the rest is fonts,
 which other passes own. Nothing drawn changes, and nothing BitSorter reads at runtime is left out.
 
+- **`WebGLBuild` pins the last three settings the download rests on**: engine code stripped, no debug symbols, no diagnostics
+  overlay. Each was already so; now a box left ticked by a development build cannot reach a release one.
+- **The built-in pipeline's own shaders are left out** (`GraphicsSettings.asset`, and `WebGLBuild` before it builds): deferred
+  shading and reflections, screen-space shadows, depth-normals, motion vectors, the halo and the flare were each set to
+  "built-in", which put them in every build -- 23 to 28 KB of Brotli, by the seven objects compressed together or alone -- and
+  URP draws with none of them. `RenderSettingsTests` holds the file.
+
 ---
 
 ## 11. The parts

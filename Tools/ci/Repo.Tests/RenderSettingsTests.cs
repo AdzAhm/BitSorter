@@ -80,6 +80,30 @@ namespace BitSorter.Ci.Tests
         }
 
         /// <summary>
+        /// The built-in render pipeline's shaders for its own passes -- deferred shading and reflections, screen-space shadows,
+        /// depth-normals, motion vectors, the light halo and the lens flare -- went into every build while the graphics
+        /// settings said "built-in" for them, about 25 KB of the browser download, and URP draws with none of them. "No
+        /// support" leaves them out. <c>WebGLBuild</c> sets the same before it builds.
+        /// </summary>
+        [Test]
+        public void TheBuiltInPipelinesOwnShaders_AreLeftOutOfTheBuild()
+        {
+            string settings = Read("ProjectSettings/GraphicsSettings.asset");
+            string[] slots =
+            {
+                "m_Deferred", "m_DeferredReflections", "m_ScreenSpaceShadows", "m_DepthNormals", "m_MotionVectors",
+                "m_LightHalo", "m_LensFlare",
+            };
+
+            foreach (string slot in slots)
+            {
+                Match mode = Regex.Match(settings, @"^  " + slot + @":[ \t]*\r?\n[ \t]+m_Mode:[ \t]*(\d+)", RegexOptions.Multiline);
+                Assert.IsTrue(mode.Success, "GraphicsSettings.asset has no " + slot + " with its m_Mode");
+                Assert.AreEqual("0", mode.Groups[1].Value, slot + " puts the built-in pipeline's shader in every build again");
+            }
+        }
+
+        /// <summary>
         /// The main camera draws only its ground colour, under the workbench's opaque ground, and HDR was there for the
         /// bloom: with it URP's 2D renderer drew the camera into screen-sized float targets of its own and copied them to
         /// the screen every frame. The scene builder is the authority on the scene, so both say so -- the scene as built,

@@ -2,6 +2,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace BitSorter.View.Editor
 {
@@ -111,6 +112,32 @@ namespace BitSorter.View.Editor
             PlayerSettings.stripEngineCode = true;
             PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
             PlayerSettings.WebGL.showDiagnostics = false;
+
+            LeaveOutTheBuiltInPipelinesShaders();
+        }
+
+        /// <summary>
+        /// The built-in render pipeline's seven shaders for its own passes, which a project rendering with URP never draws
+        /// with: deferred shading and reflections, screen-space shadows, depth-normals, motion vectors, the light halo and
+        /// the lens flare. At "built-in" each went into every build -- about 25 KB of the download -- and URP has its own
+        /// pass for every one of them that it makes at all.
+        /// </summary>
+        /// <remarks>
+        /// GraphicsSettings.asset says "no support" for all seven, for every build; set here as well so the browser build
+        /// does not rest on an open editor having read that file again since it changed (2026-11-03, the optimize-web
+        /// pass). <c>RenderSettingsTests</c> holds the file.
+        /// </remarks>
+        private static void LeaveOutTheBuiltInPipelinesShaders()
+        {
+            BuiltinShaderType[] unused =
+            {
+                BuiltinShaderType.DeferredShading, BuiltinShaderType.DeferredReflections,
+                BuiltinShaderType.ScreenSpaceShadows, BuiltinShaderType.DepthNormals, BuiltinShaderType.MotionVectors,
+                BuiltinShaderType.LightHalo, BuiltinShaderType.LensFlare,
+            };
+
+            foreach (BuiltinShaderType type in unused)
+                GraphicsSettings.SetShaderMode(type, BuiltinShaderMode.Disabled);
         }
     }
 }
