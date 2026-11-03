@@ -21,7 +21,7 @@ namespace BitSorter.View
     ///   a click on the circuit places it; Escape, or the right button, puts it down.
     /// - **The circuit's window is the docked layout's**, and an edit never resizes it: the drawing grows inside it
     ///   and the view keeps everything where it was on screen (<see cref="SchematicView.Relayout"/>).
-    /// - **MY CIRCUIT is written half a second after its last edit**, by real time as the 4.x board is, and when
+    /// - **MY CIRCUIT is written half a second after its last edit**, by real time as the 4.x board was, and when
     ///   the workbench is left or another sample shown. The samples are never written.
     /// </remarks>
     public sealed partial class WorkbenchPanel

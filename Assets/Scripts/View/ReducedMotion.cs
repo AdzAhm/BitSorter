@@ -10,7 +10,7 @@ namespace BitSorter.View
     /// What is left is what carries the meaning: a change still travels its wire as a ring holding
     /// its digit, because where a change has got to is the thing the workbench shows, and the run
     /// only moves when the player plays it. Read where it is drawn, every frame, so switching it in
-    /// Settings needs no reload. The 4.x board is not changed by it; it is retired in Part 15.
+    /// Settings needs no reload.
     ///
     /// **Kept once read**, because it is asked for every part and every chunk of every frame, and
     /// reading PlayerPrefs is not free: in the editor each read goes to the registry, and with 300 wires

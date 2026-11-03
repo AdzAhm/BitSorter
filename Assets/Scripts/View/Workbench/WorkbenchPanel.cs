@@ -58,9 +58,9 @@ namespace BitSorter.View
     /// **A wire pointed at lights its whole net** and a chip beside the pointer says what drives
     /// it and what reads it (<see cref="NetLayout.Says"/>).
     ///
-    /// **Every control has a key**, drawn over its button as the 4.x HUD draws RUN's, and every key is
-    /// read from one table (<see cref="WorkbenchKeys"/>), which refuses a key the rest of the game or
-    /// a browser owns: Space plays or pauses, R plays again from the start, period and comma step to
+    /// **Every control has a key**, drawn over its button as the 4.x HUD drew RUN's, and every key is
+    /// read from one table (<see cref="WorkbenchKeys"/>), which refuses a key BitSorter keeps for itself
+    /// (Escape) or a browser owns: Space plays or pauses, R plays again from the start, period and comma step to
     /// the next edge and the one before, the brackets play slower and faster, S steps to the next
     /// sample, the arrows step through time, plus and minus zoom, F fits, up and down scroll the waves, X
     /// and Delete the rows, C the second cursor.
@@ -81,10 +81,10 @@ namespace BitSorter.View
     /// the strip under the controls and placed with a click, a click or a box selecting, a drag moving the
     /// selection, the middle button or Space with a drag panning. MY CIRCUIT, first in the SAMPLE chip, is kept.
     ///
-    /// A full-screen panel like Settings, and for the same reasons: it covers the 4.x board, which
-    /// stays exactly as it was, and hides the HUD while it is up. Since Part 15a BitSorter opens on it
-    /// (<c>WorkbenchPanel.Home.cs</c>), and Escape never leaves it. Everything on it is built the
-    /// first time it opens.
+    /// A full-screen panel: it was made one to cover the 4.x board and hide its HUD, and since Part 16a
+    /// deleted them nothing is under it. Since Part 15a BitSorter opens on it
+    /// (<c>WorkbenchPanel.Home.cs</c>), and Escape never leaves it; Settings and the credits are pages
+    /// of it (<c>WorkbenchPanel.Pages.cs</c>). Everything on it is built the first time it opens.
     /// </remarks>
     public sealed partial class WorkbenchPanel : FullScreenPanel
     {

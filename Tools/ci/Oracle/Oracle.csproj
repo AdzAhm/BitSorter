@@ -2,8 +2,8 @@
 
   <!--
     The oracle: designs run under Icarus Verilog, so BitSorter's own simulator can be checked against
-    a real 4-state, event-driven one. From Part 2 of the 5.0 plan the same designs run in both and
-    their waveforms are compared; for now it proves the harness and pins the first facts down.
+    a real 4-state, event-driven one: the same designs run in both and their waveforms and printed
+    lines are compared. ModelSim is the second oracle where it is installed (ModelSim.cs).
 
     The designs live in corpus/, outside Assets, so Unity never imports them. Every one is original:
     see corpus/README.md. Icarus missing is a skip, unless BITSORTER_REQUIRE_ICARUS=1 (CI sets it).

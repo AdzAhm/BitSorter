@@ -77,8 +77,8 @@ namespace BitSorter.View
         protected virtual void OnHidden() { }
 
         /// <summary>
-        /// A panel switched off while open stops covering the board. A level switch destroys panels,
-        /// and <see cref="UiModal"/> copes with that; this covers one that is only disabled.
+        /// A panel switched off while open stops covering what is under it. A scene unloaded round a
+        /// panel destroys it, and <see cref="UiModal"/> copes with that; this covers one that is only disabled.
         /// </summary>
         protected virtual void OnDisable() => UiModal.Closed(this);
     }

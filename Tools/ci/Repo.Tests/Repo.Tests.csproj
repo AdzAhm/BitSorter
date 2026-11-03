@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Rules about the repository itself rather than about any one part of the game: no student ID
+    Rules about the repository itself rather than about any one part of BitSorter: no student ID
     number and no copied course material anywhere in it (PrivacyScanTests), the four pure layers
     of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests), the shell built in
     code (ShellRulesTests), the version stated once (VersionTests), no sound (NoSoundTests), a static

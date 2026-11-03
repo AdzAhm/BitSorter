@@ -144,7 +144,7 @@ namespace BitSorter.View
             return cap;
         }
 
-        /// <summary>A button's key in a cap just over it, as the 4.x HUD draws RUN's.</summary>
+        /// <summary>A button's key in a cap just over it, as the 4.x HUD drew RUN's.</summary>
         public static void KeyOver(VisualElement button, float buttonWidth, string key, SchematicPalette palette)
         {
             VisualElement cap = KeyCap(key, palette);

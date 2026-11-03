@@ -4,8 +4,9 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The canvas's colours: what the 5.0 workbench draws with, as <see cref="Palette"/> is what the
-    /// 4.x board draws with. Every <see cref="Look"/> has one (<see cref="Look.Canvas"/>).
+    /// The canvas's colours: what the 5.0 workbench draws with, where <see cref="Palette"/> is the
+    /// interface's -- its panels, text and buttons -- and the ground the camera clears to, and was the
+    /// 4.x board's too until Part 16b. Every <see cref="Look"/> has one (<see cref="Look.Canvas"/>).
     /// </summary>
     /// <remarks>
     /// A set of its own rather than more fields on <see cref="Palette"/>: the workbench draws

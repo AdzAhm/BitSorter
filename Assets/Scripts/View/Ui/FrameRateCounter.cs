@@ -11,12 +11,12 @@ namespace BitSorter.View
     /// Asked for with the frame cap (2026-09-30), so that what the cap and vertical sync do can be
     /// seen rather than taken on trust.
     ///
-    /// **It sits in the margin every top-right control keeps**, above BACK, CLOSE and the help
-    /// badge rather than over them: each of those is <see cref="UiTheme.Margin"/> in from the
-    /// corner, and the counter is shorter than that, so the two cannot meet at any window size --
+    /// **It sits in the margin every top-right control keeps**, above Settings' BACK rather than
+    /// over it (the 4.x game's CLOSE and help badge kept it too): BACK is <see cref="UiTheme.Margin"/> in
+    /// from the corner, and the counter is shorter than that, so the two cannot meet at any window size --
     /// the canvas scales both alike. Everywhere else it draws over everything, a full-screen panel
     /// included, on a canvas of its own sorted above the interface; the frame rate is as much a
-    /// fact behind the main menu as on a board. It takes no clicks.
+    /// fact behind Settings as over the circuit. It takes no clicks.
     ///
     /// Counted over half a second of real time, not game time, and written without allocating: it
     /// runs every frame, and a counter that made garbage would in the end be measuring its own

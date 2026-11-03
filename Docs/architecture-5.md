@@ -4645,6 +4645,12 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
   `NetlistOf`, `Process.InstructionCount`, `PackedType.WithSigned`, `LogicVec.Narrow` and `Planes`,
   `SchematicStyle.PortHeight`, `WorkbenchModel.PortValue`, and `GuidedTutorial.AllText`, which was written for the four-word
   rule, though `SimulatorHintTests` reads each step's words itself.
+- **Comments that described what is gone as present**: `UiEscape` said Escape with nothing on top opened the main menu;
+  `KeyCaps` listed the help badge, MENU and the level's counter; the workbench's own remarks said it covered the 4.x board,
+  which stayed as it was; `SchematicPalette` said `Palette` was what the 4.x board drew with; `WaveView` pointed at a deleted
+  file and a CLAUDE.md line that is gone; the credits' parameters, the frame-rate counter, `ReducedMotion`, the CI projects'
+  comments (the document layer "referenced by nothing but the view", the oracle "for now" proving its harness) and the corpus
+  README's start order at time 0 (Icarus's, before M5). History stays where it is told as history.
 
 ---
 

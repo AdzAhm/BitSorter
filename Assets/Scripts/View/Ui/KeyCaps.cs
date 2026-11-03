@@ -3,13 +3,13 @@ using System;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Whether the keys drawn beside the buttons are shown: the caps over the run buttons and the workbench's, the keys
-    /// under the help badge, MENU and the timing diagram's badge, and Q and E beside the level's counter. SHORTCUT KEYS in
-    /// Settings switches them; on to begin with (asked for 2026-10-26, the whole game, shown by default).
+    /// Whether the keys drawn beside the buttons are shown: the caps beside the workbench's buttons, the uGUI ones'
+    /// (<see cref="KeyCapView"/>) and the shell's (<c>ShellTheme.KeyCapClass</c>). SHORTCUT KEYS in Settings switches them;
+    /// on to begin with (asked for 2026-10-26, the whole game -- the whole simulator now -- shown by default).
     /// </summary>
     /// <remarks>
     /// **Only where a key stands beside what it works.** The places that exist to list keys keep them: the workbench's
-    /// keyboard map (<c>?</c>), the tutorial's card and the help panel's text. Every key still works with them hidden.
+    /// keyboard map (<c>?</c>) and the guided tutorial's words. Every key still works with them hidden.
     /// **It changes what is on screen at once**: a key is told when the setting changes (<see cref="Changed"/>) rather than
     /// built again, so nothing needs a reload.
     /// </remarks>

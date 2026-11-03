@@ -118,8 +118,8 @@ namespace BitSorter.View
         /// <summary>
         /// The whole roll, top to bottom, built from the facts above.
         /// </summary>
-        /// <param name="tagline">The line under the title -- the main menu's, passed in so it has one home.</param>
-        /// <param name="version">The build's version, as the main menu's corner shows it.</param>
+        /// <param name="tagline">The line under the title, <see cref="Tagline"/>, passed in so a test can give its own.</param>
+        /// <param name="version">The build's version, as <see cref="VersionText"/> writes it.</param>
         public static IReadOnlyList<Line> Roll(string tagline, string version)
         {
             var roll = new List<Line>

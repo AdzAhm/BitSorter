@@ -33,8 +33,8 @@ namespace BitSorter.ViewModel
     /// unit names them (section 5: "an integer number of time units; the display unit only labels it").
     ///
     /// **4.x's timing strip, ported by its rules and not by its model** (<c>View/Ui/WaveformZoom</c>,
-    /// and CLAUDE.md's "It is fitted to the run, and the wheel over it zooms"). 4.x counts whole ticks
-    /// in an <c>int</c>, because a tick is the only time its board has. Here a moment sits anywhere
+    /// deleted with the 4.x game in Part 16a; <c>git show v4.0.0:Assets/Scripts/View/Ui/WaveformZoom.cs</c>
+    /// reads it). 4.x counted whole ticks in an <c>int</c>, because a tick was the only time its board had. Here a moment sits anywhere
     /// between two units -- the reference circuit plays at 1.6 units a second, so a playhead is part of
     /// the way through one on most frames, and at the closest zoom a unit is 640 pixels wide -- so the
     /// start and every moment are doubles. What carried over: the fit is the whole run, zoom is

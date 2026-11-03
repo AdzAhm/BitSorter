@@ -83,7 +83,10 @@ namespace BitSorter.View
         private SettingsPanel _settings;
         private CreditsPanel _credits;
 
-        /// <summary>The sample the first build opens on at launch (<see cref="WorkbenchSamples.Chip"/>); -1 to choose as the 4.x boot did.</summary>
+        /// <summary>
+        /// The sample the first build opens on at launch (<see cref="WorkbenchSamples.Chip"/>); -1 to choose as a first open
+        /// does: MY CIRCUIT if it holds anything, else the reference.
+        /// </summary>
         private int _launchSample = -1;
 
         /// <summary>Whether the start page is up.</summary>
@@ -213,9 +216,8 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The workbench back from what was over it or it went under -- Settings or the credits over it, pages of its own since
-        /// Part 15g, the 4.x game under it -- as it was left: the circuit, the
-        /// moment and whether it was playing. The first time, it opens as <see cref="Open"/> does.
+        /// The workbench back from what was over it -- Settings or the credits, pages of its own since Part 15g -- as it was
+        /// left: the circuit, the moment and whether it was playing. The first time, it opens as <see cref="Open"/> does.
         /// </summary>
         public void Resume()
         {

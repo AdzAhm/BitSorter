@@ -7,7 +7,7 @@ namespace BitSorter.View
     /// </summary>
     /// <remarks>
     /// Hidden by its alpha, never by switching it off: a key switched off cannot hear the setting come back, and whatever
-    /// else shows or hides it -- a panel, the HUD stepping aside -- goes on doing so untouched.
+    /// else shows or hides it -- a panel coming up over it, its button hidden -- goes on doing so untouched.
     /// </remarks>
     public sealed class KeyCapView : MonoBehaviour
     {
