@@ -254,6 +254,10 @@ namespace BitSorter.EditMode.Tests
         /// The accessibility review of 2026-11-03: on Schematic's selection band a 1's readout was 3.45:1; on the ground,
         /// Schematic Light's z was 3.67 and its bus 4.32, and Classic's 0 4.38. The value colours themselves are as they were:
         /// darkened to read as words, Schematic Light's z came out its outline's grey.
+        ///
+        /// The 4.5:1 cannot fail on its own -- Legible stops there, or gives the text, which the brief holds to 4.5:1 -- so what
+        /// is asked besides is what can: a colour that reads left as it is, a lifted one no further than 5:1 (the most any look
+        /// needs is 4.68) and within 0.3 of its value's colour, so a lift that stepped too coarsely or fell back to the text fails.
         /// </remarks>
         [Test]
         public void OnTheCanvas_AValueWrittenAsAWord_ReadsWhereItIsWritten_AndIsStillItsValuesColour()
@@ -270,11 +274,13 @@ namespace BitSorter.EditMode.Tests
                              { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus) })
                     {
                         Color written = c.Legible(colour, ground);
+                        float after = SchematicPalette.Contrast(written, ground);
                         if (SchematicPalette.Contrast(colour, ground) >= SchematicPalette.WordContrast)
                             Assert.AreEqual(colour, written, $"{look.Name}: {what} is changed on {under}, where it reads");
+                        else
+                            Assert.Less(after, 5f, $"{look.Name}: {what} on {under} is taken further than it must, to {after:F2}:1");
 
-                        Assert.GreaterOrEqual(SchematicPalette.Contrast(written, ground), SchematicPalette.WordContrast,
-                            $"{look.Name}: {what} written on {under}");
+                        Assert.GreaterOrEqual(after, SchematicPalette.WordContrast, $"{look.Name}: {what} written on {under}");
                         Assert.Less(Distance(written, colour), 0.3f, $"{look.Name}: {what} on {under} is no longer its value's colour");
                     }
                 }
