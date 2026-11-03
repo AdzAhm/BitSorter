@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BitSorter.Board;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog.Syntax;
