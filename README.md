@@ -1,507 +1,373 @@
 # BitSorter
 
-[![LogicCore tests](https://github.com/AdzAhm/BitSorter/actions/workflows/logic-core.yml/badge.svg)](https://github.com/AdzAhm/BitSorter/actions/workflows/logic-core.yml)
+[![Tests](https://github.com/AdzAhm/BitSorter/actions/workflows/tests.yml/badge.svg)](https://github.com/AdzAhm/BitSorter/actions/workflows/tests.yml)
 
-Bits fall through logic. Sort them.
+A SystemVerilog simulator for the Digital Systems and Computer Structure course.
 
-![A half adder running: bits leave the two sources, cross into an XOR and an AND,
-and land in the SUM and CARRY bins](Docs/half-adder.gif)
+Draw a circuit from gates, or write it in SystemVerilog, and run it on a 4-state,
+event-driven engine with real gate delays. Read every signal on the waves, find the
+critical path, see the truth table and the state diagram the circuit makes, check
+your work against thirty-five Exercises, and take a project in from ModelSim and
+back out again. It runs in a browser and on Windows.
 
-A puzzle game about building digital circuits. Sources emit a stream of 0s and
-1s, bins want particular values, and you have a box of gates. Wire them together
-so every bin gets what it asked for.
+<!-- GIF: drawing and wiring. A half adder drawn from NOT, AND and XOR gates, wired from pin to pin, then run, with the values travelling the wires. Docs/gifs/draw-and-wire.gif -->
 
-Above is the half adder: `A` and `B` each feed both gates, XOR produces
-the sum and AND produces the carry. Every bit is drawn as the digit it carries: a
-magenta 1, an indigo 0.
+Version 5.0.0.
 
-Thirty levels, from routing a single bit to a state machine that adds two
-numbers a column at a time. Built in Unity
-as a way of working through a computer engineering digital systems course from
-the inside.
+## Where to run it
 
-## Play it
-
-| Where | |
+| Version | Where |
 | --- | --- |
-| **In a browser** | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter), or [GitHub Pages](https://adzahm.github.io/BitSorter/) |
-| **Windows** | [Download the latest release](https://github.com/AdzAhm/BitSorter/releases/latest) — 40 MB zip |
+| **BitSorter 5.0, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
+| **BitSorter 5.0, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. |
+| **BitSorter 4.0.0**, the puzzle game this began as | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter). Its source is the `v4.0.0` tag. |
 
-The two browser links are the same build, hosted twice so neither one going down
-takes the game with it. Nothing to install, and no account needed for either.
+BitSorter began as a puzzle game in which bits fell through logic gates into bins.
+5.0 rebuilt it as a simulator for the course. The game's thirty levels live on as the
+first thirty Exercises, and 4.0.0 is still played where it was released. It is not
+part of 5.0, and 5.0 does not read its saves.
 
-**Want to help?** Bug reports, level ideas and code are all welcome.
-[CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the
-project and send a pull request.
+**Want to help?** Bug reports, exercise ideas and code are all welcome.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the project
+and send a pull request.
 
 ---
 
-## Playing
+## What it does
 
-**In a browser**, use either link above. Progress is saved by the browser itself,
-so it survives a reload but is per-browser and per-device — and a private window
-or blocked third-party storage will make the game forget between sessions. In
-the browser's fullscreen, the first `Esc` leaves fullscreen — the browser keeps
-that key for itself — so the MENU button is the way to the menu there. The same
-simulator runs faster as the desktop build, which a drawing of hundreds of parts
-notices; the browser says so, once, if it is ever slow to draw yours again.
+- **Draw.** Gates with their own rise and fall delays, muxes, registers, constants,
+  splitters and joiners, tri-state buffers and buses. Wire from any pin, turn and
+  mirror parts, align and copy them, and undo anything. Make a selection a block,
+  step inside it with a double-click, and place it as an array of copies.
+- **Write.** SystemVerilog modules with `always_ff` and `always_comb`, `generate`,
+  functions, tasks and interfaces, checked as you type with each error marked on its
+  line. Drawn and written modules work together in one design.
+- **Run.** Each change travels its wire at the speed you choose. Play, pause, step
+  from edge to edge or back, run to a moment, or break when a signal takes a value.
+- **Read the waves.** Binary, hex, or unsigned or signed decimal; two cursors and
+  the time between them; groups of signals; export to VCD or PNG.
+- **Analyse.** TIMING finds the critical path and the minimum clock period. LOGIC
+  gives the truth table, minimal expressions and K-maps. STATES draws the state
+  diagram.
+- **Practise.** Thirty-five Exercises, from routing a single bit to pipelining, each
+  with a goal, a hint if you want one, and CHECK.
+- **Bring your own project.** Import its files with their testbench and memory images,
+  run it with every `$display` in the TRANSCRIPT, export it as a project ModelSim runs,
+  and hold BitSorter's run to ModelSim's.
+- **Run a processor.** An RV32I single-cycle, multicycle and pipelined RISC-V, each
+  running three small programs.
 
-**On Windows**, unzip the release anywhere and run `BitSorter.exe`. Nothing is
-installed and nothing is written outside your own user folder.
+---
 
-Windows will probably warn that it does not recognise the publisher — the build
-is unsigned, which is all that warning means. "More info", then "Run anyway".
+## Using it
 
-**Settings** -- on the main menu, or in 5.0 the workbench's SETTINGS -- has
-fullscreen on Windows (`Alt`+`Enter` works too), the data switch, a way to start
-over, and the credits. (BitSorter has no sound since 5.0.)
-On Windows it also has vertical sync, on by default so the game keeps to your
-screen's refresh rate, and with it off a frame cap from 30 to 240 frames a second,
-or none. A lower cap uses less power on a laptop. FPS COUNTER, on Windows and in
-the browser, puts a small frame-rate counter in the top-right corner. In 5.0
-Settings and the credits are pages of the workbench, drawn in the style you chose,
-and Settings scrolls in a short window.
+**In a browser,** use the link above. What you build is saved by the browser itself,
+so it survives a reload but is per browser and per device; a private window, or
+blocked site storage, makes BitSorter forget between sessions. In the browser's
+fullscreen the first `Esc` leaves fullscreen, because the browser keeps that key for
+itself. The same simulator runs faster as the desktop build, which a drawing of hundreds
+of parts notices; the browser says so, once, if it is ever slow to draw yours again.
 
-The bottom-right corner of the main menu says which version you are running (in
-5.0, the foot of the start page), which is worth including if you report a bug.
+**On Windows,** unzip the release anywhere and run `BitSorter.exe`. Nothing is
+installed and nothing is written outside your own user folder. Windows will probably
+warn that it does not recognise the publisher: the build is unsigned, which is all
+that warning means. "More info", then "Run anyway". There is no build for macOS or
+Linux; use the browser version.
 
-[A guided tutorial](#the-tutorial) covers the controls, thirty levels teach the
-ideas in order, and [a sandbox](#the-sandbox) is there for when you would rather
-build something without being marked on it.
+The version you are running is at the foot of the start page, and in the credits. It is
+worth including if you report a bug.
 
-### Two rules explain almost everything
+### The start page
 
-**A gate fires when all of its inputs are full, and consumes them.** It cannot
-fire on one input and wait for the other. Whatever arrives first sits in the port
-until its partner turns up.
+BitSorter opens on whatever you had open last, a circuit of yours, an Exercise or a
+sample, and with nothing on its **start page**: NEW CIRCUIT, OPEN A CIRCUIT and IMPORT
+A PROJECT; the TUTORIAL, the keyboard map and SETTINGS; your RECENT circuits; the
+SAMPLES; the EXERCISES; and the RISC-V PROCESSORS. **HOME** goes back to it.
 
-**Every wire takes at least one tick.** A longer path costs more ticks, so two
-paths into the same gate can arrive at different times.
+The header has the app's menus: HOME, FILE, EXERCISES, HELP (the keyboard map, the
+start page, the tutorial, and ABOUT BITSORTER) and SETTINGS. There is no BACK; `Esc`
+closes whatever is on top, one thing a press, and never leaves the workbench. `?` lists
+every key and gesture.
 
-Put those together and you get the mistake the middle levels are built around. If
-one input to a gate arrives a tick before the other, the early bit waits in its
-port — and the *next* bit down that wire arrives to find it still there. They
-collide, and both are destroyed.
+The samples are a reference circuit, a full adder, a counter, four half adders, an
+adder written as code, a traffic light, a two-bit ALU, a sequence detector and a seven
+segment decoder. `S` steps through them.
 
-A red scorch mark appears on the port where that happened. It is the most useful
-thing on the screen: it names the junction whose paths are unbalanced. Fix it by
-making both paths take the same number of ticks, either by routing differently or
-by scrolling a wire to lengthen it.
+### Drawing a circuit
 
-An unbalanced circuit does not run slower. It loses bits.
-
-### Reading the board
-
-Every input port is drawn on the gate itself: a hollow ring when it is empty, a
-filled disc with the bit's digit cut out of it when it is holding one. A gate
-holding a bit it cannot use yet — waiting on its other input — dims and breathes
-slowly amber.
-A paused board therefore says which gates are stuck, and which port is the reason.
-
-When a bit is waiting and another is one tick from arriving on the same wire, the
-port, the wire and the incoming bit all pulse together: amber when only the
-arrival will be destroyed, red when the waiting bit dies with it — and then the
-waiting bit is crossed out as well, so the difference does not rest on telling
-amber from red. That warning is exact rather than a guess. Delivery happens before evaluation, so nothing can
-empty the port in between — if it is lit, the collision is already unavoidable.
-
-### The tutorial
-
-A short guided level, reached from the level list, which walks through picking a
-part, placing it, wiring it up, lengthening a wire and running it. Seven steps,
-each waiting for you to actually do the thing rather than for you to click Next.
-
-It never takes the controls away. Every other action stays legal throughout, and
-a step quietly un-finishes itself if you delete what it asked for — undo
-included. Skippable at any point, and replayable from the level list afterwards.
-On a fresh save it runs once by itself. Put a part on the wrong square and it
-says which one, and how to take it off.
-
-Past that, single-line hints appear the first time you meet something that wants
-explaining: a gate stalling, a collision, the fact that a wire's delay can be
-scrolled at all, and what the bit inside a register means. Each appears once —
-until you reset your progress — and none of them pause the game.
-
-### Controls
+Pick a part in PARTS and click to place it; `Esc` puts a part in hand down.
+Every pin nothing is wired to has a short lead ending in an open circle: point at one
+and it lights, and a drag from there draws a wire. While you draw one, the pins it can
+end on show their circles. Double-click a part or a wire, or press `Enter` with one
+selected, to edit it in the inspector: its delays, its width, its name.
 
 | Action | Effect |
 | --- | --- |
-| Click a gate in the palette, then click the board | Place it |
-| `1` – `7` | Pick a part: NOT, AND, OR, XOR, NAND, NOR, register |
-| Drag from one port to another | Wire them |
-| Right click | Delete a gate or a wire |
-| Scroll on a wire, or `[` / `]` | Change its delay |
-| `Ctrl`+`Z`, or the UNDO button | Undo the last edit |
-| `Ctrl`+`Y` / `Ctrl`+`Shift`+`Z` | Redo it |
-| `Enter`, or the RUN button | Run |
-| `R`, or the RESET button | Stop a run, or clear what a finished one left on the board. There is no need to press it before editing: after a run, the first edit puts the board back by itself |
-| `Shift`+`R` | Clear everything you built. On a level that opens on a circuit this is START OVER, which puts that circuit back |
-| `Space` | Pause a run |
-| `→` while paused | Step one tick |
-| `H`, or the `?` button | This level's truth table, its Karnaugh map for each bin where it has one, and a hint |
-| `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
-| `M` | The level list, and the way into the sandbox |
-| `Alt`+`Enter` | Fullscreen, on Windows; also in Settings |
-| `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1; free play is not a level, so they point to `M` there |
-| `F8`, or the square-wave button | The timing diagram: what every source sent and every bin got, tick by tick, and the clock on levels that have one. F8 because browsers keep most of the other function keys for themselves (F3 is find-in-page, F5 reloads) |
-| `F2` | The clock as a square wave, on levels that have a clock, and some developer numbers |
-| `Alt`+click a wire | Add that wire to the timing diagram, W1 to W4, to see what arrives at its end each tick. Alt+click it again to take it out |
-| Scroll on the timing diagram | Zoom in on the tick under the cursor, or back out to the whole run. With `Shift`, or scrolling sideways, move through the run |
+| Left drag | Move the selection, or draw a box round parts |
+| Middle drag, or `Space` and a drag | Pan |
+| Wheel | Zoom; `F` fits the whole circuit |
+| `Alt` while dragging or placing | Place freely, off the grid |
+| `Q`, `Shift`+`Q`, `V` | Turn a quarter, turn back, mirror |
+| `Ctrl`+`C`, `X`, `V` | Copy, cut, paste |
+| `Ctrl`+`Z`, `Ctrl`+`Y` | Undo, redo; a drag is one step |
+| Right-click | The canvas's menu: align, spread, turn, mirror, route again, tidy, copy, cut, paste, make block, delete |
+| Drag the handles on a selected block | Resize it |
+| Double-click a block, `Alt`+`Up` | Step inside it, step back out |
 
-### What it teaches
+Every edit is checked by building the document it would make: one that adds an error is
+refused with that error.
 
-Thirty levels, in this order. Each one is a topic from a digital systems course,
-arranged so that a mechanic is always taught before it is required.
+<!-- GIF: the waves. A counter running, the cursor dragged through the waves, a signal added and its radix changed, a wave zoomed with the range bar. Docs/gifs/waves.gif -->
 
-| | Level | The idea |
-|---|---|---|
-| 1 | Route the bit | Sources, bins, wires. A bin that must stay empty |
-| 2 | The long way round | Boolean algebra and De Morgan — build a NAND without one |
-| 3 | Balance the paths | Propagation delay, and the collision an unbalanced path causes |
-| 4 | Four corners | K-map minimisation. Two different minimal covers both pass |
-| 5 | Don't care | K-map minimisation with don't-cares: six rows that never happen make the circuit smaller |
-| 6 | Nothing but NAND | Functional completeness — XOR out of NANDs alone |
-| 7 | The slow lane | Delay arithmetic across a deep circuit |
-| 8 | Out of step | Debugging: every gate is right and the timing is not. The board opens on the broken circuit; find the collision and re-time within the budget |
-| 9 | Odd one out | Parity and the critical path: three gates in a chain are too slow; as a tree they are not |
-| 10 | One of four | A decoder: each output is one row of the table |
-| 11 | Pick a lane | A multiplexer, and fan-out to two places at once |
-| 12 | Four lanes | A 4:1 multiplexer built from three 2:1 ones, sharing one inverted select between two of them |
-| 13 | Highest wins | A priority encoder, with a valid output, and the first answer that doesn't matter on every row |
-| 14 | Which is bigger | A 1-bit comparator: less, equal, greater |
-| 15 | Half adder | Two outputs from one circuit: sum and carry |
-| 16 | Carry the one | A full adder, joining two half adders and their carries |
-| 17 | Wrong part | Debugging: a full adder with one wrong gate, found from the rows where its output goes wrong |
-| 18 | Pass it on | A 2-bit ripple-carry adder: the carry travels from one column to the next |
-| 19 | Carry it further | A 3-bit ripple-carry adder: the carry reaches each column later, and everything meeting it waits |
-| 20 | Four at once | A 4-bit ripple-carry adder from four full adders in boxes: the first [block](#blocks) |
-| 21 | Look ahead | Carry-lookahead: the same sum two ticks sooner, by working out the carry into the top half without waiting for it |
+### Reading the waves
 
-Then the circuits start to remember. A register keeps one bit and hands it on a
-clock later, and because a kept bit has to travel back round to meet the next
-one, these levels space their vectors out on a clock.
+A click on the waves puts a cursor there and a drag moves it through the run; the values
+beside the rows are the ones at the cursor. `Shift` and a click moves the playhead, the
+moment the circuit shows. The time between the two is written under the rows. The wheel
+zooms, and a range bar at the legend row's right end shows how much of the run is on
+screen. Double-click an input's wave to set it.
 
-| | Level | The idea |
-|---|---|---|
-| 22 | One clock late | The register itself: it starts holding 0, and delays a stream by a clock |
-| 23 | Rising edge | This bit against the one before it — and a register hands its bit on early |
-| 24 | Flip on one | The first loop, and the clock a loop has to close inside |
-| 25 | Hold when told | A register with an enable: load, or keep what you have |
-| 26 | Count the ones | Two bits of state, and the carry between them |
-| 27 | Miscount | Debugging: a counter that never counts past one, with one wire in the wrong place |
-| 28 | Spot the pattern | A machine watching for 1-0-1, overlaps included, in two registers |
-| 29 | One clock behind | The same answer reported a clock later: Moore against Mealy |
-| 30 | Add as you go | A serial adder, one column per clock, its carry kept in a register |
+**INPUTS,** beside WAVES, gives the inputs as a table you type in: a column per input,
+a bus one column in binary, hex or decimal, and a row per moment something changes.
+Choose columns by their names, then **ALL COMBINATIONS** fills in every combination of
+them, **COUNT** counts a bus up and **CLOCK** makes one a clock; **+ ROW**, **STEP** and
+**END** do the rest, and `Ctrl`+`Z` takes any of it back. A design imported with its
+testbench shows what the testbench applies, read only, with **CONVERT** beside it to turn
+that into rows you can edit.
 
-Deliberately out of scope: assembly, datapaths, memory addressing and number
-representation. Static and dynamic hazards are out too, and cannot be expressed —
-a hazard needs a continuous signal model, and bits here are discrete tokens with
-nowhere for a glitch to live. Unbalanced-path corruption is the lesson that
-replaces it.
+**TRANSCRIPT** holds the run's messages, `$display` included, and each warning and error
+with its file and line.
 
-Clock skew and hold time are out for the same kind of reason: the clock here is
-the spacing between vectors, global and exact, so nothing can arrive late
-relative to it. What survives is the constraint setup time exists for —
-everything must settle within one clock period — and the sequential levels are
-built on it.
+<!-- GIF: code. A module typed in the CODE editor with an error marked on its line, applied, and its drawing appearing beside the waves. Docs/gifs/code.gif -->
 
-### Blocks
+### Writing SystemVerilog
 
-A block is a small circuit in a box, placed from the parts list and wired like a
-gate: its inputs down the left of the box, its outputs down the right, each with
-its name beside it. What is inside is not drawn, only the box. Four at once
-hands you a full adder as one, `FA`, and Look ahead adds a lookahead block, `LA`.
+`+ CODE` in PARTS makes a block you write rather than draw, and a double-click on one
+opens its code in the circuit's window. It applies itself when you pause typing;
+**Ctrl+Enter** or **Ctrl+S** applies it at once. **Ctrl+Z** and **Ctrl+Y** undo and redo
+the typing, **Tab** and **Shift+Tab** indent and outdent by four spaces, and **Ctrl+/**
+comments lines out or back in. In a browser **Ctrl+F** finds and replaces and **Ctrl+D**
+selects the next match. While you type, none of the workbench's own keys act.
 
-**A block costs exactly what is inside it.** The wire you draw to a block's input
-and the block's own wire from that input are one wire, so going in and out of a
-box adds no tick: a block is as fast as the same gates placed by hand, and the
-solved card counts the gates inside it. That matters most in Look ahead, which is
-about how long the carry takes.
+The classic first slips are answered with what to write instead: an `assign` inside an
+`always`, `logic s[1:0]` used as a bus, an `if`, `for` or `case` on a signal outside an
+`always`, an instance with no name, `always_comb @(...)`. Curly quotes, dashes and
+no-break spaces pasted from a slide are read as `'`, `"`, `-` and a space, with a warning,
+and exported that way, so ModelSim takes what ran here.
 
-**A block's timing is the timing of what is inside it**, so what the goal says
-about it is worth reading. Both of the levels' blocks take their carry a tick
-after their other inputs, because inside, the carry meets the other bits one gate
-later. A carry that arrives early waits in its port, and the next one runs into it.
+The **CODE** tab in the dock prints a drawn circuit as the SystemVerilog it makes, read
+only. The lines that the selected parts come from are marked and scrolled into view, and a
+click on a line selects the parts it makes.
 
-In free play you can make your own: **Make block** turns the board on screen into a
-block, its sources becoming the inputs and its sinks the outputs, and it joins
-free play's parts list. The library holds four, and a board that uses a block
-keeps its own copy, so deleting one from the library never breaks a saved board.
+### The drawing of code
 
-### The sandbox
+A written module is shown as the drawing of its code, or as its code. It opens as its
+drawing, laid out in columns from the netlist the code builds; CODE and DRAWING, in the
+code's top strip, turn between the two. Every part of the drawing comes from a line of the code,
+which the inspector names, and says first what the code's comment on that line says.
 
-Free play, from the main menu or the last row of the level list. Every part, as many
-as you like, no delay budget, and nothing to pass or fail. Registers are there
-too, with a clock setting beside the vector count — a state machine needs it,
-since a loop cannot keep up with a vector every tick.
+- **GATES** opens every operator and mux of four bits or fewer, and a sum or a difference of
+  4-bit numbers, into their gates; BOXES closes them. In a browser GATES opens no more than
+  800 parts and says the desktop version opens them all.
+- **A controller is drawn as the textbook draws one.** A state machine written in code,
+  a register with a `case` on it, is shown as its state diagram, each state a box of what
+  it sets and every arrow labelled in the code's own words; a decoder, a `case` that sets
+  outputs, as its control table. The state the run is in is lit as it plays. DIAGRAM, TABLE
+  and DRAWING turn between the views, and every reading is held to the engine before it
+  is shown.
+- **Unlocked, the drawing takes edits,** written back into the code. A part moved or turned
+  by hand is kept with the module and the code left alone; TIDY lays it out again.
+- **The padlock** in the circuit window's top strip locks a circuit against edits. An
+  imported project opens locked, except a course template; a sample and an Exercise never
+  lock. FILE, BACK TO AS IMPORTED puts an import back as it came in.
 
-The setup is a panel docked down the right-hand side, beside the board rather
-than over it, and it collapses to a tab when you want the width back. You set up
-the inputs yourself: how many sources, what each one emits, how many sinks, and
-how many test vectors they all run for. Click a bit to flip it between 0 and 1,
-or fill every combination at once with **Truth table** — up to three sources,
-with A as the most significant bit, the way the levels write theirs.
+<!-- GIF: TIMING. The TIMING tab on a circuit with the critical path lit on the canvas, a second path clicked, and the minimum clock period read off. Docs/gifs/timing.gif -->
 
-**Under the inputs, each sink shows what it actually caught**, in arrival order,
-in the same columns the streams above it use, while the run happens and after it
-stops. That is the point of the mode. In a level you already know what you wanted
-and the verdict tells you whether you got it; here there is no intended answer,
-so what came out is the only result there is. A `·` is a column nothing arrived
-in, and `+2` means two more bits arrived than there were columns for.
+### The course's tools
 
-**Speed** runs the clock at 1x, 2x or 4x, for a circuit of your own that takes a
-while to say what it does. Levels always run at the authored rate.
+Once a circuit works, the workbench answers the questions the course asks of it.
 
-Everything else behaves normally. Bits still collide on unbalanced paths, the
-bits-lost meter still fires, and the scorch mark still names the junction — you
-just do not get marked on any of it. The board is saved like any other, so a
-sandbox circuit and its setup are still there next time.
+- **TIMING** lists every path from an input to an output, worked out by the textbook
+  rule: each gate adds its Tpdlh where its output rises and its Tpdhl where it falls.
+  The slowest comes first and is lit on the circuit; a click on another path lights that
+  one. For a circuit with registers, give each its clock-to-Q and setup in its inspector,
+  and the tab gives the minimum clock period and the frequency that allows. For a
+  pipeline whose every path from an input to an output crosses the same number of
+  registers, it gives the latency in clock periods and the throughput, one result each
+  period; any other design is told why it has no one latency. It counts the gates too.
+- **The measured worst.** For up to ten input bits and no registers, TIMING steps every
+  input up and down from every value of the others and shows the slowest each output
+  really changed, and the inputs that caused it. A path no step ever fires is marked "never
+  fires". **STEP TEST** turns your stimulus into a step test, one input at a time.
+- **LIBRARY** holds a design to a gate library. **COURSE CELLS** allows only the course's
+  cells, with their delays, and PARTS then offers only those. You can take a kind of gate
+  out, refuse constants, and set a gate budget the gate count is held against. Code you
+  write is held to the library too: every gate one of its cells, no logic written with
+  operators, a register only as an `always_ff` of plain writes.
 
-**You can keep up to eight boards**, each with a name, from the **Board** section
-at the top of the setup panel: the arrows step between them, **New** starts an
-empty one, **Copy** duplicates the board on screen, **Rename** asks for a name,
-and **Delete** asks before it deletes anything. Deleting your last board empties
-it instead. Free play is 13 cells by 7, so a column holds seven sources.
+<!-- GIF: LOGIC. The LOGIC tab on a four-input circuit, its truth table, its minimal sum of products and its K-map. Docs/gifs/logic.gif -->
 
-Sources and sinks keep their own slots, counted from the top, so adding a third
-source never moves the first two and never moves the wires you drew from them.
-Both edge columns are kept for them, which is why a gate will not go there. Take
-a source away and the wires drawn from it stay where they are, connected to
-nothing, and come back when it does. Changing the setup never disturbs your
-circuit, the part in your hand or what Ctrl+Z will undo.
+- **LOGIC** shows what a circuit without registers does: its truth table, found by running
+  the engine through every combination of its inputs (up to ten bits); for eight input
+  bits or fewer each output as a minimal sum of products, the textbook's way and
+  SystemVerilog's, marked where the search stopped short of proving it the smallest; and for
+  four inputs or fewer each output's K-map, laid out as the course draws one.
+- **STATES** draws a clocked circuit's state diagram: every state it reaches from its
+  reset, found by running the engine with every input from every state, each a circle with
+  an arrow for each way on, and the next-state table beside it. It says whether the machine
+  is Moore or Mealy. Up to six register bits, four inputs besides the clock and reset, and
+  sixteen states.
+- **Warnings, as ModelSim's `vlog` gives them.** A signal read that nothing drives, one set
+  that nothing reads, two drivers that cannot both let go, a value cut short by a narrower
+  target. They never stop a run.
+- **Races.** A process, most often a testbench, that changes a flip-flop's input with `=`
+  on the very clock edge the flip-flop takes it at leaves the two in either order, and
+  another simulator may not agree on which. BitSorter warns of it as the run makes it.
+  Change the input on the other edge, a moment later, or with `<=`.
+- **Buses.** Several tri-state gates may drive one wire; where two drive at once it reads
+  x. Written code may use `inout` ports, and a block of it shows an inout pin you can
+  wire onto a bus.
+
+### Exercises
+
+**EXERCISES** lists the thirty-five, chapter by chapter in the course's order, the ones you
+have solved marked and the next one picked out. An Exercise opens with its brief: what to
+build, and a hint if you ask for it (**GOAL** brings the brief back). Its own test drives
+the inputs, and only its parts are in PARTS, each with how many are left. **CHECK** grades
+the circuit: each check that failed is a line in the TRANSCRIPT that takes the run to its
+moment. Once it is solved, a card says how many gates it took and how fast it settles,
+beside your best, and offers the next.
+
+<!-- GIF: CHECK. An Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card. Docs/gifs/check.gif -->
+
+**WRITE IT** answers an Exercise in SystemVerilog instead: your drawing becomes code,
+gate for gate, and you carry on typing. It is held to the same parts as a drawing and
+graded the same way. **DRAW IT** goes back to drawing, and draws your code as its gates.
+Some Exercises open on a circuit with something wrong in it, for you to find.
+
+New to it? **TUTORIAL**, on the start page and in HELP, walks you through the first
+Exercise one click at a time, and the simulator explains a few things the first time you
+meet them: a gate's delay, a clock, a glitch, a z, an x.
+
+| Chapter | Exercises |
+| --- | --- |
+| 1. Gates | Route the bit, Odd one out |
+| 2. K-maps | Four corners, Don't care |
+| 3. NAND and NOR | Nothing but NAND |
+| 4. Delay and buses | The long way round, Balance the paths, The slow lane, Out of step, Share the wire |
+| 5. Building blocks | One of four, Pick a lane, Four lanes, Highest wins, Which is bigger |
+| 6. Adders | Half adder, Carry the one, Wrong part, Pass it on, Carry it further, Four at once, Look ahead |
+| 7. Flip-flops and registers | One clock late, Start from nothing, Rising edge, Flip on one, Hold when told |
+| 8. Counters and state machines | Count the ones, Miscount, Spot the pattern, One clock behind, Add as you go |
+| 9. Critical path and pipelining | Find the slow path, Cut it in two, Keep in step |
+
+### Three RISC-V processors
+
+The start page gives the RV32I single-cycle, multicycle and pipelined processors a section
+of their own, written from the RISC-V specification. Each runs any of three small
+programs, the sum of 1 to 10, the first ten Fibonacci numbers, or every instruction it
+runs once, checking itself, picked from the **PROGRAM** chip beside the run or straight
+from the start page. Open one to read its drawing, double-click a block to step inside,
+and compare how many clock cycles each takes: for the instruction test, 316, 1,204 and
+346. They are there to be run and read, not taught.
+
+<!-- GIF: PROGRAM. The pipelined processor opened, the PROGRAM chip switched from SUM to FIBONACCI, a block stepped into, the controller drawn as its state diagram. Docs/gifs/program.gif -->
+
+### Your own SystemVerilog, in and out
+
+The **FILE** menu keeps your circuits and takes a project's files in and gives them back.
+
+- **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named, and
+  OPEN A CIRCUIT lists them all; RENAME and DELETE work on any but MY CIRCUIT, and DELETE
+  asks first. Each is kept as you leave it, and each exports under its own name.
+- **Import.** On a desktop, put a project's files, its `.sv` files, any files they
+  `` `include ``, and the memory images `$readmemh` reads, in the Import folder (FILE,
+  OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files or a folder.
+  The project opens as a circuit of its own, named after it, and nothing you already have
+  is replaced. A module made only of gates is drawn; any other module is kept as the code
+  you wrote. Your testbench runs as written, `$display` and all. Anything the import could
+  not read is listed in the TRANSCRIPT with its file and line. An import takes up to 200
+  files, 4 MB a file and 16 MB in all.
+- **Convert.** While your testbench drives the inputs, they cannot be set on the waves.
+  CONVERT records what the testbench drove and makes it steps you can edit; it says first
+  what it will not keep, and `Ctrl`+`Z` undoes it.
+- **Export.** EXPORT PROJECT saves a zip of every file the project is, with a `run.do`:
+  unzip it, and in ModelSim type `do run.do`.
+- **Compare with ModelSim.** The `run.do` also has ModelSim save every signal to
+  `modelsim.vcd`. Put that file in the Import folder (in a browser, pick it), and FILE,
+  COMPARE WITH MODELSIM'S RUN holds BitSorter's run to ModelSim's: it says they agree, or
+  takes the waves to the first moment they differ and names the signal and both values
+  in the TRANSCRIPT.
+- **Hand in.** Import a homework file that says `// Put your code here`, and its module
+  keeps the file's markers: write your code between them. FILE, EXPORT FOR SUBMISSION then
+  saves the file exactly as the course gave it, with your code between its markers. It
+  refuses, and says why, if the ports, the markers or anything outside them are no longer
+  the course's.
+
+<!-- GIF: COMPARE. A project imported, EXPORT PROJECT, then COMPARE WITH MODELSIM'S RUN taking the waves to the first moment ModelSim and BitSorter differ. Docs/gifs/compare.gif -->
+
+Nothing you import or export is sent anywhere: it stays on your machine, or in your
+browser's tab.
+
+### Settings and looks
+
+**SETTINGS** has fullscreen on Windows (`Alt`+`Enter` works too), vertical sync, on by
+default so the frame rate keeps to your screen's, and with it off a frame cap from 30 to
+240 frames a second, or none. FPS COUNTER, on Windows and in a browser, puts a small
+frame-rate counter in the top-right corner. A browser keeps fullscreen and the frame rate
+to itself, so the counter is the one display switch there.
+
+**STYLE** chooses the look: **Schematic**, the default; **Schematic Light**, the same on
+paper, for a report's screenshots; **Neon Board**; and **Classic**. BitSorter loads again
+to switch, and Settings is put back where you chose it. REDUCED MOTION leaves out the
+glow and the gates' flashes. SHORTCUT KEYS hides the key beside each button; every key
+still works. DATA is described under "What it collects", below.
+
+BitSorter has no sound.
 
 ### Your progress
 
-Solved levels, the circuits you built, and your best gate count and tick count
-save automatically, per level, along with which hints you have seen, whether you
-have been through the tutorial, and the sandbox's setup. On Windows they go to a
-file:
+Solved Exercises, the answer you gave each, your best gate count and settle time, the
+first-time hints you have seen, your circuits and what was open last save automatically.
+On Windows they go to a file:
 
 ```text
 %USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json
 ```
 
-**To start over:** the workbench's **SETTINGS** → **Reset progress**. It asks first,
-and nothing is forgotten unless you answer yes. A reset starts the exercises over:
-every solved exercise, its saved answer and its best, and the first-time hints are
-forgotten. **Your circuits are kept**: MY CIRCUIT and every circuit you named. Display
-and data settings are not progress, so they stay as they are.
+**To start over:** SETTINGS, then **Reset progress**. It asks first, and nothing is
+forgotten unless you answer yes. A reset starts the Exercises over: every solved
+Exercise, its saved answer and its best, and the first-time hints are forgotten. **Your
+circuits are kept**: MY CIRCUIT and every circuit you named. Display and data settings
+are not progress, so they stay as they are.
 
-In a browser the same data lives in the browser's own storage for the address
-you played at. Progress does not travel between the desktop build and a browser,
-and because it is keyed to the address, the two browser links above each keep
-their own.
+In a browser the same data lives in the browser's own storage for the address you used.
+It does not travel between the desktop build and a browser.
 
-If the file is ever damaged, say by a crash part way through saving, the game
-starts fresh rather than refusing to open, and keeps a copy of the damaged file
-beside it as `progress.json.unreadable`.
+If the file is ever damaged, say by a crash part way through saving, BitSorter starts
+fresh rather than refusing to open, and keeps a copy of the damaged file beside it as
+`progress.json.unreadable`.
 
-Your progress file itself is never uploaded. Nothing is compared against anyone
-else either — every number the game shows is about the circuit in front of you, or
-the one you built last time.
-
-### Where 5.0 opens (5.0 preview)
-
-5.0 opens as a simulator rather than a game: on whatever you had open last -- a
-circuit of yours, an exercise or a sample -- and with nothing, on a **start
-page**: NEW CIRCUIT, OPEN, IMPORT, your recent circuits, the samples, the
-exercises, the keyboard map and Settings. **HOME** goes back to it. The
-workbench's header has the app's menus -- HOME, FILE, EXERCISES, HELP (the
-keyboard map, the start page, the tutorial, and ABOUT BITSORTER: what the simulator
-does, with the credits at its foot) and SETTINGS -- and no BACK:
-`Esc` closes whatever is on top and never leaves the workbench.
-
-**Three RISC-V processors** have a section of their own on the start page: an RV32I
-single-cycle, multicycle and pipelined one, written from the RISC-V specification.
-Each runs any of three small programs -- the sum of 1 to 10, the first ten Fibonacci
-numbers, or every instruction they run once, checking itself -- picked from the
-PROGRAM chip beside the run, or straight from the start page. Open one to read its
-drawing, double-click a block to step inside, and compare how many clock cycles each
-takes: for the instruction test, 316, 1,204 and 346.
-
-Every pin nothing is wired to yet has a short lead with an open circle at its end:
-point at one and it lights, and a drag from there draws a wire. While you draw one,
-the pins it can end on show their circles.
-
-**On the waves**, a click puts a cursor there and a drag moves it through the run,
-reading any moment: the values beside the rows are the ones there. `Shift` and a
-click moves the playhead, the moment the circuit shows. The time between the two is
-written under the rows. The wheel zooms, out
-past the end of the run as far as a quarter of the strip.
-
-**INPUTS**, beside WAVES, is what the inputs are given, as a table you type in: a
-column per input -- a bus is one column, in binary, hex or decimal -- and a row per
-moment something changes. Click columns' names to choose them, then **ALL
-COMBINATIONS** fills in every combination of them, **COUNT** counts a bus up, and
-**CLOCK** makes one a clock; **+ ROW**, **STEP** and **END** do the rest. `Ctrl`+`Z`
-takes any of it back. A design imported without its testbench says which inputs
-nothing drives yet. While a testbench of your own drives them, the table shows what
-it applies, read only, with **CONVERT** beside it to turn them into rows you can edit.
-
-**LOGIC**, beside TIMING, shows what a circuit without registers does: its truth
-table, found by running it through every combination of its inputs (up to ten
-bits); for eight inputs or fewer, each output as a minimal sum of products -- the
-textbook's way, `a'b + ab'`, and SystemVerilog's -- marked where the search had to
-stop short of proving it the smallest; and for four inputs or fewer, each output's
-K-map.
-
-**STATES**, beside LOGIC, draws a clocked circuit's state diagram: every state it
-can reach from its reset, found by running it with every input from every state,
-each a circle with an arrow for each way on, and its next-state table beside it.
-It says whether the machine is Moore -- its outputs written under a bar in each
-state -- or Mealy, its outputs on the arrows after the inputs, `in/out`. Up to six
-register bits, four inputs besides the clock and reset, and sixteen states.
-
-### Exercises (5.0 preview)
-
-The thirty levels of 4.x come back as **exercises**, with five new ones on
-tri-state buses, resets, critical paths and pipelines -- thirty-five, in the
-course's order. **EXERCISES** lists them chapter by chapter, the ones you have
-solved and the next one marked, and the start page carries on from where you
-are. An exercise opens with its brief: what to build, and a hint if you ask for
-it (**GOAL** brings it back). Its own test drives the inputs and only its parts
-are in PARTS, each with how many are left. **CHECK** grades it: each check that failed is a line in the
-TRANSCRIPT that takes the run to its moment, and once it is solved a card says
-how many gates it took and how fast it settles, beside your best, and offers the
-next. A board you left in a 4.x level opens in its exercise.
-
-New to it? **TUTORIAL**, on the start page and in HELP, walks you through the
-first exercise one click at a time, and the simulator explains a few things the
-first time you meet them -- a gate's delay, a clock, a glitch, z and x.
-
-**WRITE IT** answers an exercise in SystemVerilog instead: your drawing becomes
-code, gate for gate, and you carry on typing. It is held to the same parts as a
-drawing -- the course's gates, no operators, no more of each than the exercise
-gives -- and graded the same way. **DRAW IT** goes back to drawing, and draws your code
-as its gates.
-
-The 4.x game is gone from 5.0 (Part 16a): its thirty levels are the first thirty exercises,
-and 4.0.0 itself is still played on [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter).
-
-### Your own SystemVerilog, in and out (5.0 preview)
-
-The workbench's **FILE** menu keeps your circuits, and takes a project's files in and
-gives them back out:
-
-- **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named,
-  and OPEN A CIRCUIT lists them all, the one you opened last first; RENAME and DELETE
-  work on any but MY CIRCUIT, and DELETE asks first, since a deleted circuit cannot
-  be brought back. Each is kept as you leave it, and each exports under its own name.
-- **Import.** On a desktop, put a project's files — its `.sv` files, any files they
-  `` `include ``, and the memory images `$readmemh` reads — in the Import folder
-  (FILE, OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files
-  or a folder. The project opens as a circuit of its own, named after it, and
-  nothing you already have is replaced. A module made only of gates is drawn; any other module is kept as
-  the code you wrote. Your testbench runs as written, `$display` and all. Anything
-  the import could not read is listed in the TRANSCRIPT with its file and line.
-  An import takes up to 200 files, 4 MB a file and 16 MB in all, which is far
-  more than a course project needs; a larger file is left out and named, and so
-  is a file no module uses, such as a handout or the simulator's own logs.
-- **Convert.** While your testbench drives the inputs, they cannot be set on the
-  waves. CONVERT, in the FILE menu or on the INPUTS tab, records what the testbench drove and makes it steps you can
-  edit; it says first what it will not keep (what the testbench printed or
-  checked), and Ctrl+Z undoes it.
-- **Export.** EXPORT PROJECT saves a zip of every file the project is, with a
-  `run.do`: unzip it, and in ModelSim type `do run.do`.
-- **Compare with ModelSim.** The `run.do` also has ModelSim save every signal to
-  `modelsim.vcd`. Put that file in the Import folder (in a browser, pick it), and
-  FILE, COMPARE WITH MODELSIM'S RUN holds BitSorter's run to ModelSim's: it says
-  they agree, or takes the waves to the first moment they differ and names the
-  signal and both values in the TRANSCRIPT. A difference right at t = 0 that ends
-  at the first clock is said apart: ModelSim starts an `always` before an
-  `initial` at time 0, BitSorter the `initial` first, and the standard leaves it
-  open.
-- **Hand in.** Import a homework file that says `// Put your code here`, and its
-  module keeps the file's markers: write your code between them. FILE, EXPORT FOR
-  SUBMISSION then saves the file exactly as the course gave it, with your code
-  between its markers. It refuses, and says why, if the ports, the markers or
-  anything outside them (comments included) are no longer the course's, so nothing
-  you wrote is left out without a word.
-
-Nothing you import or export is sent anywhere: it stays on your machine, or in
-your browser's tab.
-
-**Writing code.** `+ CODE` in PARTS makes a block you write rather than draw, and a
-double-click on one opens its code in the circuit's window. It applies itself when
-you pause typing; **Ctrl+Enter** or **Ctrl+S** applies it at once. **Ctrl+Z** and
-**Ctrl+Y** undo and redo the typing, **Tab** and **Shift+Tab** indent and outdent
-the lines by four spaces, and **Ctrl+/** comments them out or back in. In a browser
-**Ctrl+F** finds and replaces, **Ctrl+D** selects the next match and **Alt+Up** or
-**Alt+Down** moves the lines. While you type, none of the workbench's own keys act:
-Ctrl+V pastes text in the code, and pastes parts only on the circuit. `?` lists
-every key. The classic first slips are answered with what to write instead: an
-`assign` inside an `always`, `logic s[1:0]` used as a bus, an `if`, `for` or `case`
-on a signal outside an `always`, an instance with no name, `always_comb @(...)`.
-Curly quotes, dashes and no-break spaces pasted from a slide are read as `'`, `"`,
-`-` and a space, with a warning, and exported that way -- in included headers too --
-so ModelSim takes what ran here. Deleting a block
-leaves its module, since that is your code; to delete
-the module itself, right-click its row under BLOCKS in PARTS. It asks first, and
-Ctrl+Z brings it back.
-
-### The course's tools (5.0 preview)
-
-Once a circuit works, the workbench answers the questions the course asks of it:
-
-- **TIMING**, a tab in the dock beside CODE. It lists every path from an input to
-  an output, worked out by the textbook rule: each gate adds its Tpdlh where its
-  output rises and its Tpdhl where it falls. Paths through the same gates are
-  grouped, and the slowest comes first. The critical path is lit on the circuit,
-  and clicking another path lights that one. A long list folds away under the arrow
-  beside PATHS, and the arrow beside a path too long for its row shows all of it.
-  For a circuit with registers, give
-  each its clock-to-Q and setup in its inspector, and the tab gives the minimum
-  clock period and the frequency that allows. For a pipeline, where every path
-  from an input to an output passes the same number of registers, it gives the
-  latency in clock periods and the throughput: one result each period. The tab
-  also counts the gates.
-- **The measured worst.** For a circuit of up to ten input bits and no registers,
-  the TIMING tab steps every input up and down from every value of the others.
-  It shows the slowest each output really changed, and the input values that
-  caused it. A computed path that no step ever fires is marked "never fires".
-  **STEP TEST** turns your stimulus into a step test, one input at a time, so you
-  can read each delay off the waves with the cursors. Ctrl+Z undoes it.
-- **LIBRARY**, on the TIMING tab, holds a design to a gate library. **COURSE
-  CELLS** allows only the course's cells, and PARTS then offers only those. Every
-  gate of a cell keeps that cell's delays: type a delay on any one of them and
-  the cell, and every gate of it, follows. You can also take a kind of gate out,
-  refuse constants, and set a gate budget, which the gate count is held against;
-  over it, the TRANSCRIPT warns you too. **Code you write is held to it as well**:
-  every gate one of the library's cells at its delays (write `NAND2 g1 (...)` and
-  it takes the library's), no logic written with operators (`&`, `|`, `+`, `?:`) --
-  not in an assignment, a gate's input or a connection -- and a register only as an
-  `always_ff` of plain writes, with at most a reset. Anything else is marked at its
-  line, as any mistake in the code is. The testbench your project runs is not held
-  to it.
-- **Warnings, as ModelSim's `vlog` gives them.** The TRANSCRIPT warns about a
-  signal read that nothing drives, one set that nothing reads, two drivers on a
-  wire that cannot both let go, and a value cut short by a narrower target. They
-  never stop a run. **A race** is warned of as the run makes it: a process -- most
-  often a testbench -- that changes a flip-flop's input with `=` on the very clock
-  edge the flip-flop takes it at -- `@(posedge clk); d = 1;` -- leaves the two in
-  either order, and another simulator may not agree with BitSorter on which. Change
-  it on the other edge, a moment later, or with `<=`.
-- **Buses.** Several tri-state gates (BUFIF, NOTIF) may drive one wire; where two
-  drive at once it reads x on the waves. Written code may use `inout` ports, and a
-  block of it shows an inout pin you can wire onto a bus beside tri-state gates and
-  other devices' inout pins.
+Your progress file itself is never uploaded. Nothing is compared against anyone else
+either: every number BitSorter shows is about the circuit in front of you, or the one you
+built last time.
 
 ### What it collects
 
-The game uses Unity Analytics, which sends anonymous usage data to Unity.
+BitSorter uses Unity Analytics, which sends anonymous usage data to Unity.
 
-Two events come from the game itself, and nothing else does:
+Two events come from BitSorter itself, and nothing else does:
 
 | Event | Sent when | Data |
 | --- | --- | --- |
-| `levelStarted` | The first time a level, or an exercise, is opened in a session | `levelName`, the level's file name, which its exercise keeps |
-| `levelSolved` | The first time a level, or an exercise, is solved in a session | `levelName`, the level's file name, which its exercise keeps |
+| `levelStarted` | The first time an exercise is opened in a session | `levelName`, the exercise's id; for the first thirty, the file name of the 4.x level they came from |
+| `levelSolved` | The first time an exercise is solved in a session | `levelName`, the exercise's id; for the first thirty, the file name of the 4.x level they came from |
 
 `levelName` is the identifier, like `half-adder` — not a display title and not
-anything you typed. The pair exists to answer one question: which level people
+anything you typed. The pair exists to answer one question: which exercise people
 stop at.
 
-Each is sent at most once per level per session. Reopening a level, or
+Each is sent at most once per exercise per session. Reopening an exercise, or
 solving it again, is not counted a second time.
 
 Alongside those, Unity's SDK collects its own standard session data: a random
@@ -510,14 +376,13 @@ operating system, device model, language, and an approximate region derived from
 your IP address. That set is Unity's, not mine, and
 [Unity documents it](https://docs.unity.com/analytics/en/manual/UnityAnalyticsData).
 
-**What is never sent:** your progress file, the circuits you build, your gate or
-tick counts, your personal bests, or any account, name or email. There is no
-login, and the game asks for nothing.
+**What is never sent:** your progress file, the circuits you build, your gate counts or
+timings, your personal bests, or any account, name or email. There is no
+login, and BitSorter asks for nothing.
 
-**To turn it off:** main menu → **Settings** → **Data** (in 5.0, the workbench's
-**SETTINGS**). It toggles between
+**To turn it off:** the workbench's **SETTINGS** → **Data**. It toggles between
 `DATA ON` and `DATA OFF`, takes effect immediately, and is remembered on that
-machine. Turning it off stops collection rather than merely hiding it — the game
+machine. Turning it off stops collection rather than merely hiding it — BitSorter
 tells Unity's consent framework that consent is denied, and nothing is queued or
 sent while it is off.
 
@@ -526,71 +391,85 @@ all, that is the first thing to change.
 
 ---
 
+## What it teaches
+
+The Exercises cover boolean algebra, K-map minimisation, functional completeness,
+propagation delay, combinational components, adders, flip-flops, state machines, the
+critical path and pipelining. Each topic is taught before an Exercise asks for it.
+
+- **Simulated, not taught:** the course's RISC-V hardware, multicycle included, with its
+  memories and `$readmemh`. The simulator has to run it; no Exercise teaches it.
+- **Shown, not taught:** hazards. With gate delays a glitch is real and appears on the
+  waves, but no Exercise sets out to teach static or dynamic hazards.
+- **Displayed, not taught:** number representation. A signal reads in binary, hex, or
+  unsigned or signed decimal.
+- **Out of scope:** assembly programming and memory addressing.
+
+Timing is a fact about your own circuit, never a ranking. Nothing compares you with
+anyone else or with a par score, and that is on purpose.
+
+---
+
+## How it simulates
+
+Values are 0, 1, x for unknown and z for undriven, in vectors of any width. Everything
+starts as x until something drives it, and two drivers that disagree read x, which is
+what ModelSim shows.
+
+The engine is event driven: it keeps a list of "this signal changes at time T" and jumps
+to the next entry, so a quiet circuit costs nothing. Changes with no delay still happen in
+rounds at the same instant, delta cycles, and the rounds repeat until nothing changes.
+Gates and `assign #d` are inertial, so a pulse shorter than a gate's delay is swallowed.
+The delay lives on gates, as in the course, and wires are ideal.
+
+The order drivers are visited in can never change a run: each delta cycle applies
+everything due before any driver is evaluated, and a test shuffles the order. Processes are
+the one place the language allows a race, so they run in a fixed order, as ModelSim
+starts them, with Icarus Verilog's way one setting away. Where that order decides a value,
+the run says so.
+
+Every construct has a test, and a comparison against **Icarus Verilog** wherever it can
+run. **ModelSim** is the second oracle, used wherever it is installed. Where one
+disagrees with the language standard, the standard wins and the difference is written
+down in [Docs/oracle-notes.md](Docs/oracle-notes.md).
+
+---
+
 ## Developing
 
-Unity 6.3 LTS (6000.3.11f1).
+Unity 6.3 LTS (6000.3.11f1). [Docs/architecture-5.md](Docs/architecture-5.md) is the
+architecture, the data model and the parts, and [CLAUDE.md](CLAUDE.md) holds the rules
+and the reasons for them.
 
 - **BitSorter → Build Windows Player** writes a player to `Build/Windows/`.
-- **BitSorter → Build WebGL Player** writes a browser build to `Build/WebGL/`.
-  See [Docs/distribution.md](Docs/distribution.md) for what differs in a browser,
-  and what Pages, itch.io and Unity Play each need.
+- **BitSorter → Build WebGL Player** writes a browser build to `Build/WebGL/`. See
+  [Docs/distribution.md](Docs/distribution.md) for what differs in a browser and what
+  each place that hosts a build needs.
 - **BitSorter → Publish WebGL to GitHub Pages** force-pushes `Build/WebGL/` to the
-  `gh-pages` branch, via [Tools/publish-pages.ps1](Tools/publish-pages.ps1). The
-  script runs standalone too, and warns if the build is older than the scripts.
-- **BitSorter → Generate App Icon** redraws `Assets/Icon/BitSorterIcon.png` and
-  assigns it to every standalone icon size.
-- **BitSorter → Build Play Scene** regenerates the play scene from code. The
-  scene is generated rather than authored, so anything added by hand is discarded
-  the next time that runs.
-- Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
-  1,280 EditMode cases and 220 PlayMode at present (4.0.0), the PlayMode ones
-  across twenty fixtures — pointer arbitration,
-  scene composition, the tutorial's opening, the frame a run ends on, free play's
-  setup, its named boards and its blocks, a block on a level's board, a level that
-  opens on a circuit, full-screen panels and the keys that open and close them,
-  framing the board clear of the interface, what the board draws while a run
-  moves and how it renders, the timing diagram and the wires picked for it, the
-  wire-delay hint, the level list, the help panel's K-map, the HUD allocating
-  nothing on a quiet frame, the settings, their reset and the credits, and the
-  guard that keeps every test off your own save file. Those need a live
-  scene, but not a focused window: nothing in the suite waits on wall-clock time
-  any more. If you ever script that run, read the results from
-  `TestResults.xml` in the save directory rather than from a `TestRunnerApi`
-  callback, which does not survive the domain reload that entering play mode
-  causes.
-- **BitSorter → Capture Reference Shots** screenshots forty-six states of the
-  real game — menu, board, a run, both kinds of collision, the cards, free play,
-  settings, the credits, the wider boards, the three levels that open on a broken
-  circuit, the timing diagram mid-run, a four-bit adder built from blocks, and the
-  5.0 workbench in its docked shell: the circuit edited, the waves, the inspector,
-  the menus, the transcript, the keyboard map, a block stepped inside, one being made, an array of four, a
-  block's written code, the code panel and the FILE menu — into
-  the save directory. Two captures of the same code are identical
-  to the pixel, so a change that claims to leave the look alone can be held to it.
-  It needs the Game view.
-- To compile without the editor at all, Bee leaves the exact compiler invocation
-  in `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out` and run it
-  through `Editor/Data/DotNetSdkRoslyn/csc.dll`. Two things to watch: gate on
-  csc's exit code rather than grepping for `error`, because a missing reference
-  reports with no `path(line,col):` prefix, and append any source file added
-  since Bee wrote the rsp, or it simply is not compiled.
-- **CI** runs everything that needs no Unity on every push: `Tools/ci/` builds
-  `Assets/Scripts/LogicCore` and 5.0's new pure layers for netstandard2.1, runs
-  the simulator's own tests and the repository's rules, and runs the oracle
-  designs under Icarus Verilog, which it installs. Locally, the same run is
-  `dotnet test Tools/ci/BitSorter.Ci.slnx`.
-
-### Why it isn't a physics game
-
-The obvious implementation is Rigidbody2D marbles bouncing off ramps. That fails:
-floating-point variation means the same circuit can produce different results on
-different runs, so a correct solution can fail and levels cannot be validated
-automatically.
-
-Instead the game is a deterministic tick-based simulator, and Unity is only a
-view. Bits are tokens on a graph, not rigid bodies. The physical look — sparks,
-bloom, debris — is animation driven by simulation state, and never feeds back
-into it.
+  `gh-pages` branch, via [Tools/publish-pages.ps1](Tools/publish-pages.ps1). The script
+  runs standalone too, and warns if the build is older than the scripts.
+- **BitSorter → Generate App Icon** redraws `Assets/Icon/BitSorterIcon.png` and assigns it
+  to every standalone icon size.
+- **BitSorter → Build Play Scene** regenerates the scene from code. The scene is
+  generated rather than authored, so anything added by hand is discarded the next time
+  that runs.
+- **Tests that need no Unity:** `dotnet test Tools/ci/BitSorter.Ci.slnx`. It builds the four
+  pure layers against netstandard2.1, Unity's profile, runs their tests and the
+  repository's rules, and runs the oracle designs under Icarus Verilog, which it skips
+  when Icarus is not installed. CI runs the same on every push, with Icarus installed and
+  a skip made a failure.
+- **Tests in the editor:** Window → General → Test Runner, or **BitSorter → Run Tests**.
+  Edit Mode has no scene. Play Mode loads the real scene on a scratch save that never
+  touches yours, and does not need the window focused. Use the PlayMode tab, not the
+  Player tab, which builds a whole player first.
+- **BitSorter → Capture Reference Shots** screenshots the simulator in dozens of states,
+  every look included. Two captures of the same code are identical to the pixel, so a
+  change that claims to leave the look alone can be held to it. It needs the Game view.
+- To compile without the editor at all, Bee leaves the exact compiler invocation in
+  `Library/Bee/artifacts/*/BitSorter.*.rsp`; redirect `-out` and run it through
+  `Editor/Data/DotNetSdkRoslyn/csc.dll`. Gate on csc's exit code rather than grepping for
+  `error`, and append any source file added since Bee wrote the response file, or it is
+  not compiled.
 
 ### Architecture
 
@@ -600,102 +479,52 @@ Assets/Scripts/Sim/             the 4-state event-driven engine
 Assets/Scripts/Board/           the document: circuits, exercises, import and export
 Assets/Scripts/ViewModel/       the workbench's layout, routes and gestures
 Assets/Scripts/View/            Unity rendering, input and interface
-Assets/Resources/Exercises/     one JSON file per exercise
+Assets/Resources/Exercises/     one JSON file per Exercise
 Assets/Tests/EditMode/          NUnit tests, no scene
 Assets/Tests/PlayMode/          tests against the real scene, on a scratch save
+Tools/ci/                       the pure layers built and tested without Unity, and the oracle
 ```
 
 The four pure layers are assemblies with `noEngineReferences: true`, so a stray
-`using UnityEngine;` fails to compile rather than silently coupling them to the
-engine, and `Tools/ci` builds and tests them without Unity. Until Part 16a the 4.x
-game's token engine, `LogicCore`, stood beside them; this section and the ones
-after it still describe that game in places, until the README is rewritten for the
-simulator.
+`using UnityEngine;` fails to compile rather than silently coupling them to the engine,
+and `Tools/ci` builds and tests them without Unity. They point one way, SystemVerilog
+<- Sim <- Board <- ViewModel <- View, and the view changes the document and the engine
+only through their commands.
 
-The view changes the document and the engine only through their commands.
-
-The interface is a Canvas built in code, for the same reason the scene is: an
-authored hierarchy would be dozens of RectTransforms for the builder to reproduce
-and get subtly wrong. Sprites are generated at runtime, so there are no art files
-and no licences for any of them. BitSorter has no sound, and no audio files.
-
-### Simulation model
-
-Time is an integer tick. Each `Tick()` runs three phases in a fixed order:
-advance bits in transit, deliver arrivals into input ports, evaluate nodes.
-
-- An input port holds at most one bit (`Bit?`, where null is empty).
-- A node evaluates only when **all** its input ports are filled, then consumes
-  them. That is what makes two-input gates work with serially arriving bits, and
-  it makes timing part of the puzzle.
-- Every edge has an integer delay of at least 1. Zero-delay edges are rejected at
-  construction because they would force node evaluation into topological order.
-- **Node evaluation order within a tick cannot affect the result.** This is a
-  tested invariant: the same graph built with nodes and edges registered in
-  reverse order produces identical output.
-- A bit delivered to an occupied port is a collision. Matching values destroy the
-  arrival; differing values destroy both and poison the port for the rest of that
-  delivery phase, so no ordering leaves a survivor. `CorruptedCount` counts
-  destroyed bits, not events, and `CorruptionSites` says which ports they were
-  destroyed at.
-
-#### The consequence that shapes the game
-
-Because delay is real and ports latch, a circuit with a correct truth table can
-still fail if its paths are unbalanced. A second-stage gate receiving its inputs
-on different ticks holds the first, waits, and corrupts when the next arrives.
-The failure is corruption, not a wrong answer.
-
-That is the same problem timing closure solves in real hardware, and it is the
-intended difficulty of the adder chapters.
-
-There is also no backpressure — a source has no inputs, so it emits every tick
-regardless of what is stalled downstream. This is why throughput is not scored:
-a balanced circuit sustains exactly one vector per tick whatever its depth, and
-an unbalanced one fails outright, so there is nothing in between to rank.
-
-### Not built
-
-- Latches built from gates. Memory cannot emerge from gate feedback under consume
-  semantics — a cross-coupled NOR latch deadlocks at startup and stalls after one
-  firing — so the register is a primitive (`RegisterNode`) rather than something
-  the player builds. A deliberate decision, not an oversight.
-- Anything that ranks a player against other people or an authored ideal. Star
-  ratings, par scores and leaderboards are out by design.
-
-`CLAUDE.md` carries the full set of decisions and the reasoning behind them.
+The interface is built in code: the drawings are uGUI on one canvas, and the shell round
+them is UI Toolkit. Sprites are generated at runtime, so there are no art files, and
+BitSorter has no sound and no audio files.
 
 ---
 
 ## Contributing
 
-Bug reports, level ideas, new levels and code are all welcome.
-[CONTRIBUTING.md](CONTRIBUTING.md) covers opening an issue (there are forms for
-bugs, features and level ideas), what each label means, the level file format and
-what a new level needs, setting up the project, the rules the code keeps, tests,
-and forking the repository and sending a pull request.
+Bug reports, Exercise ideas and code are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
+covers opening an issue (there are forms for bugs, features and Exercise ideas), what each
+label means, the Exercise file format, setting up the project, the rules the code keeps,
+tests, and forking the repository and sending a pull request.
 
 ---
 
 ## Licence
 
-MIT: see [LICENSE](LICENSE). That covers the code, the levels and the docs.
+MIT: see [LICENSE](LICENSE). That covers the code, the Exercises and the docs.
 
 The TextMesh Pro files Unity bundles under `Assets/TextMesh Pro/` keep their own
 terms: the Unity Companion License, the SIL Open Font License for Liberation Sans,
 and EmojiOne's for its sprites. The details are in `LICENSE`.
 
-The game's font is **IBM Plex Sans**, © IBM Corp., from
+BitSorter's font is **IBM Plex Sans**, © IBM Corp., from
 [github.com/IBM/plex](https://github.com/IBM/plex), under the
 [SIL Open Font License 1.1](Assets/Fonts/IBMPlexSans/LICENSE.txt), which travels
 with it in `Assets/Fonts/IBMPlexSans/`. Liberation Sans stays on as the fallback for
 any character Plex does not have. Code is set in **IBM Plex Mono**, from the same
 family and under the [same licence](Assets/Fonts/IBMPlexMono/LICENSE.txt), in
-`Assets/Fonts/IBMPlexMono/`. Both are named in the game's credits, as is Icarus
+`Assets/Fonts/IBMPlexMono/`. Both are named in the credits, as is Icarus
 Verilog, the simulator BitSorter's engine is checked against.
 
 The browser build's code editor is **[CodeMirror](https://codemirror.net)** 6,
 © Marijn Haverbeke and others, under the MIT licence: bundled into
 `Assets/Plugins/WebGL/codemirror.jspre` by `Tools/codemirror/build.ps1` from the
-versions `Tools/codemirror/package-lock.json` pins, and never fetched while the game
+versions `Tools/codemirror/package-lock.json` pins, and never fetched while BitSorter
 runs. The file's head names every package in it, its version and its copyright.
