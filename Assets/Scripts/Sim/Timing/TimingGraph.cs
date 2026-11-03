@@ -287,14 +287,14 @@ namespace BitSorter.Sim
                 if (driver is GateDriver gate)
                 {
                     Gates++;
-                    string key = gate.Kind.ToString().ToLowerInvariant() + (gate.InputCount > 1 && !IsTriState(gate.Kind) ? gate.InputCount.ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
+                    string key = gate.Kind.ToString().ToLowerInvariant() + (gate.InputCount > 1 && !gate.Kind.IsTriState() ? gate.InputCount.ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
                     counts[key] = counts.TryGetValue(key, out int n) ? n + 1 : 1;
 
                     for (int i = 0; i < gate.InputCount; i++)
                     {
                         // A tri-state's control can turn its output off: that change takes the turn-off delay, to z.
                         long rise = gate.Delay.Rise, fall = gate.Delay.Fall;
-                        if (IsTriState(gate.Kind) && i == 1)
+                        if (gate.Kind.IsTriState() && i == 1)
                         {
                             rise = Math.Max(rise, gate.Delay.TurnOff);
                             fall = Math.Max(fall, gate.Delay.TurnOff);
@@ -727,9 +727,6 @@ namespace BitSorter.Sim
                     return true;
             return false;
         }
-
-        private static bool IsTriState(GateKind kind) =>
-            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
 
         /// <summary>How a change at a gate's <paramref name="input"/>th input reaches its output.</summary>
         internal static Sense SenseOf(GateKind kind, int input)

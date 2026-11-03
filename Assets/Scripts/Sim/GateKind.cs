@@ -48,6 +48,13 @@ namespace BitSorter.Sim
         }
 
         /// <summary>
+        /// Whether <paramref name="kind"/> is a tri-state gate -- <c>bufif0</c>, <c>bufif1</c>, <c>notif0</c>, <c>notif1</c> --
+        /// whose output is z while its control says so. The one place that says which kinds those are.
+        /// </summary>
+        public static bool IsTriState(this GateKind kind) =>
+            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
+
+        /// <summary>
         /// The gate's output for these inputs. The logic gates fold the standard's truth tables over
         /// their inputs, so a known 0 still decides an AND. A tri-state whose control is x or z gives
         /// x: the standard's L and H, "0 or z" and "1 or z", need strengths, which are not modelled.

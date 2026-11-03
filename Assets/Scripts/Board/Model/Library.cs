@@ -27,10 +27,7 @@ namespace BitSorter.Board
 
         /// <summary>What the course calls it: <c>NAND2</c>, <c>INV</c>; a gate with no cell by its kind, and its inputs when it has a choice.</summary>
         public string Name => CellLibrary.CellFor(Kind, Inputs)
-            ?? Kind.ToString().ToUpperInvariant() + (Inputs > 1 && !IsTriState(Kind) ? Inputs.ToString(CultureInfo.InvariantCulture) : "");
-
-        private static bool IsTriState(GateKind kind) =>
-            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
+            ?? Kind.ToString().ToUpperInvariant() + (Inputs > 1 && !Kind.IsTriState() ? Inputs.ToString(CultureInfo.InvariantCulture) : "");
     }
 
     /// <summary>
@@ -145,7 +142,7 @@ namespace BitSorter.Board
         /// cells, or a tri-state gate -- BUFIF and NOTIF, which the course's cells have none of, and a bus needs (Part 15c).
         /// </summary>
         public static bool CanHold(GateKind kind, int inputs) =>
-            CellLibrary.CellFor(kind, inputs) != null || (GatePart.IsTriStateKind(kind) && inputs == 2);
+            CellLibrary.CellFor(kind, inputs) != null || (kind.IsTriState() && inputs == 2);
 
         /// <summary>The cell of <paramref name="kind"/> with <paramref name="inputs"/> inputs, or null when the library has none.</summary>
         public LibraryCell CellFor(GateKind kind, int inputs)

@@ -459,7 +459,7 @@ namespace BitSorter.Sim
                     RtlCell gate = NewCell(RtlKind.Gate, name, inputs, 1);
                     gate.Gate = g.Kind;
                     gate.Delay = g.Delay;
-                    if (IsTriState(g.Kind) && g.Delay.TurnOff != Math.Min(g.Delay.Rise, g.Delay.Fall))
+                    if (g.Kind.IsTriState() && g.Delay.TurnOff != Math.Min(g.Delay.Rise, g.Delay.Fall))
                         _unshown.Add("the delay to z of " + name);
                     values[i] = gate.Output;
                 }
@@ -558,9 +558,6 @@ namespace BitSorter.Sim
         }
 
         private Dictionary<int, Delay> _oneGate;
-
-        private static bool IsTriState(GateKind kind) =>
-            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
 
         /// <summary>A process opened into cells; one that is no hardware, a box -- every signal it reads in, every one it writes out.</summary>
         private void Box(ProcessInfo process, string why)

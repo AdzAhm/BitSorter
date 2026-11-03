@@ -108,16 +108,13 @@ namespace BitSorter.Board
         /// whose output is z while its control says so. One bit; several of them may drive one net, a bus
         /// (Part 14f, <see cref="BoardRules.IsBus"/>).
         /// </summary>
-        public bool IsTriState => IsTriStateKind(Kind);
-
-        public static bool IsTriStateKind(GateKind kind) =>
-            kind == GateKind.Bufif0 || kind == GateKind.Bufif1 || kind == GateKind.Notif0 || kind == GateKind.Notif1;
+        public bool IsTriState => Kind.IsTriState();
 
         /// <summary>The <paramref name="index"/>th input's name: a, b, c ...</summary>
         public static string InputName(int index) => ((char)('a' + index)).ToString();
 
         /// <summary>The <paramref name="index"/>th input of a gate of <paramref name="kind"/>: a, b, c ..., or a tri-state gate's a and en.</summary>
-        public static string InputPin(GateKind kind, int index) => IsTriStateKind(kind) && index == 1 ? "en" : InputName(index);
+        public static string InputPin(GateKind kind, int index) => kind.IsTriState() && index == 1 ? "en" : InputName(index);
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {

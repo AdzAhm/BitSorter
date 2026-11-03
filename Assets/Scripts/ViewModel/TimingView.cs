@@ -534,7 +534,7 @@ namespace BitSorter.ViewModel
         private static string Primitive(GateKind kind, int inputs)
         {
             string name = kind.ToString().ToUpperInvariant();
-            return inputs > 1 && kind != GateKind.Bufif0 && kind != GateKind.Bufif1 && kind != GateKind.Notif0 && kind != GateKind.Notif1
+            return inputs > 1 && !kind.IsTriState()
                 ? name + inputs.ToString(CultureInfo.InvariantCulture) : name;
         }
 

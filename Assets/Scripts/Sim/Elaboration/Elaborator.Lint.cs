@@ -176,7 +176,7 @@ namespace BitSorter.Sim
             /// </summary>
             private static bool LetsGo(DriverInfo driver, Func<int, bool> floats) =>
                 driver is GateDriver gate
-                    ? gate.Kind == GateKind.Bufif0 || gate.Kind == GateKind.Bufif1 || gate.Kind == GateKind.Notif0 || gate.Kind == GateKind.Notif1
+                    ? gate.Kind.IsTriState()
                     : driver is AssignDriver assign && assign.Value.CanFloat(floats);
 
             /// <summary>

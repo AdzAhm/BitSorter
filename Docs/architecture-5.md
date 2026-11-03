@@ -4636,6 +4636,10 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
 - **`FrameRecorder` is gone.** 16a kept it for the README's GIFs, but 16e's `ReadmeGifs` records them itself, with its own
   copy of `Downscale`, so nothing added the recorder to an object any more and no scene or prefab holds its script. It was
   behind `UNITY_EDITOR`, so no build changes.
+- **Which gates are tri-states is said once**, `Gates.IsTriState` (an extension of `GateKind`, in the engine). Six copies of
+  the same four-way test had grown -- `GatePart.IsTriStateKind`, private ones in `LibraryCell`, `RtlExtractor` and
+  `TimingGraph`, and the test written out in the elaborator's lint and in `TimingView` -- so a fifth tri-state kind would have
+  had six places to be added to.
 
 ---
 
