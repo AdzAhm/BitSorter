@@ -59,6 +59,10 @@ namespace BitSorter.View
         // The colour each row's readout is written in before it is made legible on what is behind it, the ground or the row's
         // band (SchematicPalette.Legible): kept, so a band put up or taken down writes it again without the value.
         private readonly Color[] _readoutInk;
+
+        // What each readout's colour was last worked out from -- its value's colour and what was under it -- so that a frame
+        // changing neither works nothing out: Place runs every frame, and Legible is a WCAG contrast at least.
+        private readonly Color[] _inkWorkedOut, _underWorkedOut;
         private readonly List<TextMeshProUGUI> _glitchLabels = new List<TextMeshProUGUI>();
         private readonly TextMeshProUGUI _playheadLabel, _secondLabel, _spanLabel;
         private readonly Image[] _bands;
@@ -155,6 +159,8 @@ namespace BitSorter.View
             _readouts = new TextMeshProUGUI[rows];
             _busLabels = new List<TextMeshProUGUI>[rows];
             _readoutInk = new Color[rows];
+            _inkWorkedOut = new Color[rows];     // clear, which no ground nor band is: every row is worked out the first time
+            _underWorkedOut = new Color[rows];
             _readoutOf = new string[rows];
             _readout = new string[rows];
             _names = new TextMeshProUGUI[rows];
@@ -254,11 +260,22 @@ namespace BitSorter.View
         /// held to 3:1 (the accessibility review, 2026-11-03).
         /// </summary>
         /// <remarks>
-        /// A bus's labels are not: a known value's is the text's colour, which reads on either, and an x's is on its hatched
-        /// box, a blend of the band and the x's red that only a capture can measure.
+        /// Worked out again only when the value's colour or what is under it has changed since the last time, which is
+        /// rarely: a frame that changes neither compares two colours a row.
+        ///
+        /// A bus's labels are not lifted: a known value's is the text's colour, which reads on either, and an x's is on its
+        /// hatched box, a blend of the band and the x's red that only a capture can measure.
         /// </remarks>
-        private void WriteLegibly(int row, SchematicPalette palette) =>
-            _readouts[row].color = palette.Legible(_readoutInk[row], Under(row, palette));
+        private void WriteLegibly(int row, SchematicPalette palette)
+        {
+            Color ink = _readoutInk[row], under = Under(row, palette);
+            if (ink == _inkWorkedOut[row] && under == _underWorkedOut[row])
+                return;
+
+            _inkWorkedOut[row] = ink;
+            _underWorkedOut[row] = under;
+            _readouts[row].color = palette.Legible(ink, under);
+        }
 
         // -----------------------------------------------------------------
         // Where the pointer is
