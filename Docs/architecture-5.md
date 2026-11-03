@@ -3196,8 +3196,8 @@ the slower of the two, and it was made more than once an edit.
 
 **As built beside Part 15h: Settings on one screen, and ABOUT BITSORTER.** Ahmad asked on 2026-10-28.
 
-- **Settings is two columns** (`SettingsPanel`): AUDIO, DISPLAY and STYLE on the left, PRIVACY, PROGRESS and ABOUT on
-  the right, under one title. One column ran past the foot of a 1080 screen, and CREDITS, last, was found only by
+- **Settings is two columns** (`SettingsPanel`): DISPLAY and STYLE on the left (AUDIO headed it until Part 16b),
+  PRIVACY, PROGRESS and ABOUT on the right, under one title. One column ran past the foot of a 1080 screen, and CREDITS, last, was found only by
   scrolling. A shorter window still scrolls. PRIVACY's line says it reports which exercises people get stuck on, as
   it does since Part 15d.
 - **ABOUT BITSORTER** (`WorkbenchPanel.About.cs`), from HELP, is a page of the workbench's own:
@@ -4408,6 +4408,36 @@ pipelined processor's `pcpu_memory`).
   the refusals, the pointer and RESET SIZE), a Play Mode test dragging the full adder's h1 and the pipelined processor's
   data memory through the workbench's own pointer, and reference shot 75.
 
+**As built in Part 16b: no sound** (Ahmad, 2026-11-03: "remove the music and anything related to it"). The 4.x game's
+effects went with it in Part 16a, which left the music as the only sound there was; now none is left. BitSorter is a
+simulator for a course, and the music was its largest single item in the download -- the two recordings alone were about
+3.6 MB of the 6.7 MB data file, by Part 16's own measurement above.
+
+- **Gone:** `Assets/Scripts/View/Audio` (`GameAudio`, `MusicRules` and `ProceduralAudio`: the twenty-two generated tracks
+  and the slice-at-a-time bake that built them); `Assets/Audio/Music`, the two recordings -- "Dream" (CC0) and "Woodland
+  Fantasy" (CC BY 3.0) -- with the README's Music credits and the roll's MUSIC heading, which the CC BY licence had asked
+  for; Ahmad's `SOUND DESIGN` and `LEVEL MUSIC` roles; `Credits.MenuMusic` and the type that held a track; the scene
+  builder's `GameAudio`, its menu tracks and loudness table, and the `AudioListener` on the camera.
+- **Settings:** the AUDIO section -- SOUND, MUSIC and VOLUME -- is gone, so the left column is DISPLAY and STYLE and
+  `SettingsPanel.Headings` has five. The page is shorter, so it still fits a 1080 screen. Settings and the credits start
+  and fade nothing when they open or close.
+- **The N key** switched the sound from anywhere. It was one of the keys reserved for the whole game
+  (`WorkbenchKeys.GameKeys`) and is no longer: it is free for a binding of the workbench's own. Ctrl+N stays the
+  browser's.
+- **The player ships without the audio system**: `m_DisableAudio` is set in `ProjectSettings/AudioManager.asset`. The
+  built-in audio module stays in the package manifest, since other modules depend on it.
+- **Saves and settings:** the three PlayerPrefs keys for the sound, the music and the volume are no longer read. They stay
+  where an older build wrote them, harmless. The README and `ProgressTracker.ResetProgress` said a reset kept the sound
+  settings; they say display and data settings now.
+- **Superseded** by this part, where earlier entries describe them: 15a's "the music is off until switched on", 15g-2's
+  music under Settings, and 16a's "kept, though the 4.x game made them: the menu's music".
+- **Tests:** `MusicTests`, `ProceduralAudioTests` and `AudioPlayTests` are deleted with what they held, and so are the
+  Settings tests of the SOUND, MUSIC and VOLUME controls and the scene's one-`AudioListener` test. The rest of each
+  fixture is kept, without its assertions about sound. `CreditsTests` asserts the roll credits no music and no sound role,
+  beside the tests that show it does list what it should. The reference shots of Settings, its reset question and the
+  credits change with the page.
+- **Not this:** the post-processing `Volume` that carries the bloom has nothing to do with sound, and stays.
+
 ---
 
 ## 11. The parts
@@ -4715,5 +4745,6 @@ menu's two recordings are about 3.6 MB of the 6.7 MB data file, all of it downlo
 first frame. They could come after start-up instead -- an asset bundle built with their own import
 settings, so their loudness figures still hold -- with the menu silent until one arrives. A
 browser plays nothing before the first click anyway. The cost is a loader and a little engine
-code. The analytics package's code stays: it is what reports the one measurement the game
+code. **Moot since Part 16b**, which took the recordings and the rest of the sound away. The
+analytics package's code stays: it is what reports the one measurement the game
 collects, and removing it would break what players were told.

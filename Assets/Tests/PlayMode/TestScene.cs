@@ -11,8 +11,8 @@ namespace BitSorter.PlayMode.Tests
     /// <remarks>
     /// The second half is the part that matters, and it was learned the hard way. A fixture that
     /// loads the game and simply finishes leaves it loaded for whatever runs next -- and NUnit orders
-    /// fixtures alphabetically, so `AudioPlayTests` ran first and handed a fully built game to the 4.x
-    /// game's `PointerArbitrationPlayTests`, which built its own canvas and assumed nothing else was on
+    /// fixtures alphabetically, so the audio tests (gone with the sound, Part 16b) ran first and handed a
+    /// fully built game to the 4.x game's `PointerArbitrationPlayTests`, which built its own canvas and assumed nothing else was on
     /// screen. Two of its four tests went red without a line of its code changing: the main menu was a
     /// full-screen panel, so the pointer was over UI at every coordinate.
     ///
@@ -33,8 +33,7 @@ namespace BitSorter.PlayMode.Tests
     ///
     /// **The unscaled clock is not driven**: it stays real time (measured on the day, a step of a
     /// sixtieth with frames really 0.0067 seconds apart). So a wait on something counted in unscaled
-    /// time -- the save's delay, the frame-rate counter, the music's cross-fade -- caps in unscaled
-    /// seconds, as the audio tests do, never in frames.
+    /// time -- the save's delay, the frame-rate counter -- caps in unscaled seconds, never in frames.
     /// </remarks>
     internal static class TestScene
     {

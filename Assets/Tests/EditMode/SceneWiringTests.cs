@@ -52,8 +52,9 @@ namespace BitSorter.LogicCore.Tests
         /// <remarks>
         /// Top-level fields sit two spaces in; a field of a list entry or a nested struct sits
         /// deeper, or after the list's "- ". This read the top level alone, so the menu's two music
-        /// clips -- fields of the entries in <c>GameAudio</c>'s track list -- could have serialised as
-        /// nothing, and the menu opened silent on a fresh clone, with this test green.
+        /// clips -- fields of the entries in the track list of the 4.x-era audio component, which Part 16b
+        /// took away with the sound -- could have serialised as nothing, and the menu opened silent on
+        /// a fresh clone, with this test green. The reading stays, for the next list of references.
         /// </remarks>
         private static readonly Regex ObjectField =
             new Regex(@"^ {2,}(?:- )?(\w+): \{fileID: (-?\d+)", RegexOptions.Multiline | RegexOptions.Compiled);
@@ -103,7 +104,7 @@ namespace BitSorter.LogicCore.Tests
                 if (!identifier.Success)
                     continue;
 
-                // "BitSorter.View::BitSorter.View.GameAudio" -- the assembly, then the full name.
+                // "BitSorter.View::BitSorter.View.SettingsPanel" -- the assembly, then the full name.
                 string identity = identifier.Groups[1].Value;
 
                 if (!identity.Contains("BitSorter"))
@@ -139,7 +140,7 @@ namespace BitSorter.LogicCore.Tests
         ///
         /// The numbers are floors rather than exact counts, so adding a component does not fail this
         /// (they were 60 references and 20 components until Part 16a took the 4.x game out of the scene,
-        /// which left 14 references)
+        /// which left 14 references, and 10 once Part 16b took the sound's four away)
         /// -- but losing most of them does.
         /// </remarks>
         [Test]
@@ -147,7 +148,7 @@ namespace BitSorter.LogicCore.Tests
         {
             List<Reference> references = ReferencesInScene();
 
-            Assert.Greater(references.Count, 10,
+            Assert.Greater(references.Count, 7,
                 "the scene parse found almost no object references, so the wiring check below is " +
                 "vacuous -- most likely Unity's serialisation format changed");
 
@@ -160,7 +161,7 @@ namespace BitSorter.LogicCore.Tests
                 "far fewer BitSorter components in the scene than the builder adds");
 
             // A few the game cannot run without, named so a silent parse failure cannot pass.
-            foreach (string expected in new[] { "WorkbenchPanel", "SettingsPanel", "GameAudio" })
+            foreach (string expected in new[] { "WorkbenchPanel", "SettingsPanel", "CreditsPanel" })
             {
                 CollectionAssert.Contains(components, expected,
                     expected + " is missing from the saved scene");
@@ -209,11 +210,11 @@ namespace BitSorter.LogicCore.Tests
                 "an empty reference must be seen as empty, or the whole test is decorative");
 
             // One level down: a field of a list entry, and a list entry that is a reference itself.
-            Match nested = ObjectField.Match("  - Clip: {fileID: 0}");
+            Match nested = ObjectField.Match("  - Source: {fileID: 0}");
             Assert.IsTrue(nested.Success, "the parser does not see a reference inside a list entry");
             Assert.AreEqual("0", nested.Groups[2].Value);
 
-            Match deeper = ObjectField.Match("    Clip: {fileID: 0}");
+            Match deeper = ObjectField.Match("    Source: {fileID: 0}");
             Assert.IsTrue(deeper.Success, "the parser does not see a reference inside a nested struct");
             Assert.AreEqual("0", deeper.Groups[2].Value);
 

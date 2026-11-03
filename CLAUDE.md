@@ -29,8 +29,7 @@ an exercise or a sample -- and with nothing, on the workbench's start page. HOME
 FILE, EXERCISES, HELP and SETTINGS head the workbench, and there is no BACK:
 Escape closes what is on top and nothing more. **An exercise is a document kept
 under its id**, the 4.x level's name for the thirty, and a solve marks that name
-complete -- the name analytics reports it under too. The music is off until
-switched on.
+complete -- the name analytics reports it under too.
 
 ## Architecture rule (do not break this)
 - Assets/Scripts/SystemVerilog/, Sim/, Board/ and ViewModel/ = the four pure
@@ -248,7 +247,7 @@ stretch that way.
   written before Part 16a begins, since the 4.x title screen's button opened the
   workbench there on a fresh save. A fixture that loads the game and simply
   finishes leaves it loaded for whatever runs next, and NUnit orders fixtures
-  alphabetically -- `AudioPlayTests` once ran first and handed a fully built game
+  alphabetically -- a fixture once ran first and handed a fully built game
   to a fixture that built its own canvas and assumed nothing else was on screen.
   Two of its four tests went red with none of its own code changed. A test
   leaking into another test is worse than either failing: the red lands in the
@@ -271,10 +270,10 @@ stretch that way.
   into the one measurement the game collects.
 
   **Drive the clock, do not wait for it**, and **an assertion about absence needs
-  a paired test proving the thing is possible.** The 4.x cue tests once waited
-  ninety frames for the clock to produce something; it produced nothing, with no
-  explanation, and the muted half of the pair *passed* -- a test asserting no
-  sound was made is trivially satisfied when nothing would have made one.
+  a paired test proving the thing is possible.** A 4.x test once waited ninety
+  frames for the clock to produce something; it produced nothing, with no
+  explanation, and the half of the pair asserting that nothing happened *passed*
+  -- an assertion of absence is trivially satisfied when nothing could have happened.
 
   **And while a test has the game loaded, its clock is driven**: `TestScene.Load`
   makes every frame `TestScene.FrameSeconds`, a sixtieth of a second of game time,
@@ -285,8 +284,8 @@ stretch that way.
   sets it before the load and keeps it (the reference shots run at a 120th); one
   that changes the step mid-test puts `FrameSeconds` back, never 0. **The
   unscaled clock is not driven** and stays real time, so a wait on something
-  counted in it -- the save's delay, the frame-rate counter, the music's
-  cross-fade -- caps in unscaled seconds, as the audio tests do, never in frames.
+  counted in it -- the save's delay, the frame-rate counter -- caps in unscaled
+  seconds, never in frames.
 
   **Never move the player's save.** `SaveGuard` points `ProgressStore.Redirected`
   at a scratch file and the real `progress.json` is not written, moved or deleted
@@ -308,24 +307,22 @@ stretch that way.
 
   **A run no longer needs the window focused, and nothing here should start
   waiting on wall clock again.** It used to: play mode in the background renders
-  far fewer frames a second, `GameAudio` builds the next track at 2 ms *a
-  frame*, and `AudioPlayTests.WaitForTheFade` waited five seconds of *wall
-  clock* -- too few frames fit in those five seconds, the track never finished,
-  and seven audio tests failed, every one of them saying the level track never
-  replaced the menu track. Reproducible, so it did not read as a flake, and the
-  messages pointed straight at the music. It cost a bisect on 2026-09-20 before
-  anyone thought to check focus.
+  far fewer frames a second, and seven of the 4.x game's audio tests (gone with the
+  sound, Part 16b) waited five seconds of *wall clock* for music that was built a
+  slice a frame -- too few frames fit in those five seconds, the track never
+  finished, and every one of them failed saying the level track never replaced the
+  menu track. Reproducible, so it did not read as a flake, and the messages
+  pointed straight at the music. It cost a bisect on 2026-09-20 before anyone
+  thought to check focus.
 
-  The fix was to wait on `GameAudio.IsSettled` instead, which is the cue tests'
-  rule applied to the music: drive the clock, do not wait for it. The suite now
-  passes with the editor behind something else, and on the day ran in 42 seconds
-  rather than 102 (twice the tests later, about 85). **A `yield` loop counting seconds is the bug, not the frame rate** --
-  anything here that needs to wait waits on the condition, with a generous cap
-  that fails loudly rather than returning quietly.
-
-  `IsSettled` says the music has stopped moving and nothing more. Keep it that
-  way: a helper that waits for the track a test is about to assert would make
-  every one of those assertions pass by construction.
+  The fix was to wait on the condition instead: drive the clock, do not wait for
+  it. The suite now passes with the editor behind something else, and on the day
+  ran in 42 seconds rather than 102 (twice the tests later, about 85). **A `yield`
+  loop counting seconds is the bug, not the frame rate** -- anything here that
+  needs to wait waits on the condition, with a generous cap that fails loudly
+  rather than returning quietly. And a helper that waits only for something to
+  stop moving must say no more than that: one that waits for the very thing a test
+  is about to assert makes every such assertion pass by construction.
 
   **Run them from the PlayMode tab, never the Player tab.** The Player tab is a
   different thing wearing the same name: it builds a player for the active target
@@ -572,7 +569,7 @@ stretch that way.
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
   10 to 54 had grown a label at a time, so full-screen titles alone came in three
   and two things of one kind drifted a point apart. Nothing is under twelve:
-  the music credit, the one line a licence requires be shown, was eleven.
+  the 4.x game's music credit, the one line a licence required be shown, was eleven.
   `UiTypeTests` refuses a size set by number.
 - **`HalfAdderDemoSceneBuilder` is the only authority on scene contents.**
   Anything added by hand is wiped by `BitSorter/Build Play Scene`.
@@ -838,7 +835,8 @@ stretch that way.
   however loaded the machine; nothing in the game changes the time scale.
 - **`UiText` arbitrates the keyboard.** The 4.x game's first text field went
   into a game that bound N, M, Q, E, H, R, Space, Enter and Escape in seventeen
-  places, so typing "Adder" would have muted the sound; the workbench binds more.
+  places, so typing "Adder" would have muted the sound (it had some then); the
+  workbench binds more.
   Every reader of a key takes its keyboard from `UiText.Keyboard`,
   which is null while a text field is selected -- and each already coped with
   there being no keyboard, so while a name is typed each simply sees none.
@@ -971,137 +969,10 @@ stretch that way.
   the call that changes the state, not in a second poll -- an event raised in
   the call, as `ProgressTracker.ProgressReset` is. The 4.x game recorded a solve
   by polling in an Update, and its win panel could show the previous record.
-- **Sound is procedural, except the menu's music.** Every generated track is made
-  by `ProceduralAudio`, exactly as `ProceduralSprites` generates sprites.
-  Settings and the credits play two recorded tracks by other composers, under
-  free licences: "Dream" by jkjkke (CC0) and "Woodland Fantasy" by Matthew
-  Pablo (CC BY 3.0), in `Assets/Audio/Music/`. **Any imported audio needs its
-  licence read on its source page before download, an entry in the README's
-  Music credits, and -- for CC BY -- the in-game credit**, which is the credits
-  roll, read from `Credits.MenuMusic`. Woodland Fantasy's author's own
-  attribution page is gone, so the credit follows the CC BY 3.0 terms: author,
-  title, licence, the change made (converted to mono), and the licence's address
-  -- a browser build is a copy that ships without the README, which is the only
-  other place the address appeared. **It also needs its loudness measured**; see
-  the menu's music below.
-
-  **Never a real game's soundtrack.** Minecraft's tracks -- C418's, Lena
-  Raine's, "Sweden", "Infinite Amethyst" -- were asked for by name and declined.
-  They are copyrighted, and Mojang's usage guidelines allow approved tracks in
-  videos and streams, not copied into another game. The crystal and felt-piano
-  tracks reach for those moods with original melodies; keep it that way.
-- **There are twenty-two background tracks and they are one piece of music.**
-  `ProceduralAudio.MusicTracks` is the count. Same five notes (A, C, D, E, G),
-  same tempo, same four-bar shape; what differs is density, ring, register,
-  which way the figure moves on its alternate pass, where the chords go, whether
-  soft chords swell under it, and which `Voice` plays it. `MusicTests` pins the
-  scale -- chord tones included -- and the sparseness, because a mistyped
-  semitone is invisible to read and obvious to hear. A rest is `Rest`, not
-  "negative" -- some tracks are written an octave down, so `semi < 0` would
-  silence them.
-
-  **Many moods, one scale, and no one mood more than a third.** Tracks root that
-  collection on A, C, F, B-flat or E: minor, major, open or modal. Eleven of
-  twenty-one used to come home to A -- seven instruments cannot disguise one
-  mood, and the thing that varies most between tracks was varying least, which
-  is audible as the set sounding smaller than it is. Two were re-rooted without
-  a note moving, which is the whole point of the trick below. A minor
-  pentatonic and C major pentatonic are the same five pitches -- only the bass
-  decides which -- and B-flat or F under them gives the lush major-seventh and
-  Lydian colours of the crystal tracks without a sixth note. That is what lets
-  the set carry many moods without the scale rule bending, and why any track
-  can follow any other without the switch sounding like a key change. `Voice`
-  says what plays a track: plucked, keys, mallets, felt piano, crystal, music
-  box or choir; a `Pad` plays the chord layer. Reverb is one pass over the
-  finished buffer, so it costs nothing at runtime.
-
-  **Two tracks are unlike any of the others, and deliberately only two.** One
-  plays a counter-melody -- a second line on a second voice, answering the first
-  in its gaps -- where every other track is one instrument over a bass and
-  sometimes a chord. The other is rooted on E, which gives the same five notes
-  an Em7-with-an-eleventh colour that never resolves, and is the only track that
-  pulses rather than plays. Both earn their place by being the exception; a set
-  of exceptions is just a set.
-
-  A counter-melody obeys every rule the melody does -- same scale, same sixteen
-  steps, same lift -- and `MusicTests` asks it for all of them, `HighestPartialHz`
-  included, because its voice is its own. Sparseness is checked per line with a
-  stated bound on the pair: "half the grid empty" was written when a track could
-  only have one line.
-
-  **The plucked voice is down to three tracks, from six.** The first six were
-  written before the set had any other voice, and six variations on one pluck
-  read as the same piece coming round again rather than as six pieces. What is
-  left is the three that actually differ in gesture -- the original, the sparse
-  one that drops an octave where the original climbs, and the busiest with its
-  paired notes. `MusicTests` states the total, so removing one is a deliberate
-  act rather than a drift. **A new voice declares its
-  brightest partial in `TopPartial`**, and `HighestPartialHz` holds every track
-  under 4.4 kHz -- a bright voice written high would read as hiss above 8 kHz.
-
-  **Nothing under the music, and nothing in it changes value in one sample.**
-  Every track once had white noise mixed in "so the quiet parts are not
-  digitally dead"; baked into the clip, it rose and fell with the music and was
-  reported as a static hiss, plainer on speakers. And three things jumped between
-  two samples: the bass restarting on every bar line (a click exactly every
-  eight seconds), plucked notes going to full volume in one sample, and notes
-  dropped mid-cycle after a fixed five steps. A jump is energy at every
-  frequency up to the top of a 22 kHz render, which is where playback
-  resampling turns it into a sizzle. So notes start at a zero crossing and rise
-  over a millisecond, each bar strikes its own bass note and chord while the
-  last bar's fall away under them, and a note is only dropped once it is below
-  -60 dB. `MusicTests` looks above 8 kHz, where no note reaches, and holds hiss
-  and clicks to -66 and -54 dBFS.
-
-  **One generated track a session, and the menu's own under Settings.** The
-  session's track is the first of `MusicBag`'s shuffle, seeded once in
-  `GameAudio.Awake` -- the seed is the only random part. In 4.x the track changed
-  with the level, never mid-level and never on a retry; the simulator has no
-  levels, so it plays one under the workbench all session. Settings and the
-  credits play the recordings: which of the two they open on is drawn from the
-  same seed (`MusicRules.FirstMenuTrack`), and every start after that is the
-  other one -- when a track ends, and every time Settings opens again. Leaving
-  Settings fades back to the workbench's track, the same clip. The recording not
-  playing has its audio unloaded. A track is built a slice at a time
-  (`MusicBake`, bit-identical to building it in one go), at 2 ms a frame, and the
-  music waits for it rather than freezing a frame: building on the spot froze
-  one for 260-550 ms.
-
-  **The recordings play at the generated music's loudness.** They were mastered
-  6 to 11 dB louder, and at the same volume the music dropped away every time a
-  4.x level started. `ProceduralAudio.MusicLoudnessDb` is the set's loudness, which
-  `MusicTests` holds every generated track to within 3 dB of; each recording
-  carries its own loudness beside its path in the scene builder, and `GameAudio`
-  turns it to the set's. That figure is measured, not chosen -- the file's RMS
-  once imported, mixed to mono and normalised -- and `AudioPlayTests` decodes the
-  files to check what Settings then sounds like against the workbench. **A
-  recording added or re-exported needs measuring before it goes in**, or that
-  test fails.
-
-  **Sound is one switch, and the music has one under it. The music is off until
-  switched on** (Part 15a, Ahmad's choice: BitSorter opens as a simulator); a
-  player who switched it on keeps it on, and the audio tests switch it on before
-  they load. The sound switch -- N, or SOUND in Settings -- silences everything;
-  `GameAudio.MusicOn` is greyed out while the sound is off, still showing what it
-  is set to. The 4.x game's effects had a switch of their own, and went with it.
-  The PlayerPrefs key for the sound switch still says music, deliberately:
-  renaming it would reset the preference of anyone who had turned the sound off.
-
-  **One volume under it, for everything, for the same reason** --
-  `GameAudio.Volume`, in Settings, asked for after a playtest on 2026-09-26.
-  It scales the game's own mix, so 100% is exactly how the game sounded before
-  it existed, and it is greyed out and locked while the sound is off: a volume
-  for silence is a control that visibly does nothing. A drag applies every
-  step at once and writes once, on release (`Preferences.Stage`,
-  `ShellSlider.Released`), because `Preferences.SetInt` writes the whole of
-  PlayerPrefs out each time -- to the browser's storage, in a web build.
-
-  Music is rendered at half the sample rate a cue was. Nothing in it comes near
-  that Nyquist limit, and it halves what each long uncompressed clip costs. A
-  clip belongs to whoever built it, and `GameAudio` destroys the one it leaves.
-  `ProceduralAudio.MusicResidentBytes` is what the music may hold at once, and
-  `MusicTests` asserts against it; it was written for the 4.x game, which held a
-  next track ready as well, and Part 16b's audio pass measures it again.
+- **BitSorter has no sound** since Part 16b (Ahmad, 2026-11-03: "remove the music
+  and anything related to it"): the generated tracks, the two recordings, the sound,
+  music and volume settings and the N key are gone, and the player ships with audio
+  disabled (`ProjectSettings/AudioManager.asset`).
 - **Anything shown to the player is derived, never restated.** A truth table is
   the engine run through every combination (`LogicTable`), a K-map is laid out
   from it, a state diagram is the engine run from its start (`StateExplorer`),
@@ -1113,12 +984,12 @@ stretch that way.
 `Docs/architecture-5.md`: building them in order is not building ahead. Do not
 build ahead of me otherwise.
 
-**Settings is sound and its volume, fullscreen, vertical sync, a frame cap and a
+**Settings is fullscreen, vertical sync, a frame cap and a
 frame-rate counter, the look, reduced motion and the shortcut keys, the data
 switch, starting over, and the credits** (`SettingsPanel`), reached from the
 workbench's SETTINGS; BACK goes back to what it was opened over, and a change of
-look reloads the game and puts Settings back over the same (`OpenAgain`). It
-plays the menu's music. Until Part 16a THE 4.x GAME stood beside CREDITS.
+look reloads the game and puts Settings back over the same (`OpenAgain`). Until
+Part 16a THE 4.x GAME stood beside CREDITS.
 
 **Settings is a page of the workbench** (Part 15g, `WorkbenchPanel.AddPage`): under
 the header like the start page, in the style's own colours and type, its switches
@@ -1129,8 +1000,8 @@ the workbench too** (`CreditsPanel`), in the style's colours.
 
 **STYLE chooses the look, and the game loads again in it** (`LookSwitch`). A
 palette is never changed in place, so the whole scene is built again under a cover
-of the ground's colour, and Settings is put back up where the choice was made; the
-music starts again with the scene. The choice is kept as the look's own number
+of the ground's colour, and Settings is put back up where the choice was made. The
+choice is kept as the look's own number
 (`Look.Code`), never its place in the list, so a look added later cannot move
 anyone's choice, and it is put on before the first scene in a build, **never in
 the editor**, as the frame cap is: every test and reference shot would otherwise
@@ -1139,9 +1010,10 @@ workbench's glow and its gates' flashes** (`ReducedMotion`); a change still
 travels its wire, because where it has got to is what the workbench shows. Read
 where it is drawn, so it needs no reload.
 
-**Its sections are two columns, and fit a 1080 screen** (Part 15h): AUDIO, DISPLAY
-and STYLE on the left; PRIVACY, PROGRESS and ABOUT on the right. One column ran
-past the foot, and CREDITS, last, was found only by scrolling (Ahmad, 2026-10-28);
+**Its sections are two columns, and fit a 1080 screen** (Part 15h): DISPLAY
+and STYLE on the left (AUDIO headed it until Part 16b); PRIVACY, PROGRESS and
+ABOUT on the right. One column ran past the foot, and CREDITS, last, was found
+only by scrolling (Ahmad, 2026-10-28);
 `EverySetting_FitsA1080Screen_WithNothingToScroll` holds it.
 
 **It scrolls in a shorter window** (Part 15g). The canvas scales halfway between
@@ -1167,15 +1039,10 @@ IBM Plex Sans and Mono under BUILT WITH with their licence, the SIL Open Font
 License; Icarus Verilog under CHECKED AGAINST, the simulator the engine is held
 to; and a dedication to every student of Digital Systems and Computer Structure -- the
 course's name in full, as Ahmad asked (2026-10-29) -- naming no university.
-No line for the assistant that helped write it. **The roll is the only place the menu's music is
-credited**: a line along the foot of the 4.x main menu credited it too, until a
-playtest asked for it gone (2026-09-27). CC BY 3.0 asks that a credit in a list
-of credits be at least as prominent as the others, so each track's title is set
-as a name, the same kind of line as the maker's, under its own heading --
-`CreditsTests` holds it there, and to every term the licence asks for. The roll
-rises at `CreditsPanel.Speed` and
-comes to rest on its farewell rather than rolling off into an empty screen, and
-any key or click goes back to Settings.
+No line for the assistant that helped write it. The roll credits no music
+and no sound role since Part 16b, and `CreditsTests` holds it so. It rises at
+`CreditsPanel.Speed` and comes to rest on its farewell rather than rolling off
+into an empty screen, and any key or click goes back to Settings.
 
 **Fullscreen is a desktop build's alone** (`DisplayRules.Offered`): in a
 browser the page has its own button, and fullscreen there is the browser's to
@@ -1190,8 +1057,8 @@ game as it shipped** (`FrameRate`): vertical sync on and no cap, so a 165 Hz
 laptop draws 165 frames a second. VSYNC switches it, beside FULLSCREEN, and
 FRAME CAP under it holds the game to 30 up to 240 frames a second, or none.
 **The cap is greyed out and locked while vertical sync is on**, still saying
-what it is set to, because Unity ignores a cap then -- the volume's rule for a
-control that would visibly do nothing. The first version was one button,
+what it is set to, because Unity ignores a cap then -- a control that would
+visibly do nothing is greyed out, not left live. The first version was one button,
 SCREEN or 60, for a laptop on battery (2026-09-28); asked again, the cap became
 the player's and vertical sync a switch of its own (2026-09-30). The cap is
 stored as a rate, never as the slider's stop, so a stop added later cannot move
@@ -1229,7 +1096,7 @@ question before the screen.
 Ahmad's choice, 2026-10-28; it emptied the whole save). It forgets every solved
 mark, every answer kept under an exercise's id, the bests, the milestones and
 every hint seen (`ProgressStore.ForgetTheExercises`); MY CIRCUIT and every named
-circuit stay, and Settings says which is which. Sound and data live in
+circuit stay, and Settings says which is which. Data and display settings live in
 PlayerPrefs, not the save, and stay as they were.
 
 **A forgotten exercise is not a new student.** The workbench does not read the
@@ -1264,7 +1131,7 @@ of the 4.x main menu itself until Settings existed; one click down, it gained a
 line saying what it switches, which the row never had room for. Consent goes through `EndUserConsent`, not the
 deprecated `StartDataCollection`; the two flows cannot be mixed, so no
 call to the old one may come back. The consent framework does not persist
-anything, so the answer lives in `PlayerPrefs` beside the mute setting and
+anything, so the answer lives in `PlayerPrefs` beside the frame cap and
 is re-applied every launch. Removing the off switch, or defaulting it to
 off, is a decision about what players were promised — ask first.
 

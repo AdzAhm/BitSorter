@@ -231,118 +231,6 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
-        /// <summary>SOUND switches the sound, as N does from anywhere.</summary>
-        [UnityTest]
-        public IEnumerator TheSoundSetting_SwitchesTheSound()
-        {
-            yield return TestScene.Load();
-            yield return OpenSettings();
-
-            bool before = GameAudio.Muted;
-
-            yield return Click(SettingsPanel.SoundButton);
-            Assert.AreNotEqual(before, GameAudio.Muted, "the sound setting did not switch the sound");
-
-            yield return Click(SettingsPanel.SoundButton);
-            Assert.AreEqual(before, GameAudio.Muted, "the sound setting did not switch the sound back");
-        }
-
-        /// <summary>The volume sits under the sound switch, which it depends on.</summary>
-        [UnityTest]
-        public IEnumerator TheVolume_SitsUnderTheSoundSwitch()
-        {
-            yield return TestScene.Load();
-            yield return OpenSettings();
-
-            Rect sound = ScreenRect(OnScreen(SettingsPanel.SoundButton));
-            Rect volume = ScreenRect(VolumeSlider());
-
-            Assert.LessOrEqual(volume.yMax, sound.yMin, "the volume is not under the sound switch");
-            Assert.Less(Mathf.Abs(volume.center.x - sound.center.x), 400f, "the volume is not beside it either");
-        }
-
-        /// <summary>
-        /// With the sound off the volume is greyed out and cannot be moved; with it back on, it can.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator WithTheSoundOff_TheVolumeIsGreyedOutAndLocked()
-        {
-            yield return TestScene.Load();
-            yield return OpenSettings();
-
-            ShellSlider volume = VolumeSlider();
-            Assert.IsFalse(GameAudio.Muted, "sanity: a fresh machine starts with the sound on");
-            Assert.IsTrue(volume.enabledSelf, "the volume is locked with the sound on");
-
-            yield return Click(SettingsPanel.SoundButton);
-
-            Assert.IsTrue(GameAudio.Muted, "sanity: the sound switch should have turned the sound off");
-            Assert.IsFalse(volume.enabledSelf, "the volume can still be moved with the sound off");
-            Assert.Less(volume.resolvedStyle.opacity, 1f, "the volume is not greyed out with the sound off");
-
-            yield return Click(SettingsPanel.SoundButton);
-
-            Assert.IsFalse(GameAudio.Muted);
-            Assert.IsTrue(volume.enabledSelf, "the volume stayed locked once the sound was back on");
-            Assert.AreEqual(1f, volume.resolvedStyle.opacity, "the volume stayed grey once the sound was back on");
-        }
-
-        /// <summary>
-        /// MUSIC switches the music, and is greyed out and locked while the sound is off -- still saying what it is set to.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator TheMusicSwitch_WorksUnderTheSoundSwitch()
-        {
-            yield return TestScene.Load();
-            yield return OpenSettings();
-
-            Assert.IsFalse(GameAudio.MusicOn, "a fresh machine has the music off (Part 15a)");
-
-            yield return Click(SettingsPanel.MusicButton);
-            Assert.IsTrue(GameAudio.MusicOn, "MUSIC did not switch the music on");
-
-            yield return Click(SettingsPanel.SoundButton);
-            Assert.IsTrue(GameAudio.Muted, "sanity: SOUND should have switched everything off");
-
-            ShellButton music = OnScreen(SettingsPanel.MusicButton);
-            Assert.IsFalse(music.enabledSelf, "MUSIC can still be pressed with the sound off");
-            StringAssert.Contains("ON", music.text, "a greyed-out MUSIC stopped saying what it is set to");
-
-            yield return Click(SettingsPanel.SoundButton);
-            Assert.IsTrue(music.enabledSelf, "MUSIC stayed locked with the sound back on");
-
-            // Put back: the fixture shares its scratch preferences between tests.
-            yield return Click(SettingsPanel.MusicButton);
-            Assert.IsFalse(GameAudio.MusicOn, "sanity: the music should be back as it started");
-        }
-
-        /// <summary>
-        /// Moving the volume scales the music at once, and remembers where it was put.
-        /// </summary>
-        /// <remarks>
-        /// Both readings are taken in the same frame, so the menu music's own fade cannot move
-        /// between them: half the volume is half the music, whatever the music is doing.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator TheVolume_ScalesTheMusic()
-        {
-            yield return TestScene.Load();
-            yield return OpenSettings();
-
-            ShellSlider volume = VolumeSlider();
-            AudioSource music = Find<GameAudio>().MusicSource;
-
-            volume.value = 100;
-            float full = music.volume;
-            Assert.Greater(full, 0f, "sanity: the music should be playing at some volume");
-
-            volume.value = 50;
-            Assert.AreEqual(50, GameAudio.Volume, "the slider did not set the volume");
-            Assert.AreEqual(full * 0.5f, music.volume, 1e-4f, "half the volume is not half the music");
-
-            volume.value = GameAudio.DefaultVolume;   // the fixture shares its scratch preferences
-        }
-
         /// <summary>A desktop build, and the editor, offer the fullscreen switch under DISPLAY.</summary>
         [UnityTest]
         public IEnumerator TheDisplaySection_OffersFullscreen()
@@ -394,15 +282,11 @@ namespace BitSorter.PlayMode.Tests
             yield return OpenSettings();
 
             ShellSlider cap = FrameCapSlider();
-            Label readout = PageLabel("value", 1);   // the volume's first, the cap's under it
-            Label label = PageLabel("caption", 1);
+            Label readout = PageLabel("value");   // the cap's is the page's only slider
+            Label label = PageLabel("caption");
 
             Rect sync = ScreenRect(OnScreen(SettingsPanel.VSyncButton));
             Assert.LessOrEqual(ScreenRect(cap).yMax, sync.yMin, "the cap is not under VSYNC");
-            Assert.AreEqual(ScreenRect(VolumeSlider()).xMin, ScreenRect(cap).xMin, 0.5f,
-                "the cap's slider is not in line with the volume's");
-            Assert.AreEqual(ScreenRect(PageLabel("value", 0)).xMin, ScreenRect(readout).xMin, 0.5f,
-                "the cap's readout is not in line with the volume's");
             Assert.AreEqual("FRAME CAP", label.text);
 
             int before = FrameRate.CapStop;
@@ -614,7 +498,7 @@ namespace BitSorter.PlayMode.Tests
 
             Rect credits = ScreenRect(OnScreen(SettingsPanel.CreditsButton));
 
-            foreach (string name in new[] { SettingsPanel.SoundButton, SettingsPanel.DataButton, SettingsPanel.ResetButton })
+            foreach (string name in new[] { SettingsPanel.FullscreenButton, SettingsPanel.DataButton, SettingsPanel.ResetButton })
                 Assert.LessOrEqual(credits.yMax, ScreenRect(OnScreen(name)).yMin, $"CREDITS is not below {name}");
         }
 
@@ -761,29 +645,20 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// The volume and the cap keep to whole stops, the thumb with them, as uGUI's whole-number sliders did (the 15g-2
-        /// review): the cap's thumb rested between two stops while its readout named one.
+        /// The cap keeps to whole stops, the thumb with it, as uGUI's whole-number sliders did (the 15g-2
+        /// review): its thumb rested between two stops while its readout named one.
         /// </summary>
         [UnityTest]
-        public IEnumerator TheSliders_KeepToWholeStops()
+        public IEnumerator TheCapSlider_KeepsToWholeStops()
         {
             yield return TestScene.Load();
             yield return OpenSettings();
 
-            ShellSlider volume = VolumeSlider(), cap = FrameCapSlider();
-            volume.value = 40.4f;
+            ShellSlider cap = FrameCapSlider();
             cap.value = 2.4f;
             yield return null;
-            Assert.AreEqual(40f, volume.value, "the volume between two percents");
             Assert.AreEqual(2f, cap.value, "the cap between two stops");
             Assert.AreEqual(2, FrameRate.CapStop);
-        }
-
-        private static ShellSlider VolumeSlider()
-        {
-            ShellSlider found = ShellPanel.Find<ShellSlider>(SettingsPanel.VolumeSlider);
-            Assert.IsTrue(Shown(found), "no volume slider on screen");
-            return found;
         }
 
         private static ShellSlider FrameCapSlider()

@@ -190,7 +190,8 @@ namespace BitSorter.ViewModel.Tests
             foreach (KeyBinding binding in WorkbenchKeys.All)
                 Assert.IsNull(WorkbenchKeys.WhyRefused(binding), binding.ToString());
 
-            Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("N", WorkbenchCommand.Names, "N", "x")), "N is the sound");
+            Assert.IsNull(WorkbenchKeys.WhyRefused(new KeyBinding("N", WorkbenchCommand.Names, "N", "x")), "N switched the sound, and is free now");
+            Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("N", WorkbenchCommand.Names, "N", "x", ctrl: true)), "Ctrl+N is a new window");
             Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("H", WorkbenchCommand.Radix, "H", "x")), "H is help");
             Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("Escape", WorkbenchCommand.Fit, "ESC", "x")));
             Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("F3", WorkbenchCommand.Fit, "F3", "x")), "find in page");

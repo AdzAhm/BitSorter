@@ -9,7 +9,7 @@ namespace BitSorter.View.Editor
     /// Draws the application icon and assigns it, from a menu item.
     /// </summary>
     /// <remarks>
-    /// Generated rather than drawn by hand, for the same reasons the sprites and the sound are:
+    /// Generated rather than drawn by hand, for the same reasons the sprites are:
     /// nothing to license and every choice is a number next to the code that uses it.
     ///
     /// The one concession is that the result is committed as a PNG. An icon has to be a real asset

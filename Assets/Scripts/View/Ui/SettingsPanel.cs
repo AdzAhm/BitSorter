@@ -7,14 +7,14 @@ using ShellButton = UnityEngine.UIElements.Button;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings: sound and its volume; fullscreen, vertical sync, a frame cap and a frame-rate counter on a desktop
+    /// The settings: fullscreen, vertical sync, a frame cap and a frame-rate counter on a desktop
     /// build; the look; reporting; starting over; the credits. A page of the workbench's own since Part
     /// 15g, over what is open and under the header, in the style's own colours -- it was a uGUI screen over everything, in
     /// the 4.x board's colours whatever the style, and Ahmad asked that it look like the start page and that a change of
     /// style through it change everything (2026-10-28). BACK and Escape take it down again.
     /// </summary>
     /// <remarks>
-    /// A section is a heading, a line saying what the setting does, and the control. Sound and data used to be rows of the
+    /// A section is a heading, a line saying what the setting does, and the control. Data used to be a row of the 4.x
     /// main menu itself, which had room for a caption and nothing else -- the data switch could say ON or OFF but not what
     /// it was switching. Starting over could not be a menu row at all: it needs a sentence saying what goes, and a question
     /// before it goes.
@@ -32,18 +32,14 @@ namespace BitSorter.View
         [SerializeField] private CreditsPanel _credits;
         [SerializeField] private WorkbenchPanel _workbench;
 
-        private GameAudio _audio;
         private VisualElement _page;
-        private ShellButton _sound, _music, _data, _fullscreen, _vSync, _counter, _motion, _keys, _reset;
-        private ShellSlider _volume, _cap;
-        private Label _volumeLabel, _volumeValue, _capLabel, _capValue, _status;
+        private ShellButton _data, _fullscreen, _vSync, _counter, _motion, _keys, _reset;
+        private ShellSlider _cap;
+        private Label _capLabel, _capValue, _status;
         private VisualElement _question;
         private SchematicPalette _palette;
 
-        /// <summary>The volume the readout last said, so it is rewritten only when it changes.</summary>
-        private int _shownVolume = -1;
-
-        /// <summary>The cap's stop the readout last said, for the same reason.</summary>
+        /// <summary>The cap's stop the readout last said, so it is rewritten only when it changes.</summary>
         private int _shownCap = -1;
 
         /// <summary>The frames it last came up and went down in: neither answers that frame's keys twice.</summary>
@@ -62,48 +58,39 @@ namespace BitSorter.View
         public const string PageName = "Workbench settings page";
 
         /// <summary>The controls' names in the shell, which the tests look for.</summary>
-        public const string SoundButton = "Sound setting";
-
-        /// <inheritdoc cref="SoundButton"/>
-        public const string MusicButton = "Music setting";
-
-        /// <inheritdoc cref="SoundButton"/>
-        public const string VolumeSlider = "Volume setting";
-
-        /// <inheritdoc cref="SoundButton"/>
         public const string FullscreenButton = "Fullscreen setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string VSyncButton = "VSync setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string FrameCapSlider = "Frame cap setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string CounterButton = "FPS counter setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string DataButton = "Data setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string ResetButton = "Reset progress";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string ConfirmButton = "Confirm reset";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string CancelButton = "Cancel reset";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string BackButton = "Settings back";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string CreditsButton = "Credits";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string MotionButton = "Motion setting";
 
-        /// <inheritdoc cref="SoundButton"/>
+        /// <inheritdoc cref="FullscreenButton"/>
         public const string KeysButton = "Keys setting";
 
         /// <summary>The line RESET PROGRESS's answer is said in, and the question's.</summary>
@@ -115,7 +102,6 @@ namespace BitSorter.View
         /// <summary>The name of the button that chooses a look.</summary>
         public static string LookButton(Look look) => "Look " + look.Name;
 
-        public const string AudioHeading = "AUDIO";
         public const string DisplayHeading = "DISPLAY";
         public const string StyleHeading = "STYLE";
         public const string PrivacyHeading = "PRIVACY";
@@ -130,7 +116,7 @@ namespace BitSorter.View
         public static IReadOnlyList<string> Headings => Sections;
 
         private static readonly string[] Sections =
-            { AudioHeading, DisplayHeading, StyleHeading, PrivacyHeading, ProgressHeading, AboutHeading };
+            { DisplayHeading, StyleHeading, PrivacyHeading, ProgressHeading, AboutHeading };
 
         /// <summary>
         /// The switches DISPLAY holds, left to right: on a desktop build fullscreen, vertical sync and the counter, and in a
@@ -155,8 +141,6 @@ namespace BitSorter.View
         /// Each section says only what its buttons cannot: they already say what they switch, and the screen once read as
         /// a wall of words (2026-09-30).
         /// </remarks>
-        public const string AudioText = "N switches the sound from anywhere.";
-
         public const string DisplayText =
             "Alt+Enter also switches fullscreen. With VSYNC off, a lower frame cap saves power.";
 
@@ -189,7 +173,6 @@ namespace BitSorter.View
         {
             if (_progress == null) _progress = FindFirstObjectByType<ProgressTracker>();
             if (_credits == null) _credits = FindFirstObjectByType<CreditsPanel>();
-            if (_audio == null) _audio = FindFirstObjectByType<GameAudio>();
             if (_workbench == null) _workbench = FindFirstObjectByType<WorkbenchPanel>();
             UiEscape.Join(this);
         }
@@ -254,7 +237,7 @@ namespace BitSorter.View
             scroll.contentViewport.style.overflow = Overflow.Hidden;
             _page.Add(scroll);
 
-            // Two columns under the title (Part 15h): what the game sounds and looks like on the left, and what it keeps and
+            // Two columns under the title (Part 15h): how the game is shown on the left, and what it keeps and
             // where it came from on the right. One column ran past the foot of a 1080 window, and CREDITS, last, was found
             // only by scrolling (Ahmad, 2026-10-28).
             var page = new VisualElement { name = "sections", pickingMode = PickingMode.Ignore };
@@ -277,16 +260,6 @@ namespace BitSorter.View
             VisualElement column = Column(columns), right = Column(columns);
             right.style.marginLeft = ColumnGap;
 
-            Section(column, AudioHeading, AudioText);
-            VisualElement sound = Row(column);
-            _sound = Switch(sound, SoundButton, ToggleSound);
-            _music = Switch(sound, MusicButton, ToggleMusic);
-            _volume = Slider(column, VolumeSlider, "VOLUME", 0, 100, out _volumeLabel, out _volumeValue);
-            _volume.SetValueWithoutNotify(GameAudio.Volume);
-            _volume.Changed += value => { if (_audio != null) _audio.SetVolume(Mathf.RoundToInt(value), keep: false); };
-            _volume.Released += GameAudio.KeepVolume;
-            Gap(column);
-
             bool desktop = DisplayRules.Offered;
             Section(column, DisplayHeading, DisplayTextFor(desktop));
             VisualElement display = Row(column);
@@ -300,8 +273,7 @@ namespace BitSorter.View
                 }
             }
 
-            // The cap under the switch it depends on, as the volume sits under the sound's, and only where there is a
-            // vertical sync for it to depend on.
+            // The cap under the switch it depends on, and only where there is a vertical sync for it to depend on.
             if (desktop)
             {
                 _cap = Slider(column, FrameCapSlider, "FRAME CAP", 0, FrameRate.Stops - 1, out _capLabel, out _capValue);
@@ -333,7 +305,7 @@ namespace BitSorter.View
             page.Add(help);
 
             // Nothing in a column gives up its height to fit the page: the page scrolls instead. UI Toolkit shrinks a
-            // column's children by default, and every row came out ten units short, the volume over the sound's switches.
+            // column's children by default, and every row came out ten units short, a slider over the switches above it.
             foreach (VisualElement child in column.Children())
                 child.style.flexShrink = 0f;
             foreach (VisualElement child in right.Children())
@@ -480,8 +452,8 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A slider row: its caption, the slider, and what it is set to, the same for the volume and the frame cap so the
-        /// two read as one column: "100%" over "60 FPS". Applied at every step of a drag, and written out once it lets go.
+        /// A slider row: its caption, the slider, and what it is set to ("60 FPS"). Applied at every step of a drag, and
+        /// written out once it lets go.
         /// </summary>
         private ShellSlider Slider(VisualElement column, string name, string caption, int low, int high, out Label label, out Label value)
         {
@@ -510,19 +482,12 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Every frame the page is up, because N mutes from anywhere and the button has to agree. The captions are
-        /// constants, and a text the same as it was is not set again.
+        /// Every frame the page is up, because a setting can change from outside it (Alt+Enter switches fullscreen
+        /// from anywhere) and the button has to agree. The captions are constants, and a text the same as it was is
+        /// not set again.
         /// </summary>
         private void Refresh()
         {
-            bool sound = !GameAudio.Muted;
-
-            Caption(_sound, sound ? "SOUND  ON" : "SOUND  OFF");
-            Caption(_music, GameAudio.MusicOn ? "MUSIC  ON" : "MUSIC  OFF");
-
-            // It keeps saying what it is set to while greyed out, so turning the sound back on brings back exactly what
-            // the player had.
-            Enable(_music, sound);
             Caption(_data, GameAnalytics.Reporting ? "DATA  ON" : "DATA  OFF");
             Caption(_motion, ReducedMotion.IsOn ? "REDUCED MOTION  ON" : "REDUCED MOTION  OFF");
             Caption(_keys, KeysCaption(KeyCaps.Shown));
@@ -534,18 +499,6 @@ namespace BitSorter.View
                 Caption(_counter, CounterCaption(FrameRate.ShowsCounter));
             if (_vSync != null)
                 RefreshFrameRate();
-
-            // Greyed out and locked with the sound off, and live again the moment it is back on -- N included, which is
-            // why this is asked every frame rather than on the button's click.
-            Lock(_volume, _volumeLabel, _volumeValue, !sound);
-            int volume = GameAudio.Volume;
-            if (volume != _shownVolume)
-            {
-                _shownVolume = volume;
-                _volumeValue.text = volume + "%";
-                if (Mathf.RoundToInt(_volume.value) != volume)
-                    _volume.SetValueWithoutNotify(volume);
-            }
         }
 
         /// <summary>
@@ -573,15 +526,6 @@ namespace BitSorter.View
                 button.text = caption;
         }
 
-        /// <summary>A switch that can or cannot be pressed: a dim caption is how a button says it cannot.</summary>
-        private void Enable(ShellButton button, bool enabled)
-        {
-            if (button == null || button.enabledSelf == enabled)
-                return;
-            button.SetEnabled(enabled);
-            button.style.color = enabled ? _palette.Text : _palette.Muted;
-        }
-
         /// <summary>A slider row greyed out and locked, still showing what it is set to, or live.</summary>
         private void Lock(ShellSlider slider, Label label, Label value, bool locked)
         {
@@ -590,18 +534,6 @@ namespace BitSorter.View
             slider.SetEnabled(!locked);
             slider.style.opacity = locked ? 0.4f : 1f;
             label.style.color = value.style.color = locked ? _palette.Muted : _palette.Text;
-        }
-
-        private void ToggleMusic()
-        {
-            if (_audio != null)
-                _audio.SetMusic(!GameAudio.MusicOn);
-        }
-
-        private void ToggleSound()
-        {
-            if (_audio != null)
-                _audio.ToggleMute();
         }
 
         private static void ToggleData() => GameAnalytics.SetReporting(!GameAnalytics.Reporting);
@@ -754,7 +686,6 @@ namespace BitSorter.View
                 _workbench.ShowPage(_page);
                 SetConfirming(false);
                 _status.text = string.Empty;
-                _shownVolume = -1;
                 _shownCap = -1;
                 _openedFrame = Time.frameCount;
                 UiEscape.Opened(this);
@@ -767,8 +698,7 @@ namespace BitSorter.View
             _workbench.HidePage(_page);
             _closedFrame = Time.frameCount;
 
-            // A drag keeps its volume or its cap when it lets go; this keeps one that was somehow left staged.
-            GameAudio.KeepVolume();
+            // A drag keeps its cap when it lets go; this keeps one that was somehow left staged.
             FrameRate.KeepCap();
         }
     }

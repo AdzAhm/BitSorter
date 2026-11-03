@@ -11,7 +11,7 @@ namespace BitSorter.View
     /// it is, and <see cref="UiTheme.SizeOf"/> says how large that is -- once.
     ///
     /// Nothing is smaller than <see cref="Micro"/>, twelve: below that the eleven-pixel music
-    /// credit, the one line a licence requires be shown, was too small to read.
+    /// credit of the 4.x game, the one line a licence required be shown, was too small to read.
     /// </remarks>
     public enum UiType
     {

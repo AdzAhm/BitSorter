@@ -499,7 +499,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Whether the value keeps to whole numbers, the thumb with it, as uGUI's slider does: Settings' volume and frame
+        /// Whether the value keeps to whole numbers, the thumb with it, as uGUI's slider does: Settings' frame
         /// cap, whose thumb otherwise rested between two stops while the readout named one (the 15g-2 review).
         /// </summary>
         public bool wholeNumbers { get; set; }

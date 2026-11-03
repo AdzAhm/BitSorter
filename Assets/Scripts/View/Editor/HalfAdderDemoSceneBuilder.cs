@@ -16,7 +16,7 @@ namespace BitSorter.View.EditorTools
     /// re-run: it rebuilds the scene.
     /// </summary>
     /// <remarks>
-    /// The scene is the simulator: the workbench, Settings and the credits, the save, the music and the frame-rate counter,
+    /// The scene is the simulator: the workbench, Settings and the credits, the save and the frame-rate counter,
     /// on one canvas and one shell panel that each builds its own hierarchy at runtime. It built the 4.x game's board and
     /// HUD too until Part 16a deleted the game. The file name and menu item still say half adder for the sake of the git
     /// history.
@@ -27,24 +27,6 @@ namespace BitSorter.View.EditorTools
 
         private const string ScenePath = ScenesFolder + "/HalfAdderDemo.unity";
         private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
-
-        /// <summary>
-        /// The recordings Settings plays, and how loud each is. Imported, free-licence tracks;
-        /// their credit is Credits.MenuMusic, on the credits roll, and the README says where each
-        /// came from.
-        /// </summary>
-        /// <remarks>
-        /// The loudness is the file's RMS in dBFS once imported -- mixed down to mono and normalised
-        /// to its peak, as its .meta says -- measured by decoding the file. Settings turns each
-        /// track to the generated music's loudness with it. AudioPlayTests decodes both files again and
-        /// fails if Settings does not then sound as loud as the simulator, so a track added or re-exported
-        /// needs measuring before it goes in.
-        /// </remarks>
-        private static readonly (string Path, float LoudnessDb)[] MenuTrackFiles =
-        {
-            ("Assets/Audio/Music/jkjkke-dream.mp3", -13.6f),
-            ("Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3", -18.5f),
-        };
 
         [MenuItem("BitSorter/Build Play Scene")]
         public static void Build()
@@ -78,9 +60,6 @@ namespace BitSorter.View.EditorTools
             // Over everything, on a canvas of its own, so its place in this list does not matter.
             FrameRateCounter frameCounter = host.AddComponent<FrameRateCounter>();
 
-            // AddComponent brings its own AudioSource along, via RequireComponent.
-            GameAudio audio = host.AddComponent<GameAudio>();
-
             Assign(settings, "_progress", progress);
             Assign(settings, "_credits", credits);
             Assign(settings, "_workbench", workbench);   // pages of the workbench's own since Part 15g
@@ -91,10 +70,6 @@ namespace BitSorter.View.EditorTools
             Assign(credits, "_workbench", workbench);
 
             Assign(frameCounter, "_canvas", canvas);
-
-            Assign(audio, "_settings", settings);
-            Assign(audio, "_credits", credits);
-            AssignMenuTracks(audio);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -125,11 +100,6 @@ namespace BitSorter.View.EditorTools
             UniversalAdditionalCameraData data = camera.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = true;
             data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-
-            // Without a listener every AudioSource in the scene plays to nobody, silently and with no
-            // warning. The scene had none, so this is the difference between the game having sound
-            // and appearing to have none.
-            cameraObject.AddComponent<AudioListener>();
 
             return camera;
         }
@@ -214,38 +184,6 @@ namespace BitSorter.View.EditorTools
                 return;
 
             property.objectReferenceValue = value;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        /// <summary>
-        /// Gives GameAudio the recordings, each loaded from its path with its loudness beside it.
-        /// </summary>
-        /// <remarks>
-        /// An error rather than a quiet gap for any track that is missing: Settings would simply play
-        /// the generated music, and nobody would know why.
-        /// </remarks>
-        private static void AssignMenuTracks(Object audio)
-        {
-            SerializedObject serialized = Find(audio, "_menuTracks", out SerializedProperty property);
-
-            if (serialized == null)
-                return;
-
-            property.arraySize = MenuTrackFiles.Length;
-
-            for (int i = 0; i < MenuTrackFiles.Length; i++)
-            {
-                (string path, float loudness) = MenuTrackFiles[i];
-                AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
-
-                if (clip == null)
-                    Debug.LogError($"BitSorter: menu track missing at {path}.");
-
-                SerializedProperty track = property.GetArrayElementAtIndex(i);
-                track.FindPropertyRelative("Clip").objectReferenceValue = clip;
-                track.FindPropertyRelative("LoudnessDb").floatValue = loudness;
-            }
-
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

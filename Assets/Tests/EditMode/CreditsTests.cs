@@ -22,44 +22,6 @@ namespace BitSorter.LogicCore.Tests
             return text;
         }
 
-        /// <summary>
-        /// Every borrowed track is credited as prominently as the game's own maker: its title is set
-        /// as a name, the same kind of line the maker's name is, under a heading of its own.
-        /// </summary>
-        /// <remarks>
-        /// The roll is the only place the game credits the menu's music, since the line along the
-        /// foot of the main menu went. CC BY 3.0 asks that a credit given in a list of credits be at
-        /// least as prominent as the others in it, and this is that rule, checked.
-        /// </remarks>
-        [Test]
-        public void EveryMenuTrack_IsCreditedAsProminentlyAsTheMaker()
-        {
-            IReadOnlyList<Credits.Line> roll = Credits.Roll(Credits.Tagline, "v9.9.9");
-
-            bool headed = false;
-
-            foreach (Credits.Line line in roll)
-            {
-                if (line.Kind == Credits.Kind.Role && line.Text == Credits.MusicHeading)
-                    headed = true;
-            }
-
-            Assert.IsTrue(headed, "the menu's music has no heading of its own on the roll");
-
-            foreach (Credits.Track track in Credits.MenuMusic)
-            {
-                bool named = false;
-
-                foreach (Credits.Line line in roll)
-                {
-                    if (line.Kind == Credits.Kind.Name && line.Text.Contains(track.Title))
-                        named = true;
-                }
-
-                Assert.IsTrue(named, $"\"{track.Title}\" is on the roll in smaller print than the maker's name");
-            }
-        }
-
         [Test]
         public void TheRoll_NamesTheMakerAndTheCompany()
         {
@@ -90,33 +52,19 @@ namespace BitSorter.LogicCore.Tests
         }
 
         /// <summary>
-        /// Every borrowed track is on the roll with everything its licence asks for.
+        /// BitSorter has no sound since Part 16b (Ahmad, 2026-11-03), so the roll has no music and no sound role. Paired with
+        /// the tests above and below, which show the roll does list what it should, so this is not true of an empty roll.
         /// </summary>
         [Test]
-        public void EveryMenuTrack_IsOnTheRoll_WithItsTerms()
+        public void TheRoll_CreditsNoMusicAndNoSound()
         {
-            string roll = string.Join("\n", RollText());
+            string roll = string.Join("\n", RollText()).ToLowerInvariant();
 
-            foreach (Credits.Track track in Credits.MenuMusic)
-            {
-                StringAssert.Contains(track.Title, roll);
-                StringAssert.Contains(track.Author, roll);
-                StringAssert.Contains(track.Licence, roll);
+            foreach (string word in new[] { "music", "sound", "jkjkke", "matthew pablo", "cc by" })
+                StringAssert.DoesNotContain(word, roll, $"\"{word}\" is on the roll of a game with no sound");
 
-                // CC BY asks for both, so for it they are not optional: under the "if"s below alone,
-                // a CC BY track that lost its address or its change passed by skipping the check.
-                if (track.Licence.StartsWith("CC BY"))
-                {
-                    Assert.IsNotNull(track.LicenceAddress, $"{track.Title} is CC BY and names no licence address");
-                    Assert.IsNotNull(track.Change, $"{track.Title} is CC BY and does not say what was changed");
-                }
-
-                if (track.LicenceAddress != null)
-                    StringAssert.Contains(track.LicenceAddress, roll, $"{track.Title}'s licence address is missing");
-
-                if (track.Change != null)
-                    StringAssert.Contains(track.Change, roll, $"{track.Title}'s change is not noted");
-            }
+            CollectionAssert.DoesNotContain(Credits.Roles, "SOUND DESIGN");
+            CollectionAssert.DoesNotContain(Credits.Roles, "LEVEL MUSIC");
         }
 
         /// <summary>Thanks to the playtesters, by role and not by name, and the engine, at the end.</summary>

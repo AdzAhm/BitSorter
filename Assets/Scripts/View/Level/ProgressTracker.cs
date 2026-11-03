@@ -46,7 +46,7 @@ namespace BitSorter.View
         /// <summary>
         /// Starts the exercises over (Part 15g): every solved exercise, its saved answer and best, the milestones and the
         /// first-time hints are forgotten, and the student's circuits are kept -- MY CIRCUIT and every named circuit
-        /// (<see cref="ProgressStore.ForgetTheExercises"/>). Sound and data settings are not progress and live in
+        /// (<see cref="ProgressStore.ForgetTheExercises"/>). Data and display settings are not progress and live in
         /// PlayerPrefs, so they stay as they are.
         /// </summary>
         /// <returns>False if there is no save to reset, which only happens before Awake.</returns>

@@ -32,8 +32,8 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>Nothing is smaller than twelve.</summary>
         /// <remarks>
-        /// The music credit was eleven, and it is the one line a licence requires be shown -- a
-        /// credit too small to read is barely a credit.
+        /// The 4.x game's music credit was eleven, and it was the one line a licence required be
+        /// shown -- a credit too small to read is barely a credit.
         /// </remarks>
         [Test]
         public void NothingIsDrawnSmallerThanTwelve()

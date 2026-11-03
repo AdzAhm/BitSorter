@@ -37,7 +37,7 @@ namespace BitSorter.View
         /// Whether the player allows reporting. On unless they turn it off.
         /// </summary>
         /// <remarks>
-        /// In <see cref="Preferences"/> for the same reason the mute setting is: it describes this
+        /// In <see cref="Preferences"/> for the same reason the frame cap is: it describes this
         /// machine, not the player's circuits, and copying a save to another computer should not
         /// carry it along.
         ///

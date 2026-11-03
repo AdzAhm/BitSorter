@@ -47,9 +47,9 @@ namespace BitSorter.PlayMode.Tests
         [OneTimeSetUp]
         public void OneTimeSetup()
         {
-            // Redirect first: SetReporting writes to the real machine otherwise. Mute and
-            // reporting both go through Preferences, which SaveGuard redirects alongside the
-            // save file, so nothing here has to be read and put back afterwards.
+            // Redirect first: SetReporting writes to the real machine otherwise. Reporting
+            // goes through Preferences, which SaveGuard redirects alongside the save file, so
+            // nothing here has to be read and put back afterwards.
             SaveGuard.Redirect();
             GameAnalytics.SetReporting(false);
         }
@@ -174,26 +174,6 @@ namespace BitSorter.PlayMode.Tests
         // Things there must be exactly one of
         // -----------------------------------------------------------------
 
-        /// <summary>
-        /// Without an AudioListener the music plays to nobody, silently and with no warning.
-        /// </summary>
-        /// <remarks>
-        /// `GameAudio` says so in its own remarks and then has no way to check. Two listeners is the
-        /// other half: Unity warns once and then mixes audio through whichever it prefers, which
-        /// makes a volume balance impossible to reason about.
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator ThereIsExactlyOneAudioListener()
-        {
-            yield return LoadScene();
-
-            AudioListener[] listeners =
-                Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
-
-            Assert.AreEqual(1, listeners.Length,
-                "the music plays to nobody with no listener, and unpredictably with two");
-        }
-
         [UnityTest]
         public IEnumerator ThereIsExactlyOneEventSystemAndOneCanvas()
         {
@@ -224,7 +204,7 @@ namespace BitSorter.PlayMode.Tests
             foreach (System.Type type in new[]
                      {
                          typeof(ProgressTracker), typeof(WorkbenchPanel), typeof(SettingsPanel),
-                         typeof(CreditsPanel), typeof(GameAudio), typeof(FrameRateCounter),
+                         typeof(CreditsPanel), typeof(FrameRateCounter),
                      })
             {
                 Object[] found = Object.FindObjectsByType(type, FindObjectsSortMode.None);
