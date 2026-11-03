@@ -4,8 +4,10 @@
     Rules about the repository itself rather than about any one part of the game: no student ID
     number and no copied course material anywhere in it (PrivacyScanTests), the four pure layers
     of BitSorter 5.0 staying pure and pointing one way (PureLayerRulesTests), the shell built in
-    code (ShellRulesTests), the version stated once (VersionTests), no sound (NoSoundTests), and a
-    static font atlas no bigger than its glyphs need (FontAtlasTests).
+    code (ShellRulesTests), the version stated once (VersionTests), no sound (NoSoundTests), a static
+    font atlas no bigger than its glyphs need (FontAtlasTests), the renderer's settings
+    (RenderSettingsTests), and the package lock being what the manifest reaches, with the packages
+    kept on purpose still in it (PackageLockTests).
 
     Its own tests live here rather than in Assets, because none of them is anything Unity needs to run.
     It references the layers so that building it builds them, against netstandard2.1 as Unity does.

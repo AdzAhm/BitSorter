@@ -4529,7 +4529,11 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   reference shots are what holds it. URP's shader build keeps its procedural-draw variants for XR only with a Universal
   renderer, which a 2D renderer is not, so no variant changes either. `Packages/packages-lock.json` was written as the Package
   Manager writes it -- what is still reachable, each depth its shortest distance from the manifest -- a rule that
-  replays the first removal to the very lock Unity wrote. What the download gains is for the release build's row in
+  replays the first removal to the very lock Unity wrote. `PackageLockTests` (`Tools/ci/Repo.Tests`) holds the lock to
+  that rule, which every lock Unity wrote here obeys, and holds AI Assistant, Vector Graphics and Unity Analytics in the
+  manifest. Edited by hand, as these were with no editor to resolve them, the two files are a stand-in until Unity
+  opens the project: it must rewrite neither, compile clean, and pass Edit Mode, Play Mode and the reference shots
+  before the change counts as tested. What the download gains is for the release build's row in
   `Docs/distribution.md`: a module that is off adds no engine code to a stripped build, but one nothing referenced was
   stripped already.
 - **Left, though nothing in the app reads it:** `ButtonRole.Primary` and `Destructive` and the palette's two colours for them
