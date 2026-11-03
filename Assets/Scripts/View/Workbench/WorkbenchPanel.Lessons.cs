@@ -199,14 +199,27 @@ namespace BitSorter.View
 
             if (_hintShown != null || PageShowing || _session == null || _model == null || ++_hintTick % HintEvery != 0)
                 return;
-            ProgressStore store = Store();
+
+            // The save and the two questions asked of it are found and made once, not every half second (Part 16e): the
+            // tracker the panel found as it woke, else the scene searched as Store() does, and a delegate of each.
+            ProgressStore store = _tracker != null ? _tracker.Store : Store();
             if (store == null)
                 return;
+            if (!ReferenceEquals(store, _hintsSeenOf))
+            {
+                _hintsSeenOf = store;
+                _hintSeen = store.HasSeenHint;
+            }
             string due = SimulatorHints.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath,
-                SlowestPath, store.HasSeenHint);
+                _slowestPath ??= SlowestPath, _hintSeen);
             if (due != null)
                 ShowHint(due);
         }
+
+        // TickLessons' questions, as delegates made once: whether a hint was seen, of the save they were made for; the slowest path.
+        private ProgressStore _hintsSeenOf;
+        private System.Func<string, bool> _hintSeen;
+        private System.Func<long?> _slowestPath;
 
         /// <summary>A CHECK's part in the lessons: the tutorial's last step met, or the hint an x at a check earns.</summary>
         private void LessonsAfterCheck(Grade grade)
