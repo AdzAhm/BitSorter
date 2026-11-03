@@ -372,6 +372,9 @@ namespace BitSorter.View
         /// <summary>What row <paramref name="row"/>'s value says now, as the screen shows it.</summary>
         public string ReadoutOf(int row) => _wave.ReadoutOf(row);
 
+        /// <summary>The colour row <paramref name="row"/>'s value is written in now.</summary>
+        public Color ReadoutColourOf(int row) => _wave.ReadoutColourOf(row);
+
         /// <summary>Whether row <paramref name="row"/>'s band is up: selected, or its wire pointed at.</summary>
         public bool RowBandShown(int row) => _wave.BandShown(row);
 

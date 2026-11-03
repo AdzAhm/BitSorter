@@ -207,6 +207,9 @@ namespace BitSorter.View
         /// <summary>What row <paramref name="row"/>'s readout says now: what a test reads.</summary>
         public string ReadoutOf(int row) => _readouts[row].text;
 
+        /// <summary>The colour row <paramref name="row"/>'s readout is written in now: what a test measures.</summary>
+        public Color ReadoutColourOf(int row) => _readouts[row].color;
+
         /// <summary>What the second cursor's time and the span to it say, null while there is none.</summary>
         public string SecondText => _secondLabel.gameObject.activeSelf ? _secondLabel.text : null;
 
