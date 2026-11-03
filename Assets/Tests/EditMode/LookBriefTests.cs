@@ -248,6 +248,42 @@ namespace BitSorter.EditMode.Tests
             }
         }
 
+        /// <summary>
+        /// A value written as a word on a row's band -- its readout, a bus's label -- reads at 4.5:1 there as on the ground:
+        /// its colour taken toward the text as far as it must (<see cref="SchematicPalette.Legible"/>), and no further, so it is
+        /// still its value's colour, a 0 still apart from a 1; and on the ground, where it already reads, left as it is.
+        /// </summary>
+        /// <remarks>
+        /// The band, behind a selected row and fainter behind a pointed-at wire's, holds a value's colour to 3:1, which a wave
+        /// needs and a word does not: in Schematic a 1's readout on it was 3.45:1 (the accessibility review, 2026-11-03).
+        /// </remarks>
+        [Test]
+        public void OnTheCanvas_AValueWrittenOnABand_IsLegible_AndStillItsValuesColour()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Color faint = Color.Lerp(c.Ground, c.Selection, 0.5f);   // as WaveformView.SetBands makes it
+
+                foreach ((string what, Color colour) in new[]
+                         { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("a bus's label", c.Text) })
+                {
+                    Assert.AreEqual(colour, c.Legible(colour, c.Ground), $"{look.Name}: {what} is changed on the ground, where it reads");
+
+                    foreach ((string band, Color under) in new[] { ("the selection band", c.Selection), ("a pointed-at wire's band", faint) })
+                    {
+                        Color written = c.Legible(colour, under);
+                        Assert.GreaterOrEqual(SchematicPalette.Contrast(written, under), SchematicPalette.WordContrast,
+                            $"{look.Name}: {what} written on {band}");
+                        Assert.Less(Distance(written, colour), 0.3f, $"{look.Name}: {what} on {band} is no longer its value's colour");
+                    }
+                }
+
+                Assert.GreaterOrEqual(Distance(c.Legible(c.Zero, c.Selection), c.Legible(c.One, c.Selection)), 0.3f,
+                    $"{look.Name}: a 0 and a 1 written on the selection band are too alike");
+            }
+        }
+
         /// <summary>Reduced motion leaves out the canvas's glow and its gates' flashes, whatever the look.</summary>
         [Test]
         public void ReducedMotion_LeavesOutTheGlowAndTheFlash()

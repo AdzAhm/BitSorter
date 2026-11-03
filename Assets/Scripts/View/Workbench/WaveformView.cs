@@ -55,6 +55,11 @@ namespace BitSorter.View
 
         private readonly TextMeshProUGUI[] _readouts;
         private readonly List<TextMeshProUGUI>[] _busLabels;
+
+        // The colour each row's readout, and each of a bus row's labels, is written in before it is made legible on the band
+        // behind it (SchematicPalette.Legible): kept, so a band put up or taken down writes them again without the value.
+        private readonly Color[] _readoutInk;
+        private readonly List<Color>[] _busInks;
         private readonly List<TextMeshProUGUI> _glitchLabels = new List<TextMeshProUGUI>();
         private readonly TextMeshProUGUI _playheadLabel, _secondLabel, _spanLabel;
         private readonly Image[] _bands;
@@ -150,6 +155,8 @@ namespace BitSorter.View
 
             _readouts = new TextMeshProUGUI[rows];
             _busLabels = new List<TextMeshProUGUI>[rows];
+            _readoutInk = new Color[rows];
+            _busInks = new List<Color>[rows];
             _readoutOf = new string[rows];
             _readout = new string[rows];
             _names = new TextMeshProUGUI[rows];
@@ -166,6 +173,7 @@ namespace BitSorter.View
 
                 _readouts[row] = WorkbenchPanel.StageLabel(Rect, "", new Vector2(WorkbenchDrawing.ReadoutLeft, middle),
                     UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, 60f);
+                _readoutInk[row] = palette.Text;
 
                 // Cut to its room, never over the waves (Part 15g): a 64-bit value, FFFFFFFFFFFFFFFFh, ran on across them
                 // (Ahmad's ALU, 2026-10-28). The whole value is the cursor's and the bus's own labels'.
@@ -173,7 +181,10 @@ namespace BitSorter.View
                 _readouts[row].overflowMode = TextOverflowModes.Ellipsis;
 
                 if (model.RowIsBus(row))
+                {
                     _busLabels[row] = new List<TextMeshProUGUI>();
+                    _busInks[row] = new List<Color>();
+                }
             }
 
             _playheadLabel = WorkbenchPanel.StageLabel(Rect, "", new Vector2(0f, WorkbenchDrawing.WaveTop + 4f), UiType.Micro, palette.Accent,
@@ -234,7 +245,30 @@ namespace BitSorter.View
                 WorkbenchPanel.Show(_bands[row], chosen || lit);
                 if (chosen || lit)
                     _bands[row].color = chosen ? palette.Selection : faint;
+                WriteLegibly(row, palette);
             }
+        }
+
+        /// <summary>What the words of row <paramref name="row"/> are written on: its band while it is up, else the ground.</summary>
+        private Color Under(int row, SchematicPalette palette) =>
+            _bands[row].gameObject.activeSelf ? _bands[row].color : palette.Ground;
+
+        /// <summary>
+        /// Row <paramref name="row"/>'s readout and its bus labels in their value's colours, each made legible on what is
+        /// under it (<see cref="SchematicPalette.Legible"/>): a word at 4.5:1 on a selected row's band as on the ground, where
+        /// the colour alone is 3:1 (the accessibility review, 2026-11-03).
+        /// </summary>
+        private void WriteLegibly(int row, SchematicPalette palette)
+        {
+            Color under = Under(row, palette);
+            _readouts[row].color = palette.Legible(_readoutInk[row], under);
+
+            List<TextMeshProUGUI> labels = _busLabels[row];
+            if (labels == null)
+                return;
+            List<Color> inks = _busInks[row];
+            for (int i = 0; i < labels.Count && i < inks.Count; i++)
+                labels[i].color = palette.Legible(inks[i], under);
         }
 
         // -----------------------------------------------------------------
@@ -381,10 +415,11 @@ namespace BitSorter.View
                 }
 
                 WorkbenchPanel.SetText(_readouts[row], _readout[row]);
-                _readouts[row].color = palette.Of(value);
+                _readoutInk[row] = palette.Of(value);
 
                 if (bus)
                     PlaceBusLabels(row, middle, palette);
+                WriteLegibly(row, palette);
 
                 _model.RowSwallowed(row, _swallowed);
                 foreach (double at in _swallowed)
@@ -460,6 +495,7 @@ namespace BitSorter.View
         private void PlaceBusLabels(int row, float middle, SchematicPalette palette)
         {
             List<TextMeshProUGUI> labels = _busLabels[row];
+            List<Color> inks = _busInks[row];
             SignalTrack track = _model.RowTrack(row);
             int used = 0;
 
@@ -479,13 +515,16 @@ namespace BitSorter.View
                     continue;
 
                 if (used == labels.Count)
+                {
                     labels.Add(WorkbenchPanel.StageLabel(Rect, "", new Vector2(0f, middle), UiType.Micro, palette.Text,
                         TextAlignmentOptions.Center, 60f));
+                    inks.Add(palette.Text);
+                }
 
+                inks[used] = value.IsKnown ? palette.Text : palette.Unknown;   // written legibly on the row's band, with its readout
                 TextMeshProUGUI label = labels[used++];
                 WorkbenchPanel.Show(label, true);
                 WorkbenchPanel.SetText(label, text);
-                label.color = value.IsKnown ? palette.Text : palette.Unknown;
                 label.rectTransform.anchoredPosition = new Vector2((x0 + x1) * 0.5f, -middle);
             }
 

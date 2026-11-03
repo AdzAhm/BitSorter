@@ -234,6 +234,37 @@ namespace BitSorter.View
             return new Color(colour.r, colour.g, colour.b, alpha);
         }
 
+        /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>
+        public const float WordContrast = 4.5f;
+
+        /// <summary>How finely <see cref="Legible"/> steps a colour toward the text's.</summary>
+        private const int LegibleSteps = 32;
+
+        /// <summary>
+        /// <paramref name="ink"/> as a word written on <paramref name="ground"/>: itself where it reads there at
+        /// <see cref="WordContrast"/>, and otherwise the least step of it toward <see cref="Text"/> that does, its alpha kept.
+        /// </summary>
+        /// <remarks>
+        /// For a value's readout on a selected row's band (<see cref="Selection"/>), where the value's own colour is 3:1, as
+        /// its wave needs, but not always the 4.5:1 a word needs: in Schematic a 1 there was 3.45:1 (the accessibility review,
+        /// 2026-11-03). Stepped toward the text rather than to it, so the word keeps the value's hue -- a 1 on the band is a
+        /// lighter pink, never white -- and only as far as it must. Derived from the palette, never a colour of its own.
+        /// </remarks>
+        public Color Legible(Color ink, Color ground)
+        {
+            if (Contrast(ink, ground) >= WordContrast)
+                return ink;
+
+            for (int step = 1; step < LegibleSteps; step++)
+            {
+                Color lifted = Color.Lerp(ink, Text, step / (float)LegibleSteps);
+                if (Contrast(lifted, ground) >= WordContrast)
+                    return new Color(lifted.r, lifted.g, lifted.b, ink.a);
+            }
+
+            return new Color(Text.r, Text.g, Text.b, ink.a);
+        }
+
         /// <summary>Relative luminance, from a colour written in sRGB (WCAG 2's definition).</summary>
         public static float Luminance(Color colour)
         {

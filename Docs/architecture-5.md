@@ -1076,7 +1076,10 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   rows builds the stage again round them, the circuit's zoom and the waveform's kept.
 - **A row and its wire light each other.** Selecting a row lights its net on the circuit, and pointing at a
   wire puts a faint band behind every row showing it (`SchematicPalette.Selection`, opaque, with every
-  word 4.5:1 and every value 3:1 on it in all four looks).
+  word 4.5:1 and every value 3:1 on it in all four looks). A value written as a word on a band -- a row's
+  readout, a bus's label -- is taken toward the text colour as far as it must to read at 4.5:1 there
+  (`SchematicPalette.Legible`): a 1's readout on Schematic's band was 3.45:1 in its own colour (the
+  accessibility review, 2026-11-03).
 - **The playhead is cursor 1** (Ahmad's choice). Shift and a click on the waves seeks there and pauses,
   snapped to an edge of the row under it within 8 px or else to a whole unit (`WaveSnap`); a drag scrubs, as
   a press within 6 px of the playhead's own line does. A click places C2, snapped alike, a drag moves it
