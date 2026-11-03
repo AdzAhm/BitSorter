@@ -173,13 +173,18 @@ namespace BitSorter.Board.Tests
             BlockPart u = drawing.Module.Parts.OfType<BlockPart>().Single();
             Assert.AreEqual("inst:u", drawing.KeyOf(u.Id));
 
-            Placement grown = drawing.Module.Layout.PlacementOf(u.Id).WithSize(12, 10);
+            // Widened to the left over the ports that feed it (the review of #140: they were pushed clear of it by distances
+            // off the quarter grid, and their wires jogged).
+            Placement grown = drawing.Module.Layout.PlacementOf(u.Id).Moved(-4.5, 0).WithSize(12, 10);
             Assert.IsTrue(editor.Arrange("m", new Dictionary<string, Placement> { ["inst:u"] = grown }).Done);
             RtlDrawing again = Draw(editor.Project);
             Part block = again.Module.Parts.OfType<BlockPart>().Single();
             Assert.AreEqual(grown, again.Module.Layout.PlacementOf(block.Id), "the size kept by its key");
 
             List<PartOutline> outlines = again.Module.Parts.Select(p => PartGeometry.Placed(again.Project, p, again.Module.Layout.PlacementOf(p.Id))).ToList();
+            foreach (PartOutline outline in outlines)
+                foreach (PinSpot pin in outline.Pins)
+                    Assert.IsTrue(OnTheQuarterGrid(pin.At.X) && OnTheQuarterGrid(pin.At.Y), $"{pin.Pin} on the quarter grid, at {pin.At.X}, {pin.At.Y}");
             for (int i = 0; i < outlines.Count; i++)
                 for (int j = i + 1; j < outlines.Count; j++)
                     Assert.IsFalse(outlines[i].Left < outlines[j].Right && outlines[j].Left < outlines[i].Right
