@@ -756,7 +756,7 @@ namespace BitSorter.View
                     break;
 
                 case PartSymbol.Operator:
-                    Box(into, part, -BlockHalfWidth, -OperatorHalfHeight, BlockHalfWidth, OperatorHalfHeight, 0.12);
+                    Box(into, part, -BlockHalf, -OperatorHalfHeight, BlockHalf, OperatorHalfHeight, 0.12);   // as wide as a block's at its natural size
                     break;
 
                 case PartSymbol.Constant:
@@ -776,9 +776,6 @@ namespace BitSorter.View
                     break;
             }
         }
-
-        /// <summary>Half an operator's box across, in cells: as a block's at its natural size, a lead short of its pins (Part 15g).</summary>
-        private const double BlockHalfWidth = BlockHalf;
 
         /// <summary>How far, in cells, an array's copies are stacked behind its box, up and to the right; its name is raised as far.</summary>
         public const double ArrayBehind = 0.18;
