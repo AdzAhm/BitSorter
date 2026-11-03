@@ -25,39 +25,102 @@ namespace BitSorter.Sim
             if (signals == null)
                 throw new ArgumentNullException(nameof(signals));
 
+            var values = new LogicVec[netlist.Nets.Count];
+            Evaluate(netlist, signals, values);
+            return values;
+        }
+
+        /// <summary>
+        /// The same, every net's value written into <paramref name="values"/>, which has a place for each: what the workbench
+        /// asks once a moment while a drawing of code plays, for the values on its wires. Nothing is allocated for it once the
+        /// netlist has been evaluated once, at any width up to 64 bits (the zero-GC pass, Part 16): the order its cells go in
+        /// depends on the netlist alone, so it is worked out the first time and kept with it.
+        /// </summary>
+        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values)
+        {
+            if (netlist == null)
+                throw new ArgumentNullException(nameof(netlist));
+            if (signals == null)
+                throw new ArgumentNullException(nameof(signals));
+            if (values == null)
+                throw new ArgumentNullException(nameof(values));
+
             IReadOnlyList<RtlNet> nets = netlist.Nets;
-            var values = new LogicVec[nets.Count];
-            var known = new bool[nets.Count];
+            if (values.Length < nets.Count)
+                throw new ArgumentException("a place is needed for each of the " + nets.Count + " nets", nameof(values));
+            Plan plan = netlist.EvaluationPlan ??= Plan.Of(netlist);
+
+            // A net no cell writes reads as nothing, as in a new array.
+            Array.Clear(values, 0, nets.Count);
 
             // What nothing in the netlist works out: its inputs, and what its boxes drive.
-            foreach (RtlNet net in nets)
+            foreach (RtlNet net in plan.Fed)
             {
                 RtlCell driver = net.Driver >= 0 ? netlist.Cells[net.Driver] : null;
-                if (driver == null || IsBox(driver))
-                {
-                    // A register of some of a signal's bits holds those bits of it.
-                    values[net.Id] = net.Signal >= 0 ? signals[net.Signal]
-                        : driver != null && driver.Kind == RtlKind.Register && driver.Signal >= 0 ? signals[driver.Signal].Slice(driver.Lowest, net.Width)
-                        : LogicVec.AllX(net.Width);
-                    known[net.Id] = true;
-                }
+
+                // A register of some of a signal's bits holds those bits of it.
+                values[net.Id] = net.Signal >= 0 ? signals[net.Signal]
+                    : driver != null && driver.Kind == RtlKind.Register && driver.Signal >= 0 ? signals[driver.Signal].Slice(driver.Lowest, net.Width)
+                    : LogicVec.AllX(net.Width);
             }
 
             // The cells in an order each one's inputs come first; those in a loop of logic, their outputs seeded first.
-            List<RtlCell> order = Order(netlist, known, out List<RtlCell> looped);
-            foreach (RtlCell cell in looped)
-                foreach (int output in cell.OutputList)
-                    if (!known[output])
-                    {
-                        values[output] = nets[output].Signal >= 0 ? signals[nets[output].Signal] : LogicVec.AllX(nets[output].Width);
-                        known[output] = true;
-                    }
+            foreach (int output in plan.Seeded)
+                values[output] = nets[output].Signal >= 0 ? signals[nets[output].Signal] : LogicVec.AllX(nets[output].Width);
 
-            foreach (RtlCell cell in order)
-                values[cell.Output] = Apply(cell, values, signals, nets);
-            foreach (RtlCell cell in looped)
-                values[cell.Output] = Apply(cell, values, signals, nets);
-            return values;
+            foreach (RtlCell cell in plan.Order)
+                values[cell.Output] = Apply(cell, values, signals, nets, plan);
+            foreach (RtlCell cell in plan.Looped)
+                values[cell.Output] = Apply(cell, values, signals, nets, plan);
+        }
+
+        /// <summary>
+        /// How a netlist is evaluated, which depends on its shape alone and so is worked out once for it: the nets read off the
+        /// design, the combinational cells in an order inputs-first, the ones a loop of logic leaves unordered and the outputs of
+        /// theirs seeded first, and a place for each gate's inputs.
+        /// </summary>
+        internal sealed class Plan
+        {
+            public RtlNet[] Fed;
+            public RtlCell[] Order;
+            public RtlCell[] Looped;
+            public int[] Seeded;
+
+            /// <summary>Each gate cell's inputs, gathered for <see cref="Gates.Evaluate(GateKind, LogicVec[])"/>, by its id; null for any other cell.</summary>
+            public LogicVec[][] GateInputs;
+
+            public static Plan Of(RtlNetlist netlist)
+            {
+                IReadOnlyList<RtlNet> nets = netlist.Nets;
+                var known = new bool[nets.Count];
+                var fed = new List<RtlNet>();
+                foreach (RtlNet net in nets)
+                {
+                    RtlCell driver = net.Driver >= 0 ? netlist.Cells[net.Driver] : null;
+                    if (driver == null || IsBox(driver))
+                    {
+                        fed.Add(net);
+                        known[net.Id] = true;
+                    }
+                }
+
+                List<RtlCell> order = Order(netlist, known, out List<RtlCell> looped);
+                var seeded = new List<int>();
+                foreach (RtlCell cell in looped)
+                    foreach (int output in cell.OutputList)
+                        if (!known[output])
+                        {
+                            seeded.Add(output);
+                            known[output] = true;
+                        }
+
+                var gateInputs = new LogicVec[netlist.Cells.Count][];
+                foreach (RtlCell cell in netlist.Cells)
+                    if (cell.Kind == RtlKind.Gate)
+                        gateInputs[cell.Id] = new LogicVec[cell.InputList.Length];
+
+                return new Plan { Fed = fed.ToArray(), Order = order.ToArray(), Looped = looped.ToArray(), Seeded = seeded.ToArray(), GateInputs = gateInputs };
+            }
         }
 
         /// <summary>The combinational cells in an order inputs-first, and, apart, the ones a loop of logic leaves unordered.</summary>
@@ -111,7 +174,7 @@ namespace BitSorter.Sim
         private static LogicVec In(RtlCell cell, int pin, LogicVec[] values) => values[cell.InputList[pin]];
 
         /// <summary>One cell's output, from its inputs' values: the engine's own operator for each kind.</summary>
-        private static LogicVec Apply(RtlCell cell, LogicVec[] values, LogicVec[] signals, IReadOnlyList<RtlNet> nets)
+        private static LogicVec Apply(RtlCell cell, LogicVec[] values, LogicVec[] signals, IReadOnlyList<RtlNet> nets, Plan plan)
         {
             switch (cell.Kind)
             {
@@ -119,7 +182,7 @@ namespace BitSorter.Sim
                     return cell.Value;
                 case RtlKind.Gate:
                 {
-                    var inputs = new LogicVec[cell.InputList.Length];
+                    LogicVec[] inputs = plan.GateInputs[cell.Id];
                     for (int i = 0; i < inputs.Length; i++)
                         inputs[i] = In(cell, i, values);
                     return Gates.Evaluate(cell.Gate, inputs);

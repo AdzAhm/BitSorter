@@ -323,6 +323,9 @@ namespace BitSorter.Sim
         private readonly Dictionary<string, int> _byName;
         private readonly Dictionary<int, int> _bySignal;
 
+        /// <summary>How <see cref="RtlEvaluator"/> goes through it, worked out the first time it is evaluated: it depends on its shape alone.</summary>
+        internal RtlEvaluator.Plan EvaluationPlan;
+
         /// <summary>The scope's path in the design: <c>alu_tb.dut</c>.</summary>
         public string Scope { get; }
 

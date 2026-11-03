@@ -3291,6 +3291,11 @@ of an elaborated design as cells and the nets between them, word-level, the way 
   - Each cell applies the engine's own operator. `Expr.Apply`, `TryOffset`, `PartAt` and `WordAt` are what the engine's
     nodes evaluate with as well, so the two cannot drift apart.
   - A loop of logic is cut where it closes, each net in it read off its signal.
+  - **The order the cells go in is the netlist's own**, worked out the first time it is evaluated and kept with it
+    (`RtlEvaluator.Plan`), and `Evaluate(netlist, signals, values)` writes into an array of the caller's: playing a drawing
+    of code is a moment a frame, and each had sorted the cells again into new lists -- 7.6 KB a frame on the pipelined
+    processor's drawing, 43 KB on the multicycle one's controller -- where it allocates nothing now (the zero-GC pass, Part
+    16; `RtlEvaluatorReuseTests`).
 - **Tests** (`RtlNetlistTests`, Board.Tests): every scope's netlist held to the engine.
   - Every net a join drives -- every signal the scope's own logic gives a value -- reads what the engine has there, and
     every instance's input pin what the instance's port has, over random vectors far enough apart for every delay to

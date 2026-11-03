@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using BitSorter.Sim;
 using BitSorter.Board;
 using NUnit.Framework;
 
@@ -18,7 +19,11 @@ namespace BitSorter.ViewModel.Tests
     /// </remarks>
     public class FrameAllocationTests
     {
-        /// <summary>What <paramref name="ask"/> allocates on average, asked <paramref name="times"/> times after twice.</summary>
+        /// <summary>
+        /// What <paramref name="ask"/> allocates on average, asked <paramref name="times"/> times after twice: never inlined, so an
+        /// optimising JIT cannot move the caller's own allocations -- the 0 an assertion boxes -- into the count.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         internal static long BytesEach(Action ask, int times = 200)
         {
             ask();
@@ -89,6 +94,38 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(0, BytesEach(() => editor.Point(middle + new Vec2(nudge += 0.37f, 0f), false, 1f, true)),
                 "the pointer moving on it, a pin asked for each time");
             Assert.AreEqual(0, BytesEach(() => editor.Point(null, false, 1f, true)), "the pointer off it");
+        }
+
+        /// <summary>
+        /// Playing a drawing of code, every wire's value read for a new moment each frame -- the wires no signal holds worked
+        /// out from the netlist (<see cref="RtlEvaluator"/>) -- allocates nothing: at the processor's top, and stepped into its
+        /// execute stage and its controller.
+        /// </summary>
+        [TestCase("Pipelined RISC-V", "", 50)]
+        [TestCase("Pipelined RISC-V", "pcpu/pcpu_execute", 30)]
+        [TestCase("Multicycle RISC-V", "mcpu/mcpu_control", 100)]
+        public void EveryWiresValue_AtANewMomentEachFrame_AllocatesNothing(string sample, string into, int nets)
+        {
+            WorkbenchSession session = Opened(sample);
+            foreach (string module in into.Split('/', StringSplitOptions.RemoveEmptyEntries))
+                if (session.Module != module)
+                    Assert.IsTrue(session.StepInto(session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == module).Id), "into " + module);
+            Assert.AreEqual(into.Length == 0 ? session.Project.Top : into.Substring(into.LastIndexOf('/') + 1), session.Module, "sanity: stepped in");
+            if (session.ShowsController)
+                session.DrawController(false);
+            session.Finish();
+            WorkbenchModel model = session.Run.Model;
+            Assert.IsNotNull(model.Layout.Drawn, "sanity: a drawing of code, its wires worked out");
+            Assert.Greater(model.Layout.Nets.Count, nets, "sanity: a drawing of some size");
+
+            double time = model.End * 0.25, step = model.End / 2000.0;
+            long bytes = BytesEach(() =>
+            {
+                model.Seek(time += step);
+                for (int i = 0; i < model.Layout.Nets.Count; i++)
+                    _ = model.NetValue(i);
+            });
+            Assert.AreEqual(0, bytes, $"a moment's wires on {model.Layout.Nets.Count} nets");
         }
 
         /// <summary>The net under the pointer, which the hover chip asks every frame the pointer is on the circuit, allocates nothing.</summary>

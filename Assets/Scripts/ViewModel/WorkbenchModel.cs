@@ -532,7 +532,10 @@ namespace BitSorter.ViewModel
                     int signal = _drawnSignals[i];
                     _drawnInputs[drawn.Reads[i]] = signal >= 0 ? ValueAt(signal, 1, Time) : LogicVec.AllX(drawn.ReadWidths[i]);
                 }
-                _drawnValues = RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs);
+                // Into the same array each moment: playing, a moment is a frame (the zero-GC pass, Part 16).
+                if (_drawnValues == null || _drawnValues.Length != drawn.Netlist.Nets.Count)
+                    _drawnValues = new LogicVec[drawn.Netlist.Nets.Count];
+                RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs, _drawnValues);
                 _drawnInner = drawn.Drawing != null && drawn.Drawing.InnerCount > 0 ? drawn.Drawing.Inner(_drawnValues) : null;
                 _drawnAt = Time;
             }
