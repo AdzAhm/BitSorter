@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using BitSorter.SystemVerilog;
 using NUnit.Framework;
 
 namespace BitSorter.Board.Tests
@@ -72,6 +73,28 @@ namespace BitSorter.Board.Tests
 
             StringAssert.Contains("a part of a kind this BitSorter does not know, \"memory\"", problems.Single());
             Assert.AreEqual(5, read.Modules[0].Parts.Count, "the rest is there");
+        }
+
+        /// <summary>
+        /// A constant saved wider than any value can be, with no value it can read -- a hand-edited or hostile save -- reads
+        /// as one as wide as a value may be, saying so, never throwing (the 16c pilot: it threw from the workbench's Start, on
+        /// every launch, since the circuit is what BitSorter opens on).
+        /// </summary>
+        [Test]
+        public void AConstantSavedWiderThanAnyValue_ReadsAtTheWidest_SayingSo()
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            file.modules[0].parts[4].kind = "constant";
+            file.modules[0].parts[4].value = "";
+            file.modules[0].parts[4].width = 2_000_000;
+            var problems = new List<string>();
+
+            Project read = null;
+            Assert.DoesNotThrow(() => read = file.ToProject(problems));
+
+            ConstantPart constant = read.Modules[0].Parts.OfType<ConstantPart>().Single();
+            Assert.AreEqual(LogicVec.MaxWidth, constant.Value.Width, "as wide as a value may be");
+            StringAssert.Contains("wide", string.Join("\n", problems));
         }
 
         [Test]
