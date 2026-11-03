@@ -96,9 +96,6 @@ namespace BitSorter.ViewModel
         /// <summary>The corner radius of a port box.</summary>
         public const float PortCorner = 8f;
 
-        /// <summary>A port box's height.</summary>
-        public const float PortHeight = 30f;
-
         /// <summary>The gate's tint at the peak of its flash, at full glow: Lively's 28%, scaled by <see cref="GlowStrength"/>.</summary>
         public const float FlashTint = 0.28f;
 

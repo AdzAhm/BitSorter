@@ -78,10 +78,6 @@ namespace BitSorter.Sim
         /// <summary>The bit position, from 0, of index <paramref name="index"/> of the outermost dimension's first bit.</summary>
         public long Position(long index) => (Msb >= Lsb ? index - Lsb : Lsb - index) * ElementWidth;
 
-        /// <summary>This type with another signedness: what a part-select or an element of a signed array reads as.</summary>
-        public PackedType WithSigned(bool signed) =>
-            signed == Signed ? this : new PackedType(Msb, Lsb, signed, Element, Struct, Enum, TwoState, IsString, IsReal);
-
         public override string ToString() =>
             Struct != null ? (Struct.IsUnion ? "union" : "struct") + $" [{Width}]" : $"[{Msb}:{Lsb}]{(Element != null ? Element.ToString() : "")}";
     }

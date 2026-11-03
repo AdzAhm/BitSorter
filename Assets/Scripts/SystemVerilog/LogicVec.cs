@@ -543,9 +543,6 @@ namespace BitSorter.SystemVerilog
                 _planes == null ? new LogicVec(_width, signed, _a, _b) : new LogicVec(_width, signed, _planes);
         }
 
-        /// <summary>A value from two words, for the operators' fast path.</summary>
-        internal static LogicVec Narrow(int width, bool signed, ulong a, ulong b) => new LogicVec(width, signed, a, b);
-
         /// <summary>A value from planes the caller filled, for the operators' wide path.</summary>
         internal static LogicVec Wide(int width, bool signed, ulong[] planes) => new LogicVec(width, signed, planes);
 
@@ -554,8 +551,5 @@ namespace BitSorter.SystemVerilog
 
         /// <summary>Up to 64 bits, the b-plane word, without a bounds check.</summary>
         internal ulong B => _b;
-
-        /// <summary>Over 64 bits, the planes array; null otherwise.</summary>
-        internal ulong[] Planes => _wide;
     }
 }

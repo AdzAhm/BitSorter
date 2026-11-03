@@ -77,12 +77,6 @@ namespace BitSorter.Board
         /// <summary>Raised after every change: an edit, an undo or a redo.</summary>
         public event Action Changed;
 
-        public Netlist NetlistOf(string module)
-        {
-            Module m = Project.Find(module);
-            return m == null ? null : Netlist.Of(Project, m);
-        }
-
         // -----------------------------------------------------------------
         // Parts
         // -----------------------------------------------------------------
@@ -415,17 +409,6 @@ namespace BitSorter.Board
             };
 
             return Commit(Project.WithModule(next), id);
-        }
-
-        /// <summary>Takes a wire away, and every wire that tapped it.</summary>
-        public EditResult Disconnect(string module, int wire)
-        {
-            if (!TryModule(module, out Module m, out EditResult refused))
-                return refused;
-            if (m.FindWire(wire) == null)
-                return EditResult.Refused($"There is no wire {wire} in {module}.");
-
-            return Commit(Project.WithModule(WithoutWires(m, new HashSet<int> { wire })));
         }
 
         /// <summary>Names the net a wire is on; null takes the name away.</summary>

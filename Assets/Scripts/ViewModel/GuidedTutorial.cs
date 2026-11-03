@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using BitSorter.Board;
 using BitSorter.Sim;
 
@@ -33,13 +32,6 @@ namespace BitSorter.ViewModel
                 case Step.Check: return "Press CHECK, at the top right, to grade the circuit.";
                 default: return "Solved. EXERCISES has the rest of them, one after another.";
             }
-        }
-
-        /// <summary>Every step's words, for the four-word rule.</summary>
-        public static IEnumerable<string> AllText()
-        {
-            for (Step step = Step.TakeTheNot; step <= Step.Done; step++)
-                yield return TextFor(step);
         }
 
         /// <summary>

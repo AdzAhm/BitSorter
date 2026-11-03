@@ -321,8 +321,6 @@ namespace BitSorter.Sim
         /// <summary>Where it begins, its keyword's line (Part 15h-5); its statements' lines are its instructions'.</summary>
         public SourceLocation At { get; internal set; }
 
-        public int InstructionCount => Code.Length;
-
         internal Instruction[] Code { get; }
 
         /// <summary>The signals it writes.</summary>

@@ -543,9 +543,6 @@ namespace BitSorter.ViewModel
         /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>
         public LogicVec PartValue(int part) => ValueAt(_partOutputs[part], 1, Time);
 
-        /// <summary>The value a port's signal holds now.</summary>
-        public LogicVec PortValue(int port) => ValueAt(_portSignals[port], 1, Time);
-
         /// <summary>
         /// How far into its flash a gate is: 1 the moment its output flips, falling to 0 over
         /// <see cref="SchematicStyle.FlashTime"/> at the reference's speed (<see cref="UnitsPerSecond"/>); 0

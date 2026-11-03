@@ -4640,6 +4640,11 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
   the same four-way test had grown -- `GatePart.IsTriStateKind`, private ones in `LibraryCell`, `RtlExtractor` and
   `TimingGraph`, and the test written out in the elaborator's lint and in `TimingView` -- so a fifth tri-state kind would have
   had six places to be added to.
+- **Members nothing read, in the pure layers**, each named once in the whole repository, at its declaration:
+  `BoardEditor.Disconnect` (an edit nothing ever made -- DELETE takes wires away through `RemoveParts` -- and no test held) and
+  `NetlistOf`, `Process.InstructionCount`, `PackedType.WithSigned`, `LogicVec.Narrow` and `Planes`,
+  `SchematicStyle.PortHeight`, `WorkbenchModel.PortValue`, and `GuidedTutorial.AllText`, which was written for the four-word
+  rule, though `SimulatorHintTests` reads each step's words itself.
 
 ---
 
