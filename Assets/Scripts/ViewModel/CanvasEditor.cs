@@ -249,12 +249,13 @@ namespace BitSorter.ViewModel
             BoardPoint at = ToBoard(stage);
             double reach = ReachPixels / Arith.Max(zoom, 1e-3f) / _layout.Board.Cell;
 
-            // A selected block's handles before anything (Part 16): drawn over everything, and only while it is selected.
+            // A selected block's handles (Part 16), drawn over everything and only while it is selected -- but never while a
+            // wire is drawn or a part is in hand, which end or land on what is under them.
             double best = reach * reach;
-            int handled = HandledPart;
+            CanvasTarget handle = CanvasTarget.Nothing;
+            int handled = _draft == null && InHand == null ? HandledPart : -1;
             if (handled >= 0)
             {
-                CanvasTarget handle = CanvasTarget.Nothing;
                 PartOutline outline = _hit.OutlineOf(handled);
                 for (int i = 0; i < BlockResize.Handles; i++)
                 {
@@ -266,10 +267,34 @@ namespace BitSorter.ViewModel
                         handle = new CanvasTarget(CanvasTargetKind.Handle, part: handled, segment: i);
                     }
                 }
-                if (handle.Kind != CanvasTargetKind.Nothing)
-                    return handle;
             }
 
+            CanvasTarget found = handle.Kind != CanvasTargetKind.Nothing ? handle : CornerOrWhatIsAt(at, reach, best);
+
+            // A pin is nearer than the handle beside it: the middle pin of a side sits 0.15 of a cell from that side's
+            // handle, inside the reach at any zoom up to 1.1, and a press on it wired nothing (the review of #140). The
+            // nearer of the two takes the press, the pin on a tie.
+            if (handle.Kind != CanvasTargetKind.Nothing && _hit.At(at, reach) is CanvasTarget under && under.Kind == CanvasTargetKind.Pin
+                && PinAt(under) is BoardPoint pin && (pin.X - at.X) * (pin.X - at.X) + (pin.Y - at.Y) * (pin.Y - at.Y) <= best)
+                return under;
+            return found;
+        }
+
+        /// <summary>Where pin <paramref name="target"/> stands on the board; null when its part has no such pin.</summary>
+        private BoardPoint? PinAt(CanvasTarget target)
+        {
+            PartOutline outline = _hit.OutlineOf(target.Part);
+            if (outline == null)
+                return null;
+            foreach (PinSpot spot in outline.Pins)
+                if (spot.Pin == target.Pin)
+                    return spot.At;
+            return null;
+        }
+
+        /// <summary>A selected wire's corner within <paramref name="best"/> (squared) of <paramref name="at"/>, else what is there.</summary>
+        private CanvasTarget CornerOrWhatIsAt(BoardPoint at, double reach, double best)
+        {
             // A selected wire's corners next: they are drawn over everything, and only while it is selected.
             CanvasTarget corner = CanvasTarget.Nothing;
             foreach (int wire in Selection.Wires)
@@ -1344,7 +1369,7 @@ namespace BitSorter.ViewModel
                 overlay.GhostWires.Add(Stage(frame, _reshaped));
 
             int handled = HandledPart;
-            if (handled >= 0 && _start == null)
+            if (handled >= 0 && _start == null && _draft == null && InHand == null)   // none while a wire is drawn or a part in hand
             {
                 PartOutline outline = _resizing == handled && module.FindPart(handled) is Part sized
                     ? PartGeometry.Placed(Drawn, sized, _resizeTo)

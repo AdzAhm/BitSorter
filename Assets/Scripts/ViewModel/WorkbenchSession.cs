@@ -1382,7 +1382,7 @@ namespace BitSorter.ViewModel
                 foreach (int part in parts)
                 {
                     Placement was = module.Layout.PlacementOf(part);
-                    if (was.HasSize)
+                    if (was.HasSize && PartGeometry.Resizable(module.FindPart(part)))
                         to[part] = was.WithSize(0, 0);
                 }
             return to.Count == 0 ? EditResult.Refused(NothingResized) : Move(to);
@@ -1395,8 +1395,8 @@ namespace BitSorter.ViewModel
             if (module == null || parts == null)
                 return false;
             foreach (int part in parts)
-                if (module.Layout.PlacementOf(part).HasSize)
-                    return true;
+                if (module.Layout.PlacementOf(part).HasSize && PartGeometry.Resizable(module.FindPart(part)))
+                    return true;   // a size kept under a key whose part now takes none is no size on screen (the review of #140)
             return false;
         }
 

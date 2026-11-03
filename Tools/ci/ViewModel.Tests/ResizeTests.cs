@@ -171,6 +171,50 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(CanvasTargetKind.Part, b.Editor.TargetAt(frame.ToStage(b.Start.Position), 1f).Kind, "its middle still moves it");
         }
 
+        /// <summary>
+        /// A pin beside a handle takes a press on it: a side's middle pin is 0.15 of a cell from that side's handle, and at the
+        /// zoom a drawing is fitted at both are within reach -- a press on a selected block's output wired nothing, and a wire
+        /// drawn onto it never ended there (the review of #140). The nearer takes it; and while a wire is drawn there are no
+        /// handles at all.
+        /// </summary>
+        [Test]
+        public void APinBesideAHandle_TakesAPressOnIt_AndAWireBeingDrawnSeesNoHandles()
+        {
+            var b = new Bench();
+            SchematicLayout.Frame frame = b.Session.Run.Model.Layout.Board;
+            b.Select(b.H1);
+            const float fitted = 0.5f;   // where the even sides' pins are within reach of their handles too
+            foreach (string pin in new[] { "a", "b", "s", "c" })
+            {
+                CanvasTarget at = b.Editor.TargetAt(frame.ToStage(PinOf(b, pin)), fitted);
+                Assert.AreEqual(CanvasTargetKind.Pin, at.Kind, $"{pin}: the pin, not a handle");
+                Assert.AreEqual(pin, at.Pin);
+            }
+            for (int i = 0; i < BlockResize.Handles; i++)
+                Assert.AreEqual(CanvasTargetKind.Handle, b.Editor.TargetAt(frame.ToStage(b.HandleAt(i)), fitted).Kind, $"handle {i}: still the handle");
+
+            b.Do(CanvasGesture.BeginWire, at: PinOf(b, "s"), target: new CanvasTarget(CanvasTargetKind.Pin, part: b.H1, pin: "s"));
+            Assert.IsNotNull(b.Editor.Draft, "sanity: a wire being drawn");
+            Assert.AreNotEqual(CanvasTargetKind.Handle, b.Editor.TargetAt(frame.ToStage(b.HandleAt(3)), 1f).Kind, "no handle while a wire is drawn");
+            var overlay = new CanvasOverlay();
+            b.Editor.Overlay(overlay);
+            Assert.AreEqual(0, overlay.ResizeHandles.Count, "nor drawn");
+        }
+
+        /// <summary>
+        /// On the drawing of code, a placement kept under a key whose part has since become one that takes no size -- a gate, a
+        /// mux -- is no size RESET SIZE offers to take away: nothing on screen is resized (the review of #140).
+        /// </summary>
+        [Test]
+        public void ResetSize_CountsOnlyPartsThatTakeASize()
+        {
+            var b = new Bench();
+            Assert.IsTrue(b.Session.Move(new Dictionary<int, Placement> { [b.Or] = b.Module.Layout.PlacementOf(b.Or).WithSize(6, 4) }).Done,
+                "sanity: a gate's placement may carry a size it does not take");
+            Assert.IsFalse(b.Session.AnyResized(new[] { b.Or }), "a gate is never resized");
+            Assert.AreEqual(WorkbenchSession.NothingResized, b.Session.ResetSize(new[] { b.Or }).Refusal);
+        }
+
         private static BoardPoint PinOf(Bench b, string pin) =>
             PartGeometry.Placed(b.Session.Project, b.Block, b.Start).Pins.Single(p => p.Pin == pin).At;
 
