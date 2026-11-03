@@ -129,6 +129,71 @@ module t;
 endmodule"));
         }
 
+        [Test]
+        public void ANamedForkDisabledFromAnotherProcess_LetsAWaitForkGoOn_WhenItsBranchesEnd()
+        {
+            // IEEE 1800, 9.6.2: disable ends every process executing the block, its branches; and 9.6.1, wait fork waits
+            // until every child has ended -- so the parent goes on as they end. ModelSim and Icarus 12 both leave it
+            // waiting (Docs/oracle-notes.md, "Testbench control").
+            CollectionAssert.AreEqual(new[] { "joined at 50" }, Printed(@"
+module t;
+    initial begin
+        fork : f
+            #100 $display(""slow"");
+        join_none
+        #10;
+        wait fork;
+        $display(""joined at %0t"", $time);
+    end
+    initial #50 disable f;
+endmodule"));
+
+            // The watchdog, ended by another process once the work is done.
+            CollectionAssert.AreEqual(new[] { "all ended at 7" }, Printed(@"
+module t;
+    event finished;
+    initial begin
+        fork : watchdog
+            #1000 $display(""timed out"");
+        join_none
+        #5 -> finished;
+        wait fork;
+        $display(""all ended at %0t"", $time);
+    end
+    initial begin
+        @(finished) #2 disable watchdog;
+    end
+endmodule", until: 2000));
+        }
+
+        [Test]
+        public void ABlockDisabledWhileItWaitsAtAJoin_GoesOnPastTheBlock_NeverPastTheJoin()
+        {
+            // Its branches end with it, and the join they end is not where it goes on: Icarus and ModelSim agree. The two go
+            // on in one moment, woken by one disable, in an order the standard leaves open.
+            CollectionAssert.AreEquivalent(new[] { "after blk at 50", "any at 50" }, Printed(@"
+module t;
+    initial begin
+        begin : blk
+            fork
+                #100 $display(""slow"");
+            join
+            $display(""never: after the join, inside blk"");
+        end
+        $display(""after blk at %0t"", $time);
+    end
+    initial begin
+        #1;
+        fork : f
+            #100 $display(""slow"");
+            #120 $display(""slower"");
+        join_any
+        $display(""any at %0t"", $time);
+    end
+    initial #50 begin disable blk; disable f; end
+endmodule"));
+        }
+
         // -----------------------------------------------------------------
         // Events
         // -----------------------------------------------------------------
