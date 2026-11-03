@@ -5,32 +5,26 @@ using TMPro;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Colours, sizes and the small builders every panel uses, so the interface reads as one thing.
+    /// Colours, sizes and the small builders the workbench's uGUI parts are made of, so the interface reads as one thing.
     /// </summary>
     /// <remarks>
     /// The interface is assembled in code rather than authored in the scene, matching how the rest
-    /// of the view works -- <see cref="PlacementGrid"/> builds its dots, <see cref="BoardBackground"/>
-    /// builds itself, and <see cref="ProceduralSprites"/> draws every sprite at runtime. The scene is
+    /// of the view works -- <see cref="ProceduralSprites"/> draws every sprite at runtime. The scene is
     /// generated too, so an authored hierarchy would be dozens of RectTransforms for the scene builder
     /// to reproduce by hand and get subtly wrong.
     ///
-    /// Colours come from <see cref="Palette"/>, which the board draws from too, so the interface
-    /// cannot drift away from the board it sits on.
+    /// Colours come from <see cref="Palette"/>. The sizes of the 4.x game's HUD -- its rows, corners, cards, banner and
+    /// toast -- went with the game, in Part 16b.
     /// </remarks>
     public static class UiTheme
     {
         public static Color Panel => Palette.Current.Panel;
         public static Color PanelEdge => Palette.Current.PanelEdge;
         public static Color Text => Palette.Current.Text;
-        public static Color TextDim => Palette.Current.TextDim;
         public static Color Accent => Palette.Current.Accent;
-        public static Color Good => Palette.Current.Good;
-        public static Color Bad => Palette.Current.Bad;
 
         public const float Margin = 16f;
-        public const float Gap = 8f;
         public const float ButtonHeight = 44f;
-        public const float PaletteButton = 64f;
 
         /// <summary>
         /// The canvas size every offset in this file is expressed against.
@@ -42,141 +36,15 @@ namespace BitSorter.View
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
         // -----------------------------------------------------------------
-        // The right column
+        // Keys and the status line
         // -----------------------------------------------------------------
 
-        /// <summary>The bits-lost meter's height. Where it sits is <see cref="UiRows.BitsLost"/>.</summary>
-        public const float BitsLostHeight = 46f;
-
-        /// <summary>The help badge's size. Where it sits is <see cref="UiRows.Badge"/>.</summary>
-        public const float BadgeSize = 38f;
-
-        /// <summary>The key hint hanging under the badge. Where it sits is <see cref="UiRows.BadgeKey"/>.</summary>
-        public const float BadgeKeyHeight = 20f;
-
-        /// <summary>How far under its badge a key hint starts.</summary>
-        public const float BadgeKeyDrop = 4f;
-
-        /// <summary>A key hint's own height: it starts <see cref="BadgeKeyDrop"/> down, so it runs past its row.</summary>
-        public const float BadgeKeyLabelHeight = BadgeKeyHeight - 2f;
-
-        /// <summary>A key hint's width, centred under its badge and wider than it.</summary>
-        public const float BadgeKeyWidth = 60f;
-
-        /// <summary>Space between the timing diagram's badge and the help badge to its right.</summary>
-        public const float BadgeGap = 24f;
-
-        /// <summary>
-        /// The tab free play's setup panel leaves when it is folded, on <see cref="UiRows.Panels"/>
-        /// at the right margin.
-        /// </summary>
-        public static readonly Vector2 SetupTabSize = new Vector2(110f, 28f);
-
-        /// <summary>
-        /// Free play's setup panel's width. It runs from <see cref="UiRows.Panels"/> down to
-        /// <see cref="UiRows.PanelFloor"/>.
-        /// </summary>
-        /// <remarks>
-        /// Wide enough for eight bit cells beside a sink's name, which is what makes a caught bit
-        /// line up under the vector that produced it.
-        /// </remarks>
-        public const float SetupWidth = 300f;
-
-        /// <summary>
-        /// The help panel's narrowest. It starts on <see cref="UiRows.Panels"/>, beside the setup
-        /// panel on free play.
-        /// </summary>
-        public const float HelpMinimumWidth = 330f;
-
-        /// <summary>
-        /// How far in from the right edge the help panel sits, given whether free play's setup
-        /// panel is docked beside it.
-        /// </summary>
-        /// <remarks>
-        /// They share a row, so they have to take different halves of the column: the help panel
-        /// steps left of the setup panel's full width rather than over it. It steps aside whether
-        /// or not the setup panel is collapsed at that moment, because a help panel that moved
-        /// when the setup panel was folded away would be a panel that is never twice in the same
-        /// place.
-        /// </remarks>
-        public static float HelpRight(bool besideSetupPanel) =>
-            besideSetupPanel ? Margin + SetupWidth + Gap : Margin;
-
-        // -----------------------------------------------------------------
-        // The bottom corners
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Width of a bottom-corner readout.
-        /// </summary>
-        /// <remarks>
-        /// Both corners are in use, by the two readouts behind F2: diagnostics on the right and the
-        /// clock diagram on the left. Free play's catch readout once held the right as well, until
-        /// it moved into the setup panel -- in free play with F2 open it and diagnostics had drawn
-        /// in exactly the same rectangle, which is the pair this constant is for.
-        ///
-        /// The clock diagram was away for a day (2026-09-30), replaced by the timing diagram's
-        /// strip, and came back when the strip moved to F8.
-        /// </remarks>
-        public const float CornerWidth = 230f;
-
-        /// <summary>
-        /// Diagnostics takes the right corner, and the clock diagram the left.
-        /// </summary>
-        /// <remarks>
-        /// Both are behind F2 and both are bottom-corner readouts, so they are stated together:
-        /// they are the pair this constant's width exists to keep apart. Both are clear at this
-        /// height: a corner readout is at most 96 tall on the margin, and everything above them --
-        /// free play's setup panel, the help panel, the timing diagram's strip -- stops at
-        /// <see cref="UiRows.PanelFloor"/>, 152 from the bottom. The parts list is centred on the
-        /// left edge and stops well above the left corner.
-        ///
-        /// The clock diagram is a picture of the level's beat and belongs beside the board's own
-        /// left edge, where the sources are.
-        /// </remarks>
-        public static readonly Vector2 DiagnosticsCorner = new Vector2(1f, 0f);
-
-        /// <inheritdoc cref="DiagnosticsCorner"/>
-        public static readonly Vector2 ClockDiagramCorner = new Vector2(0f, 0f);
-
-        /// <summary>
-        /// Puts a readout in one of the two bottom corners, at the shared width.
-        /// </summary>
-        /// <remarks>
-        /// Anchored to its own corner rather than positioned absolutely, because the canvas scaler
-        /// matches width or height at 0.5 -- so how many canvas units wide the screen is depends on
-        /// the window's shape, and only an anchor keeps a panel on the edge it belongs to.
-        /// </remarks>
-        public static void AnchorBottomCorner(RectTransform rect, Vector2 corner, float height)
-        {
-            float inset = corner.x > 0.5f ? -Margin : Margin;
-
-            Anchor(rect, corner, corner, new Vector2(inset, Margin),
-                new Vector2(CornerWidth, height));
-        }
-
-        // -----------------------------------------------------------------
-        // The rows' heights. Where each row sits is UiRows.
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// The controls row along the bottom: the keys over the run buttons, and the upper line of
-        /// each block of controls beside them.
-        /// </summary>
+        /// <summary>A key's cap: how tall it is drawn.</summary>
         public const float ControlsHeight = 26f;
-
-        /// <summary>How the board's controls are set, and the main menu's line.</summary>
-        /// <remarks>
-        /// Body, up from Label after a playtest asked for it larger (2026-09-27), and
-        /// <see cref="UiType.Prompt"/> since a second playtest still found the controls unclear and
-        /// small (2026-09-28). It is what a new player reads to find out what the mouse does, so it
-        /// is set in the text colour now rather than the dim one.
-        /// </remarks>
-        public const UiType ControlsType = UiType.Prompt;
 
         /// <summary>A key over the button it presses, drawn as a key: its name in a small outlined cap.</summary>
         /// <remarks>
-        /// The keys over the run buttons were dim words -- "Enter", "shift+R" -- in the same style as
+        /// The keys over the buttons were dim words -- "Enter", "shift+R" -- in the same style as
         /// the sentences beside them, so they read as more small print rather than as keys to press.
         /// A cap says "key" by its shape before it is read.
         /// </remarks>
@@ -206,182 +74,31 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A key written under the button it matches, in a corner: H under the help badge, ESC under
-        /// MENU.
-        /// </summary>
-        /// <remarks>
-        /// Label, up from Micro, with the rest of the board's controls after the same playtest.
-        /// </remarks>
-        public const UiType KeyCaptionType = UiType.Label;
-
-        /// <inheritdoc cref="KeyCaptionType"/>
-        public const float KeyCaptionHeight = 18f;
-
-        /// <summary>
-        /// The line at the foot of a full-screen screen saying how to leave it.
+        /// The type the workbench's status line is set in.
         /// </summary>
         /// <remarks>
         /// Caption, then Label after a playtest found it hard to read, and Body in the text colour
         /// since a second playtest (2026-09-27) asked for it bigger and clearer again: at Label in the
         /// dim colour, on a screen scaled down to a browser tab, it was the hardest thing on the
-        /// screen to read. The level list's row notes were set the same way and were not what was
-        /// asked about; they are <see cref="RowNoteType"/>.
+        /// screen to read.
         /// </remarks>
         public const UiType HelpLineType = UiType.Body;
 
-        /// <inheritdoc cref="HelpLineType"/>
-        public static Color HelpLineColour => Text;
-
-        /// <summary>How tall a help line's box is at <see cref="HelpLineType"/>.</summary>
-        public const float HelpLineHeight = 26f;
-
         /// <summary>
-        /// The asides on a level list row -- "the controls", "free play", a personal best. Label, a
-        /// step up from Caption after a playtest found them hard to read.
-        /// </summary>
-        public const UiType RowNoteType = UiType.Label;
-
-        /// <summary>The refusal toast.</summary>
-        public const float ToastHeight = 42f;
-
-        /// <summary>
-        /// The type a refusal is set in. Body, like the goal above the board: a refusal is read at
-        /// the moment an action did not happen, and at Label it was the smallest thing that said so.
-        /// </summary>
-        public const UiType ToastType = UiType.Body;
-
-        /// <summary>The toast is never narrower than this, so a short refusal is not a sliver.</summary>
-        public const float ToastMinimumWidth = 520f;
-
-        /// <summary>Room each side of a refusal inside its toast.</summary>
-        public const float ToastPadding = 20f;
-
-        /// <summary>
-        /// How wide the toast is drawn for <paramref name="refusal"/>: its text and padding, and never
-        /// less than <see cref="ToastMinimumWidth"/>.
-        /// </summary>
-        /// <remarks>
-        /// Measured rather than fixed, so no refusal runs out of its box: the longest, the tutorial
-        /// asking for START or SKIP, needs about 530 at Body and the toast was 520 wide.
-        /// </remarks>
-        public static float ToastWidth(string refusal) =>
-            Mathf.Max(ToastMinimumWidth, Mathf.Ceil(TextWidth(refusal, ToastType)) + 2f * ToastPadding);
-
-        /// <summary>
-        /// The solved card: a strip across the foot of the board, on <see cref="UiRows.SolvedCard"/>.
-        /// </summary>
-        /// <remarks>
-        /// It was a 500x330 panel in the middle of the screen, which is where every circuit is, so
-        /// the card congratulating a circuit hid it. Fixtures stand in the two edge columns and
-        /// circuits gather in the middle rows; a low, wide strip over the centre of the bottom row
-        /// covers the part of the board a circuit uses least.
-        /// </remarks>
-        public const float SolvedCardWidth = 860f;
-
-        /// <inheritdoc cref="SolvedCardWidth"/>
-        public const float SolvedCardHeight = 118f;
-
-        /// <summary>The status banner's width; the rows under it share it.</summary>
-        public const float BannerWidth = 780f;
-
-        /// <summary>Width the title and the goal wrap inside, within the banner's own width.</summary>
-        public const float BannerTextWidth = 760f;
-
-        /// <summary>The title's row: its inset from the top, plus its own height.</summary>
-        public const float BannerTitleBlock = 40f;
-
-        /// <summary>
-        /// Room under the title for the goal: three wrapped lines, which is the longest any level
-        /// has.
-        /// </summary>
-        /// <remarks>
-        /// Reserved, not always drawn. The banner shrinks to whatever its goal actually needs, so a
-        /// one-line goal is not sitting in a box with forty empty pixels under it -- but every row
-        /// below the banner is placed from the full figure, so a long goal can never push one of
-        /// them off its row. <see cref="UiThemeTests"/> refuses a goal that would not fit.
-        /// </remarks>
-        public const float BannerGoalHeight = 66f;
-
-        /// <summary>What the goal is set as, shared with whatever measures it.</summary>
-        public const UiType BannerGoalType = UiType.Body;
-
-        /// <summary>Breathing room under the goal.</summary>
-        public const float BannerPad = 12f;
-
-        /// <summary>
-        /// Tall enough for the title and the goal, and nothing else.
-        /// </summary>
-        /// <remarks>
-        /// <inheritdoc cref="BannerWidth"/>
-        ///
-        /// Was 122 while the banner also carried the level's hint. Dropping that line freed thirty
-        /// pixels, and because every row below is measured from here, the first-time hint and the
-        /// tutorial's instruction strip both moved up with it rather than leaving a hole.
-        ///
-        /// Added up from the three rows above rather than stated, so the goal getting more room
-        /// moves everything below the banner instead of running off the bottom of it.
-        /// </remarks>
-        public const float BannerHeight = BannerTitleBlock + BannerGoalHeight + BannerPad;
-
-        /// <summary>
-        /// How far below the drawn banner the verdict hangs, and how tall its line is.
-        /// </summary>
-        /// <remarks>
-        /// Shared between `StatusBanner`, which hangs the verdict off the banner it draws, and
-        /// <see cref="UiRows.Verdict"/>, which reserves the room it can reach.
-        /// </remarks>
-        public const float VerdictGap = 6f;
-
-        /// <inheritdoc cref="VerdictGap"/>
-        public const float VerdictLineHeight = 26f;
-
-        /// <summary>The clock strip, its own gap below it included.</summary>
-        public const float ClockHeight = 22f + Gap;
-
-        /// <summary>A first-time hint.</summary>
-        public const float HintHeight = 46f;
-
-        /// <summary>The tutorial's instruction strip.</summary>
-        public const float TutorialHeight = 52f;
-
-        /// <summary>
-        /// How tall a goal wraps to in the banner, measured with the label that will draw it.
-        /// </summary>
-        /// <remarks>
-        /// Here rather than inside <see cref="StatusBanner"/> because two things need the answer:
-        /// the banner, to size itself to what it is showing, and a test, to refuse a goal that
-        /// would not fit. Each measuring it for itself is the second copy that drifts -- and the
-        /// test assembly does not reference TextMeshPro, which is the other reason the measuring
-        /// belongs on this side of the line.
-        ///
-        /// The ruler is built once and kept. It is marked not-to-be-saved for the reason the
-        /// generated sprites are, and re-made if something destroys it anyway.
-        /// </remarks>
-        public static float GoalHeight(string goal) =>
-            TextHeight(goal, BannerGoalType, BannerTextWidth);
-
-        /// <summary>
-        /// The height a wrapped run of text needs, measured with a real label rather than guessed.
+        /// The width a run of text needs on one line, measured with a real label rather than guessed. For the labels that never
+        /// wrap, where running long means running out of the box sideways.
         /// </summary>
         /// <remarks>
         /// One ruler, reused and reconfigured per call. It is HideAndDontSave, so it is neither
         /// saved into a scene nor swept up as an untracked object -- the same flag every generated
         /// sprite carries, for the same reason.
         ///
-        /// Guessing is what this replaces. A box sized by counting the lines somebody expected is
-        /// a box that fits until a level is written with one more, and nothing tells you which
-        /// level did it: the text simply prints past the panel.
+        /// Guessing is what this replaces. A box sized by counting the characters somebody expected is
+        /// a box that fits until a name is written with one more, and nothing tells you which
+        /// one did it: the text simply prints past the panel.
         /// </remarks>
-        public static float TextHeight(string text, UiType type, float width, float lineSpacing = 0f) =>
-            string.IsNullOrEmpty(text) ? 0f : Ruler(type, lineSpacing).GetPreferredValues(text, width, 0f).y;
-
-        /// <summary>
-        /// The width a run of text needs on one line, measured with the same ruler as
-        /// <see cref="TextHeight"/>. For the labels that never wrap, where running long means
-        /// running out of the box sideways.
-        /// </summary>
         public static float TextWidth(string text, UiType type) =>
-            string.IsNullOrEmpty(text) ? 0f : Ruler(type, 0f).GetPreferredValues(text, float.PositiveInfinity, 0f).x;
+            string.IsNullOrEmpty(text) ? 0f : Ruler(type).GetPreferredValues(text, float.PositiveInfinity, 0f).x;
 
         /// <summary>
         /// <paramref name="text"/> as it fits <paramref name="width"/> on one line in <paramref name="type"/>: whole, or cut
@@ -401,7 +118,7 @@ namespace BitSorter.View
             return text.Substring(0, 1) + "...";
         }
 
-        private static TextMeshProUGUI Ruler(UiType type, float lineSpacing)
+        private static TextMeshProUGUI Ruler(UiType type)
         {
             if (_ruler == null)
             {
@@ -424,7 +141,6 @@ namespace BitSorter.View
                 _ruler.font = font;
 
             _ruler.fontSize = SizeOf(type);
-            _ruler.lineSpacing = lineSpacing;
             return _ruler;
         }
 
@@ -443,8 +159,8 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Not <see cref="Panel_"/>. Its rounded, sliced sprite fades out towards the rect's edges,
-        /// so stretched over the screen it left the screen's edges -- which is where the HUD sits --
-        /// undimmed beside a supposedly full-screen panel. With no sprite, Unity draws a flat colour.
+        /// so stretched over the screen it left the screen's edges undimmed beside a supposedly
+        /// full-screen panel. With no sprite, Unity draws a flat colour.
         /// </remarks>
         public static Image Scrim(string name, Transform parent, Color colour)
         {
@@ -517,8 +233,7 @@ namespace BitSorter.View
         /// borrowed and could not nine-slice: with no border the whole sprite was stretched across
         /// the rect, so a panel was solid in the middle and faded out by its edges.
         ///
-        /// Anything shorter than two corners -- the clock readout's pips -- has to replace the
-        /// sprite, the way the help badge already replaces it with a circle.
+        /// Anything shorter than two corners has to replace the sprite.
         /// </remarks>
         public static Image Panel_(string name, Transform parent, Color colour)
         {
@@ -541,7 +256,6 @@ namespace BitSorter.View
                 case UiType.Caption: return 13f;
                 case UiType.Label: return 15f;
                 case UiType.Body: return 18f;
-                case UiType.Prompt: return 20f;
                 case UiType.Numeral: return 22f;
                 case UiType.Lead: return 24f;
                 case UiType.Heading: return 26f;
@@ -577,8 +291,8 @@ namespace BitSorter.View
         /// <paramref name="role"/> says. The click handler is the caller's to attach.
         /// </summary>
         /// <remarks>
-        /// The caption's size is asked for here rather than changed afterwards, which is what free
-        /// play's small buttons did -- made at full size, then shrunk.
+        /// The caption's size is asked for here rather than changed afterwards, which is what the
+        /// 4.x game's small buttons did -- made at full size, then shrunk.
         /// </remarks>
         public static Button Button_(
             string name, Transform parent, string caption, out TextMeshProUGUI label,
@@ -602,8 +316,7 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// A button with no caption, for a row that lays out its own contents: a level in the list,
-        /// a part in the parts list.
+        /// A button with no caption, for a row that lays out its own contents.
         /// </summary>
         /// <remarks>
         /// Those rows used to make an ordinary button and destroy its caption straight away, four
@@ -634,16 +347,6 @@ namespace BitSorter.View
             return button;
         }
 
-        /// <summary>
-        /// A button's fill when it is the one chosen -- the part in hand, the level being played, the
-        /// speed in use -- and when it is not.
-        /// </summary>
-        /// <remarks>
-        /// Written out in the parts list, the level list and free play's speed row, each with its own
-        /// copy of the same two colours.
-        /// </remarks>
-        public static Color SelectedFill(bool selected) => selected ? Palette.Current.Selected : PanelEdge;
-
         /// <summary>A button's colour by what it is for.</summary>
         public static Color FillOf(ButtonRole role)
         {
@@ -656,22 +359,6 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>
-        /// Makes a button usable or not, and dims its caption to match.
-        /// </summary>
-        /// <remarks>
-        /// A button's disabled tint reaches only its background, so a dead button kept a bright
-        /// caption unless whoever disabled it remembered to dim that too -- free play's steppers and
-        /// its truth-table button did, and its "All 0" button did not.
-        /// </remarks>
-        public static void SetEnabled(Button button, TextMeshProUGUI label, bool enabled)
-        {
-            button.interactable = enabled;
-
-            if (label != null)
-                label.color = enabled ? Text : TextDim;
-        }
-
         /// <summary>How tall a slider's track is drawn; its handle and hit area are taller.</summary>
         public const float SliderTrack = 6f;
 
@@ -679,110 +366,12 @@ namespace BitSorter.View
         public const float SliderHandle = 20f;
 
         /// <summary>
-        /// A horizontal slider over whole numbers from <paramref name="min"/> to
-        /// <paramref name="max"/>: a thin track, the filled part of it, and a round handle.
-        /// </summary>
-        /// <remarks>
-        /// Built in code like every other control. The track is drawn thin but the whole height of
-        /// the slider takes the click -- a clear backing catches it, the way the level list's
-        /// viewport catches the wheel -- so it is as easy to hit as a button of that height.
-        ///
-        /// Navigation is off for the reason it is off on buttons: a selected slider answers the
-        /// arrow keys, and the right arrow steps a paused run.
-        /// </remarks>
-        public static Slider Slider_(string name, Transform parent, int min, int max)
-        {
-            RectTransform root = Rect(name, parent);
-
-            Image catcher = root.gameObject.AddComponent<Image>();
-            catcher.color = Color.clear;
-
-            // The track, the fill and the handle all span the same stretch, half a handle in from
-            // either end: the fill always ends exactly under the handle's middle, and at nothing no
-            // stub of track shows beyond it. The handle overhangs the ends by half itself, and the
-            // hit area covers that overhang.
-            float half = SliderHandle * 0.5f;
-
-            Image track = Panel_("track", root, PanelEdge);
-            track.sprite = null;   // thinner than a panel's corners, so a plain bar
-            track.raycastTarget = false;
-            HorizontalBar(track.rectTransform, half, SliderTrack);
-
-            RectTransform fillArea = Rect("fill area", root);
-            HorizontalBar(fillArea, half, SliderTrack);
-
-            Image fill = Panel_("fill", fillArea, Accent);
-            fill.sprite = null;
-            fill.raycastTarget = false;
-            Stretch(fill.rectTransform);
-
-            // A band exactly a handle tall, so the handle is as tall as it is wide and stays round
-            // whatever height the row gives the slider.
-            RectTransform handleArea = Rect("handle area", root);
-            HorizontalBar(handleArea, half, SliderHandle);
-
-            Image handle = Panel_("handle", handleArea, Text);
-            handle.sprite = ProceduralSprites.Circle();
-            handle.type = Image.Type.Simple;
-            handle.raycastTarget = false;
-
-            var slider = root.gameObject.AddComponent<Slider>();
-            slider.fillRect = fill.rectTransform;
-            slider.handleRect = handle.rectTransform;
-            slider.targetGraphic = handle;
-            slider.direction = Slider.Direction.LeftToRight;
-            slider.wholeNumbers = true;
-            slider.minValue = min;
-            slider.maxValue = max;
-            slider.transition = Selectable.Transition.None;   // SetEnabled draws the states
-
-            // The slider anchors the handle to its value down the whole band; this makes it a handle
-            // wide as well as a handle tall.
-            handle.rectTransform.sizeDelta = new Vector2(SliderHandle, 0f);
-
-            var navigation = slider.navigation;
-            navigation.mode = Navigation.Mode.None;
-            slider.navigation = navigation;
-
-            return slider;
-        }
-
-        /// <summary>
-        /// A band <paramref name="height"/> tall across the middle of its parent, stopping
-        /// <paramref name="inset"/> short of either end.
-        /// </summary>
-        private static void HorizontalBar(RectTransform rect, float inset, float height)
-        {
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.offsetMin = new Vector2(inset, -height * 0.5f);
-            rect.offsetMax = new Vector2(-inset, height * 0.5f);
-        }
-
-        /// <summary>
-        /// Makes a slider usable or not. Not usable is greyed out: the filled part and the handle
-        /// both go to the dim text colour, so nothing about it still reads as live.
-        /// </summary>
-        public static void SetEnabled(Slider slider, bool enabled)
-        {
-            slider.interactable = enabled;
-
-            if (slider.fillRect != null && slider.fillRect.TryGetComponent(out Image fill))
-                fill.color = enabled ? Accent : TextDim;
-
-            if (slider.handleRect != null && slider.handleRect.TryGetComponent(out Image handle))
-                handle.color = enabled ? Text : TextDim;
-        }
-
-        /// <summary>
         /// Puts a panel in front of its siblings.
         /// </summary>
         /// <remarks>
         /// A canvas draws children in sibling order, which is the order they were created -- so
         /// without this, which panel covers which is decided by the order components happen to run
-        /// their Start, and the main menu opened *underneath* the level list. Whatever was opened
-        /// most recently should be the thing in front.
+        /// their Start. Whatever was opened most recently should be the thing in front.
         /// </remarks>
         public static void BringToFront(RectTransform rect)
         {

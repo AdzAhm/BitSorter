@@ -125,8 +125,6 @@ grep -n "_newField" Assets/Scenes/HalfAdderDemo.unity
 echo "empty refs now: $(grep -cE '^\s+_[A-Za-z]+: \{fileID: 0\}' Assets/Scenes/HalfAdderDemo.unity) at HEAD: $(git show HEAD:Assets/Scenes/HalfAdderDemo.unity | grep -cE '^\s+_[A-Za-z]+: \{fileID: 0\}')"
 ```
 
-The builder also re-saves `Assets/Settings/DemoBloomProfile.asset` in a different object order. Check that the values are unchanged, and commit it separately as a chore.
-
 ## 6. Commit
 
 - Commit after each green run, with a short message ending in the `Co-Authored-By` line.

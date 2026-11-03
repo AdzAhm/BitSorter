@@ -3,18 +3,17 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// A panel that takes the whole screen: the main menu, the level list, and the cards.
+    /// A panel that takes the whole screen: the workbench, which Settings and the credits are pages of.
     /// </summary>
     /// <remarks>
     /// Showing one is four things, always together: make it active, put it in front of whatever
     /// was opened before it, tell <see cref="UiModal"/> the board is covered, and tell it again
     /// when it is not -- including when the panel is switched off without being closed, or the
-    /// keyboard stays dead behind a panel nobody can see. Five panels each wrote those four out,
-    /// and they had drifted: the chapter card never brought itself to the front, so which of two
+    /// keyboard stays dead behind a panel nobody can see. Five panels each wrote those four out in
+    /// the 4.x game, and they had drifted: the chapter card never brought itself to the front, so which of two
     /// panels covered the other depended on the order they had been built in.
     ///
-    /// What differs between them -- the menu refreshing its progress line, the level list scrolling
-    /// to the current level -- is what <see cref="OnShown"/> and <see cref="OnHidden"/> are for.
+    /// What differs between them is what <see cref="OnShown"/> and <see cref="OnHidden"/> are for.
     /// </remarks>
     public abstract class FullScreenPanel : MonoBehaviour
     {
@@ -23,26 +22,6 @@ namespace BitSorter.View
 
         /// <summary>Whether the panel is up.</summary>
         public bool IsShowing { get; private set; }
-
-        private UiFade _fade;
-
-        /// <summary>Whether the HUD was on screen when this panel began to come in over it.</summary>
-        private bool _overTheHud;
-
-        /// <summary>
-        /// Whether the HUD beneath this panel should step aside: once the panel has faded in over
-        /// it, or at once if the HUD was already hidden when the panel opened.
-        /// </summary>
-        /// <remarks>
-        /// The HUD used to vanish in the frame a panel opened, while the panel was still almost
-        /// transparent, so for a moment the board showed bare with nothing over it. Now the panel
-        /// covers the HUD as it fades in, and the HUD goes once it is covered.
-        ///
-        /// "Already hidden" includes a panel that closed earlier in the same frame: the main menu
-        /// closes itself and then opens the level list, and between the two nothing is open -- so
-        /// asked naively, the HUD would flash up under the list for the length of its fade.
-        /// </remarks>
-        public bool CoversTheHud => IsShowing && !(_overTheHud && _fade != null && _fade.IsMoving);
 
         /// <summary>Shows or hides the panel, and keeps <see cref="UiModal"/> told.</summary>
         /// <remarks>
@@ -63,8 +42,7 @@ namespace BitSorter.View
 
                 if (appearing)
                 {
-                    _overTheHud = !UiModal.OpenOrJustClosed;
-                    _fade = UiFade.In(Root);
+                    UiFade.In(Root);
                     _openedOn = Time.frameCount;
                 }
 

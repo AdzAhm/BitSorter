@@ -478,8 +478,10 @@ stretch that way.
   weighed was that every source was `Good`, every sink `Bad` and the NAND gate
   `Accent`, to the last digit. **Never change a palette in place** -- derive a
   new one -- and choose it before the scene loads, because renderers take their
-  colours when they build. The board tile bakes its colours in, so it is cached
-  per palette.
+  colours when they build. Since Part 16b a palette holds only what is still
+  read -- the ground and its traces, a wire's core, a bit, the burn, the
+  interface's panel, text, accent and buttons -- the 4.x board's colours for its
+  gates, fixtures, wires and cards having gone with the board.
 
   **Every look draws 5.0's workbench as well, from a `SchematicPalette` of its
   own** (`Look.Canvas`, and its glow `Look.CanvasGlow`), under the same rules: the
@@ -500,15 +502,21 @@ stretch that way.
   rendered side by side for the 4.x board -- and differ from it on the canvas
   (Ahmad approved it with the plan, 2026-10-12, and confirmed it at Part 8's
   review, 2026-10-14). `Look.Classic` is 2.0's look, kept so a change that claims
-  to touch no look can be held to Classic's reference shots, pixel for pixel. A
-  look's bloom lives in the scene's volume profile, which holds Classic's values,
-  so `LookBoot` puts the current look's on every scene as it loads.
+  to touch no look can be held to Classic's reference shots, pixel for pixel.
+  **There is no bloom** (Part 16b). The workbench is a Screen Space Overlay canvas
+  and a UI Toolkit panel, and both are drawn after the camera's post-processing,
+  so the bloom a look set in the scene's volume profile blurred an empty camera
+  image every frame and never touched anything on screen. The volume, its
+  profile, `Look.ApplyBloom` and the camera's post-processing are gone;
+  `LookBoot` stays for the one thing else it does, which is to put the player's
+  chosen look on before the first scene in a build. A look is now a palette, how
+  its panels are drawn, and its canvas and glow: the 4.x board's gate bodies,
+  bits, trails, glows, grid and board tile went with the board.
   `LookBriefTests` holds every look to the canvas's brief: every value and
   outline at 3:1 on its ground, every word at 4.5:1, a 0 and a 1 apart by weight
   as well as colour, an undriven wire apart from both, and reduced motion leaving
-  out the glow and the flashes -- and still holds the looks but Classic to the
-  4.x board's brief, whose palettes they keep until Part 16b decides what of them
-  stays (with bloom, which was for the 4.x board's bits in flight).
+  out the glow and the flashes -- and the looks but Classic to the interface's,
+  where text and buttons read on a panel.
 
   **A button says what it is for** -- `ButtonRole`, and `UiTheme.FillOf` is the
   one place a role becomes a colour. The primary is the one thing a screen asks
@@ -567,7 +575,7 @@ stretch that way.
   once. What exists to list keys keeps them -- the keyboard map and the guided
   tutorial -- and every key works either way.
 - **Text is sized by what it is for, never by a number.** `UiTheme.Label` takes a
-  `UiType` -- Micro, Caption, Label, Body, Prompt, Numeral, Lead, Heading, Title, Display --
+  `UiType` -- Micro, Caption, Label, Body, Numeral, Lead, Heading, Title, Display --
   and `UiTheme.SizeOf` is the one place those become sizes. Seventeen sizes from
   10 to 54 had grown a label at a time, so full-screen titles alone came in three
   and two things of one kind drifted a point apart. Nothing is under twelve:
@@ -911,8 +919,7 @@ stretch that way.
   has no straight edge to repeat and stops short of its own texture -- so
   `Image.Type.Sliced` stretched the whole sprite and every panel faded out
   towards its rim. Over the 4.x board that left the help panel's title and hint
-  on bare grid. Anything shorter than two corners replaces the sprite with a
-  circle.
+  on bare grid. Anything shorter than two corners has to replace the sprite.
 
   **Generated sprites are `HideAndDontSave`, and the cache checks what it hands
   out.** `ProceduralSprites` keeps every sprite it draws in a static dictionary,
@@ -926,12 +933,13 @@ stretch that way.
   already drawn wrong.
 
   **`Mathf.SmoothStep` is not the shader smoothstep.** It eases between its
-  first two arguments, so `SmoothStep(0.62f, 0.98f, d)` is never 0 or 1, and
-  `ProceduralSprites` draws a soft edge through its own `Edge` instead --
-  `SmoothStep(0f, 1f, t)` is the one form that is the same either way. The 4.x
-  board's socket `Ring` and its `Dot` had it the other way until 2026-10-06: an
-  empty input socket was a faint disc that nobody could see under a wire's end.
-  `ProceduralSpritesTests` reads the generated textures to hold both.
+  first two arguments, so `SmoothStep(0.62f, 0.98f, d)` is never 0 or 1;
+  `SmoothStep(0f, 1f, t)` is the one form that is the same either way, and the
+  one `ProceduralSprites` uses. The 4.x board's socket ring and its dot had it
+  the other way until 2026-10-06: an empty input socket was a faint disc that
+  nobody could see under a wire's end. They went with the board in Part 16b, and
+  the tests that read their textures with them; `ProceduralSprites` draws the
+  panel's backdrop and nothing else.
 
   **A full-screen panel has the screen to itself**, and its backdrop is
   `UiTheme.Scrim`, a flat rectangle: a scrim wants no corners at all, not small
@@ -956,7 +964,7 @@ stretch that way.
   each wrote those out, and they had drifted: the chapter card never brought
   itself to the front. What differs between them goes in `OnShown` and
   `OnHidden`. (Its HUD half, `CoversTheHud` and `UiModal.HudVisible`, was the
-  4.x board's, and is left for Part 16b's tidy.)
+  4.x board's, and went in Part 16b.)
 
   **A panel fades in, and takes clicks while it does.** `UiFade` moves a
   `CanvasGroup`'s alpha and nothing else, so a panel is clickable from the first
@@ -1022,7 +1030,7 @@ only by scrolling (Ahmad, 2026-10-28);
 width and height, so a wide window gives less than the 1080 the sections are laid
 out against -- a browser tab 1920 by 800 gives about 930. As a uGUI screen it had
 no scroll, ran under BACK and off the bottom, and was made to shrink to fit
-(`SettingsPanel.FitScale`, unused since and left for Part 16b's tidy).
+(`SettingsPanel.FitScale`, removed in Part 16b).
 **Nothing in a shell `ScrollView` may give up its height** (`flexShrink = 0` on
 every row): UI Toolkit shrinks a column's children to the page before it lets
 the page scroll, and the first build of the page squashed every line into the

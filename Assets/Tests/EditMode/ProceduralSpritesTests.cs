@@ -17,6 +17,9 @@ namespace BitSorter.LogicCore.Tests
     /// Not hypothetical. A WebGL build finished seventeen seconds before an EditMode run, and two
     /// panel tests that had passed an hour earlier failed with a null sprite. It is invisible in a
     /// player, where nothing unloads mid-session, and it only ever showed up in the editor.
+    ///
+    /// The 4.x board's sprites -- its sockets, bits, glow and board tile -- and the tests of their edges and keys went
+    /// with them in Part 16b; the panel's backdrop is what is left to draw.
     /// </remarks>
     public class ProceduralSpritesTests
     {
@@ -48,12 +51,12 @@ namespace BitSorter.LogicCore.Tests
         [Test]
         public void ASpriteWhoseTextureWentMissing_IsAlsoBuiltAgain()
         {
-            Sprite first = ProceduralSprites.RoundedSquare();
+            Sprite first = ProceduralSprites.Panel(PanelStyle.Bordered);
             AssertAlive(first, "sanity: the factory produced a sprite");
 
             Object.DestroyImmediate(first.texture);
 
-            Sprite again = ProceduralSprites.RoundedSquare();
+            Sprite again = ProceduralSprites.Panel(PanelStyle.Bordered);
 
             AssertAlive(again, "the cache kept a sprite with no texture behind it");
             AssertAlive(again.texture, "the cache kept a sprite with no texture behind it");
@@ -66,160 +69,11 @@ namespace BitSorter.LogicCore.Tests
         /// The pair to the two above: a check that rebuilt on every call would satisfy them and
         /// quietly make every panel regenerate its backdrop.
         /// </remarks>
-        /// <summary>
-        /// An empty socket is a ring: nothing in its middle or past its rim, and solid in its band.
-        /// </summary>
-        /// <remarks>
-        /// It was drawn with <see cref="Mathf.SmoothStep"/> as though it were the shader smoothstep,
-        /// which it is not -- it eases between its first two arguments -- so the "ring" was a faint
-        /// disc: 0.11 in its middle, 0.012 in its corners and far from solid in its band. Found by a
-        /// render probe of the block pulse, 2026-10-06.
-        /// </remarks>
-        [Test]
-        public void AnEmptySocket_IsARing_EmptyInsideAndOut_AndSolidInItsBand()
-        {
-            Texture2D texture = ProceduralSprites.Ring().texture;
-            int size = texture.width;
-
-            Assert.AreEqual(0f, texture.GetPixel(size / 2, size / 2).a, "the middle of an empty socket is not empty");
-            Assert.AreEqual(0f, texture.GetPixel(0, 0).a, "a corner of an empty socket is not empty");
-
-            // Six tenths of the way out, inside both of the ring's soft edges.
-            int band = size / 2 + Mathf.RoundToInt(size / 2f * 0.6f);
-            Assert.Greater(texture.GetPixel(band, size / 2).a, 0.95f, "the ring's band is not solid");
-        }
-
-        /// <summary>
-        /// A dot -- a bit in Classic, a spark, an output socket, a grid point -- is solid at its core
-        /// and empty past its edge.
-        /// </summary>
-        /// <remarks>
-        /// The same misuse of <see cref="Mathf.SmoothStep"/> left its core at 0.65.
-        /// </remarks>
-        [Test]
-        public void ADot_IsSolidAtItsCore_AndEmptyPastItsEdge()
-        {
-            Texture2D texture = ProceduralSprites.Dot().texture;
-            int size = texture.width;
-
-            Assert.AreEqual(1f, texture.GetPixel(size / 2, size / 2).a, "a dot's core is not solid");
-            Assert.AreEqual(0f, texture.GetPixel(0, 0).a, "a dot's corner is not empty");
-        }
-
         [Test]
         public void AskingTwiceForTheSameSprite_ReturnsTheSameOne()
         {
             Assert.AreSame(ProceduralSprites.Panel(), ProceduralSprites.Panel());
-            Assert.AreSame(ProceduralSprites.Circle(), ProceduralSprites.Circle());
-
-            // The board tile is keyed differently from the masks -- on the palette, because it bakes
-            // its colours in -- and a lookup and a store that disagreed on that key would rebuild a
-            // texture on every call without anything on screen looking wrong.
-            Assert.AreSame(ProceduralSprites.BoardTile(), ProceduralSprites.BoardTile(),
-                "the board tile is rebuilt on every call, and every rebuild is a texture nothing frees");
-        }
-
-        /// <summary>
-        /// Two looks get two board tiles, because the tile's colours are baked into its texture.
-        /// </summary>
-        [Test]
-        public void ADifferentPalette_GetsItsOwnBoardTile()
-        {
-            Palette colours = Palette.Classic.Derive("test-other", p => p.Ground = Color.magenta);
-            Look other = Look.Classic.Derive("test-other", l => l.Colours = colours);
-
-            try
-            {
-                Sprite classic = ProceduralSprites.BoardTile();
-
-                Look.Use(other);
-                Sprite derived = ProceduralSprites.BoardTile();
-
-                Assert.AreNotSame(classic, derived,
-                    "a second palette was drawn on the first one's board tile");
-            }
-            finally
-            {
-                Look.Use(null);
-            }
-        }
-
-        /// <summary>
-        /// A board tile spread over more of the board covers that many world units, at the shipped
-        /// tile's sharpness, with its lines no wider on the board than the shipped ones.
-        /// </summary>
-        [Test]
-        public void ALargerBoardTile_CoversMoreOfTheBoard_AtTheSameSharpness()
-        {
-            Look wide = Look.Classic.Derive("test-wide", l => l.BoardUnits = 4f);
-
-            try
-            {
-                // Classic's tile, named rather than taken as whatever is current: the game's own look
-                // spreads its tile too.
-                Look.Use(Look.Classic);
-                Sprite shipped = ProceduralSprites.BoardTile();
-
-                Look.Use(wide);
-                Sprite spread = ProceduralSprites.BoardTile();
-
-                Assert.AreNotSame(shipped, spread, "the wider tile was drawn on the shipped tile's key");
-                Assert.AreEqual(1f, shipped.bounds.size.x, 1e-4f, "the shipped tile covers one unit");
-                Assert.AreEqual(4f, spread.bounds.size.x, 1e-4f, "the wider tile should cover four");
-                Assert.AreEqual(shipped.pixelsPerUnit, spread.pixelsPerUnit, 1e-4f,
-                    "a wider tile should keep the same texels per world unit");
-
-                Assert.AreEqual(LineTexels(shipped), LineTexels(spread),
-                    "a line should be as wide on the board whatever the tile covers");
-            }
-            finally
-            {
-                Look.Use(null);
-            }
-        }
-
-        /// <summary>The smallest box holding every texel more than half covered.</summary>
-        private static RectInt Extent(Sprite sprite)
-        {
-            Texture2D texture = sprite.texture;
-            Color32[] pixels = texture.GetPixels32();
-            int size = texture.width;
-            int minX = size, minY = size, maxX = -1, maxY = -1;
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    if (pixels[y * size + x].a <= 127)
-                        continue;
-
-                    minX = Mathf.Min(minX, x);
-                    maxX = Mathf.Max(maxX, x);
-                    minY = Mathf.Min(minY, y);
-                    maxY = Mathf.Max(maxY, y);
-                }
-            }
-
-            return new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
-        }
-
-        /// <summary>How many texels wide the tile's middle line is, a quarter of the way up.</summary>
-        private static int LineTexels(Sprite tile)
-        {
-            Texture2D texture = tile.texture;
-            int size = texture.width;
-            Color32[] pixels = texture.GetPixels32();
-            Color32 ground = pixels[(size / 4) * size + size / 4];
-            int row = size / 4;
-            int wide = 0;
-
-            for (int x = size / 4; x < size * 3 / 4; x++)
-            {
-                if (!pixels[row * size + x].Equals(ground))
-                    wide++;
-            }
-
-            return wide;
+            Assert.AreSame(ProceduralSprites.Panel(PanelStyle.Bordered), ProceduralSprites.Panel(PanelStyle.Bordered));
         }
     }
 }

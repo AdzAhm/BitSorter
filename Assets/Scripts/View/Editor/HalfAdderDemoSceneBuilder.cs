@@ -4,8 +4,6 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -26,7 +24,6 @@ namespace BitSorter.View.EditorTools
         private const string ScenesFolder = "Assets/Scenes";
 
         private const string ScenePath = ScenesFolder + "/HalfAdderDemo.unity";
-        private const string BloomProfilePath = "Assets/Settings/DemoBloomProfile.asset";
 
         [MenuItem("BitSorter/Build Play Scene")]
         public static void Build()
@@ -39,7 +36,6 @@ namespace BitSorter.View.EditorTools
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateCamera();
-            CreateBloomVolume();
             Canvas canvas = CreateUi();
 
             var host = new GameObject("Simulation");
@@ -80,6 +76,15 @@ namespace BitSorter.View.EditorTools
             Debug.Log($"Built {ScenePath}. It is open now -- press Play.");
         }
 
+        /// <summary>
+        /// The camera, which draws nothing but its ground colour: the workbench is on an overlay canvas and a UI Toolkit
+        /// panel, both drawn over whatever the camera made.
+        /// </summary>
+        /// <remarks>
+        /// No post-processing, so none is asked for: <c>renderPostProcessing</c> stays at URP's default, off. Until Part
+        /// 16b the camera ran bloom and SMAA on this empty image every frame -- an overlay is drawn after
+        /// post-processing, so neither ever touched anything on screen.
+        /// </remarks>
         private static Camera CreateCamera()
         {
             var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
@@ -94,13 +99,6 @@ namespace BitSorter.View.EditorTools
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 100f;
 
-            // Without this the camera renders no post-processing at all, so the Volume below would
-            // be silently ignored and nothing would bloom. URP adds the component on demand, but
-            // renderPostProcessing defaults to false.
-            UniversalAdditionalCameraData data = camera.GetUniversalAdditionalCameraData();
-            data.renderPostProcessing = true;
-            data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-
             return camera;
         }
 
@@ -108,9 +106,8 @@ namespace BitSorter.View.EditorTools
         /// The canvas and the event system that feeds it.
         /// </summary>
         /// <remarks>
-        /// Screen Space Overlay deliberately, not Screen Space Camera. The camera runs bloom and
-        /// SMAA, and a camera-space canvas would be post-processed with it -- readable
-        /// text is not improved by being bloomed.
+        /// Screen Space Overlay deliberately, not Screen Space Camera: it is drawn straight to the screen, sharp at any
+        /// scale, and never touched by the camera's own rendering.
         ///
         /// The input module must be <see cref="InputSystemUIInputModule"/>. The project is set to the
         /// new Input System exclusively (activeInputHandler 1), so the legacy StandaloneInputModule
@@ -140,39 +137,6 @@ namespace BitSorter.View.EditorTools
             eventSystemObject.AddComponent<InputSystemUIInputModule>();
 
             return canvas;
-        }
-
-        /// <summary>
-        /// A global Volume carrying a Bloom override, which <see cref="LookBoot"/> sets to the look's on every load. The 4.x
-        /// board bloomed its bits in flight; whether any look still wants bloom is Part 16b's question.
-        /// </summary>
-        private static void CreateBloomVolume()
-        {
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            AssetDatabase.CreateAsset(profile, BloomProfilePath);
-
-            var bloom = profile.Add<Bloom>(true);
-
-            // At 1, so nothing drawn in LDR can cross it.
-            bloom.threshold.overrideState = true;
-            bloom.threshold.value = 1f;
-            bloom.intensity.overrideState = true;
-            bloom.intensity.value = 1f;
-            bloom.scatter.overrideState = true;
-            bloom.scatter.value = 0.62f;
-
-            AssetDatabase.AddObjectToAsset(bloom, profile);
-            EditorUtility.SetDirty(profile);
-
-            var host = new GameObject("Global Volume");
-            Volume volume = host.AddComponent<Volume>();
-            volume.isGlobal = true;
-            volume.priority = 1f;
-
-            // sharedProfile, not profile. Volume.profile returns an instantiated runtime copy for
-            // per-instance tweaking and never writes the serialized field, so assigning it leaves
-            // sharedProfile at null and the saved scene blooms nothing.
-            volume.sharedProfile = profile;
         }
 
         /// <summary>Sets a [SerializeField] private field, which is not reachable directly.</summary>

@@ -7,9 +7,15 @@ using UnityEngine;
 namespace BitSorter.LogicCore.Tests
 {
     /// <summary>
-    /// The brief every new look answers, from the critique of the shipped one. Classic is exempt:
-    /// it is the game as it shipped, and these are the things that were wrong with it.
+    /// The brief every new look answers, from the critique of the shipped one. Classic is exempt from the interface's:
+    /// it is the game as it shipped, and these are the things that were wrong with it. The canvas's brief, further
+    /// down, holds every look.
     /// </summary>
+    /// <remarks>
+    /// This held the looks to the 4.x board's brief as well -- no gate, source or sink in a state colour, a 1 in a
+    /// colour of its own, a bit told by its shape, full-screen panels that cover -- until Part 16b took out the colours
+    /// the board drew with.
+    /// </remarks>
     public class LookBriefTests
     {
         private static IEnumerable<Look> NewLooks()
@@ -21,127 +27,15 @@ namespace BitSorter.LogicCore.Tests
             }
         }
 
-        /// <summary>Everything on the board that has a fill of its own.</summary>
-        private static IEnumerable<(string, Color)> BoardFills(Palette p)
-        {
-            yield return ("Source", p.Source);
-            yield return ("Sink", p.Sink);
-            yield return ("Xor", p.Xor);
-            yield return ("And", p.And);
-            yield return ("Or", p.Or);
-            yield return ("Nand", p.Nand);
-            yield return ("Nor", p.Nor);
-            yield return ("Not", p.Not);
-            yield return ("Register", p.Register);
-            yield return ("BitZero", p.BitZero);
-            yield return ("OtherNode", p.OtherNode);
-            yield return ("WireCore", p.WireCore);
-            yield return ("WireMark", p.WireMark);
-            yield return ("WireFlash", p.WireFlash);
-            yield return ("PortInput", p.PortInput);
-            yield return ("PortOutput", p.PortOutput);
-            yield return ("Grid", p.Grid);
-            yield return ("GroundTrace", p.GroundTrace);
-            yield return ("GroundPad", p.GroundPad);
-            yield return ("Waiting", p.Waiting);
-            yield return ("Doomed", p.Doomed);
-            yield return ("Highlight", p.Highlight);
-        }
-
         private static float Distance(Color a, Color b) =>
             Vector3.Distance(new Vector3(a.r, a.g, a.b), new Vector3(b.r, b.g, b.b));
 
         /// <summary>
-        /// Good, Bad and Accent say something about state, and nothing on the board wears one.
-        /// </summary>
-        /// <remarks>
-        /// The shipped board wore them to the last digit: every source was Good, every sink Bad and
-        /// the NAND gate Accent, so every output on every board looked like an error.
-        /// </remarks>
-        [Test]
-        public void NothingOnTheBoard_WearsAStateColour()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Palette p = look.Colours;
-
-                foreach ((string name, Color fill) in BoardFills(p))
-                {
-                    if (name == "Waiting" || name == "Doomed")
-                        continue;   // these are state, drawn on the board on purpose
-
-                    Assert.Greater(Distance(fill, p.Good), 0.12f, $"{look.Name}: {name} is Good");
-                    Assert.Greater(Distance(fill, p.Bad), 0.12f, $"{look.Name}: {name} is Bad");
-                    Assert.Greater(Distance(fill, p.Accent), 0.12f, $"{look.Name}: {name} is Accent");
-                }
-            }
-        }
-
-        /// <summary>A 1 is the only thing on the board in its colour.</summary>
-        /// <remarks>
-        /// The shipped board had three yellows -- the AND, the NOR and a 1 -- told apart by shape
-        /// alone. A bit is small and moving; it should not have to be told apart from a gate.
-        /// </remarks>
-        [Test]
-        public void AOne_HasAColourOfItsOwn()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Palette p = look.Colours;
-
-                foreach ((string name, Color fill) in BoardFills(p))
-                {
-                    Assert.Greater(Distance(p.BitOne, fill), 0.25f,
-                        $"{look.Name}: a 1 is too close to {name} to be told apart by colour");
-                }
-            }
-        }
-
-        /// <summary>
-        /// The chosen button -- the part in hand, the level being played, the speed in use -- stands
-        /// out from the buttons beside it, at full strength.
-        /// </summary>
-        /// <remarks>
-        /// It was the accent multiplied down, which darkens it and makes it see-through at once. On
-        /// a panel with a drawn edge that made the chosen row the dimmest in the list: the level the
-        /// player was on read as the one to skip.
-        /// </remarks>
-        [Test]
-        public void AChosenButton_StandsOutFromTheRest()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Palette p = look.Colours;
-
-                Assert.GreaterOrEqual(p.Selected.a, 0.99f, $"{look.Name}: the chosen button is see-through");
-                Assert.Greater(Distance(p.Selected, p.PanelEdge), 0.3f,
-                    $"{look.Name}: the chosen button is drawn much like the ones beside it");
-            }
-        }
-
-        /// <summary>A full-screen panel is seen at least 85% opaque, so it covers the board.</summary>
-        [Test]
-        public void AFullScreenPanel_CoversTheBoard()
-        {
-            float least = Palette.Seen(0.85f);
-
-            foreach (Look look in NewLooks())
-            {
-                Palette p = look.Colours;
-
-                Assert.GreaterOrEqual(p.MenuScrim.a, least, $"{look.Name}: the menu lets the board through");
-                Assert.GreaterOrEqual(p.ListScrim.a, least, $"{look.Name}: the level list lets the board through");
-                Assert.GreaterOrEqual(p.CardScrim.a, least, $"{look.Name}: the cards let the board through");
-            }
-        }
-
-        /// <summary>
         /// Every colour text is drawn in reads on a panel at 4.5 to 1 or better, the dim text and
-        /// the green of a solved row included.
+        /// the accent included.
         /// </summary>
         /// <remarks>
-        /// Solved rows in the shipped level list were 4.17 to 1. A bordered panel's body is a share
-        /// of its tint, so that is what the text sits on.
+        /// A bordered panel's body is a share of its tint, so that is what the text sits on.
         /// </remarks>
         [Test]
         public void TextOnAPanel_IsReadable()
@@ -155,58 +49,12 @@ namespace BitSorter.LogicCore.Tests
                 foreach ((string name, Color ink) in new[]
                          {
                              ("Text", p.Text), ("TextDim", p.TextDim), ("Accent", p.Accent),
-                             ("Good", p.Good), ("Bad", p.Bad),
                          })
                 {
                     Assert.GreaterOrEqual(Contrast(ink, panel), 4.5f, $"{look.Name}: {name} on a panel");
                 }
 
                 Assert.GreaterOrEqual(Contrast(p.Text, button), 4.5f, $"{look.Name}: a button's caption");
-            }
-        }
-
-        /// <summary>
-        /// A 0 and a 1 in flight differ by their shape, not only their colour.
-        /// </summary>
-        /// <remarks>
-        /// Neon Board shipped with a magenta 1 and an indigo 0 -- neighbours on the wheel, and
-        /// under bloom the 0 lifted to a bright violet. A playtester could not tell them apart,
-        /// which is the reason the gates were told apart by shape in the first place.
-        /// </remarks>
-        [Test]
-        public void AZeroAndAOne_DifferByShape()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Assert.AreEqual(BitStyle.Digit, look.Bits,
-                    $"{look.Name}: a bit in flight says its value by colour alone");
-            }
-        }
-
-        /// <summary>
-        /// A 0 above a source stands out from the plate it sits on.
-        /// </summary>
-        /// <remarks>
-        /// A source's next bit is drawn on a solid plate in the register's colour. On the bare board
-        /// an indigo 0 is about 2:1 against the ground, and the first disc, drawn without a plate,
-        /// was hard to find. A 1 is told from the plate by its hue, which
-        /// <see cref="AOne_HasAColourOfItsOwn"/> holds it to.
-        ///
-        /// Not a test of a 0 inside a register, which it once claimed to be. A register's body is
-        /// drawn in the look's own style -- glass, in Neon Board -- and a comparison of colours
-        /// passed while the 0 was about 2.5:1 against what the glass let through. Its held bit now
-        /// sits on a plate as well, and <c>BoardRenderPlayTests</c> measures that one on the rendered
-        /// board rather than here.
-        /// </remarks>
-        [Test]
-        public void AZeroAboveASource_StandsOutFromItsPlate()
-        {
-            foreach (Look look in NewLooks())
-            {
-                Palette p = look.Colours;
-
-                Assert.GreaterOrEqual(Contrast(p.BitZero, p.Register), 3f,
-                    $"{look.Name}: a 0 above a source is lost on the plate it sits on");
             }
         }
 

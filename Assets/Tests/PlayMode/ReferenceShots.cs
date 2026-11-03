@@ -97,11 +97,10 @@ namespace BitSorter.PlayMode.Tests
             SaveGuard.Release();
         }
 
-        /// <summary>The real scene on the reference circuit (<see cref="TestScene.Load"/>), with the bloom set for the look being captured.</summary>
+        /// <summary>The real scene on the reference circuit (<see cref="TestScene.Load"/>).</summary>
         private static IEnumerator LoadTheGame()
         {
             yield return TestScene.Load();
-            Look.ApplyBloom();
         }
 
         /// <summary>
@@ -1182,7 +1181,6 @@ namespace BitSorter.PlayMode.Tests
             store.Save();
 
             yield return TestScene.LoadSimulator();
-            Look.ApplyBloom();
             yield return Frames(30);
 
             Assert.IsTrue(Find<WorkbenchPanel>().StartPageShowing, "sanity: nothing was open last");
@@ -1200,7 +1198,6 @@ namespace BitSorter.PlayMode.Tests
             store.Save();
 
             yield return TestScene.LoadSimulator();
-            Look.ApplyBloom();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowExercises();
             yield return Frames(30);
@@ -1264,7 +1261,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Shot55_Tutorial()
         {
             yield return TestScene.LoadSimulator();
-            Look.ApplyBloom();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.StartTutorial();
             yield return Frames(2);
@@ -1412,7 +1408,6 @@ namespace BitSorter.PlayMode.Tests
         public IEnumerator Shot60_AboutBitSorter()
         {
             yield return TestScene.LoadSimulator();
-            Look.ApplyBloom();
             yield return Frames(4);
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.ShowAbout();
@@ -1732,7 +1727,6 @@ namespace BitSorter.PlayMode.Tests
         private static IEnumerator OpenTheHalfAdder()
         {
             yield return TestScene.LoadSimulator();
-            Look.ApplyBloom();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             workbench.OpenExercise("half-adder");
             yield return Frames(2);

@@ -70,7 +70,7 @@ namespace BitSorter.LogicCore.Tests
         /// </summary>
         /// <remarks>
         /// The canvas grows with the window, and it renders at its size times the screen's pixel
-        /// ratio: at 1920 CSS pixels and a ratio of 2 that is 3840x2400, with bloom, every frame.
+        /// ratio: at 1920 CSS pixels and a ratio of 2 that is 3840x2400, every frame.
         /// </remarks>
         [Test]
         public void TheRenderResolution_IsCappedOnHighDensityScreens()

@@ -146,12 +146,5 @@ namespace BitSorter.LogicCore.Tests
             // plus the depth of the last word when that word's middle is at the screen's middle.
             Assert.AreEqual(1080f * 0.5f + 1500f, CreditsPanel.RestingRise(1080f, 1500f));
         }
-
-        [TestCase(940f, 900f, ExpectedResult = 1f)]
-        [TestCase(900f, 900f, ExpectedResult = 1f)]
-        [TestCase(450f, 900f, ExpectedResult = 0.5f)]
-        [TestCase(0f, 900f, ExpectedResult = 1f)]
-        public float TheSettings_ShrinkOnlyWhenTheyMustToFit(float room, float needed) =>
-            SettingsPanel.FitScale(room, needed);
     }
 }

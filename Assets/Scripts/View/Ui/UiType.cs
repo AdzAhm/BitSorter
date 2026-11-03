@@ -15,50 +15,40 @@ namespace BitSorter.View
     /// </remarks>
     public enum UiType
     {
-        /// <summary>The smallest print: a column number, a credit, a key under a badge.</summary>
+        /// <summary>The smallest print: a column number, the frame-rate counter.</summary>
         Micro,
 
-        /// <summary>Small print beside something larger: a record, a note, a help line.</summary>
+        /// <summary>Small print beside something larger: a note, a caption.</summary>
         Caption,
 
-        /// <summary>Secondary text: a part's name, a count, a hint, the controls line.</summary>
+        /// <summary>Secondary text: a part's name, a count, a hint.</summary>
         Label,
 
-        /// <summary>Text meant to be read: a goal, a level's name, a button, the solved card.</summary>
+        /// <summary>Text meant to be read: a goal, an exercise's name, a button.</summary>
         Body,
 
-        /// <summary>
-        /// An instruction beside the thing it works: the controls either side of the run buttons.
-        /// </summary>
-        /// <remarks>
-        /// A step above <see cref="Body"/> after a playtest found the board's controls unclear and
-        /// asked for them bigger (2026-09-28). They are the one text on the board a player has to
-        /// find while their hands are busy, so they are drawn larger than what they sit beside.
-        /// </remarks>
-        Prompt,
-
-        /// <summary>A single value read at a glance: the bits lost, the help badge's mark.</summary>
+        /// <summary>A single value read at a glance: a part's name on the canvas.</summary>
         Numeral,
 
         /// <summary>
-        /// A full-screen card's paragraphs: the chapter card, the tutorial's closing card, the ending.
+        /// A full-screen page's paragraphs: the start page's and ABOUT's tagline, EXERCISES' count.
         /// </summary>
         /// <remarks>
-        /// Above <see cref="Body"/> because those cards have the whole screen and say one thing: at
-        /// Body's size a card with nothing else on it read as small print (playtest, 2026-09-25).
+        /// Above <see cref="Body"/> because those pages have the whole screen and say one thing: at
+        /// Body's size a page with nothing else on it read as small print (playtest, 2026-09-25).
         /// Then above <see cref="Numeral"/> as well, when a window smaller than the reference screen
         /// still made them hard to read (playtest, 2026-09-26) -- the order here is the order of
         /// sizes, so it moved rather than breaking it.
         /// </remarks>
         Lead,
 
-        /// <summary>A panel's title: the level's name on the banner, LEVELS, SOLVED.</summary>
+        /// <summary>A header's title: the application's name over the workbench, and a name in the credits.</summary>
         Heading,
 
-        /// <summary>A full-screen card's title.</summary>
+        /// <summary>A full-screen page's title.</summary>
         Title,
 
-        /// <summary>The game's own name, on the main menu.</summary>
+        /// <summary>The application's own name, on the start page and in the credits.</summary>
         Display,
     }
 }

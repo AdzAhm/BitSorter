@@ -1,46 +1,8 @@
 using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 using BitSorter.ViewModel;
 
 namespace BitSorter.View
 {
-    /// <summary>How a gate's body is filled.</summary>
-    public enum BodyStyle
-    {
-        /// <summary>Solid, as the game shipped.</summary>
-        Filled,
-
-        /// <summary>A drawn outline over a faint fill: a symbol rather than an object.</summary>
-        Outline,
-
-        /// <summary>A bright rim fading into a darker, see-through middle.</summary>
-        Glass,
-
-        /// <summary>Lit from the top left, so the body reads as a raised part with edges.</summary>
-        Raised,
-
-        /// <summary>
-        /// Glass lit from the top left: its rim bright on the side facing the light and falling
-        /// away on the far side, so a glowing part still reads as an object with a shape.
-        /// </summary>
-        LitGlass,
-    }
-
-    /// <summary>What marks the placement grid's cells.</summary>
-    public enum GridStyle
-    {
-        /// <summary>Small squares, as the game shipped.</summary>
-        Squares,
-
-        /// <summary>Round dots.</summary>
-        Dots,
-
-        /// <summary>Nothing but the board tile's own lines.</summary>
-        None,
-    }
-
     /// <summary>How a panel's backdrop is drawn.</summary>
     public enum PanelStyle
     {
@@ -51,23 +13,9 @@ namespace BitSorter.View
         Bordered,
     }
 
-    /// <summary>What a bit in flight is drawn as.</summary>
-    public enum BitStyle
-    {
-        /// <summary>A glowing dot, told apart from the other value by its colour alone.</summary>
-        Dot,
-
-        /// <summary>
-        /// Its own digit, 0 or 1, upright whichever way the wire runs: told apart by its shape,
-        /// which bloom and colour blindness leave alone.
-        /// </summary>
-        Digit,
-    }
-
     /// <summary>
-    /// A whole visual direction: its <see cref="Palette"/>, the choices that are not colours -- how
-    /// gate bodies are filled, how the grid is marked, how panels are drawn, how hard the board
-    /// blooms -- and how the 5.0 workbench's canvas is drawn (<see cref="Canvas"/>).
+    /// A whole visual direction: its <see cref="Palette"/>, how its panels are drawn, and how the 5.0 workbench's canvas is
+    /// drawn (<see cref="Canvas"/>).
     /// </summary>
     /// <remarks>
     /// Kept apart from <see cref="Palette"/> so the palette stays what its name says, every colour
@@ -75,83 +23,25 @@ namespace BitSorter.View
     /// nothing that draws a colour needs to know a look exists.
     ///
     /// <see cref="Default"/> is what the game is drawn in unless the player chooses another in
-    /// Settings: Schematic, which is the workbench as Ahmad chose it on Neon Board's board -- Neon
+    /// Settings: Schematic, which is the workbench as Ahmad chose it on Neon Board's interface -- Neon
     /// Board was chosen out of three directions rendered side by side. <see cref="Classic"/> is the game as 2.0 shipped it, and
     /// every choice here defaults to what it did, so Classic is still one line to draw and the
     /// reference screenshots can hold a change that claims to touch no look to that, pixel for
     /// pixel. Chosen before the scene loads, and never changed in place -- derive a new one.
+    ///
+    /// A look also decided how the 4.x board's gates, bits and trails were drawn, how hard it bloomed and what marked its
+    /// grid. Those went with the board in Parts 16a and 16b.
     /// </remarks>
     public sealed class Look
     {
-        /// <summary>What this look is called, and what its styled sprites are cached under.</summary>
+        /// <summary>What this look is called: what a reference shot names it by, and what <see cref="Named"/> finds it with.</summary>
         public string Name { get; private set; }
 
         /// <summary>Its colours.</summary>
         public Palette Colours;
 
-        /// <summary>How gate bodies are filled.</summary>
-        public BodyStyle Bodies = BodyStyle.Filled;
-
-        /// <summary>What marks the placement grid.</summary>
-        public GridStyle Grid = GridStyle.Squares;
-
         /// <summary>How panels are drawn.</summary>
         public PanelStyle Panels = PanelStyle.Filled;
-
-        /// <summary>What a bit in flight is drawn as.</summary>
-        public BitStyle Bits = BitStyle.Dot;
-
-        /// <summary>How large a bit in flight is, as a share of the scene's size.</summary>
-        public float BitScale = 1f;
-
-        /// <summary>
-        /// How strongly the halo behind a bit glows, as a share of the scene's glow. A digit needs
-        /// less than a dot: behind a stroke, a halo as bright as the stroke hides the shape it
-        /// surrounds, and the bloom already gives it all the glow it needs.
-        /// </summary>
-        public float BitGlow = 1f;
-
-        /// <summary>How wide a bit's trail is, as a share of the scene's width.</summary>
-        public float TrailWidth = 1f;
-
-        /// <summary>
-        /// How strongly the board blooms, and how far the glow spreads. The threshold is not here:
-        /// it stays at 1 in every look (the 4.x game's <c>BitVisuals.BloomThreshold</c>, until Part 16a), because what
-        /// crossed it was what made a bit in flight the thing that glowed.
-        /// </summary>
-        public float BloomIntensity = 1f;
-
-        /// <inheritdoc cref="BloomIntensity"/>
-        public float BloomScatter = 0.62f;
-
-        /// <summary>
-        /// How long a bit's trail is, as a share of the length the scene gives it. A trail says
-        /// which way a bit is going; one as long as the bit's own crossing outshouts the bit.
-        /// </summary>
-        public float TrailLength = 1f;
-
-        /// <summary>How strongly a gate's halo glows, as a share of the scene's glow.</summary>
-        public float GateGlow = 1f;
-
-        /// <summary>
-        /// How strongly a source or a sink glows. Apart from <see cref="GateGlow"/> because the
-        /// fixtures are the level's, and the gates are the player's.
-        /// </summary>
-        public float FixtureGlow = 1f;
-
-        /// <summary>
-        /// How many world units the board tile covers before it repeats. Its lines run along the
-        /// tile's edges and through its middle, so at 1 they are half a unit apart -- a quarter of
-        /// a cell -- and at 4 they are a cell apart and cross on every cell's centre.
-        /// </summary>
-        public float BoardUnits = 1f;
-
-        /// <summary>How wide the board tile's lines are, as a share of the shipped width.</summary>
-        /// <remarks>Held in world units, so a tile that covers more of the board does not thicken them.</remarks>
-        public float BoardLineWidth = 1f;
-
-        /// <summary>How large a placement grid mark is, as a share of the scene's size.</summary>
-        public float GridMarkSize = 1f;
 
         /// <summary>What Settings calls it.</summary>
         public string Title = "CLASSIC";
@@ -183,7 +73,7 @@ namespace BitSorter.View
         /// <summary>The look the game is drawn in unless the player chooses another.</summary>
         /// <remarks>
         /// Schematic, as the plan proposed and Ahmad approved (2026-10-12), and confirmed at Part 8's
-        /// review (2026-10-14). Its board is Neon Board's, so making it the default moved no pixel of the game.
+        /// review (2026-10-14).
         /// </remarks>
         public static Look Default => Looks.Schematic;
 
@@ -246,26 +136,6 @@ namespace BitSorter.View
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Sets the board's bloom from the current look, on this session's copy of the profile.
-        /// </summary>
-        /// <remarks>
-        /// <see cref="Volume.profile"/> hands back an instance for the session rather than the
-        /// asset, so the look never writes into the project. The asset holds Classic's values;
-        /// every scene the game loads has the current look's put on it by <see cref="LookBoot"/>.
-        /// </remarks>
-        public static void ApplyBloom()
-        {
-            foreach (Volume volume in Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))
-            {
-                if (volume.sharedProfile == null || !volume.profile.TryGet(out Bloom bloom))
-                    continue;
-
-                bloom.intensity.value = Current.BloomIntensity;
-                bloom.scatter.value = Current.BloomScatter;
-            }
         }
     }
 }

@@ -8,21 +8,16 @@ namespace BitSorter.LogicCore.Tests
     public class LookTests
     {
         /// <summary>
-        /// Classic changes nothing: every knob a look adds is a share of what the scene already
-        /// says, and Classic's share is all of it.
+        /// Classic changes nothing: its interface is the colours the game shipped with, and its canvas is made from them.
         /// </summary>
         [Test]
         public void Classic_LeavesTheSceneAsItIs()
         {
             Look classic = Look.Classic;
 
-            Assert.AreEqual(1f, classic.TrailLength);
-            Assert.AreEqual(1f, classic.GateGlow);
-            Assert.AreEqual(1f, classic.FixtureGlow);
-            Assert.AreEqual(1f, classic.BoardUnits);
-            Assert.AreEqual(1f, classic.BoardLineWidth);
-            Assert.AreEqual(1f, classic.GridMarkSize);
             Assert.AreSame(Palette.Classic, classic.Colours);
+            Assert.AreSame(SchematicPalette.Classic, classic.Canvas);
+            Assert.AreEqual(PanelStyle.Filled, classic.Panels, "its panels are the filled slabs it shipped with");
         }
 
         /// <summary>Every look can be found by its name, and no two share one.</summary>
@@ -78,10 +73,10 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>
         /// The default is the workbench as Ahmad chose it -- its canvas, at his glow -- on Neon
-        /// Board's board, so making it the default moved no pixel of the game.
+        /// Board's interface, so making it the default moved no pixel of the game.
         /// </summary>
         [Test]
-        public void TheDefault_IsSchematic_OnNeonBoardsBoard()
+        public void TheDefault_IsSchematic_OnNeonBoardsInterface()
         {
             Assert.AreSame(Looks.Schematic, Look.Default);
             Assert.AreSame(SchematicPalette.Dark, Looks.Schematic.Canvas);
@@ -89,9 +84,8 @@ namespace BitSorter.LogicCore.Tests
 
             foreach (Look schematic in new[] { Looks.Schematic, Looks.SchematicLight })
             {
-                Assert.AreSame(Looks.NeonBoard.Colours, schematic.Colours, $"{schematic.Name} should keep Neon Board's board");
-                Assert.AreEqual(Looks.NeonBoard.Bodies, schematic.Bodies);
-                Assert.AreEqual(Looks.NeonBoard.BloomIntensity, schematic.BloomIntensity);
+                Assert.AreSame(Looks.NeonBoard.Colours, schematic.Colours, $"{schematic.Name} should keep Neon Board's interface");
+                Assert.AreEqual(Looks.NeonBoard.Panels, schematic.Panels);
             }
         }
 

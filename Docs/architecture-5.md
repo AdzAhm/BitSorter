@@ -778,9 +778,9 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   keys intact (`WholeSaveMigrationTests`, `Release400MigrationTests`).
 - **Since Part 16a nothing migrates** (Ahmad, 2026-11-02: "idc about the old saves tbh this is like a new phase in the
   project"). `SaveMigration`, the 4.x keys -- `boards`, `freePlay`, `blocks` -- and the tests above went with the 4.x
-  game; an older file's solves and hints still read, being the same names. `Migrator` and `LegacyCircuit` stay in the
-  Board layer for now, with their tests: `Migrator.NameFrom` names every exercise's and circuit's module, and the rest
-  is left for Part 16b's tidy.
+  game; an older file's solves and hints still read, being the same names. `Migrator` and `LegacyCircuit` stayed in the
+  Board layer, with their tests, for Part 16b's tidy: `Migrator.NameFrom` names every exercise's and circuit's module and
+  is all that is left of them (see "As built in Part 16b: the tidy").
 
 ---
 
@@ -845,7 +845,7 @@ Precise, and no casing under the wires.
   each value drawn as a wire draws it, and what a ring and a cross mean.
 - **The glow is drawn, not bloomed.** The plan named URP bloom; the mock's glow is a soft trail and halo
   at a chosen strength, and drawing it reproduces that exactly, costs no full-screen pass in the browser,
-  and keeps bloom for the 4.x looks. Colours are `SchematicPalette`; a faint colour's alpha is corrected
+  and keeps bloom for the 4.x looks (which Part 16b then took out as well: an overlay is drawn after post-processing). Colours are `SchematicPalette`; a faint colour's alpha is corrected
   (`Over`) because the project blends in linear space, where 35% over a dark ground looks far stronger
   than in the browser the mock was chosen in.
 - **Checked.** `WorkbenchTests` holds the view-model to the recorded run (the glitch passing, the short
@@ -909,7 +909,7 @@ Precise, and no casing under the wires.
   its board's colours -- the black-violet ground, cyan outlines and buses, a magenta 1, a lighter
   indigo 0 than the board's bloom-lit bit, and twice Schematic's glow, since glow is what the look is;
   and **Classic**, 2.0's navy ground, yellow 1, slate 0 and teal.
-- **The Schematic looks are a canvas, not a board.** They keep Neon Board's board, interface and bloom,
+- **The Schematic looks are a canvas, not a board.** They keep Neon Board's board, interface and bloom (the board went in Part 16a and the bloom in 16b),
   because the 4.x board is retired in Part 15 when the levels move onto the canvas, and drawing it a
   third way for one part's life would be thrown away. So **Schematic became `Look.Default`** -- the
   plan's proposal, approved with it and confirmed at this part's review -- and moved no pixel of the
@@ -2978,8 +2978,8 @@ the board's own editor and printed.
   the style's `SchematicPalette`, so every style colours it; it was a uGUI screen in the 4.x board's colours whatever
   the style. The sections and their controls are the same, the volume and the frame cap are `ShellSlider`s (which
   gained `Released`, so a drag writes the preferences once, and `wholeNumbers`, so the thumb rests on a stop as uGUI's
-  did), and the page scrolls where the window is short instead of shrinking (`FitScale` stays, for the help panel and
-  free play's setup).
+  did), and the page scrolls where the window is short instead of shrinking (`FitScale` stayed for the help panel and
+  free play's setup, and went with them in Part 16b).
 - **What a page over a workbench in sight changed** (the 15g-2 review). Under the uGUI screens the workbench was out of
   sight and came back through `Resume`; as pages over it, three paths still assumed that:
   - **RESET PROGRESS with an exercise open** let the exercise go and left its circuit on the stage until `Resume`. Left
@@ -4453,7 +4453,47 @@ simulator for a course, and the music was its largest single item in the downloa
   fixture is kept, without its assertions about sound. `CreditsTests` asserts the roll credits no music and no sound role,
   beside the tests that show it does list what it should. The reference shots of Settings, its reset question and the
   credits change with the page.
-- **Not this:** the post-processing `Volume` that carries the bloom has nothing to do with sound, and stays.
+- **Not this:** the post-processing `Volume` that carried the bloom had nothing to do with sound, and stayed until the
+  tidy below took it out.
+
+**As built in Part 16b: the tidy**, of what Part 16a left behind. The rule was never to delete anything the app still uses:
+each member below was removed only after a search of `Assets` and `Tools` found nothing that reads it but what went with it.
+
+- **No bloom, and no post-processing.** The workbench is a Screen Space Overlay canvas and a UI Toolkit panel, both drawn
+  after the camera's post-processing, so the bloom -- a URP `Volume` -- blurred an empty camera image every frame and
+  never touched anything on screen. Gone: the scene builder's Global Volume and `CreateBloomVolume`,
+  `Assets/Settings/DemoBloomProfile.asset`, `Look.BloomIntensity`, `BloomScatter` and `ApplyBloom`, and the camera's
+  `renderPostProcessing` and SMAA (a post-processing step; the camera draws only its ground colour).
+  **`LookBoot` stays**: it was thought to exist only for the bloom, but it is the one thing that puts the player's chosen
+  look on before the first scene in a build, and without it STYLE would not survive a launch. **The renderer's
+  `PostProcessData` is left as it is.** Clearing the 2D renderer's reference would not take the post-processing shaders out
+  of a build, because URP 17.3 keeps them in `UniversalRenderPipelineGlobalSettings`, and the editor is likely to put the
+  package's own copy back in a cleared reference, with the film-grain textures the project's copy has emptied
+  (`Docs/distribution.md`); neither was tried.
+- **The looks.** `Look` is a palette, how its panels are drawn, and its canvas and glow. Gone: `Bodies`, `Grid`, `Bits`,
+  `BitScale`, `BitGlow`, `TrailWidth`, `TrailLength`, `GateGlow`, `FixtureGlow`, `GridMarkSize`, `BoardUnits` and
+  `BoardLineWidth`, with `BodyStyle`, `GridStyle` and `BitStyle`. All four looks stay. `Palette` is down to the ground and
+  its traces, a wire's core, a bit, the burn, the interface's panel, text, accent and buttons -- what `SchematicPalette`,
+  `UiTheme` and the camera read; the 4.x board's colours for its gates, sources, sinks, ports, wires, labels, cards and
+  scrims (`Credit` among them) are gone. `LookBriefTests` loses its tests of that brief (no gate in a state colour, a 1 in
+  a colour of its own, a bit told by its shape, a chosen button, full-screen panels that cover, a 0 above a source) and
+  keeps the canvas's, and text and buttons on a panel.
+- **The sprites.** `ProceduralSprites` draws the panel's backdrop, filled and bordered, and nothing else: the ten gate
+  bodies and their four styles, the circle, the dot, the ring, the glow, the pulse ring, the doom mark, the wire buffer, the
+  panel ring and the board tile are gone, with `BodyStyleTests` and the tests of their edges and keys.
+- **`UiTheme`** keeps what the workbench's uGUI parts and the shell still ask of it. Gone: the 4.x HUD's sizes (the bits-lost
+  meter, the badge and its key, the setup panel, the help panel, the corners, the solved card, the banner, the verdict, the
+  toast, the clock, the hint and the tutorial strip), `GoalHeight`, `TextHeight`, `SelectedFill`, both `SetEnabled`s,
+  `Slider_`, `UiType.Prompt`, and the colours `Good`, `Bad` and `TextDim`. `FullScreenPanel.CoversTheHud` and
+  `UiModal.HudVisible` are gone; `UiModal.AnyOpen` and `OpenOrJustClosed` are kept, although nothing but their test reads
+  them now, since CLAUDE.md names them as the guard for a key that opens a panel.
+- **Keys.** `WorkbenchKeys.GameKeys` is Escape alone: M, H, F2 and F8, the 4.x game's, are free as N was, and the function-key
+  rule lets F2 and F8 through, the two a browser does not take.
+- **Smaller things.** `SettingsPanel.FitScale` and its test, `WorkbenchPanel.GoUnder`, and the migration: `Migrator` is
+  `NameFrom` and nothing else, `LegacyCircuit` and its types are deleted, and `MigratorTests` holds the naming rule alone.
+- **Left, though nothing in the app reads it:** `ButtonRole.Primary` and `Destructive` and the palette's two colours for them
+  (`UiTheme.Button_` and `KeyCap` are still called, with Secondary and Quiet, and draw over their fill), and `UiModal`'s
+  guard above. Both are a rule rather than a leftover, and a later tidy can take them.
 
 ---
 

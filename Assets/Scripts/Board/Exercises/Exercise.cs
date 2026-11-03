@@ -114,10 +114,10 @@ namespace BitSorter.Board
     /// and grades it (<see cref="ExerciseGrader"/>, Part 15d).
     /// </summary>
     /// <remarks>
-    /// **Its test is the migration's timing** (<see cref="MigrationResult"/>): each vector has a <see cref="Cycle"/>, its
+    /// **Its test is the 4.x migration's timing**: each vector has a <see cref="Cycle"/>, its
     /// inputs change at its start, a clock -- when there is one -- rises half-way, and the outputs are read just before
-    /// that edge (<see cref="SampleTime"/>), once everything since the inputs changed has settled. A 4.x board migrated reads
-    /// what its level expected at those moments (<c>MigrationTests</c>), so the thirty mean what they meant.
+    /// that edge (<see cref="SampleTime"/>), once everything since the inputs changed has settled. A 4.x board migrated read
+    /// what its level expected at those moments (the migration, and its tests, went in Part 16b), so the thirty mean what they meant.
     ///
     /// **It is held to a library of its stock** (<see cref="Library"/>): a cell for each gate kind it stocks, at its delay,
     /// the counts, and no constants unless it gives them.

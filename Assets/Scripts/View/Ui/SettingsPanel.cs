@@ -23,8 +23,8 @@ namespace BitSorter.View
     /// question where the button was and the two answers under it, so a double-click lands on the question, which is not a
     /// button. Enter answers nothing; Escape backs out of the question before it backs out of the page.
     ///
-    /// The page scrolls in a short window. As a uGUI screen it had no scroll and shrank to fit instead (<see cref="FitScale"/>,
-    /// which the help panel and free play's setup still use).
+    /// The page scrolls in a short window. As a uGUI screen it had no scroll and shrank to fit instead (<c>FitScale</c>,
+    /// which Part 16b removed: nothing shrank to fit once Settings scrolled and the 4.x panels were gone).
     /// </remarks>
     public sealed class SettingsPanel : MonoBehaviour, IHoldsEscape
     {
@@ -202,13 +202,6 @@ namespace BitSorter.View
         // -----------------------------------------------------------------
         // Building
         // -----------------------------------------------------------------
-
-        /// <summary>
-        /// The scale a panel <paramref name="needed"/> tall is drawn at in <paramref name="room"/>: whole, unless the window
-        /// is too short for it. The help panel and free play's setup shrink to fit by it; Settings scrolls since Part 15g.
-        /// </summary>
-        public static float FitScale(float room, float needed) =>
-            needed <= 0f || room <= 0f || room >= needed ? 1f : room / needed;
 
         /// <summary>How wide the column of sections is.</summary>
         public const float ColumnWidth = 600f;

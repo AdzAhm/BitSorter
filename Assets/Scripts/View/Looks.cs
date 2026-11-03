@@ -7,11 +7,9 @@ namespace BitSorter.View
     /// The looks the game ships with, beyond <see cref="Look.Classic"/>.
     /// </summary>
     /// <remarks>
-    /// **The two Schematic looks are a canvas, not a board.** They draw the 5.0 workbench in the
-    /// look Ahmad chose for it (and on paper), and keep Neon Board's board, interface and bloom:
-    /// the 4.x board is retired in Part 15, when the levels move onto the canvas, and drawing it a
-    /// third way for one part's life would be work thrown away. So they answer the board's brief
-    /// exactly as Neon Board does.
+    /// **The two Schematic looks are a canvas on Neon Board's interface.** They draw the 5.0 workbench in the
+    /// look Ahmad chose for it (and on paper), and keep Neon Board's panels and colours: a look nobody plays is a palette
+    /// nobody checks, and drawing the interface a third way would be work for no one.
     /// </remarks>
     /// <remarks>
     /// Chosen out of three directions rendered side by side -- Instrument, Neon and Tactile -- and a
@@ -28,22 +26,12 @@ namespace BitSorter.View
             ((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, alpha);
 
         /// <summary>
-        /// A lit circuit board: a black-violet floor ruled one cell apart with a copper pad on every
-        /// cell, cyan traces, saturated glass parts lit from the top left, and bits that own the
-        /// light -- a 1 that blazes magenta, a 0 that glimmers indigo.
+        /// A lit circuit board: a black-violet floor ruled one cell apart, cyan traces, and a 1 that blazes magenta where a
+        /// 0 glimmers indigo.
         /// </summary>
         /// <remarks>
-        /// Of the rules the board already lived by, two carry the weight here. A 1 is the only
-        /// magenta on the board, so it cannot be mistaken for a part. And the parts glow at half the
-        /// strength Neon first gave them, with the rim falling away on the side facing from the light,
-        /// because at full strength the gates shone as loud as the bits they were passing.
-        ///
-        /// The AND is a deeper green than round two's lime: lime is simply the most luminous hue, and
-        /// it made the AND the loudest gate on any board it was on.
-        ///
-        /// A bit is its own digit. Magenta and indigo are neighbours, and under bloom the indigo 0
-        /// lifted to a bright violet -- a playtester could not tell a 0 from a 1 by colour, which is
-        /// the reason the gates were told apart by shape in the first place.
+        /// A 1 is the only magenta, so it cannot be mistaken for anything else. It was the 4.x board's look, which
+        /// drew saturated glass parts lit from the top left; what is left of it is its colours and its bordered panels.
         /// </remarks>
         public static Look NeonBoard { get; } = Look.Classic.Derive("neon-board", look =>
         {
@@ -51,70 +39,21 @@ namespace BitSorter.View
             {
                 p.Ground = Hex(0x05040C);
                 p.GroundTrace = Hex(0x1C1540);
-                p.GroundPad = Hex(0x1C1540);
-                p.Grid = Hex(0xB06A32);
 
-                p.WireCasing = Hex(0x020106);
                 p.WireCore = Hex(0x1F8FB8);
-                p.WireHover = Hex(0x8BEFFF);
-                p.WireFlash = Hex(0xFFE9FF);
-                p.WireMark = Hex(0x6FE0FF);
-                // The wire's own colour, the colour of its buffers, rather than white: a bit is a
-                // digit here, and a white number beside a wire read as the value of the bit on it.
-                p.DelayLabel = Hex(0x6FE0FF);
-                p.DelayLabelBacking = Hex(0x05040C, Palette.Seen(0.85f));
 
-                p.Source = Hex(0x9A7444);
-                p.Sink = Hex(0x9A7444);
-                p.Xor = Hex(0x3D8BFF);
-                p.And = Hex(0x74D93C);
-                p.Or = Hex(0xA66BFF);
-                p.Nand = Hex(0x2EE6C8);
-                p.Nor = Hex(0xFFD84A);
-                p.Not = Hex(0xFF8A4F);
-                p.Register = Hex(0xC7CCEA);
-                p.OtherNode = Hex(0x8088A8);
-
-                // A 0 glimmers in a cool indigo where a 1 blazes magenta: lit just past the bloom
-                // threshold, so it never shrinks to a dot a player loses, in a colour that stays a
-                // colour when lifted rather than washing to white, and far from the cyan wire under
+                // A 0 glimmers in a cool indigo where a 1 blazes magenta, far from the cyan wire under
                 // it -- round two's dim teal 0 was nearly the wire's own colour.
                 p.BitZero = Hex(0x3A30A0);
                 p.BitOne = Hex(0xFF2E9E);
 
-                p.PortInput = Hex(0x5A74A8);
-                p.PortOutput = Hex(0xC49A5A);
-                p.Waiting = Hex(0xFFB020);
-                p.Doomed = Hex(0xFF3B2F);
                 p.Scorch = Hex(0xFF4A3A);
-
-                p.WirePreview = Hex(0x9AA6D6, 0.85f);
-                p.WirePreviewValid = Hex(0x4DFFA0, 0.95f);
-                p.WirePreviewInvalid = Hex(0xFF5A5A, 0.95f);
-                p.Highlight = Hex(0xE9F4FF);
 
                 p.Panel = Hex(0x2B8FB8, Palette.Seen(0.9f));
                 p.PanelEdge = Hex(0x7A5CFF);
                 p.Text = Hex(0xEAF6FF);
                 p.TextDim = Hex(0x8FA3C8);
                 p.Accent = Hex(0xFF5CC8);
-                p.Good = Hex(0x4DFFA0);
-                p.Bad = Hex(0xFF5A6E);
-
-                p.MenuScrim = Hex(0x04030A, Palette.Seen(0.90f));
-                p.ListScrim = Hex(0x04030A, Palette.Seen(0.88f));
-                p.CardScrim = Hex(0x04030A, Palette.Seen(0.93f));
-
-                // Panels here draw their edge in the colour they are given and their body at a
-                // fifth of it, so a state is a full-strength colour: the edge is what says chosen,
-                // or a lesson, or a refusal.
-                p.Selected = Hex(0xFF5CC8);
-                p.HintBackdrop = Hex(0xFF5CC8);
-                p.BadgeBackdrop = Hex(0x7A2E66);
-                p.ToastBackdrop = Hex(0xFF5A6E);
-                p.MeterBackdrop = Hex(0xFF5A6E);
-                p.Rule = Hex(0x7A2E66);
-                p.Credit = Hex(0x8FA3C8);
 
                 // The primary button is solid, so its colour is the whole button and has to hold
                 // text: a deep magenta rather than the accent itself, at better than 5:1 under
@@ -125,27 +64,12 @@ namespace BitSorter.View
                 p.ButtonDestructive = Hex(0xFF5A6E);
             });
 
-            look.Bodies = BodyStyle.LitGlass;
-            look.Bits = BitStyle.Digit;
-            look.BitScale = 1.3f;
-            look.BitGlow = 0.35f;
-            look.TrailWidth = 0.5f;
-            look.Grid = GridStyle.Dots;
             look.Panels = PanelStyle.Bordered;
-            look.BoardUnits = 4f;
-            look.BoardLineWidth = 1.6f;
-            look.GridMarkSize = 1.6f;
-            look.BloomIntensity = 1.3f;
-            look.BloomScatter = 0.7f;
-            look.TrailLength = 0.45f;
-            look.GateGlow = 0.7f;
-            look.FixtureGlow = 0.2f;
 
             // The canvas in the board's own colours: its black-violet ground and ruled traces, a 1
-            // in the board's magenta, a 0 a lighter indigo than the board's bit -- which is lit by
-            // bloom, where a wire is not -- a bus in a cyan of the board's wires, the gates
-            // outlined in its trace colour, and twice the Schematic look's glow, since glow is what
-            // the look is.
+            // in the board's magenta, a 0 a lighter indigo than the board's bit, a bus in a cyan of
+            // the board's wires, the gates outlined in its trace colour, and twice the Schematic look's
+            // glow, since glow is what the look is.
             look.Title = "NEON BOARD";
             look.Code = 2;
             Palette board = look.Colours;
@@ -180,7 +104,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// The 5.0 workbench as the look reference draws it, made better (Ahmad's choice, 2026-10-12:
-        /// Quiet with a touch of Lively). Neon Board's board and interface.
+        /// Quiet with a touch of Lively). Neon Board's interface.
         /// </summary>
         public static Look Schematic { get; } = NeonBoard.Derive("schematic", look =>
         {

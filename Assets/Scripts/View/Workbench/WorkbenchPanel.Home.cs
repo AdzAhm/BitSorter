@@ -267,15 +267,6 @@ namespace BitSorter.View
             _settings.OpenOver(this);
         }
 
-        /// <summary>Out of sight under a full-screen panel that will <see cref="Resume"/> it, the circuit kept first.</summary>
-        public void GoUnder()
-        {
-            if (Root == null)
-                return;
-            KeepMyCircuit(now: true);
-            SetShowing(false);
-        }
-
         /// <summary>HELP's menu, under its chip.</summary>
         public void OpenHelpMenu() => _helpMenu?.Open(UnderTheChip(HelpButton));
 
