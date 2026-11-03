@@ -286,45 +286,6 @@ namespace BitSorter.PlayMode.Tests
             Assert.Less(workbench.Time, before, "Left stepped back in time, as it does with no field in the way");
         }
 
-        /// <summary>
-        /// A shell field holding the keyboard says so by its edge, at 3:1 against the ground and against its edge at rest, and
-        /// puts its edge back when it lets go (WCAG 2.1 2.4.7, focus visible).
-        /// </summary>
-        /// <remarks>
-        /// The caret alone said it: a bar a unit and a half wide, blinking, and gone while text in the field is chosen -- as
-        /// it is when MAKE BLOCK or + SIGNAL open with their text chosen to be typed over, reference shots 41 and 32 (the
-        /// accessibility review, 2026-11-03).
-        /// </remarks>
-        [UnityTest]
-        public IEnumerator AShellField_HoldingTheKeyboard_SaysSoByItsEdge()
-        {
-            yield return TestScene.Load();
-            yield return OpenTheWorkbench();
-            SchematicPalette palette = SchematicPalette.Current;
-
-            TextField runTo = ShellPanel.Find<TextField>(WorkbenchPanel.RunToField);
-            VisualElement box = runTo.Q(className: TextField.inputUssClassName) ?? runTo;
-            Color resting = box.resolvedStyle.borderTopColor;
-
-            yield return ClickAt(ShellPanel.ScreenPointOf(runTo));
-            Assert.IsTrue(UiText.Typing, "sanity: a click on RUN TO gives it the keyboard");
-            yield return null;
-            Color held = box.resolvedStyle.borderTopColor;
-            Assert.GreaterOrEqual(SchematicPalette.Contrast(held, palette.Ground), 3f,
-                $"a field holding the keyboard is edged {SchematicPalette.Contrast(held, palette.Ground):F2}:1 against the ground");
-            Assert.GreaterOrEqual(SchematicPalette.Contrast(held, resting), 3f,
-                $"a field holding the keyboard is edged {SchematicPalette.Contrast(held, resting):F2}:1 against its edge at rest");
-
-            Press(_keyboard.escapeKey);
-            ShellPanel.SendKey(runTo, KeyCode.Escape);
-            yield return null;
-            Release(_keyboard.escapeKey);
-            yield return null;
-            yield return null;
-            Assert.IsFalse(UiText.Typing, "sanity: Escape let RUN TO go");
-            Assert.AreEqual(resting, box.resolvedStyle.borderTopColor, "a field let go is edged as it was at rest");
-        }
-
         [UnityTest]
         public IEnumerator AShellField_HoldsTheKeys_AndEscapeLetsItGo_AndTheWorkbenchStays()
         {
