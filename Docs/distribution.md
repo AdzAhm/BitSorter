@@ -119,6 +119,7 @@ last clicked:
 | Debug symbols | Off | Symbols are for a development build's stack traces, and would ride in the wasm or beside it |
 | Show diagnostics | Off | A development overlay; off, the page carries none of it |
 | The built-in pipeline's seven shaders (graphics settings) | **No support** | Deferred shading and reflections, screen-space shadows, depth-normals, motion vectors, halo and flare: URP draws with none of them, and at "built-in" they were about 25 KB of the download. Also in `GraphicsSettings.asset`, for every build |
+| Always included shaders (graphics settings) | Without Legacy Diffuse and UI/DefaultETC1 | Nothing draws with either -- Diffuse is the built-in pipeline's, and ETC1's split alpha is Android's -- and they were about 12 KB. UI/Default, Sprites/Default and the three cubemap shaders stay. Also in `GraphicsSettings.asset` |
 
 URP's post-processing is left out of the build whole: nothing BitSorter draws is
 post-processed, so the 2D renderer carries no post-processing data, and the sixteen shaders

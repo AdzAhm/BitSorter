@@ -4721,6 +4721,10 @@ which other passes own. Nothing drawn changes, and nothing BitSorter reads at ru
   shading and reflections, screen-space shadows, depth-normals, motion vectors, the halo and the flare were each set to
   "built-in", which put them in every build -- 23 to 28 KB of Brotli, by the seven objects compressed together or alone -- and
   URP draws with none of them. `RenderSettingsTests` holds the file.
+- **Two always-included shaders are not**: Legacy Diffuse (with VertexLit, its fallback) and UI/DefaultETC1, which draws a
+  sprite whose alpha is split into a texture of its own -- Android's ETC1 only; BitSorter's sprites are made in code and have
+  none. About 12 KB. UI/Default (every uGUI graphic's), Sprites/Default (the default sprite material's) and the three cubemap
+  shaders, which the engine keeps for reflections, stay: 5 KB is not worth the doubt.
 
 ---
 

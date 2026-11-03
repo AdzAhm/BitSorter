@@ -114,6 +114,7 @@ namespace BitSorter.View.Editor
             PlayerSettings.WebGL.showDiagnostics = false;
 
             LeaveOutTheBuiltInPipelinesShaders();
+            LeaveOutShadersNothingDrawsWith();
         }
 
         /// <summary>
@@ -138,6 +139,41 @@ namespace BitSorter.View.Editor
 
             foreach (BuiltinShaderType type in unused)
                 GraphicsSettings.SetShaderMode(type, BuiltinShaderMode.Disabled);
+        }
+
+        /// <summary>
+        /// Two of the shaders the graphics settings put in every build whether anything uses them or not, which nothing in
+        /// BitSorter draws with: the built-in pipeline's Legacy Diffuse (and its fallback, VertexLit, with it), and the UI
+        /// shader for a sprite whose alpha is split into a texture of its own, which only Android's ETC1 does. About 12 KB.
+        /// </summary>
+        /// <remarks>
+        /// The rest of the list stays: UI/Default is every uGUI graphic's, Sprites/Default the default sprite material's, and
+        /// the three cubemap shaders are the engine's own for reflections, which nothing here asks for but which are not
+        /// worth the doubt at 5 KB. GraphicsSettings.asset leaves the two out for every build; taken out here by name as well
+        /// so the browser build does not rest on an open editor having read that file again (2026-11-03, the optimize-web
+        /// pass). <c>RenderSettingsTests</c> holds the file.
+        /// </remarks>
+        private static void LeaveOutShadersNothingDrawsWith()
+        {
+            string[] neverDrawnWith = { "Legacy Shaders/Diffuse", "UI/DefaultETC1" };
+
+            var settings = new SerializedObject(GraphicsSettings.GetGraphicsSettings());
+            SerializedProperty included = settings.FindProperty("m_AlwaysIncludedShaders");
+
+            for (int i = included.arraySize - 1; i >= 0; i--)
+            {
+                var shader = included.GetArrayElementAtIndex(i).objectReferenceValue as Shader;
+                if (shader == null || System.Array.IndexOf(neverDrawnWith, shader.name) < 0)
+                    continue;
+
+                // An object reference's element was once only cleared by the first delete, and removed by the second.
+                int before = included.arraySize;
+                included.DeleteArrayElementAtIndex(i);
+                if (included.arraySize == before)
+                    included.DeleteArrayElementAtIndex(i);
+            }
+
+            settings.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

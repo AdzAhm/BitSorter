@@ -103,6 +103,41 @@ namespace BitSorter.Ci.Tests
             }
         }
 
+        /// <summary>The built-in shaders the graphics settings put in every build, by their file IDs in Unity's extra resources.</summary>
+        private static string[] AlwaysIncluded()
+        {
+            Match list = Regex.Match(Read("ProjectSettings/GraphicsSettings.asset"),
+                @"^  m_AlwaysIncludedShaders:[ \t]*\r?\n((?:  - \{[^\n]*\}[ \t]*\r?\n)*)", RegexOptions.Multiline);
+            Assert.IsTrue(list.Success, "GraphicsSettings.asset has no m_AlwaysIncludedShaders");
+
+            return Regex.Matches(list.Groups[1].Value, @"\{fileID: (\d+), guid: 0000000000000000f000000000000000")
+                .Cast<Match>().Select(m => m.Groups[1].Value).ToArray();
+        }
+
+        /// <summary>
+        /// Legacy Diffuse is the built-in pipeline's (and brings VertexLit, its fallback), and UI/DefaultETC1 draws a sprite
+        /// whose alpha is split into a texture of its own, which only Android's ETC1 does: nothing in BitSorter draws with
+        /// either, and listed here they were about 12 KB of the browser download.
+        /// </summary>
+        [Test]
+        public void ShadersNothingDrawsWith_AreNotAlwaysIncluded()
+        {
+            string[] included = AlwaysIncluded();
+
+            CollectionAssert.DoesNotContain(included, "7", "Legacy Shaders/Diffuse is always included again");
+            CollectionAssert.DoesNotContain(included, "10783", "UI/DefaultETC1 is always included again");
+        }
+
+        /// <summary>
+        /// Paired with the test above, which would pass on a list it failed to read: the list is read, and UI/Default, which
+        /// every uGUI graphic without a material of its own draws with, is still in it.
+        /// </summary>
+        [Test]
+        public void TheUiShader_IsStillAlwaysIncluded()
+        {
+            CollectionAssert.Contains(AlwaysIncluded(), "10770", "UI/Default is no longer always included");
+        }
+
         /// <summary>
         /// The main camera draws only its ground colour, under the workbench's opaque ground, and HDR was there for the
         /// bloom: with it URP's 2D renderer drew the camera into screen-sized float targets of its own and copied them to
