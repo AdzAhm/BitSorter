@@ -797,11 +797,14 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// A selected row's value still reads on its band: its readout, a word in the value's colour, at 4.5:1 against the
-        /// band (WCAG's for text), as it is on the ground.
+        /// band (WCAG's for text), as it is on the ground -- still the value's colour, and the value's own again once the
+        /// band is down.
         /// </summary>
         /// <remarks>
         /// The brief holds a value's colour to 3:1 on the band, for its wave. A readout is a word, and in Schematic a 1 on the
-        /// band was 3.45:1 and a 0 3.61 (the accessibility review, 2026-11-03).
+        /// band was 3.45:1 and a 0 3.61 (the accessibility review, 2026-11-03). The maths is LookBriefTests'; this holds the
+        /// view to it: that the readout is written on what is under it, and written again when that changes -- the view works
+        /// a readout's colour out only when its value's colour or its band changes.
         /// </remarks>
         [UnityTest]
         public IEnumerator ASelectedRowsReadout_ReadsOnItsBand()
@@ -821,8 +824,19 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("1", workbench.ReadoutOf(a), "sanity: a is 1 at 13.5");
 
             SchematicPalette palette = SchematicPalette.Current;
-            float contrast = SchematicPalette.Contrast(workbench.ReadoutColourOf(a), palette.Selection);
+            Color written = workbench.ReadoutColourOf(a);
+            float contrast = SchematicPalette.Contrast(written, palette.Selection);
             Assert.GreaterOrEqual(contrast, 4.5f, $"a selected row's 1 is {contrast:F2}:1 on its band");
+            float moved = Vector3.Distance(new Vector3(written.r, written.g, written.b), new Vector3(palette.One.r, palette.One.g, palette.One.b));
+            Assert.Less(moved, 0.3f, $"a selected row's 1 is written {moved:F3} from a 1's colour, no longer its value's");
+
+            // The band down: the 1 reads on the ground in its own colour (4.64:1 in Schematic), so it is written in it again.
+            workbench.List.ClearSelection();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(workbench.RowBandShown(a), "sanity: with nothing selected the row's band is down");
+            Assert.AreEqual("1", workbench.ReadoutOf(a), "sanity: a is still 1");
+            Assert.AreEqual(palette.One, workbench.ReadoutColourOf(a), "a row no longer selected is written in its value's own colour again");
         }
 
         // -----------------------------------------------------------------
