@@ -6,7 +6,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The interface's type scale: what each kind of text is drawn at, and that nothing goes round it.

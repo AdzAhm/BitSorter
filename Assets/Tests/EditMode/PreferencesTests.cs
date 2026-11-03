@@ -3,7 +3,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="Preferences"/>: the seam that keeps a test run out of the machine's own settings.

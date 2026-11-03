@@ -13,7 +13,7 @@ using BoardTrack = BitSorter.Board.Track;
 using EngineGate = BitSorter.Sim.GateKind;
 using Object = UnityEngine.Object;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The plan's budget for Part 8: the canvas at 60 frames a second with 300 wires and 100 changes

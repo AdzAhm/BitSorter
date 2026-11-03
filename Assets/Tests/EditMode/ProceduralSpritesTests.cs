@@ -2,7 +2,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The sprite factory's cache, which hands out Unity objects and therefore has to cope with

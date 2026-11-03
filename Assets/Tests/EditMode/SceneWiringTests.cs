@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The saved scene, read as a file: that every reference the builder was supposed to wire

@@ -1,6 +1,6 @@
 {
-    "name": "BitSorter.LogicCore.Tests",
-    "rootNamespace": "BitSorter.LogicCore.Tests",
+    "name": "BitSorter.EditMode.Tests",
+    "rootNamespace": "BitSorter.EditMode.Tests",
     "references": [
         "BitSorter.Sim",
         "BitSorter.Board",

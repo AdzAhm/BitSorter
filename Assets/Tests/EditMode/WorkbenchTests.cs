@@ -3,7 +3,7 @@ using BitSorter.ViewModel;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The parts of the 5.0 workbench that need Unity: its colours, and the claim the view-model's

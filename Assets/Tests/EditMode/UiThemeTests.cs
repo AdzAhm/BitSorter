@@ -2,7 +2,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="UiTheme"/>'s full-screen backdrops: the scrim and the panel sprite the workbench's pages are drawn on.

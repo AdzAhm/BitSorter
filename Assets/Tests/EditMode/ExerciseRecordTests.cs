@@ -3,7 +3,7 @@ using BitSorter.Board;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// An exercise's file read as the game reads it (Part 15b), through Unity's <c>JsonUtility</c>: its fields, and the

@@ -4,7 +4,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// Rules about how the view is built, pinned where a single file's tests cannot see them.

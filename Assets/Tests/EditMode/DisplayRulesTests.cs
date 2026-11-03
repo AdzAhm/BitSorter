@@ -4,7 +4,7 @@ using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="DisplayRules"/>: where the fullscreen switch is offered, and the window it comes

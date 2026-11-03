@@ -5,7 +5,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="AnalyticsRules"/>: the two events this game sends, and every reason it stays

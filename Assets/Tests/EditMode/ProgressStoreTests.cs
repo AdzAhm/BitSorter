@@ -2,7 +2,7 @@ using System.IO;
 using NUnit.Framework;
 using BitSorter.View;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// Completion surviving a restart, and every way a save file can be unreadable.

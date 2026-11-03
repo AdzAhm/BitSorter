@@ -2,7 +2,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// Which full-screen panels are open, and the one-frame memory that stops a key doing two things.

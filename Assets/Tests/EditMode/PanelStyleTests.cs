@@ -2,7 +2,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// How a panel's backdrop is drawn in each look, and what the bordered one may not change.

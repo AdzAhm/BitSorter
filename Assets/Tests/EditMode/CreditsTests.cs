@@ -4,7 +4,7 @@ using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="Credits"/>: who made the game and what it borrows, and that everything borrowed is

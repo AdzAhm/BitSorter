@@ -5,7 +5,7 @@ using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="FrameRate"/>: what vertical sync and the cap each do, that a machine with no

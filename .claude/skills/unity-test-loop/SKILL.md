@@ -51,7 +51,7 @@ until [ Library/ScriptAssemblies/BitSorter.View.dll -nt Assets/Scripts/View/Some
 grep -c "SomeNewMethodName" Library/ScriptAssemblies/BitSorter.View.dll
 ```
 
-The assemblies are the pure layers' `BitSorter.SystemVerilog.dll`, `BitSorter.Sim.dll`, `BitSorter.Board.dll` and `BitSorter.ViewModel.dll`, `BitSorter.View.dll`, `BitSorter.View.Editor.dll`, `BitSorter.LogicCore.Tests.dll` (the Edit Mode tests, still under the 4.x engine's name, which Part 16a deleted), `BitSorter.PlayMode.Tests.dll` and `BitSorter.TestTools.dll`. Method and type names are ASCII in the DLL. **String literals are UTF-16 and a plain grep will not find them**, so grep for a method name instead. If nothing rebuilds, reimport the `.asmdef` (see CLAUDE.md).
+The assemblies are the pure layers' `BitSorter.SystemVerilog.dll`, `BitSorter.Sim.dll`, `BitSorter.Board.dll` and `BitSorter.ViewModel.dll`, `BitSorter.View.dll`, `BitSorter.View.Editor.dll`, `BitSorter.EditMode.Tests.dll` (the Edit Mode tests; `BitSorter.LogicCore.Tests.dll`, under the 4.x engine's name, until the tech-debt sweep), `BitSorter.PlayMode.Tests.dll` and `BitSorter.TestTools.dll`. Method and type names are ASCII in the DLL. **String literals are UTF-16 and a plain grep will not find them**, so grep for a method name instead. If nothing rebuilds, reimport the `.asmdef` (see CLAUDE.md).
 
 ## 3. Run the tests: Edit Mode, then Play Mode
 

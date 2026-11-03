@@ -2,7 +2,7 @@ using NUnit.Framework;
 using BitSorter.View;
 using BitSorter.ViewModel;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>What a look is, and the one conversion every new look's alphas go through.</summary>
     public class LookTests

@@ -4,7 +4,7 @@ using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// <see cref="UiEscape"/>: the list of things over the workbench that take Escape one at a time, and the rule that

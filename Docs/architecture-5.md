@@ -4655,6 +4655,9 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
   open with a 4.x history note -- the game they describe is deleted, `git show v4.0.0:<path>` reads the code they name, and
   5.0 is this document. They are kept, not rewritten. `level-roadmap.md`'s says which of its sections CLAUDE.md still cites,
   "On `x`", and what its rule is in 5.0's words; `level-loaded-pipeline.md`'s, that it will never be built.
+- **The Edit Mode tests are `BitSorter.EditMode.Tests`**, beside `BitSorter.PlayMode.Tests`: the assembly and its namespace were
+  still `BitSorter.LogicCore.Tests`, the name of the 4.x engine 16a deleted. The `.asmdef` kept its `.meta`, so its GUID is
+  the same; no other assembly, setting or test names it, and the `unity-test-loop` skill's list of DLLs says the new name.
 
 ---
 

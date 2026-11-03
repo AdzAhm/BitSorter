@@ -4,7 +4,7 @@ using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The game's keys stand aside while a text field is being typed in.

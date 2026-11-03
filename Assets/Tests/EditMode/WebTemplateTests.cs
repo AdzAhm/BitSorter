@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The page the browser build is served in keeps the whole game within reach at any window size.

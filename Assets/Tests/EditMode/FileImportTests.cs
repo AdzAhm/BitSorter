@@ -5,7 +5,7 @@ using BitSorter.Board;
 using BitSorter.View;
 using NUnit.Framework;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// What the desktop reads for an import (<see cref="FileImport.ReadFolder"/>, Part 13f): sizes looked at before anything

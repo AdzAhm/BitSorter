@@ -4,7 +4,7 @@ using BitSorter.View;
 using BitSorter.ViewModel;
 using UnityEngine;
 
-namespace BitSorter.LogicCore.Tests
+namespace BitSorter.EditMode.Tests
 {
     /// <summary>
     /// The brief every new look answers, from the critique of the shipped one. Classic is exempt from the interface's:
