@@ -359,7 +359,10 @@ stretch that way.
   (`ProfilerDriver.memoryRecordMode = GCAlloc`, read through `RawFrameDataView`), and switch the profiler off after;
   under dotnet, `GC.GetAllocatedBytesForCurrentThread` round a step finds the same in seconds (Part 16b: the import's
   attempt to draw each module, 460 of the 601 MB left). `BrowserMemoryPlayTests` holds the open to 256 MB (it makes
-  107), and `ImportCostTests` a processor's import to 64 MB.
+  107), and `ImportCostTests` a processor's import to 64 MB. **But .NET 10 keeps on the stack what Mono and IL2CPP put on
+  the heap** -- above all a `foreach` enumerator through an interface, 32 to 40 bytes each, which hid some 5 KB of a still
+  frame (Part 16e): measure with `DOTNET_JitObjectStackAllocation=0` set, and hold such a walk itself rather than its bytes,
+  with a list that throws if it is enumerated (`LookupCostTests`). A lookup asked every frame walks its list by index.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as

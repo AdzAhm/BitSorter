@@ -928,7 +928,9 @@ Precise, and no casing under the wires.
 - **A wire pointed at lights its whole net** -- a soft band of its own colour under every branch, driver
   to every load -- and a chip by the pointer says what drives it and what reads it (`na   from g3.y
   (NOT) to g4.b (AND)`), written once per net so hovering formats nothing. The last of the canvas items
-  Part 8a listed.
+  Part 8a listed. The net under the pointer (`SchematicLayout.NetAt`) is asked every frame the pointer is on the
+  circuit: a pointer standing still is answered from the last ask, as the pin under it is, and the nets are walked by
+  index, never through an enumerator Mono and IL2CPP would make on the heap (Part 16e, `HoverCostTests`).
 - **Checked.** `LookBriefTests` holds every look's canvas, Classic's included, to the brief of section
   5: every value and outline 3:1 on its ground, every word 4.5:1, a 0 and a 1 apart by weight as well
   as colour, z apart from both, and reduced motion leaving out glow and flash. `LookTests` holds the
