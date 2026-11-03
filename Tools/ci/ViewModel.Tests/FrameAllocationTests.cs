@@ -144,6 +144,35 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// A controller shown as the textbook draws it (Part 15h-6e) is lit every frame it is up -- its state, the arrow it came
+        /// by and each table's row (<see cref="WorkbenchSession.ControllerNow"/>) -- and asked whether it is shown: none of it
+        /// allocates, the moment moving or not. A state machine's, and a decoder's tables.
+        /// </summary>
+        [TestCase("Multicycle RISC-V", "mcpu/mcpu_control")]
+        [TestCase("Pipelined RISC-V", "pcpu/pcpu_decode/pcpu_control")]
+        public void AControllerShown_LitEachFrame_AllocatesNothing(string sample, string into)
+        {
+            WorkbenchSession session = Opened(sample);
+            foreach (string module in into.Split('/'))
+                if (session.Module != module)
+                    Assert.IsTrue(session.StepInto(session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == module).Id), "into " + module);
+            session.Finish();
+            Assert.IsTrue(session.ShowsController, "sanity: shown as a controller");
+            WorkbenchModel model = session.Run.Model;
+            double time = model.End * 0.25, step = model.End / 2000.0;
+            ControllerMoment lit = default;
+
+            Assert.AreEqual(0, BytesEach(() => _ = session.ShowsController), "whether it is shown");
+            Assert.AreEqual(0, BytesEach(() => lit = session.ControllerNow()), "lit, the moment standing still");
+            Assert.AreEqual(0, BytesEach(() =>
+            {
+                model.Seek(time += step);
+                lit = session.ControllerNow();
+            }), "lit, the moment moving");
+            Assert.IsTrue(lit.State >= 0 || lit.Rows.Any(r => r >= 0), "sanity: and it lit something");
+        }
+
+        /// <summary>
         /// With something selected, what the panel asks every frame -- the one thing selected, for the inspector -- and what the
         /// canvas asks each time the pointer moves -- the selected block's handles, the selected wire's corners -- allocate nothing.
         /// </summary>
