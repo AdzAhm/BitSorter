@@ -552,7 +552,13 @@ namespace BitSorter.Board
                     return new GatePart { Id = id, Name = name, Kind = primitive, Inputs = inputs, Width = width, Rise = rise, Fall = fall };
 
                 case "constant":
-                    return new ConstantPart { Id = id, Name = name, Value = ProjectRecord.Value(value, problems, where) ?? LogicVec.AllX(Math.Max(1, width)) };
+                {
+                    // A width no value can have reads as the widest (the 16c pilot: it threw, on every launch).
+                    int fits = Math.Max(1, Math.Min(LogicVec.MaxWidth, width));
+                    if (fits != Math.Max(1, width))
+                        problems.Add($"{where} is {width} bits wide, wider than a value can be; it reads as {fits}.");
+                    return new ConstantPart { Id = id, Name = name, Value = ProjectRecord.Value(value, problems, where) ?? LogicVec.AllX(fits) };
+                }
 
                 case "register":
                     return new RegisterPart
