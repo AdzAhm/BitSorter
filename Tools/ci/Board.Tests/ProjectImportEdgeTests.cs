@@ -364,5 +364,23 @@ namespace BitSorter.Board.Tests
             foreach (string left in new[] { "handout.pdf", "vsim.wlf", "notes.txt" })
                 StringAssert.Contains("so it was left out", import.Notes.Single(n => n.File == left).Message, left);
         }
+
+        /// <summary>
+        /// A module drawn whatever else in the files is written (Part 16b): t2 makes only e, which is drawn, so it is drawn too
+        /// -- though w, written, makes an e as well. Each attempt to draw a module was handed every module written before it,
+        /// and checking w against e while t2's copy of e was still being built refused t2 by accident (the review of #141).
+        /// </summary>
+        [Test]
+        public void AModuleSharingADrawnChildWithAnUnrelatedWrittenModule_IsDrawn()
+        {
+            ProjectImport import = Import(("all.sv",
+                "module e (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n" +
+                "module w (input logic a, output logic y);\n    logic t;\n    e u (.a(a), .y(t));\n    always_comb y = t;\nendmodule\n" +
+                "module t2 (input logic a, output logic y);\n    e u (.a(a), .y(y));\nendmodule\n"));
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.IsFalse(import.Project.Find("e").IsWritten, "e is gates: drawn");
+            Assert.IsTrue(import.Project.Find("w").IsWritten, "w has a process: written");
+            Assert.IsFalse(import.Project.Find("t2").IsWritten, "t2 makes only e: drawn");
+        }
     }
 }

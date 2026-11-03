@@ -4376,7 +4376,7 @@ something needed").
   every workbench fixture kept its starting point. The audio tests hear Settings' music where they heard the main
   menu's; the Settings tests open it from the header and hold a reset to the exercises.
 
-**As built in Part 16b: the processor opens in 107 MB** (the plan's target: under 250 MB in the frame that opens it).
+**As built in Part 16b: the processor opens in 107 MB** (the plan's target: about 250 MB in the frame that opens it).
 
 - **Measured under dotnet, step by step**, with `GC.GetAllocatedBytesForCurrentThread` round each: of the 601 MB 15h-6d
   left, 484 MB was the sample's import, and 460 MB of that the importer trying to draw each module -- every one of the
@@ -4385,7 +4385,10 @@ something needed").
 - **A drawing is handed only the written modules it makes**, all the way down (`ProjectImporter`'s `WrittenUnder`): all
   it can place as blocks. The final check of the whole project is as it was. The import makes 15 MB; every module's
   decision, drawn or written, is the same, compared old against new across the oracle corpus's 38 imports and the
-  three processors; and Board's tests run in 28 s, from about 50.
+  three processors; and Board's tests run in 28 s, from about 50. One decision does change, for the better (the review
+  of #141): a module sharing a drawn child with a written module it does not make was refused by accident -- the written
+  one, checked against the child while the module's own copy of it was half built, said the child had no such port --
+  and is drawn now (`ProjectImportEdgeTests`).
 - **Held** by `ImportCostTests` (each processor's import under 64 MB) and `BrowserMemoryPlayTests` (the open under
   256 MB in any frame; it makes 107 MB in the editor). Opening TIMING, LOGIC or STATES on the processor works out its
   timing once, 124 MB, in the frame the tab opens: within what a page holds, and left as it is.
