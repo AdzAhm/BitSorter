@@ -1,41 +1,73 @@
 name: Bug report
-description: Something in the game doesn't work the way it should.
+description: Something in the simulator doesn't work the way it should.
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time. One thing first: a circuit whose answers are right can
-        still fail if its paths are unbalanced -- bits arriving at a gate on different ticks
-        collide. That's the timing lesson, not a grading bug, and the verdict names the gate.
+        Thanks for taking the time. Three things first, which are not bugs. A glitch on an output
+        is real: gates have delays, so paths of different lengths into one gate make a short
+        wrong pulse, as in hardware. Two processes touching one signal at the same moment can run
+        in either order, and BitSorter warns of it in the TRANSCRIPT. And nothing ranks you against
+        anyone, on purpose.
+
+        If BitSorter and Icarus Verilog or ModelSim give different results for the same code,
+        that is the most useful report there is: please include the code.
+
+        Please do not paste or attach the course's own files or anything with a student ID
+        number. Reproduce the problem with code you wrote.
   - type: input
     id: version
     attributes:
       label: Version
-      description: It's in the bottom-right corner of the main menu.
-      placeholder: "4.0.0"
+      description: It's at the foot of the start page (HOME), and in the credits.
+      placeholder: "5.0.0"
     validations:
       required: true
   - type: dropdown
     id: platform
     attributes:
-      label: Where were you playing?
+      label: Where were you running it?
       options:
         - Windows build
-        - Browser (say which one below)
+        - Browser
         - The Unity editor
     validations:
       required: true
   - type: input
-    id: level
+    id: browser
     attributes:
-      label: Level
-      description: Which level, or free play.
-      placeholder: "Balance the paths"
+      label: Browser, if it was one
+      description: Which browser and version, and whether it was in a private window.
+      placeholder: "Firefox 140"
+  - type: dropdown
+    id: look
+    attributes:
+      label: Look
+      description: SETTINGS, STYLE. Matters most if the bug is in how something is drawn.
+      options:
+        - Schematic (the default)
+        - Schematic Light
+        - Neon Board
+        - Classic
   - type: textarea
-    id: what
+    id: drawn
     attributes:
-      label: What happened
-      description: What you did, what you expected, and what happened instead. A screenshot of the board helps a lot.
+      label: What was drawn or written
+      description: The circuit or the SystemVerilog it happened on. Best of all, FILE, EXPORT PROJECT, and attach the zip; otherwise paste the code, or say which sample or Exercise it was.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: The waves, the values or the message you expected, and why. If ModelSim or Icarus Verilog shows something else, say what.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What BitSorter showed
+      description: What you did and what happened instead. A screenshot of the waves, or of the TRANSCRIPT, helps a lot.
     validations:
       required: true

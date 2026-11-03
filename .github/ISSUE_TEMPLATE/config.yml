@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: How to contribute
     url: https://github.com/AdzAhm/BitSorter/blob/main/CONTRIBUTING.md
-    about: Reporting bugs, writing levels, labels, forking and pull requests.
+    about: Reporting bugs, suggesting Exercises, labels, forking and pull requests.

@@ -8,9 +8,9 @@
 #   - Oracle, designs run under Icarus Verilog, the second simulator the engine is checked against.
 # The rest of the suite -- the view layer and the Play Mode tests -- runs in the editor.
 #
-# The workflow and job keep the names they had when they ran the 4.x simulator's tests (LogicCore, deleted in
-# Part 16a), so a check that was required stays required.
-name: LogicCore tests
+# The workflow was called "LogicCore tests" while it ran the 4.x game's tests (LogicCore, deleted in Part 16a). The job is
+# still `test`, which is what a check that is required would name.
+name: Tests
 
 on:
   push:

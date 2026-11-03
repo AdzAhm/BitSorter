@@ -1,13 +1,28 @@
 name: Feature request
-description: Something the game or the simulator could do that it doesn't.
+description: Something the simulator could do that it doesn't.
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
         Two kinds of change need a conversation before any code: anything about what data
-        the game sends, and anything that ranks players against each other or a par score.
-        Both change a promise made to players; see CONTRIBUTING.md.
+        BitSorter sends, and anything that ranks people against each other or against a par
+        score. Both change a promise made to the people who use it; see CONTRIBUTING.md.
+
+        Please do not paste or attach the course's own material.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it belong?
+      options:
+        - The circuit and its drawing
+        - SystemVerilog the engine reads or runs
+        - The waves
+        - TIMING, LOGIC or STATES
+        - Exercises, CHECK or the tutorial
+        - Import, export or ModelSim
+        - Settings or the looks
+        - Something else
   - type: textarea
     id: problem
     attributes:
@@ -25,4 +40,4 @@ body:
     id: context
     attributes:
       label: Anything else
-      description: Screenshots, a course topic it would help with, or how another simulator does it.
+      description: Screenshots, a course topic it would help with, or how ModelSim or another simulator does it.

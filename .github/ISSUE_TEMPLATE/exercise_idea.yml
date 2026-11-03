@@ -1,0 +1,59 @@
+name: Exercise idea
+description: A concept from the course that would make a good Exercise.
+labels: ["exercise"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Exercises teach a topic from Digital Systems and Computer Structure: boolean algebra,
+        K-maps, functional completeness, propagation delay, combinational components, adders,
+        flip-flops, state machines, critical path and pipelining. The course's RISC-V hardware is
+        simulated but not taught, hazards are shown but not taught, and assembly and memory
+        addressing are out of scope.
+
+        Please do not paste or attach the course's own material -- its handouts, its code or
+        anything with a student ID number. Describe the idea in your own words.
+  - type: input
+    id: concept
+    attributes:
+      label: The concept it teaches
+      placeholder: "A 2-to-4 decoder with an enable"
+    validations:
+      required: true
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Course topic
+      options:
+        - Boolean algebra
+        - K-maps
+        - Functional completeness
+        - Propagation delay
+        - Combinational components
+        - Adders
+        - Flip-flops
+        - State machines
+        - Critical path
+        - Pipelining
+        - Something else (say what below)
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: The goal
+      description: What the student is asked to build, in a sentence or two, and which parts they get.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: How CHECK would judge it
+      description: The inputs the test drives and the outputs it expects, a delay the circuit must meet, or a clock period it must fit. Mark any output that may be left free with an x.
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where it fits
+      description: Which Exercises it should come after, and what it assumes the student already knows. A thing is taught before an Exercise asks for it.
