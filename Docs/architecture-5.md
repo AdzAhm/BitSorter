@@ -4707,6 +4707,14 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   makes no delegate now); a bus row's
   readout made once each time its value changes (`WaveformView.Readout`).
 
+**As built in Part 16: the browser download** (the `optimize-web` skill, 2026-11-03). The release settings the skill asks for
+were already `WebGLBuild`'s -- Brotli, Disk Size with LTO, Optimize Size, WebAssembly 2023, data caching, no debug symbols,
+engine code stripped -- so the pass looked for what the build carries that nothing draws or runs. **Measured from the build
+itself**, with no editor: the data file unpacked (a list of files: IL2CPP's metadata, the asset bundle `data.unity3d`, the
+default resources), the bundle's LZ4HC blocks read, and each serialized file's objects listed by class, each Brotli-compressed
+on its own; `Docs/distribution.md` has the table. Two thirds of the data is IL2CPP's metadata and nearly all the rest is fonts,
+which other passes own. Nothing drawn changes, and nothing BitSorter reads at runtime is left out.
+
 ---
 
 ## 11. The parts

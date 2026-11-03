@@ -126,15 +126,40 @@ reason, though nothing points at it now: post-processing turned on again points 
 the package's.
 
 **What the browser build weighs**, measured from the release build's `Build/` folder, Brotli-compressed as
-served. 4.0.0's was 16,931,273 bytes; Part 16b records each cut it makes here against these.
+served: the download is the four files under `Build/` -- the wasm, the data, the framework and the loader, which
+is not compressed. 4.0.0's was 16,931,273 bytes; Part 16 records each cut it makes here against these.
 
 | Build | wasm | data | Download |
 |---|---|---|---|
 | 5.0 before Part 16a (v5 `b278b2b`, 2026-11-02) | 7,990,347 | 7,177,312 | 15,462,551 |
 | After Part 16a deleted the 4.x game (2026-11-02) | 7,688,213 | 7,063,474 | 15,046,579 |
+| Before Part 16b's optimisation skills (2026-11-03) | not recorded | not recorded | 11,380,796 |
+| After them, before the `optimize-web` pass (v5 `332b89a`, 2026-11-03) | 7,506,410 | 3,273,372 | 11,070,792 |
 
-Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. The
-two menu recordings, about 3.6 MB of the data, are the largest thing left, and 16b's first candidate.
+Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. Part 16b then
+took the sound out, and the two menu recordings with it, about 3.6 MB of the data; its skills took a further
+310,004 bytes. The framework is 172,878 bytes of that last build and the loader 118,132.
+
+**Where the last of those bytes are** (`v5 332b89a`, measured by unpacking the build: the data file is a list of
+files, its `data.unity3d` a Unity asset bundle, and each piece was Brotli-compressed on its own at quality 11, so
+the parts add up to within a few kilobytes of the file):
+
+| Piece | Raw | Brotli |
+|---|---|---|
+| wasm: the engine and every assembly's code, compiled | 28,304,609 | 7,506,410 |
+| data: `global-metadata.dat`, IL2CPP's names, types and string literals | 8,942,676 | 2,017,844 |
+| data: `data.unity3d`, the assets | 1,475,181 | 1,128,789 |
+| data: `unity default resources` | 1,632,004 | 129,081 |
+| framework.js | 702,653 | 172,878 |
+
+Inside `data.unity3d`, the two Plex atlases are about 240 KB of it, Liberation Sans (TextMesh Pro's fallback for
+a character Plex lacks, typed into a name or a comment) 171 KB, the three Plex faces UI Toolkit draws the shell
+with 222 KB, the built-in shaders 100 KB, URP's own shaders 51 KB (the 2D lights' 35 KB of that), and the
+Rendering Debugger's prefabs and font, in a `Resources` folder of URP's core package, about 35 KB. Unity stores
+`data.unity3d` LZ4HC-compressed inside the data file, so Brotli finds less to take: compressed whole from its
+4,773,376 raw bytes it would be 913,553, not 1,128,789. The browser build chooses that itself -- it is not
+`BuildOptions`' LZ4, which `WebGLBuild` does not ask for -- and no player setting of 6000.3 was found that turns
+it off.
 
 **Decompression fallback is the setting that matters.** A Brotli-compressed Unity
 build only loads if the server answers with `Content-Encoding: br`. A host that
