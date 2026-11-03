@@ -896,7 +896,10 @@ stretch that way.
   reference shots hold it still -- while the field has the keyboard and nothing in it
   is chosen. An empty field's is at its start, measured from nothing: in a browser an
   empty field showed none until something was typed (Ahmad, 2026-10-28), and the editor
-  never showed the fault. **And in a computer's browser every shell field sets `hideSoftKeyboard`**:
+  never showed the fault. **A field holding the keyboard is edged in the accent**, the
+  chip's edge again once it lets go (the accessibility review, 2026-11-03, for WCAG's
+  visible focus): the caret alone is hidden while text is chosen, as + SIGNAL and MAKE
+  BLOCK open. **And in a computer's browser every shell field sets `hideSoftKeyboard`**:
   without it UI Toolkit edits a field as on a phone and lets it go a tenth of a second
   apart while no on-screen keyboard is up, and every field flickered -- found with a
   focus log in a browser build, since the editor has no such keyboard (2026-10-28).

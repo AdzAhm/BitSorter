@@ -291,9 +291,9 @@ namespace BitSorter.PlayMode.Tests
         /// puts its edge back when it lets go (WCAG 2.1 2.4.7, focus visible).
         /// </summary>
         /// <remarks>
-        /// The caret alone said it: a bar a pixel and a half wide, blinking, and gone while text in the field is chosen -- as
-        /// it is when MAKE BLOCK or + SIGNAL open with their text chosen to be typed over. Reference shot 36 has a width just
-        /// typed and nothing that says which field had it (the accessibility review, 2026-11-03).
+        /// The caret alone said it: a bar a unit and a half wide, blinking, and gone while text in the field is chosen -- as
+        /// it is when MAKE BLOCK or + SIGNAL open with their text chosen to be typed over, reference shots 41 and 32 (the
+        /// accessibility review, 2026-11-03).
         /// </remarks>
         [UnityTest]
         public IEnumerator AShellField_HoldingTheKeyboard_SaysSoByItsEdge()

@@ -99,6 +99,10 @@ namespace BitSorter.View
             element.style.borderTopLeftRadius = element.style.borderTopRightRadius = element.style.borderBottomLeftRadius = element.style.borderBottomRightRadius = corner;
         }
 
+        /// <summary>Colours an outlined element's edge, all four sides, leaving its fill, width and corners.</summary>
+        private static void Edge(VisualElement element, Color edge) =>
+            element.style.borderLeftColor = element.style.borderRightColor = element.style.borderTopColor = element.style.borderBottomColor = edge;
+
         /// <summary>
         /// A button as the workbench draws REPLAY: a thin outline round the ground, its caption in the text colour.
         /// It takes no keyboard focus -- a focused button would answer Space and Enter as well as the workbench's own keys
@@ -233,6 +237,17 @@ namespace BitSorter.View
 
             VisualElement input = field.Q(className: TextField.inputUssClassName) ?? field;
             Outline(input, palette.ChipEdge, palette.Chip, EdgeWidth, 6f);
+
+            // The edge says which field holds the keyboard (WCAG 2.4.7): the accent while it does, 3:1 and more against the
+            // ground and the edge at rest in every look, and the chip's edge again once it lets go -- unless the keyboard only
+            // moved inside the field. The caret alone said it, and is hidden while text is chosen, as + SIGNAL and MAKE BLOCK
+            // open (the accessibility review, 2026-11-03).
+            field.RegisterCallback<FocusInEvent>(_ => Edge(input, palette.Accent));
+            field.RegisterCallback<FocusOutEvent>(e =>
+            {
+                if (!(e.relatedTarget is VisualElement next && (next == field || field.Contains(next))))
+                    Edge(input, palette.ChipEdge);
+            });
             input.style.flexGrow = 1f;
             input.style.paddingLeft = input.style.paddingRight = 10f;
             input.style.paddingTop = input.style.paddingBottom = 0f;
