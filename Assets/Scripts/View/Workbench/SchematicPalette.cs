@@ -130,7 +130,8 @@ namespace BitSorter.View
             Grid = Rgb(230, 228, 222),
             Chip = Rgb(238, 236, 230),
             ChipEdge = Rgb(214, 212, 204),
-            Cursor = Rgb(156, 112, 0),
+            // Its time is written in it, so 4.5:1 as a word: (156, 112, 0) was 4.10 (the accessibility review, 2026-11-03).
+            Cursor = Rgb(146, 104, 0),
             Selection = Rgb(224, 232, 241),
         };
 
