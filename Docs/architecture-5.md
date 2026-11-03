@@ -4376,6 +4376,38 @@ something needed").
   every workbench fixture kept its starting point. The audio tests hear Settings' music where they heard the main
   menu's; the Settings tests open it from the header and hold a reset to the exercises.
 
+**As built after Part 16a: blocks resized by their handles** (Ahmad, 2026-11-02, Part 16 paused for his features: "I want
+it to be resizeable when you drag the blue outline things (or the white ones you decide what is better)", on the
+pipelined processor's `pcpu_memory`).
+
+- **The size is layout** (section 5's rule, that moving changes nothing the circuit does). `Placement` gains `Width` and
+  `Height` in cells, 0 for the natural size, with `Moved`, `WithPosition`, `Turned` and `WithSize` so that every edit
+  that copies a placement -- a move, a turn, a mirror, an align, a paste, a drawing of code's arrangement -- keeps it.
+  It is saved as `width` and `height` beside a placement and an arranged part, which a save from before reads as 0, so
+  `format` stays 5. A size the block has naturally is stored as 0, and TIDY lays every part out at its natural size.
+- **Only a block or a box takes one** (`PartGeometry.Resizable`): a gate, a port or a mux keeps the size its symbol
+  has. `PartGeometry.Local(project, part, placement)` makes a sized block's outline, at least its natural size and at
+  most 64 cells a side; its pins stand on its sides, and down them at the largest half-cell step that fits, the same
+  on both sides -- so at its natural height the step is the half cell it always was, every pin stays on the quarter grid
+  and a natural block is drawn exactly as before (no reference shot moved). Everything that measures a placed part --
+  routing, the hit map, the drawing, a drawing of code's arrangement -- goes through `Placed`, so all of it sees the
+  sized outline.
+- **The handles are on the selection's outline**, the accent one, not on the block's own: a press on the block moves it,
+  so the two gestures never compete -- the choice Ahmad left open. Eight squares, drawn as a selected wire's corners are,
+  while exactly one block or box is selected (`CanvasEditor.HandledPart`); `TargetAt` asks them first. A drag
+  (`CanvasPointer`'s `BeginResize`, `ResizeTo`, `EndResize`) moves the sides its handle is on, in the board's axes
+  however the block is turned, by half cells (`BlockResize.Resized`); the block's outline and its wires are drawn where
+  they are going, and nothing changes until it is let go -- one step, through `WorkbenchSession.Move`, so a drawn
+  circuit keeps the size in its layout, the drawing of code in its module's arrangement by the part's key, and a lock or
+  GATES refuses it as it refuses a move. Shift or Ctrl on a handle is a press on its block. RESET SIZE in the canvas's
+  menu (`WorkbenchSession.ResetSize`), offered while a selected block has a size, puts it back where it stands.
+- **The drawing takes the room**: a block's box is a lead in from its pins at any width (`SymbolGeometry.BlockBodyHalf`),
+  an array's copies behind it as wide, and its port names are given its width before they are cut short. The status line
+  over a handle says "block: drag to resize", and the keyboard map lists the gesture.
+- **Tests**: `BlockSizeTests` (Board), `ResizeTests` (the view-model, every handle, the limits, a turned block, the drag,
+  the refusals, the pointer and RESET SIZE), a Play Mode test dragging the full adder's h1 and the pipelined processor's
+  data memory through the workbench's own pointer, and reference shot 75.
+
 ---
 
 ## 11. The parts

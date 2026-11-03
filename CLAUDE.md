@@ -521,7 +521,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-one states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -534,7 +534,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -664,7 +664,18 @@ stretch that way.
   kind at each quarter turn, mirrored and not): a wire comes into a pin the way it
   faces, round a column or a height where the first way round would come back over
   it (`WireGeometry.Round`), a turned block names its pins along them, and a part
-  with wires leaving its top has its name under it or beside it. **An operator part**
+  with wires leaving its top has its name under it or beside it. **A selected block is
+  resized by its handles** (asked 2026-11-02, `BlockResize`): one block, or one box of the
+  drawing of code, selected shows eight squares on its selection's outline -- not on its own,
+  a press on which moves it, so the two never compete -- and a drag of one moves the sides it
+  is on by half cells, the sides across staying put, so every pin stays on the quarter grid;
+  never below the block's natural size nor past 64 cells (`PartGeometry.MaxSize`). Its pins
+  spread down its sides, its port names take the room, and its wires follow it dashed while it
+  is dragged. The size is the placement's (`Placement.Width` and `Height`, 0 natural, as a save
+  from before reads), in the layout or the module's arrangement and never in the module, so it
+  changes nothing the circuit does: one step on release, refused where a move is, kept by a
+  turn, a paste and an arrangement, dropped by TIDY, and RESET SIZE in the canvas's menu puts
+  it back. **An operator part**
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
   15h-4) to place. **A written module is shown as the drawing of its code, or as its
@@ -808,7 +819,7 @@ stretch that way.
   popup is open (`ShellPopup.AnyOpen`).
   + CODE, the last cell of PARTS' MORE, asks for a name and puts a block of one in
   hand. **A right-click opens the canvas's menu**
-  (Part 10d) -- align, spread, turn, mirror, route again, tidy (Part 15h-4f), copy, cut, paste,
+  (Part 10d) -- align, spread, turn, mirror, route again, reset size, tidy (Part 15h-4f), copy, cut, paste,
   make block (Part 12b; it asks for the new module's name first), delete --
   and Ctrl+C, X and V copy, cut and paste; a minimap at the side
   panel's foot, up while some of the drawing is out of sight, moves the view on a
