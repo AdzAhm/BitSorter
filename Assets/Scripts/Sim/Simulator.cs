@@ -1755,8 +1755,7 @@ namespace BitSorter.Sim
                 return;
             }
 
-            var items = new List<MemoryImage.Item>();
-            if (!MemoryImage.TryRead(text, task.Hex, memory.Width, items, out string error))
+            if (!MemoryImage.TryCheck(text, task.Hex, out string error))
             {
                 _history.Message(_now, Severity.Error, $"{task.Task}({task.File}) {error}; {memory.Name} is left as it was.");
                 return;
@@ -1773,21 +1772,39 @@ namespace BitSorter.Sim
                 return;
             }
 
+            // Where each word of the range is loaded from -- the last of the image's words to land on it, as an @ may go back
+            // -- and only those are made, at the memory's width, once the image is stepped through: a load makes no more than
+            // the memory holds, however long its file (the review of 16c).
+            int words = (int)(high - low + 1);
+            var from = new int[words];
+            var length = new int[words];
+            for (int i = 0; i < words; i++)
+                from[i] = -1;
+
+            void Load()
+            {
+                for (int i = 0; i < words; i++)
+                    if (from[i] >= 0)
+                        Write(memory.First.Index + (int)(low + i - memory.Lowest), 0, MemoryImage.Word(text, from[i], length[i], task.Hex, memory.Width));
+            }
+
             long step = start <= end ? 1 : -1;
             long at = start;
             int loaded = 0;
             bool addressed = false;
+            var reader = new MemoryImage.Reader(text);
 
-            foreach (MemoryImage.Item item in items)
+            while (reader.Next(out int token, out int size, out int line, out _))
             {
-                if (item.IsAddress)
+                if (text[token] == '@')
                 {
                     addressed = true;
-                    at = item.Address;
+                    MemoryImage.TryAddress(text, token, size, out at);
                     if (at < low || at > high)
                     {
+                        Load();
                         _history.Message(_now, Severity.Error,
-                            $"{task.Task}({task.File}) line {item.Line}: @{item.Address:x} is outside the words being loaded, {low} to {high}.");
+                            $"{task.Task}({task.File}) line {line}: @{at:x} is outside the words being loaded, {low} to {high}.");
                         return;
                     }
 
@@ -1796,19 +1813,22 @@ namespace BitSorter.Sim
 
                 if (at < low || at > high)
                 {
+                    Load();
                     _history.Message(_now, Severity.Warning,
-                        $"{task.Task}({task.File}) line {item.Line}: more words than {memory.Name} has room for from {start}; the rest are not loaded.");
+                        $"{task.Task}({task.File}) line {line}: more words than {memory.Name} has room for from {start}; the rest are not loaded.");
                     return;
                 }
 
-                Write(memory.First.Index + (int)(at - memory.Lowest), 0, item.Word);
+                from[at - low] = token;
+                length[at - low] = size;
                 loaded++;
                 at += step;
             }
 
-            if (!addressed && loaded < high - low + 1)
+            Load();
+            if (!addressed && loaded < words)
                 _history.Message(_now, Severity.Warning,
-                    $"{task.Task}({task.File}): the file has {loaded} words for the {high - low + 1} of {memory.Name}; the rest are left as they were.");
+                    $"{task.Task}({task.File}): the file has {loaded} words for the {words} of {memory.Name}; the rest are left as they were.");
         }
 
         private void WriteMemory(MemoryTask task)
