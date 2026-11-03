@@ -90,5 +90,20 @@ namespace BitSorter.ViewModel.Tests
                 "the pointer moving on it, a pin asked for each time");
             Assert.AreEqual(0, BytesEach(() => editor.Point(null, false, 1f, true)), "the pointer off it");
         }
+
+        /// <summary>The net under the pointer, which the hover chip asks every frame the pointer is on the circuit, allocates nothing.</summary>
+        [TestCase("Pipelined RISC-V")]
+        [TestCase("Reference")]
+        public void TheNetUnderThePointer_AllocatesNothing(string sample)
+        {
+            SchematicLayout layout = Opened(sample).Run.Model.Layout;
+            Vec2 middle = layout.Size * 0.5f;
+            NetLayout wired = layout.Nets.First(n => n.Branches.Count > 0 && n.Branches[0].PointCount > 1);
+            Vec2 onAWire = wired.Branches[0].Point(0);
+
+            Assert.AreEqual(0, BytesEach(() => layout.NetAt(middle, 3f)), "asked anywhere");
+            Assert.AreEqual(0, BytesEach(() => layout.NetAt(onAWire, 3f)), "asked on a wire");
+            Assert.GreaterOrEqual(layout.NetAt(onAWire, 3f), 0, "sanity: a wire's own end finds a net");
+        }
     }
 }
