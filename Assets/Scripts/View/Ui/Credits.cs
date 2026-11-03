@@ -14,7 +14,7 @@ namespace BitSorter.View
         /// <summary>The line at the top of the credits, under the title. The 4.x title screen showed it too, until Part 16a.</summary>
         public const string Tagline = "bits fall through logic. sort them.";
 
-        /// <summary>The version the credits show: the build's own, as "v3.0.0".</summary>
+        /// <summary>The version the credits show: the build's own (<c>bundleVersion</c>), as "v5.0.0".</summary>
         public static string VersionText => "v" + UnityEngine.Application.version;
 
         /// <summary>The person who made the game, in every role.</summary>
@@ -61,8 +61,11 @@ namespace BitSorter.View
         /// </summary>
         public const string Dedication = "every student of Digital Systems and Computer Structure";
 
-        /// <summary>The last word.</summary>
-        public const string Farewell = "THANK YOU FOR PLAYING";
+        /// <summary>
+        /// The last word (Ahmad's choice, 2026-11-03: it said THANK YOU FOR PLAYING, which BitSorter stopped being a game
+        /// to say). The copyright and the version are under it.
+        /// </summary>
+        public const string Farewell = "HAPPY SIMULATING";
 
         /// <summary>What a line of the roll is, which decides how it is drawn.</summary>
         public enum Kind

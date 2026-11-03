@@ -121,6 +121,8 @@ namespace BitSorter.LogicCore.Tests
             }
 
             Assert.AreEqual(1, farewells, "the roll should come to rest on exactly one line");
+            Assert.AreEqual("HAPPY SIMULATING", roll[at].Text, "the roll's last word is Ahmad's choice, 2026-11-03");
+            Assert.IsFalse(RollText().Exists(line => line.Contains("THANK YOU FOR PLAYING")), "the old farewell is still on the roll");
             Assert.AreEqual(roll.Count - 2, at, "the farewell should be the last line but the copyright");
             StringAssert.Contains("v9.9.9", roll[roll.Count - 1].Text);
             StringAssert.Contains(Credits.Copyright, roll[roll.Count - 1].Text);
