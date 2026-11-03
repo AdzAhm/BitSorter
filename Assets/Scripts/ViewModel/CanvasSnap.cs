@@ -153,6 +153,29 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>
+    /// The parts or the wires a <see cref="CanvasSelection"/> holds, by id, to read and not to change. A foreach over it takes
+    /// the set's own enumerator, a struct: through <see cref="IReadOnlyCollection{T}"/>, as these were, the enumerator was an
+    /// object every loop, and the canvas loops over the selection every frame the pointer moves (the zero-GC pass, Part 16).
+    /// Handed on as a collection, it is one still.
+    /// </summary>
+    public readonly struct SelectedIds : IReadOnlyCollection<int>
+    {
+        private readonly HashSet<int> _ids;
+
+        internal SelectedIds(HashSet<int> ids) => _ids = ids;
+
+        public int Count => _ids.Count;
+
+        public bool Contains(int id) => _ids.Contains(id);
+
+        public HashSet<int>.Enumerator GetEnumerator() => _ids.GetEnumerator();
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => _ids.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _ids.GetEnumerator();
+    }
+
+    /// <summary>
     /// What is selected on the canvas (Part 10): parts and wires, by id. A click picks one -- with Shift adds
     /// it, with Ctrl puts it in or takes it out -- and a box picks what it touches. Ids are the document's own,
     /// never reused, so a selection kept across an edit means what it meant, less whatever the edit took away.
@@ -162,8 +185,8 @@ namespace BitSorter.ViewModel
         private readonly HashSet<int> _parts = new HashSet<int>();
         private readonly HashSet<int> _wires = new HashSet<int>();
 
-        public IReadOnlyCollection<int> Parts => _parts;
-        public IReadOnlyCollection<int> Wires => _wires;
+        public SelectedIds Parts => new SelectedIds(_parts);
+        public SelectedIds Wires => new SelectedIds(_wires);
 
         public bool IsEmpty => _parts.Count == 0 && _wires.Count == 0;
 

@@ -142,5 +142,42 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(0, BytesEach(() => layout.NetAt(onAWire, 3f)), "asked on a wire");
             Assert.GreaterOrEqual(layout.NetAt(onAWire, 3f), 0, "sanity: a wire's own end finds a net");
         }
+
+        /// <summary>
+        /// With something selected, what the panel asks every frame -- the one thing selected, for the inspector -- and what the
+        /// canvas asks each time the pointer moves -- the selected block's handles, the selected wire's corners -- allocate nothing.
+        /// </summary>
+        [Test]
+        public void WithSomethingSelected_TheFrameAsks_AllocateNothing()
+        {
+            WorkbenchSession session = Opened("Four half adders");
+            var editor = new CanvasEditor(session);
+            Module module = session.DrawnModule;
+            Part block = module.Parts.First(p => p is BlockPart);
+            Wire wire = module.Wires[0];
+            Vec2 middle = session.Run.Model.Layout.Size * 0.5f;
+            float nudge = 0f;
+
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: block.Id), extend: false, toggle: false);
+            Assert.AreEqual(block.Id, editor.Single.Part, "sanity: the block alone selected");
+            Assert.GreaterOrEqual(editor.HandledPart, 0, "sanity: and it shows its handles");
+            Assert.AreEqual(0, BytesEach(() => _ = editor.Single), "the one thing selected, a block");
+            Assert.AreEqual(0, BytesEach(() => _ = editor.HandledPart), "the block that shows its handles");
+            Assert.AreEqual(0, BytesEach(() => editor.Point(middle + new Vec2(nudge += 0.37f, 0f), false, 1f, true)), "the pointer moving, a block selected");
+
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: wire.Id), extend: false, toggle: false);
+            Assert.AreEqual(wire.Id, editor.Single.Wire, "sanity: the wire alone selected");
+            Assert.AreEqual(0, BytesEach(() => _ = editor.Single), "the one thing selected, a wire");
+            Assert.AreEqual(0, BytesEach(() => editor.Point(middle + new Vec2(nudge += 0.37f, 0f), false, 1f, true)), "the pointer moving, a wire selected");
+
+            editor.SelectAll();
+            Assert.AreEqual(0, BytesEach(() =>
+            {
+                foreach (int part in editor.Selection.Parts)
+                    _ = part;
+                foreach (int each in editor.Selection.Wires)
+                    _ = each;
+            }), "a loop over what is selected");
+        }
     }
 }
