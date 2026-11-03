@@ -1,5 +1,12 @@
 # The `LevelLoaded` pipeline
 
+> **4.x history, and never to be built.** `LevelSession` and its `LevelLoaded` event went with the
+> 4.x game in Part 16a (2026-11-02), so nothing below describes the code; `git show
+> v4.0.0:<path>` reads the files it names. Kept for its lesson -- an event that grows into an
+> ordered pipeline without saying so -- which 5.0 answers by producing a fact in the call that
+> changes the state, never in a later poll (CLAUDE.md, "Nothing may depend on the order components
+> update in").
+
 **Status: written up, not built** -- still true at 4.0.0. This is the design note
 asked for before committing to the work. Nothing here is implemented, and the
 table below was brought up to date on 2026-10-06: a tenth subscriber joined after

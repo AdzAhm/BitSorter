@@ -1,5 +1,17 @@
 # Level roadmap
 
+> **4.x history.** The roadmap of BitSorter 4.x's levels, written for the puzzle game's
+> token-passing model. Part 16a (2026-11-02) deleted that game, so the files linked below are no
+> longer in the tree (`git show v4.0.0:<path>` reads them), and "CLAUDE.md" here means CLAUDE.md as
+> it was then. The thirty levels live on as the first thirty Exercises, under the same ids, in
+> `Assets/Resources/Exercises`, held by `ExerciseCurriculumTests`.
+>
+> **One section is still cited**: [On `x`](#on-x), for CLAUDE.md's two ways of writing a don't-care.
+> Its rule carries over in 5.0's words: a combination that cannot happen is left out of an
+> exercise's inputs, and an answer that matters to one output and not another is an `x` in that
+> output's values. Its `CurriculumTests` is now
+> `ExerciseCurriculumTests.AnAnswerLeftFree_ComesAfterTheDontCareExercise`.
+
 Which syllabus topics this game can teach, which are waiting on a missing
 primitive, and which the token-passing model cannot hold at all.
 

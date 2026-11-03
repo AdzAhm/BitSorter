@@ -1,5 +1,11 @@
 # BitSorter — design notes
 
+> **4.x history.** These are the design notes of BitSorter 4.x, the puzzle game BitSorter began
+> as. Part 16a (2026-11-02) deleted that game -- its token engine (`LogicCore`), its board, its HUD
+> and its levels -- so the code named below is no longer in the tree; `git show v4.0.0:<path>`
+> reads any of it as it was. Kept for the reasoning, not as a description of the code. BitSorter
+> 5.0, the simulator, is [`architecture-5.md`](architecture-5.md), and its rules are `CLAUDE.md`.
+
 How this game is built and why, for someone technical who wants the reasoning
 rather than the API.
 

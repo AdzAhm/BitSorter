@@ -4651,6 +4651,10 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
   file and a CLAUDE.md line that is gone; the credits' parameters, the frame-rate counter, `ReducedMotion`, the CI projects'
   comments (the document layer "referenced by nothing but the view", the oracle "for now" proving its harness) and the corpus
   README's start order at time 0 (Icarus's, before M5). History stays where it is told as history.
+- **The three 4.x notes say so at their head**: `Docs/design.md`, `Docs/level-roadmap.md` and `Docs/level-loaded-pipeline.md`
+  open with a 4.x history note -- the game they describe is deleted, `git show v4.0.0:<path>` reads the code they name, and
+  5.0 is this document. They are kept, not rewritten. `level-roadmap.md`'s says which of its sections CLAUDE.md still cites,
+  "On `x`", and what its rule is in 5.0's words; `level-loaded-pipeline.md`'s, that it will never be built.
 
 ---
 
