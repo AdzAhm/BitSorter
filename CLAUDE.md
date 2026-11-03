@@ -551,7 +551,10 @@ stretch that way.
   Game view mid-capture once put a refusal toast into two shots -- so **two
   captures of the same code are identical to the pixel**; a refactor that claims
   to change nothing is held to that, with no tolerance. It needs the Game view,
-  so not batch mode.
+  so not batch mode. **The README's GIFs are recorded the same way**, by the
+  Explicit `ReadmeGifs` fixture (`Assets/Tests/PlayMode/ReadmeGifs.cs`: a scenario
+  a GIF, its frames in `Captures/gifs/<name>`) and made from those frames by
+  `Tools/gifs/make_gifs.py` into `Docs/gifs/`.
 
   **An animation that ends must end on its final value, not on its last
   frame**: anything timed that stops updating takes its finished value on the
