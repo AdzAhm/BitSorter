@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using BitSorter.SystemVerilog;
 using BitSorter.View;
 using BitSorter.ViewModel;
 using UnityEngine;
@@ -280,6 +281,43 @@ namespace BitSorter.EditMode.Tests
 
                 Assert.GreaterOrEqual(Distance(c.Legible(c.Zero, c.Selection), c.Legible(c.One, c.Selection)), 0.3f,
                     $"{look.Name}: a 0 and a 1 written on the selection band are too alike");
+            }
+        }
+
+        /// <summary>
+        /// A change's digit, written in its value's colour in a ring filled with the ground, reads there at 4.5:1 (WCAG's for
+        /// text; <see cref="SchematicPalette.WordOf"/>): left in its own colour where that reads, else taken toward the text as
+        /// far as it must and no further than 5:1, so it is still its value's colour.
+        /// </summary>
+        /// <remarks>
+        /// The accessibility review of 2026-11-03: in Schematic Light a z's digit was 3.67:1 and a bus's 4.32, and in Classic a
+        /// 0's 4.38 -- the same colours a row's readout is lifted from beside the waves.
+        /// </remarks>
+        [Test]
+        public void OnTheCanvas_AChangesDigit_ReadsInItsRing()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+
+                foreach ((string what, LogicVec value) in new[]
+                         {
+                             ("0", LogicVec.FromUInt64(0, 1)), ("1", LogicVec.FromUInt64(1, 1)), ("x", LogicVec.AllX(1)),
+                             ("z", LogicVec.Fill(Logic4.Z, 1)), ("a bus", LogicVec.FromUInt64(10, 4)), ("a bus with an x", LogicVec.AllX(4)),
+                             ("an undriven bus", LogicVec.Fill(Logic4.Z, 4)),
+                         })
+                {
+                    Color own = c.Of(value), written = c.WordOf(value);
+                    float before = SchematicPalette.Contrast(own, c.Ground), after = SchematicPalette.Contrast(written, c.Ground);
+
+                    if (before >= SchematicPalette.WordContrast)
+                        Assert.AreEqual(own, written, $"{look.Name}: {what}'s digit is moved, though its colour reads at {before:F2}:1");
+                    else
+                        Assert.Less(after, 5f, $"{look.Name}: {what}'s digit is taken further than it must, to {after:F2}:1");
+
+                    Assert.GreaterOrEqual(after, SchematicPalette.WordContrast, $"{look.Name}: {what}'s digit is {after:F2}:1 in its ring");
+                    Assert.Less(Distance(written, own), 0.3f, $"{look.Name}: {what}'s digit is no longer its value's colour");
+                }
             }
         }
 
