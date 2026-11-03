@@ -67,14 +67,15 @@ namespace BitSorter.LogicCore.Tests
             CollectionAssert.DoesNotContain(Credits.Roles, "LEVEL MUSIC");
         }
 
-        /// <summary>Thanks to the playtesters, by role and not by name, and the engine, at the end.</summary>
+        /// <summary>Thanks to the testers, by role and not by name, and the engine, at the end.</summary>
         [Test]
-        public void TheRoll_ThanksThePlaytesters_AndSaysWhatItIsBuiltWith()
+        public void TheRoll_ThanksTheTesters_AndSaysWhatItIsBuiltWith()
         {
             List<string> roll = RollText();
 
-            CollectionAssert.Contains(roll, Credits.PlaytesterThanks);
-            StringAssert.Contains("playtester", Credits.PlaytesterThanks.ToLowerInvariant());
+            CollectionAssert.Contains(roll, Credits.TesterThanks);
+            StringAssert.Contains("tester", Credits.TesterThanks.ToLowerInvariant());
+            StringAssert.DoesNotContain("playtester", Credits.TesterThanks.ToLowerInvariant(), "a game's word, in a simulator's thanks");
             CollectionAssert.Contains(roll, "BUILT WITH");
             CollectionAssert.Contains(roll, "Unity");
         }
@@ -88,15 +89,35 @@ namespace BitSorter.LogicCore.Tests
         {
             List<string> roll = RollText();
 
-            foreach (string role in new[] { "SYSTEMVERILOG LANGUAGE", "EXERCISE DESIGN", "WORKBENCH DESIGN" })
+            foreach (string role in new[] { "SYSTEMVERILOG FRONT END", "EXERCISE DESIGN", "WORKBENCH DESIGN" })
                 CollectionAssert.Contains(Credits.Roles, role);
             CollectionAssert.Contains(roll, "IBM Plex Sans and IBM Plex Mono");
             Assert.IsTrue(roll.Exists(line => line.Contains("SIL Open Font License")), "the typefaces' licence is not named");
             CollectionAssert.Contains(roll, "CHECKED AGAINST");
             CollectionAssert.Contains(roll, "Icarus Verilog");
+            CollectionAssert.Contains(roll, "ModelSim");
+            Assert.Less(roll.IndexOf("CHECKED AGAINST"), roll.IndexOf("ModelSim"), "ModelSim is not under CHECKED AGAINST");
+            Assert.Less(roll.IndexOf("ModelSim"), roll.IndexOf("DEDICATED TO"), "ModelSim is not under CHECKED AGAINST");
             CollectionAssert.Contains(roll, "DEDICATED TO");
             CollectionAssert.Contains(roll, Credits.Dedication);
             Assert.IsFalse(roll.Exists(line => line.Contains("Technion") || line.Contains("University")), "a university is named");
+        }
+
+        /// <summary>
+        /// The roles are the simulator's (Ahmad's choice, 2026-11-03): one for each thing it does, and none of the 4.x game's.
+        /// </summary>
+        [Test]
+        public void TheRoles_AreTheSimulators_AndNoneTheGames()
+        {
+            foreach (string role in new[]
+                     {
+                         "PRODUCT DESIGN", "SIMULATION ENGINE", "STATIC TIMING ANALYSIS", "LOGIC ANALYSIS", "SCHEMATIC DRAWING",
+                         "WAVEFORM VIEWER", "RISC-V PROCESSORS", "VERIFICATION AND TESTING", "DOCUMENTATION",
+                     })
+                CollectionAssert.Contains(Credits.Roles, role);
+
+            foreach (string role in new[] { "GAME DESIGN", "LEVEL DESIGN", "ART AND INTERFACE", "WRITING", "TESTING" })
+                CollectionAssert.DoesNotContain(Credits.Roles, role, $"{role} is the 4.x game's role");
         }
 
         /// <summary>

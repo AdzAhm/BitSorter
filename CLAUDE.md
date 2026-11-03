@@ -1043,15 +1043,20 @@ shell has none, and the sections scrolled above the page were drawn over the
 workbench's header until the viewport was given `overflow: hidden` by hand.
 
 **The credits are `Credits`, and the roll is `CreditsPanel`.** Every role is
-Ahmad Zoabi's, the company is ZADZ, the playtesters are thanked without names,
+Ahmad Zoabi's, the company is ZADZ, the testers are thanked without names,
 and the roll ends on what the game is built with -- all as asked, 2026-09-26,
-and nothing else is credited. What it is built with is Unity, and since Part 12f
+and nothing else is credited. **The roles are the simulator's** (Ahmad's choice,
+2026-11-03): the 4.x game's GAME DESIGN, LEVEL DESIGN, ART AND INTERFACE, WRITING
+and TESTING became PRODUCT DESIGN, the exercises, INTERFACE AND VISUAL DESIGN,
+DOCUMENTATION and VERIFICATION AND TESTING, and one came in for each thing it does
+-- its engine, SystemVerilog, timing, logic analysis, drawing of code, waves and
+RISC-V processors -- with the testers thanked as testers, not playtesters. What it is built with is Unity, and since Part 12f
 CodeMirror, the browser build's code editor (asked 2026-10-26). **5.0 added four
 things** (Part 15g, Ahmad's choice, 2026-10-28): his roles for it -- the
 SystemVerilog language, the exercises and the workbench, beside the engine --
 IBM Plex Sans and Mono under BUILT WITH with their licence, the SIL Open Font
 License; Icarus Verilog under CHECKED AGAINST, the simulator the engine is held
-to; and a dedication to every student of Digital Systems and Computer Structure -- the
+to, and since 2026-11-03 ModelSim beside it, the course's, the second check; and a dedication to every student of Digital Systems and Computer Structure -- the
 course's name in full, as Ahmad asked (2026-10-29) -- naming no university.
 No line for the assistant that helped write it. The roll credits no music
 and no sound role since Part 16b, and `CreditsTests` holds it so. It rises at

@@ -33,30 +33,37 @@ namespace BitSorter.View
         /// The roles on the roll. Every one is <see cref="Maker"/>'s.
         /// </summary>
         /// <remarks>
-        /// Four were added on 2026-09-27, as asked, each for work the game shows: what it teaches and
-        /// in what order, the simulator every level runs on, the goals, hints and tutorial, and how
-        /// its screens read and respond. Three more came with 5.0 (Ahmad's choice, 2026-10-28): the
-        /// SystemVerilog it reads, the exercises, and the workbench.
+        /// Rewritten for the simulator (Ahmad's choice, 2026-11-03): the 4.x game's GAME DESIGN, LEVEL DESIGN, ART AND
+        /// INTERFACE, WRITING and TESTING became PRODUCT DESIGN, the exercises, INTERFACE AND VISUAL DESIGN, DOCUMENTATION and
+        /// VERIFICATION AND TESTING, and a role came in for each thing the simulator does: its engine, its SystemVerilog,
+        /// its timing, its logic analysis, its drawing of code, its waves and its three processors.
         /// </remarks>
         public static readonly string[] Roles =
         {
-            "GAME DESIGN",
+            "PRODUCT DESIGN",
             "CURRICULUM DESIGN",
-            "PROGRAMMING",
-            "SIMULATION ENGINEERING",
-            "SYSTEMVERILOG LANGUAGE",
             "EXERCISE DESIGN",
+            "SIMULATION ENGINE",
+            "SYSTEMVERILOG FRONT END",
+            "STATIC TIMING ANALYSIS",
+            "LOGIC ANALYSIS",
+            "SCHEMATIC DRAWING",
+            "WAVEFORM VIEWER",
+            "RISC-V PROCESSORS",
             "WORKBENCH DESIGN",
-            "LEVEL DESIGN",
-            "WRITING",
-            "ART AND INTERFACE",
+            "INTERFACE AND VISUAL DESIGN",
             "USER EXPERIENCE",
+            "PROGRAMMING",
+            "VERIFICATION AND TESTING",
+            "DOCUMENTATION",
             "PRODUCTION",
-            "TESTING",
         };
 
-        /// <summary>The thanks to the people who played it early. By role, not by name, as asked.</summary>
-        public const string PlaytesterThanks = "Every playtester who found a problem before anyone else could";
+        /// <summary>
+        /// The thanks to the people who tried it early. By role, not by name, as asked; "tester" since 2026-11-03, where it said
+        /// "playtester", a game's word.
+        /// </summary>
+        public const string TesterThanks = "Every tester who found a problem before anyone else could";
 
         /// <summary>
         /// Who it is for (5.0, Ahmad's choice, 2026-10-28): every student of the course, its name in full (2026-10-29: it said
@@ -138,7 +145,7 @@ namespace BitSorter.View
             }
 
             roll.Add(new Line(Kind.Role, "SPECIAL THANKS"));
-            roll.Add(new Line(Kind.Detail, PlaytesterThanks));
+            roll.Add(new Line(Kind.Detail, TesterThanks));
             roll.Add(new Line(Kind.Gap));
 
             roll.Add(new Line(Kind.Role, "BUILT WITH"));
@@ -155,6 +162,9 @@ namespace BitSorter.View
             roll.Add(new Line(Kind.Role, "CHECKED AGAINST"));
             roll.Add(new Line(Kind.Name, "Icarus Verilog"));
             roll.Add(new Line(Kind.Detail, "the simulator BitSorter's engine is checked against, by Stephen Williams and others"));
+            roll.Add(new Line(Kind.Gap));
+            roll.Add(new Line(Kind.Name, "ModelSim"));
+            roll.Add(new Line(Kind.Detail, "the course's simulator, the second check (Intel FPGA Starter Edition, by Siemens)"));
             roll.Add(new Line(Kind.Gap));
 
             roll.Add(new Line(Kind.Role, "DEDICATED TO"));

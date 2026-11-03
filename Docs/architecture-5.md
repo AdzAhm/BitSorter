@@ -4529,6 +4529,15 @@ bloom gone, what was written about BitSorter and what it said to the user still 
   uses now; the scene's `Game UI` object, a name only the builder reads; the GIFs and a recapture of the Settings and credits
   reference shots, which change with the text, both of which want the editor.
 
+**As built after Part 16e: the credits' roles** (Ahmad's choice, 2026-11-03, from a list he was shown). The two roles left
+above went with the rest of the game's: GAME DESIGN, LEVEL DESIGN, ART AND INTERFACE, WRITING and TESTING became PRODUCT
+DESIGN, EXERCISE DESIGN, INTERFACE AND VISUAL DESIGN, DOCUMENTATION and VERIFICATION AND TESTING, SIMULATION ENGINEERING and
+SYSTEMVERILOG LANGUAGE became SIMULATION ENGINE and SYSTEMVERILOG FRONT END, and one role came in for each thing the
+simulator does -- STATIC TIMING ANALYSIS, LOGIC ANALYSIS, SCHEMATIC DRAWING, WAVEFORM VIEWER and RISC-V PROCESSORS:
+seventeen, every one his. The thanks are to every tester, where they said playtester, and ModelSim stands under CHECKED
+AGAINST beside Icarus Verilog, as the course's simulator and the second check (Part 15i-4). `PlayerTextTests` no longer
+excuses the roles; `CreditsTests` holds the new ones and refuses the old.
+
 ---
 
 ## 11. The parts

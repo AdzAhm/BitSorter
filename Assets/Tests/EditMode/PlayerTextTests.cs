@@ -132,8 +132,8 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>
         /// BitSorter is a simulator for a course, not a game (Part 16e): nothing it says speaks of a game, a level, a bin or a
-        /// player. Two places are excused, and say why: ABOUT BITSORTER's WHERE IT CAME FROM tells the 4.x game's story, and the
-        /// roll's GAME DESIGN and LEVEL DESIGN are Ahmad's roles of 2026-09-27, his to change.
+        /// player. One place is excused, and says why: ABOUT BITSORTER's WHERE IT CAME FROM tells the 4.x game's story. The
+        /// roll's roles were excused too until Ahmad rewrote them for the simulator (2026-11-03).
         /// </summary>
         [Test]
         public void NothingAPlayerReads_SpeaksOfAGame()
@@ -142,7 +142,7 @@ namespace BitSorter.LogicCore.Tests
 
             foreach (Line line in EverythingAPlayerReads())
             {
-                if (line.Source == WhereItCameFrom || System.Array.IndexOf(Credits.Roles, line.Text) >= 0)
+                if (line.Source == WhereItCameFrom)
                     continue;
 
                 if (GameWords.IsMatch(line.Text))
@@ -154,7 +154,7 @@ namespace BitSorter.LogicCore.Tests
 
         /// <summary>
         /// The search finds the words it looks for: the story of where BitSorter came from does tell of a game and its
-        /// levels, and so do the two roles. An assertion about absence needs one that shows the thing is possible.
+        /// levels, and so would the 4.x roles. An assertion about absence needs one that shows the thing is possible.
         /// </summary>
         [Test]
         public void TheSearchFindsTheGame_WhereTheGameIsTold()
