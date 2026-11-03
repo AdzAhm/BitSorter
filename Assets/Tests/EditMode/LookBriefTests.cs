@@ -157,6 +157,31 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
+        /// A value is a word as well as a wire: each row's readout beside the waves and the digit in a change's ring are
+        /// written in the value's own colour, at <see cref="UiType.Micro"/>, so every value's colour reads on the ground at
+        /// 4.5:1 (WCAG's for text) and not only the 3:1 a wire needs.
+        /// </summary>
+        /// <remarks>
+        /// The accessibility review of 2026-11-03: Schematic Light's bus readout was 4.32 and its z 3.67, and Classic's 0
+        /// 4.38 -- every one above the 3:1 of a wire, which is all this brief asked of them.
+        /// </remarks>
+        [Test]
+        public void OnTheCanvas_AValueWrittenAsAWord_ReadsOnTheGround()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+
+                foreach ((string what, Color colour) in new[]
+                         { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus) })
+                {
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Ground), 4.5f,
+                        $"{look.Name}: a readout of {what} is not 4.5:1 against the canvas's ground");
+                }
+            }
+        }
+
+        /// <summary>
         /// A 0 and a 1 differ by more than colour: a 1 is drawn heavier, and every ring holds its
         /// digit. And by colour as well, by a good margin.
         /// </summary>
