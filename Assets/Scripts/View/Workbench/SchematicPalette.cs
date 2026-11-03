@@ -101,8 +101,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// The Schematic look on paper, for screenshots in a report: the same value colours taken
-        /// dark enough to hold 4.5:1 on a light ground, since a value is written as a word too, grey labels at 4.5:1, and a
-        /// bus drawn dark.
+        /// dark enough to hold 3:1 on a light ground, grey labels at 4.5:1, and a bus drawn dark.
         /// </summary>
         public static SchematicPalette Light { get; } = new SchematicPalette
         {
@@ -120,11 +119,9 @@ namespace BitSorter.View
             Zero = Rgb(92, 82, 201),
             One = Rgb(194, 57, 108),
             Unknown = Rgb(208, 46, 52),
-            // A value is a word as well as a wire -- a row's readout, a ring's digit -- so these hold 4.5:1, not a wire's 3:1:
-            // z was (128, 128, 124) at 3.67:1 and the bus (120, 116, 104) at 4.32:1 (the accessibility review, 2026-11-03).
-            HighZ = Rgb(112, 112, 108),
+            HighZ = Rgb(128, 128, 124),
             // A warm grey rather than a near-black slab, the light look's answer to the same review.
-            Bus = Rgb(116, 112, 100),
+            Bus = Rgb(120, 116, 104),
 
             Playhead = Rgb(194, 57, 108),
             Grid = Rgb(230, 228, 222),
@@ -136,8 +133,8 @@ namespace BitSorter.View
         };
 
         /// <summary>
-        /// Classic's canvas: 2.0's board drawn as a schematic -- its navy ground, its slate 0 (a touch lighter, to read as a
-        /// word) and yellow 1, its teal wires as the outlines and its pale teal for a bus. Made from
+        /// Classic's canvas: 2.0's board drawn as a schematic -- its navy ground, its slate 0 and
+        /// yellow 1, its teal wires as the outlines and its pale teal for a bus. Made from
         /// <see cref="Palette.Classic"/>, so the two cannot drift apart.
         /// </summary>
         public static SchematicPalette Classic { get; } = FromClassic(Palette.Classic);
@@ -156,9 +153,7 @@ namespace BitSorter.View
             Muted = new Color(0.47f, 0.52f, 0.60f),
             Accent = p.Accent,
 
-            // The board's slate 0 a twentieth of the way to its text: a value is a word as well as a wire, and the slate itself
-            // was 4.38:1 written on its ground, under the 4.5:1 a word needs; this is 4.72 (the accessibility review, 2026-11-03).
-            Zero = Color.Lerp(p.BitZero, p.Text, 0.05f),
+            Zero = p.BitZero,
             One = p.BitOne,
             Unknown = p.Scorch,
             // Classic's 0 is already a grey-blue, so an undriven wire is a plain light grey -- and dashed.
@@ -245,10 +240,12 @@ namespace BitSorter.View
         /// <see cref="WordContrast"/>, and otherwise the least step of it toward <see cref="Text"/> that does, its alpha kept.
         /// </summary>
         /// <remarks>
-        /// For a value's readout on a selected row's band (<see cref="Selection"/>), where the value's own colour is 3:1, as
-        /// its wave needs, but not always the 4.5:1 a word needs: in Schematic a 1 there was 3.45:1 (the accessibility review,
-        /// 2026-11-03). Stepped toward the text rather than to it, so the word keeps the value's hue -- a 1 on the band is a
-        /// lighter pink, never white -- and only as far as it must. Derived from the palette, never a colour of its own.
+        /// For a value's readout, on the ground or a row's band (<see cref="Selection"/>), where the value's own colour is held
+        /// to 3:1, as its wave needs, but not always the 4.5:1 a word needs: in Schematic a 1 on the band was 3.45:1, and on
+        /// Schematic Light's paper z was 3.67 and a bus 4.32 (the accessibility review, 2026-11-03). The colours themselves
+        /// stay: darkened to read, Schematic Light's z was its outline's grey. Stepped toward the text rather than to it, so the
+        /// word keeps the value's hue -- a 1 on the band is a lighter pink, never white -- and only as far as it must. Derived
+        /// from the palette, never a colour of its own.
         /// </remarks>
         public Color Legible(Color ink, Color ground)
         {

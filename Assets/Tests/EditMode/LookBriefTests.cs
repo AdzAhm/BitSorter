@@ -164,31 +164,6 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
-        /// A value is a word as well as a wire: each row's readout beside the waves and the digit in a change's ring are
-        /// written in the value's own colour, at <see cref="UiType.Micro"/>, so every value's colour reads on the ground at
-        /// 4.5:1 (WCAG's for text) and not only the 3:1 a wire needs.
-        /// </summary>
-        /// <remarks>
-        /// The accessibility review of 2026-11-03: Schematic Light's bus readout was 4.32 and its z 3.67, and Classic's 0
-        /// 4.38 -- every one above the 3:1 of a wire, which is all this brief asked of them.
-        /// </remarks>
-        [Test]
-        public void OnTheCanvas_AValueWrittenAsAWord_ReadsOnTheGround()
-        {
-            foreach (Look look in Look.All)
-            {
-                SchematicPalette c = look.Canvas;
-
-                foreach ((string what, Color colour) in new[]
-                         { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus) })
-                {
-                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Ground), 4.5f,
-                        $"{look.Name}: a readout of {what} is not 4.5:1 against the canvas's ground");
-                }
-            }
-        }
-
-        /// <summary>
         /// A 0 and a 1 differ by more than colour: a 1 is drawn heavier, and every ring holds its
         /// digit. And by colour as well, by a good margin.
         /// </summary>
@@ -269,33 +244,37 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
-        /// A value written as a word on a row's band -- its readout, a bus's label -- reads at 4.5:1 there as on the ground:
-        /// its colour taken toward the text as far as it must (<see cref="SchematicPalette.Legible"/>), and no further, so it is
-        /// still its value's colour, a 0 still apart from a 1; and on the ground, where it already reads, left as it is.
+        /// A value written as a word -- a row's readout, a bus's label -- reads at 4.5:1 where it is written, on the ground or a
+        /// row's band, though its colour is held only to a wire's 3:1: taken toward the text as far as it must
+        /// (<see cref="SchematicPalette.Legible"/>), so it is still its value's colour and a 0 still apart from a 1, and left as
+        /// it is wherever it already reads.
         /// </summary>
         /// <remarks>
-        /// The band, behind a selected row and fainter behind a pointed-at wire's, holds a value's colour to 3:1, which a wave
-        /// needs and a word does not: in Schematic a 1's readout on it was 3.45:1 (the accessibility review, 2026-11-03).
+        /// The accessibility review of 2026-11-03: on Schematic's selection band a 1's readout was 3.45:1; on the ground,
+        /// Schematic Light's z was 3.67 and its bus 4.32, and Classic's 0 4.38. The value colours themselves are as they were:
+        /// darkened to read as words, Schematic Light's z came out its outline's grey.
         /// </remarks>
         [Test]
-        public void OnTheCanvas_AValueWrittenOnABand_IsLegible_AndStillItsValuesColour()
+        public void OnTheCanvas_AValueWrittenAsAWord_ReadsWhereItIsWritten_AndIsStillItsValuesColour()
         {
             foreach (Look look in Look.All)
             {
                 SchematicPalette c = look.Canvas;
                 Color faint = Color.Lerp(c.Ground, c.Selection, 0.5f);   // as WaveformView.SetBands makes it
 
-                foreach ((string what, Color colour) in new[]
-                         { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("a bus's label", c.Text) })
+                foreach ((string under, Color ground) in new[]
+                         { ("the ground", c.Ground), ("the selection band", c.Selection), ("a pointed-at wire's band", faint) })
                 {
-                    Assert.AreEqual(colour, c.Legible(colour, c.Ground), $"{look.Name}: {what} is changed on the ground, where it reads");
-
-                    foreach ((string band, Color under) in new[] { ("the selection band", c.Selection), ("a pointed-at wire's band", faint) })
+                    foreach ((string what, Color colour) in new[]
+                             { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("a bus's label", c.Text) })
                     {
-                        Color written = c.Legible(colour, under);
-                        Assert.GreaterOrEqual(SchematicPalette.Contrast(written, under), SchematicPalette.WordContrast,
-                            $"{look.Name}: {what} written on {band}");
-                        Assert.Less(Distance(written, colour), 0.3f, $"{look.Name}: {what} on {band} is no longer its value's colour");
+                        Color written = c.Legible(colour, ground);
+                        if (SchematicPalette.Contrast(colour, ground) >= SchematicPalette.WordContrast)
+                            Assert.AreEqual(colour, written, $"{look.Name}: {what} is changed on {under}, where it reads");
+
+                        Assert.GreaterOrEqual(SchematicPalette.Contrast(written, ground), SchematicPalette.WordContrast,
+                            $"{look.Name}: {what} written on {under}");
+                        Assert.Less(Distance(written, colour), 0.3f, $"{look.Name}: {what} on {under} is no longer its value's colour");
                     }
                 }
 

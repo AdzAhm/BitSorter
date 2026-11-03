@@ -523,12 +523,15 @@ stretch that way.
   its panels are drawn, and its canvas and glow: the 4.x board's gate bodies,
   bits, trails, glows, grid and board tile went with the board.
   `LookBriefTests` holds every look to the canvas's brief: every value and
-  outline at 3:1 on its ground, every word at 4.5:1 -- a value's colour and the
-  cursor's included, since a row's readout, a ring's digit and the cursor's time
-  are written in them (the accessibility review, 2026-11-03: Schematic Light's
-  bus, z and cursor and Classic's 0 were under it; on a row's band a readout is
-  taken toward the text until it reads, `SchematicPalette.Legible`) -- a 0 and a 1 apart by weight
-  as well as colour, an undriven wire apart from both, and reduced motion leaving
+  outline at 3:1 on its ground, every word at 4.5:1 -- the cursor's colour
+  included, since its time is written in it (Schematic Light's was 4.10 until the
+  accessibility review, 2026-11-03) -- and a row's readout, written in its value's
+  colour, taken toward the text as far as it must to read at 4.5:1 on the ground
+  or its band (`SchematicPalette.Legible`): the value colours are held to a wire's
+  3:1 and no more, since Schematic Light's z darkened to read came out its
+  outline's grey. A 0 and a 1 apart by weight
+  as well as colour, an undriven wire apart from both and from an outline and a
+  bus, and reduced motion leaving
   out the glow and the flashes -- and the looks but Classic to the interface's,
   where text and buttons read on a panel.
 

@@ -905,9 +905,7 @@ Precise, and no casing under the wires.
 - **Every look draws the canvas** (`Look.Canvas`, `Look.CanvasGlow`). Four, in the order Settings
   offers them: **Schematic**, the reference made better as Ahmad chose it (Quiet with a touch of
   Lively, glow 35%); **Schematic Light**, the same on paper for a report's screenshots, its value
-  colours taken dark enough for 4.5:1 on a light ground -- a value is written as a word too, a row's
-  readout and a ring's digit, so 3:1 was not enough (the accessibility review, 2026-11-03) -- and a bus
-  drawn dark; **Neon Board**, made from
+  colours taken dark enough for 3:1 on a light ground and a bus drawn dark; **Neon Board**, made from
   its board's colours -- the black-violet ground, cyan outlines and buses, a magenta 1, a lighter
   indigo 0 than the board's bloom-lit bit, and twice Schematic's glow, since glow is what the look is;
   and **Classic**, 2.0's navy ground, yellow 1, slate 0 and teal.
@@ -934,9 +932,10 @@ Precise, and no casing under the wires.
   circuit: a pointer standing still is answered from the last ask, as the pin under it is, and the nets are walked by
   index, never through an enumerator Mono and IL2CPP would make on the heap (Part 16e, `HoverCostTests`).
 - **Checked.** `LookBriefTests` holds every look's canvas, Classic's included, to the brief of section
-  5: every value and outline 3:1 on its ground, every word 4.5:1 -- a value's colour and the second
-  cursor's among them, as a readout, a ring's digit and the cursor's time are words -- a 0 and a 1 apart by weight as well
-  as colour, z apart from both, and reduced motion leaving out glow and flash. `LookTests` holds the
+  5: every value and outline 3:1 on its ground, every word 4.5:1 -- the second cursor's colour among
+  them, as its time is a word, and a row's readout lifted toward the text until it reads on the ground or
+  its band (`SchematicPalette.Legible`) -- a 0 and a 1 apart by weight as well as colour, z apart from
+  both and from an outline and a bus, and reduced motion leaving out glow and flash. `LookTests` holds the
   stored numbers, the chosen look and the default; `SettingsPlayTests` chooses Schematic Light through
   the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
   the fixture's mouse at a wire. Reference shot 29 is a wire pointed at, and every shot is captured in
@@ -1076,10 +1075,10 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   rows builds the stage again round them, the circuit's zoom and the waveform's kept.
 - **A row and its wire light each other.** Selecting a row lights its net on the circuit, and pointing at a
   wire puts a faint band behind every row showing it (`SchematicPalette.Selection`, opaque, with every
-  word 4.5:1 and every value 3:1 on it in all four looks). A value written as a word on a band -- a row's
-  readout, a bus's label -- is taken toward the text colour as far as it must to read at 4.5:1 there
-  (`SchematicPalette.Legible`): a 1's readout on Schematic's band was 3.45:1 in its own colour (the
-  accessibility review, 2026-11-03).
+  word 4.5:1 and every value 3:1 on it in all four looks). A value written as a word -- a row's readout, a
+  bus's label -- is taken toward the text colour as far as it must to read at 4.5:1 where it is, on the
+  ground or a band (`SchematicPalette.Legible`): a 1's readout on Schematic's band was 3.45:1 in its own
+  colour, and on paper z's 3.67 and a bus's 4.32 (the accessibility review, 2026-11-03).
 - **The playhead is cursor 1** (Ahmad's choice). Shift and a click on the waves seeks there and pauses,
   snapped to an edge of the row under it within 8 px or else to a whole unit (`WaveSnap`); a drag scrubs, as
   a press within 6 px of the playhead's own line does. A click places C2, snapped alike, a drag moves it
