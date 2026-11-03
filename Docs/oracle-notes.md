@@ -135,6 +135,20 @@ as written -- and holds to that order whenever processes are woken together (`Do
 How time 0 begins follows ModelSim since M5 (below, "Time 0, as ModelSim begins it"); Icarus's start is a setting,
 and the Icarus oracle runs it.
 
+### A delay that works out negative (the review of 16c, probed 2026-11-03)
+
+The standard reads a negative delay as a two's-complement unsigned number as wide as a time variable (IEEE 1800, 9.4.1):
+2^64 less its size. BitSorter counts time in 63 bits, so such a delay, like any past what a run can count, never comes
+due; it ran one as `#0` until the review of 16c. `scheduling.sv`'s S9 asks it of both simulators with an integer, which
+neither lets come due before the `$finish`; `ProcessTests.ADelayThatWorksOutNegative_...` holds the rest.
+
+| Delay | Icarus 12 | ModelSim 2020.1 | The standard, and BitSorter |
+| --- | --- | --- | --- |
+| `#d`, `integer d = -5` | waits 2^64 - 5 | waits 2^32 - 5 | 2^64 - 5: never due |
+| `#(-1)` | waits 2^32 - 1 | 0, warning at compile time that a negative delay is set to zero (vlog-2556) | 2^64 - 1: never due |
+| `#r`, `real r = -2.5`, in a `` `timescale 1ns/1ps `` module | waits about 2^64 ticks | 0, with a suppressible error at run time (vsim-3465) | rounded to the precision, -2500 ticks, then 2^64 - 2500: never due |
+| `#(1'bx)` | no delay | no delay | no delay (9.4.1) |
+
 ### The last time step of a `$stop`
 
 With `vvp -n`, as the oracle runs it, `$stop` ends the run like `$finish` does, **but Icarus's VCD

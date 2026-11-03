@@ -319,9 +319,15 @@ namespace BitSorter.Sim
 
                 double units = _isReal ? Reals.Of(value) : Reals.FromInteger(value, _signed);
                 double steps = Math.Round(units * _scale / _rounding, MidpointRounding.AwayFromZero);
-                if (double.IsNaN(steps) || steps <= 0)
+                if (double.IsNaN(steps))
                     return LogicVec.FromUInt64(0, 64);
-                return LogicVec.FromUInt64(steps * _rounding >= 9.2E18 ? ulong.MaxValue >> 1 : (ulong)(steps * _rounding), 64);
+
+                // Rounded below 0, a two's-complement unsigned time (IEEE 1800, 9.4.1): 2^64 less its size, at least 2^63,
+                // which the engine reads as never coming due.
+                double ticks = steps * _rounding;
+                if (ticks < 0)
+                    return LogicVec.FromUInt64(ticks <= -9.2E18 ? 1UL << 63 : unchecked((ulong)(long)ticks), 64);
+                return LogicVec.FromUInt64(ticks >= 9.2E18 ? ulong.MaxValue >> 1 : (ulong)ticks, 64);
             }
         }
 

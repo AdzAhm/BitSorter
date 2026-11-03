@@ -1918,16 +1918,21 @@ namespace BitSorter.Sim
             return fired;
         }
 
-        /// <summary>A delay's value in time units: x or z is 0, as the standard has it, and so is a negative one.</summary>
+        /// <summary>
+        /// A delay's value in time units, as the standard reads one (IEEE 1800, 9.4.1): x or z is 0; and a negative one is a
+        /// two's-complement unsigned number as wide as a time, 2^64 less its size -- like any delay past what a run can count,
+        /// one that never comes due (the review of 16c: it was 0).
+        /// </summary>
         private long DelayOf(LogicVec value)
         {
             if (!value.IsKnown)
                 return 0;
 
+            long never = long.MaxValue - _now;
             if (value.IsSigned)
-                return value.TryGetInt64(out long signed) && signed > 0 ? Math.Min(signed, long.MaxValue - _now) : 0;
+                return value.TryGetInt64(out long signed) && signed >= 0 ? Math.Min(signed, never) : never;
 
-            return value.TryGetUInt64(out ulong unsigned) ? (long)Math.Min(unsigned, (ulong)(long.MaxValue - _now)) : long.MaxValue - _now;
+            return value.TryGetUInt64(out ulong unsigned) ? (long)Math.Min(unsigned, (ulong)never) : never;
         }
 
         /// <summary>A blocking write: each piece of the target takes its bits of the value, now.</summary>
