@@ -210,6 +210,62 @@ endmodule"), new MemorySimFiles().Add("bits.bin", "0001 0010 0011"));
         }
 
         [Test]
+        public void AnImage_FitsEachWordToTheMemory_AndAnAddressMayGoBack()
+        {
+            // Cut from the left, extended with 0 or with its first digit's x or z, and underscores and comments passed over;
+            // a word an @ goes back over is loaded again, the last one standing.
+            Simulator sim = Run(Clean(@"
+module t;
+    logic [7:0] mem [0:5];
+    initial $readmemh(""image.hex"", mem);
+endmodule"), new MemorySimFiles().Add("image.hex", "1ff x @4 z1 _a_ // to the end\n@1 7 /* between */ 8\n"));
+
+            MemoryInfo mem = sim.Design.Memories[0];
+            CollectionAssert.AreEqual(new[] { "11111111", "00000111", "00001000", "xxxxxxxx", "zzzz0001", "00001010" },
+                Enumerable.Range(0, 6).Select(i => sim.Value(mem.Word(i)).Format(Radix.Binary)).ToArray());
+            Assert.IsEmpty(Printed(sim), "an image with an @ in it says nothing of words it leaves");
+        }
+
+        [TestCase("11 @2 22 33 44", "11 xx 22 33", Severity.Warning, "line 1: more words than t.mem has room for from 0")]
+        [TestCase("11 22 @7 33", "11 22 xx xx", Severity.Error, "line 1: @7 is outside the words being loaded, 0 to 3")]
+        [TestCase("11\n22\n@0 33 44 55 66 77", "33 44 55 66", Severity.Warning, "line 3: more words than t.mem has room for")]
+        public void AnImageThatRunsOut_LoadsWhatCameBefore_AndSaysWhere(string image, string loaded, Severity severity, string said)
+        {
+            Simulator sim = Run(Clean(Loader), new MemorySimFiles().Add("image.hex", image));
+
+            MemoryInfo mem = sim.Design.Memories[0];
+            Assert.AreEqual(loaded, string.Join(" ", Enumerable.Range(0, 4).Select(i => sim.Value(mem.Word(i)).Format(Radix.Hex))));
+            StringAssert.Contains(said, Printed(sim, severity).Single());
+        }
+
+        [Test]
+        public void AnImageOfManyWords_ForAFewWideOnes_MakesNoMoreThanTheMemoryHolds()
+        {
+            // The review of 16c: every word of an image was made at the memory's width before any was found to fit, so a
+            // load made as much as its file had words -- and an import runs its testbench, so a file made to break it could
+            // take the page down. Two words of 4096 bits, and an image of 20,000.
+            Design design = Clean(@"
+module t;
+    logic [4095:0] mem [0:1];
+    initial $readmemh(""image.hex"", mem);
+endmodule");
+            var image = new System.Text.StringBuilder();
+            for (int i = 0; i < 20000; i++)
+                image.Append(i % 2 == 0 ? "5\n" : "a\n");
+            var sim = new Simulator(design, null, new SimOptions { Files = new MemorySimFiles().Add("image.hex", image.ToString()) });
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            sim.RunTo(10);
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            MemoryInfo mem = sim.Design.Memories[0];
+            Assert.AreEqual("5", sim.Value(mem.Word(0)).Format(Radix.Hex).TrimStart('0'));
+            Assert.AreEqual("a", sim.Value(mem.Word(1)).Format(Radix.Hex).TrimStart('0'));
+            StringAssert.Contains("line 3: more words than t.mem has room for", Printed(sim, Severity.Warning).Single());
+            Assert.Less(made, 2L << 20, $"the load made {made:N0} bytes for a memory of 1 KB");
+        }
+
+        [Test]
         public void WriteMemh_WritesAWordALine_IntoTheRunsFiles()
         {
             var files = new MemorySimFiles();
