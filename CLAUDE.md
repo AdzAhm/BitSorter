@@ -358,8 +358,10 @@ stretch that way.
   since BitSorter opens on the last thing open. dotnet's tests never saw it: they time and measure a session, not a frame,
   and the worst of that frame was the sample being imported and checked a part at a time. Measure a frame in the editor
   with a `ProfilerRecorder` on "GC Allocated In Frame"; name where it comes from with the profiler's GC call stacks
-  (`ProfilerDriver.memoryRecordMode = GCAlloc`, read through `RawFrameDataView`), and switch the profiler off after.
-  `BrowserMemoryPlayTests` holds the open to 1 GB.
+  (`ProfilerDriver.memoryRecordMode = GCAlloc`, read through `RawFrameDataView`), and switch the profiler off after;
+  under dotnet, `GC.GetAllocatedBytesForCurrentThread` round a step finds the same in seconds (Part 16b: the import's
+  attempt to draw each module, 460 of the 601 MB left). `BrowserMemoryPlayTests` holds the open to 256 MB (it makes
+  107), and `ImportCostTests` a processor's import to 64 MB.
 - **`Editor.log` accumulates across sessions.** A warning found in it may
   be from an old compile and describe code that has since changed, so
   verify against a fresh compile before acting on one. Reading history as
