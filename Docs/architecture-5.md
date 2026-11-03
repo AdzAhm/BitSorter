@@ -4495,11 +4495,17 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   `NameFrom` and nothing else, `LegacyCircuit` and its types are deleted, and `MigratorTests` holds the naming rule alone.
 - **Packages and engine modules.** Gone from `Packages/manifest.json`: Visual Scripting, Timeline, 2D Animation,
   SpriteShape, Tilemap Extras, 2D Tooling, the Aseprite and PSD importers, Multiplayer Center and Unity Version Control's
-  plug-in; then the 2D Tilemap Editor, and the engine modules Cloth, Terrain Physics, Vehicles, Wind, Umbra, Vector
-  Graphics, Asset Bundle, the WWW, texture and asset-bundle web requests, and Adaptive Performance. A module was taken out
-  only when no package in the lock depends on it and no source -- in `Assets`, `Tools`, or any package the lock resolves,
-  AI Assistant included -- names one of its public types where its namespace is in scope, outside an `#if` keyed to that
-  very module; the types were read out of the module's own assemblies, not guessed from its name. **Most of the rest
+  plug-in; then the 2D Tilemap Editor, and the engine modules Cloth, Terrain Physics, Vehicles, Wind, Umbra, Asset
+  Bundle, the WWW, texture and asset-bundle web requests, and Adaptive Performance. A module was taken out only when no
+  package in the lock depends on it, no source -- in `Assets`, `Tools`, or any package the lock resolves, AI Assistant
+  included -- names one of its public types where its namespace is in scope, outside an `#if` keyed to that very module,
+  and no asset in the project or in such a package is imported by an importer the module holds; the types and importers
+  were read out of the module's own assemblies, not guessed from its name. **Vector Graphics stays for its importer**:
+  its editor half is the SVG importer (`SVGImporter`, a `ScriptedImporter`, the built-in script `12408` in a `.meta`),
+  and Shader Graph, which URP brings, and AI Assistant ship `.svg` icons it imports and their style sheets load --
+  Shader Graph's master-node preview, AI Assistant's window. It was taken out once, on the strength of no source naming
+  its types, and put back (the review of 16b): whether the editor keeps a disabled module's importer registered cannot
+  be settled from files, and no other module taken out holds an importer at all. **Most of the rest
   stays because a package's editor code names them unguarded**, and an assembly that loses a module it names stops
   compiling: TextMesh Pro's editor in uGUI (`TMP_PackageUtilities`) lists `NavMeshData`, `AudioClip`,
   `AnimatorOverrideController`, `PhysicsMaterial2D`, `Tilemaps.Tile` and `VideoClip`, so AI, Audio, Animation, Physics 2D,
