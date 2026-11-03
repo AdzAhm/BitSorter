@@ -146,8 +146,8 @@ namespace BitSorter.View
         public Color Rule;
 
         /// <summary>
-        /// The music credit under the main menu -- the one line a licence requires be shown, so not
-        /// something to fade into the background.
+        /// The credit line under the 4.x main menu, which went in Part 16a. Nothing reads it now, and
+        /// Part 16b's tidy can drop it.
         /// </summary>
         public Color Credit;
 

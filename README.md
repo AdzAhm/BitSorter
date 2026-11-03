@@ -52,10 +52,9 @@ installed and nothing is written outside your own user folder.
 Windows will probably warn that it does not recognise the publisher — the build
 is unsigned, which is all that warning means. "More info", then "Run anyway".
 
-**Settings** -- on the main menu, or in 5.0 the workbench's SETTINGS -- has the
-sound -- one switch for everything, and one each for the music (off until you
-switch it on, in 5.0) and the effects -- and its volume, fullscreen on Windows
-(`Alt`+`Enter` works too), the data switch, a way to start over, and the credits.
+**Settings** -- on the main menu, or in 5.0 the workbench's SETTINGS -- has
+fullscreen on Windows (`Alt`+`Enter` works too), the data switch, a way to start
+over, and the credits. (BitSorter has no sound since 5.0.)
 On Windows it also has vertical sync, on by default so the game keeps to your
 screen's refresh rate, and with it off a frame cap from 30 to 240 frames a second,
 or none. A lower cap uses less power on a laptop. FPS COUNTER, on Windows and in
@@ -142,7 +141,6 @@ until you reset your progress — and none of them pause the game.
 | `H`, or the `?` button | This level's truth table, its Karnaugh map for each bin where it has one, and a hint |
 | `Esc`, or the MENU button | The main menu. `Esc` closes whatever is on top first |
 | `M` | The level list, and the way into the sandbox |
-| `N` | Mute the game; the volume is in Settings |
 | `Alt`+`Enter` | Fullscreen, on Windows; also in Settings |
 | `Q` / `E` | Previous / next level — they stop at the first and the last. From the tutorial, `E` goes to level 1; free play is not a level, so they point to `M` there |
 | `F8`, or the square-wave button | The timing diagram: what every source sent and every bin got, tick by tick, and the clock on levels that have one. F8 because browsers keep most of the other function keys for themselves (F3 is find-in-page, F5 reloads) |
@@ -286,8 +284,8 @@ file:
 **To start over:** the workbench's **SETTINGS** → **Reset progress**. It asks first,
 and nothing is forgotten unless you answer yes. A reset starts the exercises over:
 every solved exercise, its saved answer and its best, and the first-time hints are
-forgotten. **Your circuits are kept**: MY CIRCUIT and every circuit you named. Sound,
-music, volume, display and data settings are not progress, so they stay as they are.
+forgotten. **Your circuits are kept**: MY CIRCUIT and every circuit you named. Display
+and data settings are not progress, so they stay as they are.
 
 In a browser the same data lives in the browser's own storage for the address
 you played at. Progress does not travel between the desktop build and a browser,
@@ -311,8 +309,7 @@ exercises, the keyboard map and Settings. **HOME** goes back to it. The
 workbench's header has the app's menus -- HOME, FILE, EXERCISES, HELP (the
 keyboard map, the start page, the tutorial, and ABOUT BITSORTER: what the simulator
 does, with the credits at its foot) and SETTINGS -- and no BACK:
-`Esc` closes whatever is on top and never leaves the workbench. The music is off
-until you switch it on in Settings.
+`Esc` closes whatever is on top and never leaves the workbench.
 
 **Three RISC-V processors** have a section of their own on the start page: an RV32I
 single-cycle, multicycle and pipelined one, written from the RISC-V specification.
@@ -547,7 +544,7 @@ Unity 6.3 LTS (6000.3.11f1).
   the next time that runs.
 - Tests: Window → General → Test Runner, or **BitSorter → Run Tests**. Roughly
   1,280 EditMode cases and 220 PlayMode at present (4.0.0), the PlayMode ones
-  across twenty-one fixtures — pointer arbitration, audio and the menu's music,
+  across twenty fixtures — pointer arbitration,
   scene composition, the tutorial's opening, the frame a run ends on, free play's
   setup, its named boards and its blocks, a block on a level's board, a level that
   opens on a circuit, full-screen panels and the keys that open and close them,
@@ -619,10 +616,8 @@ The view changes the document and the engine only through their commands.
 
 The interface is a Canvas built in code, for the same reason the scene is: an
 authored hierarchy would be dozens of RectTransforms for the builder to reproduce
-and get subtly wrong. Sprites, sound effects and the level music are all
-generated at runtime, so there are no art files and no licences for any of them.
-The only audio files are the two main-menu tracks, credited under
-[Music credits](#music-credits).
+and get subtly wrong. Sprites are generated at runtime, so there are no art files
+and no licences for any of them. BitSorter has no sound, and no audio files.
 
 ### Simulation model
 
@@ -704,22 +699,3 @@ The browser build's code editor is **[CodeMirror](https://codemirror.net)** 6,
 `Assets/Plugins/WebGL/codemirror.jspre` by `Tools/codemirror/build.ps1` from the
 versions `Tools/codemirror/package-lock.json` pins, and never fetched while the game
 runs. The file's head names every package in it, its version and its copyright.
-
-### Music credits
-
-Every level track and every sound effect is generated in code
-(`ProceduralAudio`), and all of them are original. The main menu plays two
-recorded tracks by other composers, under their own licences rather than the
-MIT licence above. Both are also credited in the game, in the credits under
-Settings:
-
-- **"Dream"** by **jkjkke**, from OpenGameArt's
-  ["MainMenu Music"](https://opengameart.org/content/mainmenu-music). Licensed
-  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), no rights
-  reserved. `Assets/Audio/Music/jkjkke-dream.mp3`.
-- **"Woodland Fantasy"** by **Matthew Pablo**
-  ([matthewpablo.com](http://www.matthewpablo.com)), from
-  [OpenGameArt](https://opengameart.org/content/woodland-fantasy). Licensed
-  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Changed:
-  converted to mono and re-encoded at a lower quality for the game builds.
-  `Assets/Audio/Music/matthew-pablo-woodland-fantasy.mp3`.

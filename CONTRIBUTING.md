@@ -188,6 +188,6 @@ collects" in the README), and anything that ranks players.
 ## Licence
 
 By contributing you agree that your work is released under the project's MIT
-licence ([LICENSE](LICENSE)). Anything you bring in from elsewhere (a sound, a
-font, an image) must carry a licence that allows shipping it in a game, and needs
+licence ([LICENSE](LICENSE)). Anything you bring in from elsewhere (a font, an
+image) must carry a licence that allows shipping it in a game, and needs
 a credit in the README with a link to where it came from.

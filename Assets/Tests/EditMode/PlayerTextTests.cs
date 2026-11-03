@@ -57,7 +57,6 @@ namespace BitSorter.LogicCore.Tests
             }
 
             // Settings, whose words are constants rather than literals inside its builder.
-            lines.Add(new Line("SettingsPanel.AudioText", SettingsPanel.AudioText));
             lines.Add(new Line("SettingsPanel.DisplayText", SettingsPanel.DisplayText));
             lines.Add(new Line("SettingsPanel.BrowserDisplayText", SettingsPanel.BrowserDisplayText));
             lines.Add(new Line("SettingsPanel.PrivacyText", SettingsPanel.PrivacyText));

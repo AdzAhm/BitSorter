@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 
 namespace BitSorter.View
 {
@@ -7,19 +6,11 @@ namespace BitSorter.View
     /// Who made the game and what it borrows: the one place those facts are written down.
     /// </summary>
     /// <remarks>
-    /// The credits roll reads the music's credit from here -- the 4.x main menu's music line did too, until a playtest
-    /// took it away -- so a track's author, its licence and the change made to it are written once. The CC BY licence
-    /// asks for all four wherever the music is used, and the licence's address with every copy -- a browser build ships
-    /// without the README, so the game itself is where it has to be.
+    /// The credits roll reads its facts from here, so each is written once. It credited two recorded tracks too, under a
+    /// heading of their own as their licence asked, until Part 16b took the sound away (Ahmad, 2026-11-03).
     /// </remarks>
     public static class Credits
     {
-        /// <summary>
-        /// The heading the recordings are credited under. MAIN MENU MUSIC until Part 16a: they play under Settings and the
-        /// credits now, and there is no main menu.
-        /// </summary>
-        public const string MusicHeading = "MUSIC";
-
         /// <summary>The line at the top of the credits, under the title. The 4.x title screen showed it too, until Part 16a.</summary>
         public const string Tagline = "bits fall through logic. sort them.";
 
@@ -57,74 +48,8 @@ namespace BitSorter.View
             "WRITING",
             "ART AND INTERFACE",
             "USER EXPERIENCE",
-            "SOUND DESIGN",
-            "LEVEL MUSIC",
             "PRODUCTION",
             "TESTING",
-        };
-
-        /// <summary>A track the game plays but did not write, and the terms it is used under.</summary>
-        public sealed class Track
-        {
-            public readonly string Title;
-            public readonly string Author;
-            public readonly string Site;
-            public readonly string Licence;
-            public readonly string LicenceAddress;
-            public readonly string Change;
-
-            public Track(string title, string author, string site, string licence, string licenceAddress, string change)
-            {
-                Title = title;
-                Author = author;
-                Site = site;
-                Licence = licence;
-                LicenceAddress = licenceAddress;
-                Change = change;
-            }
-
-            /// <summary>"by" the author, and where to find them if they say.</summary>
-            public string ByLine => Site == null ? $"by {Author}" : $"by {Author}, {Site}";
-
-            /// <summary>The licence, where to read it, and what was changed, in that order.</summary>
-            public string Terms
-            {
-                get
-                {
-                    var terms = new StringBuilder(Licence);
-
-                    if (LicenceAddress != null)
-                        terms.Append(", ").Append(LicenceAddress);
-
-                    if (Change != null)
-                        terms.Append("; ").Append(Change);
-
-                    return terms.ToString();
-                }
-            }
-        }
-
-        /// <summary>
-        /// The main menu's two recorded tracks. Everything else the game plays is generated in code.
-        /// </summary>
-        /// <remarks>
-        /// Woodland Fantasy is CC BY 3.0, which requires the author, the title, the licence and a
-        /// note of any change -- it is converted to mono -- wherever the work is used, and the
-        /// licence's address with every copy. The README links it too, but a browser build is a copy
-        /// that ships without the README. Dream is CC0 and owed nothing, and is credited anyway.
-        /// Both came from OpenGameArt, where each licence was read before either was downloaded; the
-        /// README's credits say where.
-        ///
-        /// The credits roll is where the game credits them, under a heading of their own and as
-        /// prominent as any other credit on it -- which is the licence's own rule for a credit in a
-        /// list of credits. They were also on a line along the foot of the main menu until a
-        /// playtest asked for it gone (2026-09-27).
-        /// </remarks>
-        public static readonly Track[] MenuMusic =
-        {
-            new Track("Dream", "jkjkke", null, "CC0", null, null),
-            new Track("Woodland Fantasy", "Matthew Pablo", "matthewpablo.com",
-                "CC BY 3.0", "creativecommons.org/licenses/by/3.0", "converted to mono"),
         };
 
         /// <summary>The thanks to the people who played it early. By role, not by name, as asked.</summary>
@@ -203,16 +128,6 @@ namespace BitSorter.View
             {
                 roll.Add(new Line(Kind.Role, role));
                 roll.Add(new Line(Kind.Name, Maker));
-                roll.Add(new Line(Kind.Gap));
-            }
-
-            roll.Add(new Line(Kind.Role, MusicHeading));
-
-            foreach (Track track in MenuMusic)
-            {
-                roll.Add(new Line(Kind.Name, $"\"{track.Title}\""));
-                roll.Add(new Line(Kind.Detail, track.ByLine));
-                roll.Add(new Line(Kind.Detail, track.Terms));
                 roll.Add(new Line(Kind.Gap));
             }
 

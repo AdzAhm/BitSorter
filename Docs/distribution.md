@@ -60,40 +60,13 @@ in which case the console logs *"IndexedDB is not available. Data will not
 persist"* and the game runs fine but forgets. That is a browser policy, not
 something the build can fix.
 
-### Audio — behaves differently, not broken
+### Audio — gone
 
-Browsers refuse to start audio until the user interacts with the page. The music
-starts in `GameAudio.Start()`, which runs before any click, so the audio context
-begins suspended and resumes on the first interaction.
-
-In practice this is harmless here: the game opens on the main menu, and the first
-thing anyone does is click it. The effect is that music begins at the first click
-rather than at load.
-
-### Music generation stalled the first frame — fixed
-
-`ProceduralAudio` built every clip sample by sample at startup. Measured in the
-editor, before the fix:
-
-| Cue | Time | Length |
-|---|---|---|
-| Tick | 0.2 ms | 0.04 s |
-| Gate | 0.2 ms | 0.05 s |
-| Land | 0.7 ms | 0.16 s |
-| Collide | 1.1 ms | 0.22 s |
-| Win | 7.7 ms | 0.85 s |
-| **Music** | **532 ms** | **32 s** |
-
-532 ms of that is the music: 1.4 million samples, each summing several sine
-voices. It runs synchronously in `Start()`, so it is a hard stall on the first
-frame, and WebAssembly is slower than the editor's Mono at this kind of tight
-float loop — expect it to be worse in a browser.
-
-**Fixed by building it in slices** (`MusicBake`): a track is rendered a slice at a
-time, 2 ms a frame, bit-identical to rendering it in one go, and `GameAudio` builds
-the next track before it is needed. If a change arrives before its track is
-ready, the music already playing carries on while the build finishes at 8 ms a
-frame. CLAUDE.md has the details.
+Browsers refuse to start audio until the page has been interacted with, and
+generating the 4.x game's music sample by sample stalled the first frame
+(fixed then by building each track in slices). Neither applies any more:
+BitSorter has had no sound since Part 16b, and the player ships with audio
+disabled.
 
 ### Quit — fixed
 
@@ -106,11 +79,10 @@ sitting in the menu doing nothing.
 - **LogicCore** is pure deterministic C# with no threading, no IO and no engine
   types. It behaves identically.
 - **Keyboard and mouse** work through the Input System as they do on desktop.
-- **Procedural sprites and audio** are generated with plain maths and
-  `Texture2D` / `AudioClip.Create`, all supported. The menu's two recorded tracks
-  are imported clips, played compressed through the browser's own `<audio>`.
-- **Mute setting** uses `PlayerPrefs`, which Unity backs with the same IndexedDB
-  store — and which the persistence fix above also covers.
+- **Procedural sprites** are generated with plain maths and `Texture2D`, all
+  supported.
+- **The display and data settings** use `PlayerPrefs`, which Unity backs with the
+  same IndexedDB store — and which the persistence fix above also covers.
 
 ---
 
@@ -203,8 +175,8 @@ Three things to know before trusting the numbers:
 - **The choice is remembered in `PlayerPrefs`, not by the consent framework.**
   `UnityEngine.UnityConsentModule` has no save, load or clear, so consent is
   per-session and the game re-applies the stored answer at every launch. Clearing
-  site data in a browser therefore resets it to on, exactly as it resets the mute
-  setting.
+  site data in a browser therefore resets it to on, exactly as it resets the frame
+  cap.
 
 Reporting failures never interrupt play. A missing project, a blocked request or a
 rejected event warns and is otherwise ignored, because nothing about analytics is

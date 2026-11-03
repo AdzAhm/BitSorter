@@ -101,18 +101,19 @@ namespace BitSorter.ViewModel
     /// keyboard map can list them. Keys the rest of the game or a browser already own are refused.
     /// </summary>
     /// <remarks>
-    /// **Reserved for the whole game:** N (sound), and Escape, which closes what is on top -- on the workbench, its
+    /// **Reserved for the whole game:** Escape, which closes what is on top -- on the workbench, its
     /// popups first and then the start page or a part in hand, and never the workbench (<c>UiEscape</c>, Part 15a). M,
     /// H, F2 and F8 were the 4.x game's level list, help and two diagrams; it went in Part 16a, and they stay reserved
-    /// until Part 16b decides what of them to free. **Reserved by browsers:** Ctrl with R, W, S, T, N or L (reload,
-    /// close, save, new tab, new window, address bar), which a web page cannot take back, and every function key but
+    /// until Part 16b decides what of them to free. N switched the sound until Part 16b took the sound away, and is
+    /// free. **Reserved by browsers:** Ctrl with R, W, S, T, N or L (reload, close, save, new tab, new window, address
+    /// bar), which a web page cannot take back, and every function key but
     /// F2 and F8, as the 4.x controls found: F1 is help, F3 find, F4 Edge's address bar, F5 reload, F6 focus, F7 caret
     /// browsing, F9 reader view, and F10 to F12 the menu, fullscreen and the developer tools.
     /// </remarks>
     public static class WorkbenchKeys
     {
         /// <summary>The keys the rest of the game owns.</summary>
-        public static readonly IReadOnlyList<string> GameKeys = Array.AsReadOnly(new[] { "N", "M", "H", "F2", "F8", "Escape" });
+        public static readonly IReadOnlyList<string> GameKeys = Array.AsReadOnly(new[] { "M", "H", "F2", "F8", "Escape" });
 
         /// <summary>The letters a browser keeps with Ctrl.</summary>
         public static readonly IReadOnlyList<string> BrowserCtrlKeys = Array.AsReadOnly(new[] { "R", "W", "S", "T", "N", "L" });

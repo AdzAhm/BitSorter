@@ -13,7 +13,7 @@ namespace BitSorter.View
     /// **A reload, because a palette is never changed in place** (ADR-8): every renderer takes its
     /// colours as it builds, and repainting each one where it stands would be a second way of
     /// building every one of them. Nothing in the scene outlives a load, so a reload builds the whole
-    /// game again in the new look -- the music starts again with it.
+    /// game again in the new look.
     ///
     /// The cover is the only thing that outlives the load: a canvas of its own above everything,
     /// which fades in over the old game, stays through the load, and fades out over the new one once

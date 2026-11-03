@@ -13,7 +13,7 @@ using Object = UnityEngine.Object;
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// BitSorter opening as a simulator (Part 15a): a fresh save on the start page with the music off, a save with a
+    /// BitSorter opening as a simulator (Part 15a): a fresh save on the start page, a save with a
     /// circuit or a sample open last on that again, the start page's lists, HOME and Escape, HELP, and SETTINGS over the
     /// workbench and back. It boots as the game does (<see cref="TestScene.LoadSimulator"/>); most fixtures begin on the
     /// reference circuit instead (<see cref="TestScene.Load"/>). Until Part 16a it also held the way into the 4.x game from
@@ -103,7 +103,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator AFreshSave_OpensTheSimulatorOnItsStartPage_WithTheMusicOff()
+        public IEnumerator AFreshSave_OpensTheSimulatorOnItsStartPage()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
@@ -112,7 +112,6 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.StartPageShowing, "nothing was open last: the start page");
             CollectionAssert.AreEqual(new[] { WorkbenchSamples.MyCircuitKey }, workbench.RecentListed, "MY CIRCUIT, the one circuit there is");
             Assert.IsFalse(workbench.Playing, "nothing plays under it");
-            Assert.IsFalse(GameAudio.MusicOn, "the music starts off");
         }
 
         /// <summary>

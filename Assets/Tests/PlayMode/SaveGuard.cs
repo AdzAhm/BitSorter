@@ -76,14 +76,14 @@ namespace BitSorter.PlayMode.Tests
                 Directory.Delete(ScratchImports, true);
             FileImport.Redirected = ScratchImports;
 
-            // The mute and the reporting setting live in PlayerPrefs, not in the save file, and the
-            // fixtures need reporting off. They used to read the real value, overwrite it, and put
-            // it back in OneTimeTearDown -- which made the developer's own settings depend on a run
-            // finishing cleanly, the exact failure the paragraphs above describe for the save file.
-            // An interrupted run left the game muted with analytics off and nothing to say why.
+            // The reporting setting and the display settings live in PlayerPrefs, not in the save
+            // file, and the fixtures need reporting off. They used to read the real value, overwrite
+            // it, and put it back in OneTimeTearDown -- which made the developer's own settings
+            // depend on a run finishing cleanly, the exact failure the paragraphs above describe for
+            // the save file. An interrupted run left the game with analytics off and nothing to say why.
             //
             // Redirected before the scene loads, because GameAnalytics applies consent from its
-            // AfterSceneLoad bootstrap and GameAudio reads the mute in Start.
+            // AfterSceneLoad bootstrap.
             Preferences.Redirected = new Dictionary<string, int>();
         }
 

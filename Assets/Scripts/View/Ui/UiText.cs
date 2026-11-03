@@ -11,9 +11,9 @@ namespace BitSorter.View
     /// <remarks>
     /// Naming a free-play board put the first text field into a game that binds N, M, Q, E, H, R,
     /// Space, Enter and Escape, and reads them in seventeen places. Typing "Adder" would have muted
-    /// the sound, and Q in a name changed level. Every one of those places takes its keyboard from
-    /// <see cref="Keyboard"/> instead of <c>Keyboard.current</c>, and they already cope with there
-    /// being no keyboard, so while a field has the keys each simply sees none. The rule is one
+    /// the sound (the 4.x game had some; Part 16b took it away), and Q in a name changed level. Every
+    /// one of those places takes its keyboard from <see cref="Keyboard"/> instead of
+    /// <c>Keyboard.current</c>, and they already cope with there being no keyboard, so while a field has the keys each simply sees none. The rule is one
     /// place, not seventeen checks, and <c>UiTextTests</c> holds every script under View to it.
     ///
     /// Derived, never set -- the rule pointer ownership follows, for the same reason: a flag that

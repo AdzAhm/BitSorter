@@ -17,7 +17,7 @@ namespace BitSorter.View
     ///
     /// **A cap does nothing while vertical sync is on** -- Unity ignores the target frame rate then
     /// -- so Settings greys the cap out and locks it until vertical sync is off, still saying what
-    /// it is set to, as the volume is while the sound is off. With vertical sync off the desktop
+    /// it is set to. With vertical sync off the desktop
     /// compositor still presents a window without tearing; fullscreen can tear on something moving
     /// fast, and a board that mostly sits still has little that does.
     ///
@@ -26,7 +26,7 @@ namespace BitSorter.View
     /// </remarks>
     public static class FrameRate
     {
-        /// <summary>Where vertical sync is kept, beside the sound settings.</summary>
+        /// <summary>Where vertical sync is kept.</summary>
         public const string VSyncKey = "bitsorter.vsync";
 
         /// <summary>Where the cap is kept: the frames a second, never the slider's stop.</summary>

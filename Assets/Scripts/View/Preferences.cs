@@ -4,8 +4,8 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// The settings that describe this machine rather than the player's progress: whether the game
-    /// is muted, and whether it reports anything.
+    /// The settings that describe this machine rather than the player's progress: how the game is
+    /// drawn and paced, and whether it reports anything.
     /// </summary>
     /// <remarks>
     /// A seam over PlayerPrefs, for exactly the reason <see cref="ProgressStore.Redirected"/> is a
@@ -13,7 +13,7 @@ namespace BitSorter.View
     /// so they reach the real settings -- and the fixtures that needed reporting off were reading
     /// the value, overwriting it, and putting it back in OneTimeTearDown. That makes the player's
     /// own settings depend on a test run finishing cleanly, which is precisely the failure SaveGuard
-    /// exists to remove: an interrupted run left the developer's game muted and its analytics off,
+    /// exists to remove: an interrupted run left the developer's game capped to a frame rate and its analytics off,
     /// with nothing on screen to say why.
     ///
     /// Redirecting removes the class instead of handling it. While <see cref="Redirected"/> is set,
@@ -21,7 +21,7 @@ namespace BitSorter.View
     /// run leaves the real settings untouched because they were never read.
     ///
     /// Not a general settings system, and not worth becoming one: every key is an int -- a switch, a
-    /// volume, a frame rate, a look's number. This said two keys, both booleans, until there were ten.
+    /// frame rate, a look's number. This said two keys, both booleans, until there were several more.
     /// Progress lives in <see cref="ProgressStore"/>, which is a file, because it travels with the
     /// player; settings do not.
     /// </remarks>
@@ -32,8 +32,7 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Must be set before anything reads a setting. <see cref="GameAnalytics"/> applies consent
-        /// from its AfterSceneLoad bootstrap and <see cref="GameAudio"/> reads the mute in Start, so
-        /// a test has to redirect before it loads the scene -- the same requirement the save file's
+        /// from its AfterSceneLoad bootstrap, so a test has to redirect before it loads the scene -- the same requirement the save file's
         /// redirect has, and for the same reason.
         /// </remarks>
         public static Dictionary<string, int> Redirected { get; set; }
@@ -54,7 +53,7 @@ namespace BitSorter.View
         /// </summary>
         /// <remarks>
         /// Saved immediately rather than left to Unity's own shutdown write. Both of these change
-        /// only on an explicit player action -- reaching for mute, or turning reporting off -- and a
+        /// only on an explicit player action -- choosing a look, or turning reporting off -- and a
         /// setting lost to a crash is one that appears not to have worked.
         /// </remarks>
         public static void SetInt(string key, int value)
@@ -76,7 +75,7 @@ namespace BitSorter.View
         /// gesture.
         /// </summary>
         /// <remarks>
-        /// A volume slider moves through dozens of values in one drag, and <see cref="SetInt"/>
+        /// The frame cap's slider moves through dozens of values in one drag, and <see cref="SetInt"/>
         /// writes the whole of PlayerPrefs out every time -- to the registry on Windows, and to the
         /// browser's storage in a web build. The value is live at once and read back like any
         /// other; <see cref="Save"/> writes it when the gesture ends.
