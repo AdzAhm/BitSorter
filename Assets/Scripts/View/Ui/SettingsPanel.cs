@@ -148,9 +148,9 @@ namespace BitSorter.View
         public const string BrowserDisplayText =
             "The browser sets the frame rate here. The counter shows what it is.";
 
-        /// <summary>STYLE's line: what a look changes, that choosing one loads the game again, and what reduced motion leaves out.</summary>
+        /// <summary>STYLE's line: what a look changes, that choosing one loads BitSorter again, and what reduced motion leaves out.</summary>
         public const string StyleText =
-            "How the workbench is drawn; the game loads again to switch. Reduced motion drops its glow and flashes.";
+            "How the workbench is drawn; BitSorter loads again to switch. Reduced motion drops its glow and flashes.";
 
         public const string PrivacyText =
             "Reports which exercises people get stuck on. The README lists exactly what is sent.";
@@ -318,7 +318,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// STYLE: a button for every look, two to a row, the one in use chosen; then reduced motion and the shortcut keys.
-        /// Choosing a look loads the game again in it (<see cref="LookSwitch"/>), so its buttons are coloured once, as they
+        /// Choosing a look loads BitSorter again in it (<see cref="LookSwitch"/>), so its buttons are coloured once, as they
         /// are built.
         /// </summary>
         private void BuildStyle(VisualElement column)

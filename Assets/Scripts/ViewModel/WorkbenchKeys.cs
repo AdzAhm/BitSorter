@@ -191,7 +191,7 @@ namespace BitSorter.ViewModel
             {
                 foreach (string key in GameKeys)
                     if (binding.Key == key)
-                        return $"{key} is the game's, whatever is on screen";
+                        return $"{key} is BitSorter's, whatever is on screen";
             }
             else
             {

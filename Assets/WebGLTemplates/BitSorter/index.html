@@ -114,8 +114,8 @@
       //
       // Without this line, writes to Application.persistentDataPath land in an in-memory
       // filesystem that is never flushed to IndexedDB, so everything BitSorter saves -- solved
-      // levels, saved boards, personal bests -- is silently discarded when the tab is closed.
-      // Nothing errors; the game simply forgets. Unity's own comment below says the autosync is
+      // exercises, circuits, personal bests -- is silently discarded when the tab is closed.
+      // Nothing errors; BitSorter simply forgets. Unity's own comment below says the autosync is
       // not on by default, which is exactly the trap.
       config.autoSyncPersistentDataPath = true;
       // This autosyncing is currently not the default behavior to avoid regressing
@@ -137,7 +137,7 @@
       config.devicePixelRatio = cappedPixelRatio();
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
+        // Mobile device style: fill the whole browser client area with the canvas:
 
         var meta = document.createElement('meta');
         meta.name = 'viewport';
@@ -160,7 +160,7 @@
 #endif
 
       } else {
-        // Desktop style: the game at the largest size the window has room for.
+        // Desktop style: BitSorter at the largest size the window has room for.
         //
         // This was a fixed {{{ WIDTH }}}x{{{ HEIGHT }}} canvas centred with left: 50% and a
         // translate(-50%), Unity's stock layout -- and in a window narrower than the canvas the
@@ -194,7 +194,7 @@
 
                 // The cap above was read once, and it replaces Unity's own live read of the window's
                 // ratio -- so a page zoomed, or a window moved to a sharper screen, went on rendering
-                // at the ratio the game loaded at. Unity reads Module.devicePixelRatio each time it
+                // at the ratio BitSorter loaded at. Unity reads Module.devicePixelRatio each time it
                 // sizes the canvas, so keeping that current is the whole fix. The media query
                 // matches the ratio in force and fires once when it stops matching, whether the
                 // cause was a zoom or a change of screen that left the window's size alone.

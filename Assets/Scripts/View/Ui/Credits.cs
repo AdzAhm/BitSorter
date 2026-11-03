@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace BitSorter.View
 {
     /// <summary>
-    /// Who made the game and what it borrows: the one place those facts are written down.
+    /// Who made BitSorter and what it borrows: the one place those facts are written down.
     /// </summary>
     /// <remarks>
     /// The credits roll reads its facts from here, so each is written once. It credited two recorded tracks too, under a
@@ -11,13 +11,16 @@ namespace BitSorter.View
     /// </remarks>
     public static class Credits
     {
-        /// <summary>The line at the top of the credits, under the title. The 4.x title screen showed it too, until Part 16a.</summary>
-        public const string Tagline = "bits fall through logic. sort them.";
+        /// <summary>
+        /// The line at the top of the credits, under the title. It was the 4.x game's, "bits fall through logic. sort them.", until
+        /// Part 16e; this says what BitSorter is, in the About page's words.
+        /// </summary>
+        public const string Tagline = "a digital logic workbench and SystemVerilog simulator.";
 
         /// <summary>The version the credits show: the build's own (<c>bundleVersion</c>), as "v5.0.0".</summary>
         public static string VersionText => "v" + UnityEngine.Application.version;
 
-        /// <summary>The person who made the game, in every role.</summary>
+        /// <summary>The person who made BitSorter, in every role.</summary>
         public const string Maker = "Ahmad Zoabi";
 
         /// <summary>The company it is made under, as the licence names it.</summary>
@@ -70,7 +73,7 @@ namespace BitSorter.View
         /// <summary>What a line of the roll is, which decides how it is drawn.</summary>
         public enum Kind
         {
-            /// <summary>The game's name, at the top.</summary>
+            /// <summary>BitSorter's name, at the top.</summary>
             Title,
 
             /// <summary>A small line under the title.</summary>
@@ -118,7 +121,7 @@ namespace BitSorter.View
                 new Line(Kind.Subtitle, tagline),
                 new Line(Kind.Gap),
 
-                new Line(Kind.Role, "A GAME BY"),
+                new Line(Kind.Role, "MADE BY"),
                 new Line(Kind.Name, Maker),
                 new Line(Kind.Gap),
 

@@ -59,12 +59,17 @@ namespace BitSorter.LogicCore.Tests
             // Settings, whose words are constants rather than literals inside its builder.
             lines.Add(new Line("SettingsPanel.DisplayText", SettingsPanel.DisplayText));
             lines.Add(new Line("SettingsPanel.BrowserDisplayText", SettingsPanel.BrowserDisplayText));
+            lines.Add(new Line("SettingsPanel.StyleText", SettingsPanel.StyleText));
             lines.Add(new Line("SettingsPanel.PrivacyText", SettingsPanel.PrivacyText));
             lines.Add(new Line("SettingsPanel.ProgressText", SettingsPanel.ProgressText));
             lines.Add(new Line("SettingsPanel.Question", SettingsPanel.Question));
             lines.Add(new Line("SettingsPanel.Done", SettingsPanel.Done));
 
-            // ABOUT BITSORTER (Part 15h), which names the workbench's tabs and buttons to say what it does.
+            // The start page's words and ABOUT BITSORTER (Part 15h), which names the workbench's tabs and buttons to say
+            // what it does.
+            lines.Add(new Line("WorkbenchPanel.Tagline", WorkbenchPanel.Tagline));
+            lines.Add(new Line("WorkbenchPanel.StartSays", WorkbenchPanel.StartSays));
+            lines.Add(new Line("WorkbenchPanel.AboutTagline", WorkbenchPanel.AboutTagline));
             lines.Add(new Line("WorkbenchPanel.AboutIntro", WorkbenchPanel.AboutIntro));
             foreach ((string heading, string text) in WorkbenchPanel.AboutAbilities)
                 lines.Add(new Line("WorkbenchPanel.AboutAbilities " + heading, text));
@@ -112,6 +117,54 @@ namespace BitSorter.LogicCore.Tests
                 Assert.IsFalse(string.IsNullOrWhiteSpace(line.Text),
                     line.Source + " is empty, and will render as a gap the player cannot explain");
             }
+        }
+
+        // -----------------------------------------------------------------
+        // The words of a simulator
+        // -----------------------------------------------------------------
+
+        /// <summary>The words of the 4.x puzzle game: a game, its levels, its bins, its players.</summary>
+        private static readonly Regex GameWords =
+            new Regex(@"\b(game|games|level|levels|bin|bins|puzzle|puzzles|player|players)\b",
+                      RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private const string WhereItCameFrom = "WorkbenchPanel.AboutStory WHERE IT CAME FROM";
+
+        /// <summary>
+        /// BitSorter is a simulator for a course, not a game (Part 16e): nothing it says speaks of a game, a level, a bin or a
+        /// player. Two places are excused, and say why: ABOUT BITSORTER's WHERE IT CAME FROM tells the 4.x game's story, and the
+        /// roll's GAME DESIGN and LEVEL DESIGN are Ahmad's roles of 2026-09-27, his to change.
+        /// </summary>
+        [Test]
+        public void NothingAPlayerReads_SpeaksOfAGame()
+        {
+            var offences = new List<string>();
+
+            foreach (Line line in EverythingAPlayerReads())
+            {
+                if (line.Source == WhereItCameFrom || System.Array.IndexOf(Credits.Roles, line.Text) >= 0)
+                    continue;
+
+                if (GameWords.IsMatch(line.Text))
+                    offences.Add(line.ToString());
+            }
+
+            CollectionAssert.IsEmpty(offences, "words of the 4.x game, in a simulator:\n  " + string.Join("\n  ", offences));
+        }
+
+        /// <summary>
+        /// The search finds the words it looks for: the story of where BitSorter came from does tell of a game and its
+        /// levels, and so do the two roles. An assertion about absence needs one that shows the thing is possible.
+        /// </summary>
+        [Test]
+        public void TheSearchFindsTheGame_WhereTheGameIsTold()
+        {
+            Line story = EverythingAPlayerReads().Find(l => l.Source == WhereItCameFrom);
+
+            Assert.IsNotNull(story.Text, "sanity: ABOUT BITSORTER no longer has a WHERE IT CAME FROM");
+            Assert.IsTrue(GameWords.IsMatch(story.Text), "the story of the 4.x game does not mention a game");
+            Assert.IsTrue(GameWords.IsMatch("GAME DESIGN") && GameWords.IsMatch("LEVEL DESIGN"));
+            Assert.IsFalse(GameWords.IsMatch("A digital logic workbench and SystemVerilog simulator."));
         }
 
         // -----------------------------------------------------------------

@@ -194,7 +194,8 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("N", WorkbenchCommand.Names, "N", "x", ctrl: true)), "Ctrl+N is a new window");
             Assert.IsNull(WorkbenchKeys.WhyRefused(new KeyBinding("M", WorkbenchCommand.Names, "M", "x")), "M was the 4.x level list, and is free now");
             Assert.IsNull(WorkbenchKeys.WhyRefused(new KeyBinding("H", WorkbenchCommand.Radix, "H", "x")), "H was the 4.x help, and is free now");
-            Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("Escape", WorkbenchCommand.Fit, "ESC", "x")));
+            Assert.AreEqual("Escape is BitSorter's, whatever is on screen",
+                WorkbenchKeys.WhyRefused(new KeyBinding("Escape", WorkbenchCommand.Fit, "ESC", "x")));
             Assert.IsNotNull(WorkbenchKeys.WhyRefused(new KeyBinding("F3", WorkbenchCommand.Fit, "F3", "x")), "find in page");
             Assert.IsNull(WorkbenchKeys.WhyRefused(new KeyBinding("F2", WorkbenchCommand.Fit, "F2", "x")), "F2 was the 4.x diagnostics, and no browser takes it");
             Assert.IsNull(WorkbenchKeys.WhyRefused(new KeyBinding("F8", WorkbenchCommand.Fit, "F8", "x")), "F8 was the 4.x timing diagram, and no browser takes it");
