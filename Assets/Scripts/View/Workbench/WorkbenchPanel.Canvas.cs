@@ -174,13 +174,18 @@ namespace BitSorter.View
             {
                 store.SetProject(_documentKey, _session.Project);
                 store.Save();
-                if (store.LastError != null)
-                    Notice(CouldNotSave + store.LastError);   // it failed in silence for a whole session (the 16c pilot)
+
+                // Said until a keep succeeds, over whatever is opened next: it failed in silence for a whole session (the
+                // 16c pilot), and a notice alone went with the next circuit opened.
+                _saveTrouble = store.LastError != null ? CouldNotSave + store.LastError : null;
             }
 
             _keptProject = _session.Project;
             _keepAt = -1;
         }
+
+        /// <summary>Why the last keep failed, for the chip, until one succeeds; null while the save is written.</summary>
+        private string _saveTrouble;
 
         /// <summary>What the chip says when the circuit could not be written, before the system's own words.</summary>
         public const string CouldNotSave = "BitSorter could not save, so what is open is held only in this window -- FILE, EXPORT keeps a copy. ";

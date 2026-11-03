@@ -2319,6 +2319,8 @@ namespace BitSorter.View
         {
             if (_notice != null)
                 return _notice;
+            if (_saveTrouble != null)
+                return _saveTrouble;
 
             PauseReason reason = _playback.Reason;
             if (reason != PauseReason.None && reason != PauseReason.End)
