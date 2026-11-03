@@ -1354,28 +1354,21 @@ namespace BitSorter.ViewModel
             if (_reshaping >= 0 && _reshaped != null)
                 overlay.GhostWires.Add(Stage(frame, _reshaped));
 
+            // The block being resized, where its handle has got to: its ghost, its handles, and the wires that follow it.
+            PartOutline resized = _resizing >= 0 && module.FindPart(_resizing) is Part sized ? PartGeometry.Placed(Drawn, sized, _resizeTo) : null;
+
             int handled = HandledPart;
             if (handled >= 0 && _start == null && _draft == null && InHand == null)   // none while a wire is drawn or a part in hand
             {
-                PartOutline outline = _resizing == handled && module.FindPart(handled) is Part sized
-                    ? PartGeometry.Placed(Drawn, sized, _resizeTo)
-                    : _hit.OutlineOf(handled);
+                PartOutline outline = _resizing == handled && resized != null ? resized : _hit.OutlineOf(handled);
                 for (int i = 0; i < BlockResize.Handles; i++)
                     overlay.ResizeHandles.Add(frame.ToStage(BlockResize.At(outline, i, SelectedRoom)));
             }
 
-            if (_resizing >= 0 && module.FindPart(_resizing) is Part resized)
+            if (resized != null)
             {
-                overlay.Ghosts.Add(Stage(frame, PartGeometry.Placed(Drawn, resized, _resizeTo), SelectedRoom, 0, 0));
-                var only = new HashSet<int> { _resizing };
-                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn,
-                    module with { Layout = module.Layout.WithPart(_resizing, _resizeTo) }, _session.RoutesOf(Drawn, module), only);
-                foreach (Wire wire in module.Wires)
-                {
-                    bool follows = (!wire.From.IsTap && wire.From.Pin.Part == _resizing) || (!wire.To.IsTap && wire.To.Pin.Part == _resizing);
-                    if (follows && routes.TryGetValue(wire.Id, out IReadOnlyList<BoardPoint> points) && points.Count >= 2)
-                        overlay.GhostWires.Add(Stage(frame, points));
-                }
+                overlay.Ghosts.Add(Stage(frame, resized, SelectedRoom, 0, 0));
+                GhostWires(overlay, frame, module, module.Layout.WithPart(_resizing, _resizeTo), new[] { _resizing });
             }
 
             if (_start != null)
@@ -1387,19 +1380,10 @@ namespace BitSorter.ViewModel
                         overlay.Ghosts.Add(Stage(frame, outline, SelectedRoom, _dx, _dy));
                 }
 
-                // The wires on the parts being dragged, routed to where the parts are going: those alone, round the rest where they
-                // are (Part 15g) -- every wire routed again at each step was a third of a second a step on a 1,000-part drawing.
                 Layout moved = module.Layout;
                 foreach (KeyValuePair<int, Placement> part in _start)
                     moved = moved.WithPart(part.Key, part.Value.Moved(_dx, _dy));
-                Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
-                    _session.RoutesOf(Drawn, module), _start.Keys);
-                foreach (Wire wire in module.Wires)
-                {
-                    bool follows = (!wire.From.IsTap && _start.ContainsKey(wire.From.Pin.Part)) || (!wire.To.IsTap && _start.ContainsKey(wire.To.Pin.Part));
-                    if (follows && routes.TryGetValue(wire.Id, out IReadOnlyList<BoardPoint> points) && points.Count >= 2)
-                        overlay.GhostWires.Add(Stage(frame, points));
-                }
+                GhostWires(overlay, frame, module, moved, _start.Keys);
 
                 foreach (Guide guide in _guides)
                 {
@@ -1452,6 +1436,23 @@ namespace BitSorter.ViewModel
                 BoardPoint at = _handFree ? _handAt : CanvasSnap.Snap(_handAt);
                 Part part = PartsCatalog.Make(Drawn, _session.Module, InHand);
                 overlay.Hand = Stage(frame, PartGeometry.Placed(Drawn, part, new Placement(at)), 0, 0, 0);
+            }
+        }
+
+        /// <summary>
+        /// The wires on <paramref name="parts"/>, routed to where <paramref name="moved"/> places them, as ghosts: those alone,
+        /// round the rest where they are (Part 15g) -- every wire routed again at each step was a third of a second a step on a
+        /// 1,000-part drawing. What a drag of the selection and a drag of a block's handle (Part 16) both show.
+        /// </summary>
+        private void GhostWires(CanvasOverlay overlay, SchematicLayout.Frame frame, Module module, Layout moved, ICollection<int> parts)
+        {
+            Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
+                _session.RoutesOf(Drawn, module), parts);
+            foreach (Wire wire in module.Wires)
+            {
+                bool follows = (!wire.From.IsTap && parts.Contains(wire.From.Pin.Part)) || (!wire.To.IsTap && parts.Contains(wire.To.Pin.Part));
+                if (follows && routes.TryGetValue(wire.Id, out IReadOnlyList<BoardPoint> points) && points.Count >= 2)
+                    overlay.GhostWires.Add(Stage(frame, points));
             }
         }
 
