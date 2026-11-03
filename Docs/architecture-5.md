@@ -4509,9 +4509,12 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   `render-pipelines.core`. **The legacy Unity Analytics module stays too**, though nothing names its types: Unity
   Services Analytics registers `AnalyticsSettings.OnRequireInBuildHandler` (`CoreStatsIntegration`) to keep the engine's
   analytics in a build, which is a question about what is collected, not a tidy (see "Analytics" in CLAUDE.md). **XR and
-  VR stay** for now: every use is keyed to them (`ENABLE_XR_MODULE`, `ENABLE_VR_MODULE`,
-  `UNITY_INPUT_SYSTEM_ENABLE_XR`), but the Test Framework reads `XRSettings` under a bare `#if ENABLE_XR`, which has to be
-  shown not to be a define of this editor before they go. `Packages/packages-lock.json` was written as the Package
+  VR went last, with Subsystems, which only they and Adaptive Performance needed**: every use is keyed to them
+  (`ENABLE_XR_MODULE`, `ENABLE_VR_MODULE`, `UNITY_INPUT_SYSTEM_ENABLE_XR`) but the Test Framework's `XRSettings` under a
+  bare `#if ENABLE_XR`, and `ENABLE_XR` is no scripting define of 6000.3: the editor's own table of them (`ENABLE_VR`,
+  `ENABLE_AR`, `ENABLE_CLOTH`, `ENABLE_WWW`, ...) has no such name, which turns up only in the XR assemblies' native
+  conditions. Off, URP and core render through their non-XR path -- what they did with no headset anyway -- and the Input
+  System registers no XR layouts. `Packages/packages-lock.json` was written as the Package
   Manager writes it -- what is still reachable, each depth its shortest distance from the manifest -- a rule that
   replays the first removal to the very lock Unity wrote. What the download gains is for the release build's row in
   `Docs/distribution.md`: a module that is off adds no engine code to a stripped build, but one nothing referenced was
