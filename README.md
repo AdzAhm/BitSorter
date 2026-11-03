@@ -10,7 +10,7 @@ critical path, see the truth table and the state diagram the circuit makes, chec
 your work against thirty-five Exercises, and take a project in from ModelSim and
 back out again. It runs in a browser and on Windows.
 
-<!-- GIF: drawing and wiring. A half adder drawn from NOT, AND and XOR gates, wired from pin to pin, then run, with the values travelling the wires. Docs/gifs/draw-and-wire.gif -->
+![Drawing and wiring: a half adder drawn from XOR and AND gates, wired from pin to pin, then run, with the values travelling the wires.](Docs/gifs/draw-and-wire.gif)
 
 Version 5.0.0.
 
@@ -117,7 +117,7 @@ selected, to edit it in the inspector: its delays, its width, its name.
 Every edit is checked by building the document it would make: one that adds an error is
 refused with that error.
 
-<!-- GIF: the waves. A counter running, the cursor dragged through the waves, a signal added and its radix changed, a wave zoomed with the range bar. Docs/gifs/waves.gif -->
+![The waves: a counter running, the cursor dragged through the waves, a signal added and its radix changed, a wave zoomed with the range bar.](Docs/gifs/waves.gif)
 
 ### Reading the waves
 
@@ -138,7 +138,7 @@ that into rows you can edit.
 **TRANSCRIPT** holds the run's messages, `$display` included, and each warning and error
 with its file and line.
 
-<!-- GIF: code. A module typed in the CODE editor with an error marked on its line, applied, and its drawing appearing beside the waves. Docs/gifs/code.gif -->
+![Code: a module typed in the CODE editor with an error marked on its line, applied, and its drawing appearing beside the waves.](Docs/gifs/code.gif)
 
 ### Writing SystemVerilog
 
@@ -181,7 +181,7 @@ which the inspector names, and says first what the code's comment on that line s
   imported project opens locked, except a course template; a sample and an Exercise never
   lock. FILE, BACK TO AS IMPORTED puts an import back as it came in.
 
-<!-- GIF: TIMING. The TIMING tab on a circuit with the critical path lit on the canvas, a second path clicked, and the minimum clock period read off. Docs/gifs/timing.gif -->
+![TIMING: the TIMING tab on a circuit with the critical path lit on the canvas, a second path clicked, and the minimum clock period read off.](Docs/gifs/timing.gif)
 
 ### The course's tools
 
@@ -205,7 +205,7 @@ Once a circuit works, the workbench answers the questions the course asks of it.
   write is held to the library too: every gate one of its cells, no logic written with
   operators, a register only as an `always_ff` of plain writes.
 
-<!-- GIF: LOGIC. The LOGIC tab on a four-input circuit, its truth table, its minimal sum of products and its K-map. Docs/gifs/logic.gif -->
+![LOGIC: the LOGIC tab on a four-input circuit, its truth table, its minimal sum of products and its K-map.](Docs/gifs/logic.gif)
 
 - **LOGIC** shows what a circuit without registers does: its truth table, found by running
   the engine through every combination of its inputs (up to ten bits); for eight input
@@ -238,7 +238,7 @@ the circuit: each check that failed is a line in the TRANSCRIPT that takes the r
 moment. Once it is solved, a card says how many gates it took and how fast it settles,
 beside your best, and offers the next.
 
-<!-- GIF: CHECK. An Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card. Docs/gifs/check.gif -->
+![CHECK: an Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card.](Docs/gifs/check.gif)
 
 **WRITE IT** answers an Exercise in SystemVerilog instead: your drawing becomes code,
 gate for gate, and you carry on typing. It is held to the same parts as a drawing and
@@ -271,7 +271,7 @@ from the start page. Open one to read its drawing, double-click a block to step 
 and compare how many clock cycles each takes: for the instruction test, 316, 1,204 and
 346. They are there to be run and read, not taught.
 
-<!-- GIF: PROGRAM. The pipelined processor opened, the PROGRAM chip switched from SUM to FIBONACCI, a block stepped into, the controller drawn as its state diagram. Docs/gifs/program.gif -->
+![PROGRAM: the multicycle processor opened, the PROGRAM chip switched from SUM to FIBONACCI, a block stepped into, the controller drawn as its state diagram.](Docs/gifs/program.gif)
 
 ### Your own SystemVerilog, in and out
 
@@ -304,7 +304,7 @@ The **FILE** menu keeps your circuits and takes a project's files in and gives t
   refuses, and says why, if the ports, the markers or anything outside them are no longer
   the course's.
 
-<!-- GIF: COMPARE. A project imported, EXPORT PROJECT, then COMPARE WITH MODELSIM'S RUN taking the waves to the first moment ModelSim and BitSorter differ. Docs/gifs/compare.gif -->
+![COMPARE: a project imported and run, then the FILE menu with EXPORT PROJECT and COMPARE WITH MODELSIM'S RUN, which takes the waves to the first moment ModelSim and BitSorter differ.](Docs/gifs/compare.gif)
 
 Nothing you import or export is sent anywhere: it stays on your machine, or in your
 browser's tab.
