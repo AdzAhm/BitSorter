@@ -905,7 +905,9 @@ Precise, and no casing under the wires.
 - **Every look draws the canvas** (`Look.Canvas`, `Look.CanvasGlow`). Four, in the order Settings
   offers them: **Schematic**, the reference made better as Ahmad chose it (Quiet with a touch of
   Lively, glow 35%); **Schematic Light**, the same on paper for a report's screenshots, its value
-  colours taken dark enough for 3:1 on a light ground and a bus drawn dark; **Neon Board**, made from
+  colours taken dark enough for 4.5:1 on a light ground -- a value is written as a word too, a row's
+  readout and a ring's digit, so 3:1 was not enough (the accessibility review, 2026-11-03) -- and a bus
+  drawn dark; **Neon Board**, made from
   its board's colours -- the black-violet ground, cyan outlines and buses, a magenta 1, a lighter
   indigo 0 than the board's bloom-lit bit, and twice Schematic's glow, since glow is what the look is;
   and **Classic**, 2.0's navy ground, yellow 1, slate 0 and teal.
@@ -932,7 +934,8 @@ Precise, and no casing under the wires.
   circuit: a pointer standing still is answered from the last ask, as the pin under it is, and the nets are walked by
   index, never through an enumerator Mono and IL2CPP would make on the heap (Part 16e, `HoverCostTests`).
 - **Checked.** `LookBriefTests` holds every look's canvas, Classic's included, to the brief of section
-  5: every value and outline 3:1 on its ground, every word 4.5:1, a 0 and a 1 apart by weight as well
+  5: every value and outline 3:1 on its ground, every word 4.5:1 -- a value's colour and the second
+  cursor's among them, as a readout, a ring's digit and the cursor's time are words -- a 0 and a 1 apart by weight as well
   as colour, z apart from both, and reduced motion leaving out glow and flash. `LookTests` holds the
   stored numbers, the chosen look and the default; `SettingsPlayTests` chooses Schematic Light through
   the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
@@ -1081,8 +1084,9 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   the rows. **The two clicks were the other way round until Part 15h**: the waves are drawn only up to the
   playhead, so a click back in a finished run hid everything after it, and Ahmad asked for the click to be
   the cursor that moves through the waves and Shift's the one that cuts them (2026-10-28). C2 is in its own colour (`SchematicPalette.Cursor`:
-  amber, olive on paper, Neon's gold, and Classic's text white, its 1 being yellow), 3:1 on the ground and
-  apart from every value and the playhead. The font has no Δ, so the bracket says only the time.
+  amber, olive on paper, Neon's gold, and Classic's text white, its 1 being yellow), 4.5:1 on the ground,
+  since its time is written in it (3:1 until the accessibility review of 2026-11-03), and apart from every
+  value and the playhead. The font has no Δ, so the bracket says only the time.
 - **The mouse as gestures** (`WavePointer`, tested from scripted events under dotnet), and **a press on a
   control is never one**: `WorkbenchControlSample` samples, before anything reacts to the frame, whether
   the topmost thing under the pointer is a control, as `PointerGate` samples the interface for the board,
