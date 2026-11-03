@@ -4676,6 +4676,8 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
 workbench's frame: **what a frame asks of the view-model and the engine, standing still or playing, allocates nothing once warm**;
 a run being made, an edit, a gesture's routing and a tab's work slices are work, and are measured as such, not held to zero.
 WorkbenchPanel.Update measured about 10 KB a frame paused on the pipelined processor and 28 KB playing, in the editor.
+The `unity-performance` pass ran beside it and made several of the same changes -- the finds by index, `NetAt`, a controller's
+lit signals, the canvas's lists -- so when the two were stacked one copy of each was kept (that pass's), with both passes' tests.
 
 - **Measured under dotnet**, `GC.GetAllocatedBytesForCurrentThread` round each ask the panel makes a frame, with
   `DOTNET_JitObjectStackAllocation=0`: dotnet keeps an object that never leaves a method on the stack, and Unity's runtimes never do.
@@ -4701,7 +4703,8 @@ WorkbenchPanel.Update measured about 10 KB a frame paused on the pipelined proce
   and `KeyboardReadPlayTests` (Play Mode).
 - **Left, measured**: a drag's preview routes the dragged parts' wires every frame it moves (`CanvasEditor.Overlay` through
   `WireGeometry.Following`, 22 to 36 KB a frame on the small samples), rebuilding every outline and the obstacle map each time --
-  the unmoved parts' could be kept from the press; the first-time hints' check every 30 frames (`SimulatorHints.Due`, in hand elsewhere in Part 16e); a bus row's
+  the unmoved parts' could be kept from the press; the first-time hints' check every 30 frames (`SimulatorHints.Due`, which the `unity-performance` pass took: it searches no scene and
+  makes no delegate now); a bus row's
   readout made once each time its value changes (`WaveformView.Readout`).
 
 ---
