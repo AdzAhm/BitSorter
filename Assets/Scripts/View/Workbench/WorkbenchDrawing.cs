@@ -219,13 +219,20 @@ namespace BitSorter.View
             painter.Rect(edge.xMin, edge.yMin, edge.xMax, edge.yMax, palette.Ground);
             Outlined(painter, edge, palette.ChipEdge, 1f, corner: 4f);
 
-            foreach (NetLayout net in layout.Nets)
-                foreach (StageRoute branch in net.Branches)
+            for (int n = 0; n < layout.Nets.Count; n++)
+            {
+                IReadOnlyList<StageRoute> branches = layout.Nets[n].Branches;
+                for (int b = 0; b < branches.Count; b++)
+                {
+                    StageRoute branch = branches[b];
                     for (int i = 1; i < branch.PointCount; i++)
                         painter.Line(P(branch.Point(i - 1)), P(branch.Point(i)), 1f, palette.Muted);
+                }
+            }
 
-            foreach (PartLayout part in layout.Parts)
+            for (int p = 0; p < layout.Parts.Count; p++)
             {
+                PartLayout part = layout.Parts[p];
                 if (part.Symbol == PartSymbol.Splitter || part.Symbol == PartSymbol.Joiner)
                 {
                     double bar = part.Local.Top - 0.1;
@@ -245,8 +252,9 @@ namespace BitSorter.View
                 }
             }
 
-            foreach (PortLayout port in layout.Ports)
+            for (int p = 0; p < layout.Ports.Count; p++)
             {
+                PortLayout port = layout.Ports[p];
                 Vector2 min = P(new Vector2(port.Box.xMin, port.Box.yMin));
                 VectorPainter.RoundedRect(Shape, min.x, min.y, port.Box.width * s, port.Box.height * s, SchematicStyle.PortCorner * s);
                 painter.Fill(Shape, palette.Outline);
@@ -368,20 +376,25 @@ namespace BitSorter.View
                 LogicVec value = model.NetValue(i);
                 Color colour = palette.Of(value);
 
+                // Its lists walked by index, here and wherever a frame of playback or a zoom draws: foreach over
+                // the interface is an enumerator Mono and IL2CPP make on the heap, one a net (Part 16e).
+                IReadOnlyList<StageRoute> branches = net.Branches;
+
                 // The net pointed at: a soft band of its own colour under every wire of it, so the
                 // whole of it reads as one thing, from its driver to every load.
                 if (i == highlighted)
                 {
                     Color lit = palette.Over(colour, SchematicStyle.HoverStrength);
-                    foreach (StageRoute branch in net.Branches)
-                        painter.Glow(branch, 0f, branch.Length, SchematicStyle.HoverWidth, SchematicStyle.HoverBlur, lit);
+                    for (int b = 0; b < branches.Count; b++)
+                        painter.Glow(branches[b], 0f, branches[b].Length, SchematicStyle.HoverWidth, SchematicStyle.HoverBlur, lit);
                 }
 
-                foreach (StageRoute branch in net.Branches)
-                    Wire(painter, branch, 0f, branch.Length, net.Width, value, colour, palette, 1f);
+                for (int b = 0; b < branches.Count; b++)
+                    Wire(painter, branches[b], 0f, branches[b].Length, net.Width, value, colour, palette, 1f);
 
-                foreach (Vector2 junction in net.Junctions)
-                    painter.Disc(junction, SchematicStyle.JunctionRadius, colour);
+                IReadOnlyList<Vector2> junctions = net.Junctions;
+                for (int j = 0; j < junctions.Count; j++)
+                    painter.Disc(junctions[j], SchematicStyle.JunctionRadius, colour);
 
                 // A bus's width, as a schematic marks one: a short slash across it.
                 if (net.Width > 1)
@@ -643,8 +656,9 @@ namespace BitSorter.View
             if (from > 0 || flashes)
                 return;
 
-            foreach (PortLayout port in layout.Ports)
+            for (int p = 0; p < layout.Ports.Count; p++)
             {
+                PortLayout port = layout.Ports[p];
                 (int, int) mark = painter.Mark();
                 if (!port.IsWired)
                 {
@@ -667,8 +681,10 @@ namespace BitSorter.View
         /// </summary>
         private static void Leads(VectorPainter painter, PartLayout part, Color colour, Color ground)
         {
-            foreach (PinSpot pin in part.Local.Pins)
+            IReadOnlyList<PinSpot> pins = part.Local.Pins;
+            for (int p = 0; p < pins.Count; p++)
             {
+                PinSpot pin = pins[p];
                 if (part.IsWired(pin.Pin))
                     continue;
                 (double x, double y) = LeadEnd(part, pin);
