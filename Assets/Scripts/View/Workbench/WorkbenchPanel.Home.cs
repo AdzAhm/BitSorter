@@ -134,6 +134,7 @@ namespace BitSorter.View
 
         private void OnApplicationQuit()
         {
+            KeepMyCircuit(now: true);   // the last edit, not half a second later (the 16c pilot)
             if (_launchWatch > 0)
                 Preferences.SetInt(OpeningKey, 0);   // closed on purpose, not stopped
         }

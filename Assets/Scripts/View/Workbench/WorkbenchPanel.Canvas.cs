@@ -174,10 +174,25 @@ namespace BitSorter.View
             {
                 store.SetProject(_documentKey, _session.Project);
                 store.Save();
+                if (store.LastError != null)
+                    Notice(CouldNotSave + store.LastError);   // it failed in silence for a whole session (the 16c pilot)
             }
 
             _keptProject = _session.Project;
             _keepAt = -1;
+        }
+
+        /// <summary>What the chip says when the circuit could not be written, before the system's own words.</summary>
+        public const string CouldNotSave = "BitSorter could not save, so what is open is held only in this window -- FILE, EXPORT keeps a copy. ";
+
+        /// <summary>
+        /// The circuit kept at once as BitSorter loses the focus (the 16c pilot): half a second after the last edit was too late
+        /// for a window closed straight after it, and a browser tab put behind another draws no frame to write it in.
+        /// </summary>
+        private void OnApplicationFocus(bool focus)
+        {
+            if (!focus)
+                KeepMyCircuit(now: true);
         }
 
         // -----------------------------------------------------------------

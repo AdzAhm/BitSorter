@@ -416,6 +416,7 @@ namespace BitSorter.View
         /// </remarks>
         public void Save()
         {
+            LastError = null;   // what this save says, not what an earlier one did
             try
             {
                 var file = new ProgressFile
