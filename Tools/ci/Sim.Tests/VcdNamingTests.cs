@@ -120,5 +120,49 @@ namespace BitSorter.Sim.Tests
             })
                 Assert.DoesNotThrow(() => VcdReader.Read(new StringReader(broken)), broken);
         }
+
+        /// <summary>
+        /// The review of 16c: every change was made as wide as its variable as it was read, once for each <c>$var</c> of its id,
+        /// so a dump well under the 16 MB a file may be could hold many GB. Four variables of 65,536 bits on one id, 500 changes
+        /// written short, as a dump may write a vector.
+        /// </summary>
+        [Test]
+        public void AWideVariableWrittenShort_IsKeptAsWritten_OnceForTheVariablesSharingItsId_AndWidenedWhereItIsRead()
+        {
+            var dump = new System.Text.StringBuilder("$scope module tb $end\n");
+            for (int v = 0; v < 4; v++)
+                dump.Append($"$var wire 65536 ! w{v} [65535:0] $end\n");
+            dump.Append("$upscope $end\n$enddefinitions $end\n");
+            for (int t = 0; t < 500; t++)
+                dump.Append($"#{t}\nb{(t % 2 == 0 ? "1" : "10")} !\n");
+            string text = dump.ToString();
+
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            var traces = VcdReader.Read(new StringReader(text));
+            long made = System.GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(500, traces["tb.w3"].Changes.Count);
+            Assert.AreEqual(new string('0', 65534) + "10", traces["tb.w3"].Changes[1].Bits, "at the variable's width, as it is read");
+            Assert.AreEqual(traces["tb.w0"].Changes[499].Bits, traces["tb.w3"].Changes[499].Bits);
+            Assert.Less(made, 4L << 20, $"reading a dump of {text.Length:N0} characters made {made:N0} bytes");
+        }
+
+        /// <summary>
+        /// The same review: a vector dumped a bit at a time is kept whole at each change, so one 65,536 bits wide changing a bit at
+        /// a time would hold its width again for every line of the file. Past what BitSorter holds, the dump is refused, saying why.
+        /// </summary>
+        [Test]
+        public void AWideVectorDumpedABitAtATime_ThatWouldHoldTooMuch_IsRefused_SayingWhy()
+        {
+            var dump = new System.Text.StringBuilder("$scope module tb $end\n$scope module dut $end\n");
+            for (int b = 65535; b >= 0; b--)
+                dump.Append($"$var wire 1 v{b} a [{b}] $end\n");
+            dump.Append("$upscope $end\n$upscope $end\n$enddefinitions $end\n");
+            for (int t = 0; t < 1000; t++)
+                dump.Append($"#{t}\n{t % 2}v0\n");
+
+            var refused = Assert.Throws<InvalidDataException>(() => VcdReader.Read(new StringReader(dump.ToString())));
+            StringAssert.Contains("a bit at a time", refused.Message);
+        }
     }
 }
