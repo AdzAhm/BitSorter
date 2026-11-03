@@ -146,7 +146,7 @@ namespace BitSorter.Board.Tests
             var applied = new List<Dictionary<string, LogicVec>>();
             for (long v = 0; v < count; v++)
             {
-                ulong all = bits <= 12 ? (ulong)v : (ulong)random.Next() << 31 | (ulong)random.Next();
+                ulong all = bits <= 12 ? (ulong)v : (ulong)(uint)random.Next() << 31 | (uint)random.Next();
                 var values = new Dictionary<string, LogicVec>();
                 int at = 0;
                 foreach (Pin pin in ins)
