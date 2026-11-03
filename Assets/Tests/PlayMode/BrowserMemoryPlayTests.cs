@@ -14,13 +14,15 @@ namespace BitSorter.PlayMode.Tests
     /// What a browser can hold (Part 15h-6d). A browser frees memory only between frames, so whatever one frame makes is
     /// memory the page must have, and the build may grow to 2 GB. Opening the pipelined processor on FIBONACCI made 1.8 GB
     /// in a frame -- most of it keys made of the whole project's text, made again on every read of a written module -- and
-    /// the page ran out on the first click, and on every launch after, since BitSorter opens on the last thing open. Held
-    /// here to half of it.
+    /// the page ran out on the first click, and on every launch after, since BitSorter opens on the last thing open. 15h-6d
+    /// brought it to 601 MB, most of what was left the sample's import trying to draw each of its modules with every module
+    /// written so far; Part 16b hands each attempt only the modules it makes, and holds the open to 256 MB.
     /// </summary>
     [TestFixture]
     public class BrowserMemoryPlayTests
     {
-        private const long HalfTheBrowsersMemory = 1L << 30;
+        /// <summary>What a frame opening the processor may make: the plan's target for Part 16b, an eighth of what a page may grow to.</summary>
+        private const long Cap = 256L << 20;
 
         [OneTimeSetUp]
         public void OneTimeSetup()
@@ -42,7 +44,7 @@ namespace BitSorter.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator OpeningThePipelinedProcessor_MakesLessThanHalfTheBrowsersMemoryInAFrame()
+        public IEnumerator OpeningThePipelinedProcessor_MakesUnder256MBInAFrame()
         {
             yield return TestScene.LoadSimulator();
             yield return null;
@@ -69,7 +71,8 @@ namespace BitSorter.PlayMode.Tests
                 Assert.IsTrue(recorder.Valid, "sanity: the editor counts what a frame allocates");
                 Assert.Greater(worst, 1_000_000L, "sanity: the counter saw the open at all -- a processor is tens of MB to make");
                 Assert.AreEqual("FIBONACCI", workbench.Session.Choices[0].Chosen, "sanity: opened on the program asked for");
-                Assert.Less(worst, HalfTheBrowsersMemory,
+                TestContext.WriteLine($"the worst frame opening the pipelined processor made {worst / 1_000_000} MB");
+                Assert.Less(worst, Cap,
                     $"the frames opening it made up to {worst / 1_000_000} MB; a browser holds all of a frame's at once");
             }
         }
