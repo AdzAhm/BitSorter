@@ -101,7 +101,8 @@ namespace BitSorter.View
 
         /// <summary>
         /// The Schematic look on paper, for screenshots in a report: the same value colours taken
-        /// dark enough to hold 3:1 on a light ground, grey labels at 4.5:1, and a bus drawn dark.
+        /// dark enough to hold 4.5:1 on a light ground, since a value is written as a word too, grey labels at 4.5:1, and a
+        /// bus drawn dark.
         /// </summary>
         public static SchematicPalette Light { get; } = new SchematicPalette
         {
@@ -119,9 +120,11 @@ namespace BitSorter.View
             Zero = Rgb(92, 82, 201),
             One = Rgb(194, 57, 108),
             Unknown = Rgb(208, 46, 52),
-            HighZ = Rgb(128, 128, 124),
+            // A value is a word as well as a wire -- a row's readout, a ring's digit -- so these hold 4.5:1, not a wire's 3:1:
+            // z was (128, 128, 124) at 3.67:1 and the bus (120, 116, 104) at 4.32:1 (the accessibility review, 2026-11-03).
+            HighZ = Rgb(112, 112, 108),
             // A warm grey rather than a near-black slab, the light look's answer to the same review.
-            Bus = Rgb(120, 116, 104),
+            Bus = Rgb(116, 112, 100),
 
             Playhead = Rgb(194, 57, 108),
             Grid = Rgb(230, 228, 222),
@@ -132,8 +135,8 @@ namespace BitSorter.View
         };
 
         /// <summary>
-        /// Classic's canvas: 2.0's board drawn as a schematic -- its navy ground, its slate 0 and
-        /// yellow 1, its teal wires as the outlines and its pale teal for a bus. Made from
+        /// Classic's canvas: 2.0's board drawn as a schematic -- its navy ground, its slate 0 (a touch lighter, to read as a
+        /// word) and yellow 1, its teal wires as the outlines and its pale teal for a bus. Made from
         /// <see cref="Palette.Classic"/>, so the two cannot drift apart.
         /// </summary>
         public static SchematicPalette Classic { get; } = FromClassic(Palette.Classic);
@@ -152,7 +155,9 @@ namespace BitSorter.View
             Muted = new Color(0.47f, 0.52f, 0.60f),
             Accent = p.Accent,
 
-            Zero = p.BitZero,
+            // The board's slate 0 a twentieth of the way to its text: a value is a word as well as a wire, and the slate itself
+            // was 4.38:1 written on its ground, under the 4.5:1 a word needs; this is 4.72 (the accessibility review, 2026-11-03).
+            Zero = Color.Lerp(p.BitZero, p.Text, 0.05f),
             One = p.BitOne,
             Unknown = p.Scorch,
             // Classic's 0 is already a grey-blue, so an undriven wire is a plain light grey -- and dashed.
