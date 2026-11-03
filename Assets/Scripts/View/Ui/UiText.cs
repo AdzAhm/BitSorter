@@ -41,8 +41,10 @@ namespace BitSorter.View
                 if (selected == null)
                     return false;
 
-                TMP_InputField field = selected.GetComponent<TMP_InputField>();
-                return field != null && field.enabled && field.gameObject.activeInHierarchy;
+                // TryGetComponent, not GetComponent: in the editor GetComponent makes an object for a component that is not there,
+                // and the event system's selection is mostly no field -- the shell's panel, after any click on it -- while every key
+                // reader asks this every frame (the zero-GC pass, Part 16; KeyboardReadPlayTests).
+                return selected.TryGetComponent(out TMP_InputField field) && field.enabled && field.gameObject.activeInHierarchy;
             }
         }
 
