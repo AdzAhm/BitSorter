@@ -215,11 +215,16 @@ namespace BitSorter.Board
         /// <summary>The row <paramref name="subject"/>'s value picks: the first whose labels hold it, else the default's, else -1.</summary>
         public int RowOf(LogicVec subject)
         {
+            // Asked every frame a controller is shown: its labels walked by index, never through an enumerator that Mono and
+            // IL2CPP make on the heap (Part 16e).
             if (subject.TryGetUInt64(out ulong v))
                 for (int r = 0; r < Rows.Count; r++)
-                    foreach (LogicVec match in Rows[r].Matches)
-                        if (match.TryGetUInt64(out ulong m) && m == v)
+                {
+                    IReadOnlyList<LogicVec> matches = Rows[r].Matches;
+                    for (int i = 0; i < matches.Count; i++)
+                        if (matches[i].TryGetUInt64(out ulong m) && m == v)
                             return r;
+                }
             if (!subject.IsKnown)
                 return -1;
             for (int r = 0; r < Rows.Count; r++)

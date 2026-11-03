@@ -657,8 +657,9 @@ namespace BitSorter.ViewModel
                 return false;
             if (reading.Machine != null)
                 return true;
-            foreach (TableReading table in reading.Tables)
-                if (table.Columns.Count >= 2)
+            // Asked through ShowsController many times a frame: by index, never an enumerator on Mono's heap (Part 16e).
+            for (int t = 0; t < reading.Tables.Count; t++)
+                if (reading.Tables[t].Columns.Count >= 2)
                     return true;
             return false;
         }
@@ -689,8 +690,9 @@ namespace BitSorter.ViewModel
             Design design = model.Session.Design;
             History history = model.Session.History;
             long time = (long)Math.Floor(model.Time);
+            LookUpWhatIsLit(reading, design);
             int state = -1, from = -1;
-            if (reading.Machine is MachineReading machine && design.TryFind(_drawnPath + "." + machine.Register, out SignalId register))
+            if (reading.Machine is MachineReading machine && _litRegister is SignalId register)
             {
                 state = machine.StateOf(history.ValueAt(register, time));
                 from = machine.StateOf(history.ValueBefore(register, time));
@@ -698,9 +700,31 @@ namespace BitSorter.ViewModel
             if (_rows.Length != reading.Tables.Count)
                 _rows = new int[reading.Tables.Count];
             for (int t = 0; t < reading.Tables.Count; t++)
-                _rows[t] = design.TryFind(_drawnPath + "." + reading.Tables[t].Subject, out SignalId subject)
-                    ? reading.Tables[t].RowOf(history.ValueAt(subject, time)) : -1;
+                _rows[t] = _litSubjects[t] is SignalId subject ? reading.Tables[t].RowOf(history.ValueAt(subject, time)) : -1;
             return new ControllerMoment(state, from, _rows);
+        }
+
+        // The signals ControllerNow reads -- the state register and each table's subject, null for one the design has not --
+        // and the reading, the design and the path they were looked up for. Asked every frame a controller is shown, it made
+        // each one's full name again to look it up (Part 16e); a replay taking over is another design, a step another path.
+        private SignalId? _litRegister;
+        private SignalId?[] _litSubjects = Array.Empty<SignalId?>();
+        private ControllerReading _litOf;
+        private Design _litIn;
+        private string _litAt;
+
+        private void LookUpWhatIsLit(ControllerReading reading, Design design)
+        {
+            if (ReferenceEquals(reading, _litOf) && ReferenceEquals(design, _litIn) && _drawnPath == _litAt)
+                return;
+            _litOf = reading;
+            _litIn = design;
+            _litAt = _drawnPath;
+            _litRegister = reading.Machine != null && design.TryFind(_drawnPath + "." + reading.Machine.Register, out SignalId register)
+                ? register : (SignalId?)null;
+            _litSubjects = new SignalId?[reading.Tables.Count];
+            for (int t = 0; t < reading.Tables.Count; t++)
+                _litSubjects[t] = design.TryFind(_drawnPath + "." + reading.Tables[t].Subject, out SignalId subject) ? subject : (SignalId?)null;
         }
 
         /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
