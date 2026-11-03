@@ -2,6 +2,19 @@
 
 How to publish BitSorter, and what each place needs from you.
 
+## Where each version lives
+
+The current version is **5.0.0**, the SystemVerilog simulator. Its one source is
+`bundleVersion` in `ProjectSettings/ProjectSettings.asset`: the start page's version line,
+the credits and the browser template's `productVersion` all read it, and a test holds the
+README and this file to it.
+
+| Version | Where |
+|---|---|
+| 5.0.0, in a browser | GitHub Pages, <https://adzahm.github.io/BitSorter/> |
+| 5.0.0, on Windows | A zip attached to its GitHub release |
+| 4.0.0, the puzzle game | Unity Play, as it was released. It is not republished; its source is the `v4.0.0` tag |
+
 Two builds, both from menu items:
 
 | Menu item | Output |
@@ -38,7 +51,7 @@ commented out**. Unity's own comment in the generated `index.html` says so:
 > existing user projects…
 
 With the flag off, every write succeeds, nothing errors, and the whole lot is
-discarded when the tab closes. Solved levels, saved boards, personal bests.
+discarded when the tab closes. Solved Exercises, saved circuits, personal bests.
 
 **Fix:** `Assets/WebGLTemplates/BitSorter/` is a copy of Unity's Default template
 with one line uncommented:
@@ -53,11 +66,11 @@ not: it fits the canvas to the window as the window changes, and it caps the
 device pixel ratio at 1.5. If it is ever regenerated from Unity's stock copy, all
 three must be re-applied.
 
-**Still worth testing by hand**, because it depends on the browser: solve level 1,
-reload the page, and check the tick is still in the level list. Private/incognito
+**Still worth testing by hand**, because it depends on the browser: solve the first
+Exercise, reload the page, and check EXERCISES still marks it solved. Private/incognito
 windows and "block third-party cookies" settings can disable IndexedDB entirely,
 in which case the console logs *"IndexedDB is not available. Data will not
-persist"* and the game runs fine but forgets. That is a browser policy, not
+persist"* and BitSorter runs fine but forgets. That is a browser policy, not
 something the build can fix.
 
 ### Audio — gone
@@ -76,8 +89,9 @@ sitting in the menu doing nothing.
 
 ### Not affected
 
-- **LogicCore** is pure deterministic C# with no threading, no IO and no engine
-  types. It behaves identically.
+- **The four pure layers** (the language, the engine, the document and the view-model)
+  are deterministic C# with no threading, no file access and no engine types. They
+  behave identically.
 - **Keyboard and mouse** work through the Input System as they do on desktop.
 - **Procedural sprites** are generated with plain maths and `Texture2D`, all
   supported.
@@ -98,7 +112,7 @@ last clicked:
 | Data caching | **On** | Returning players do not re-download the data file |
 | Exception support | Explicitly thrown only | Full support costs size and speed; nothing here catches engine faults |
 | Code optimization | **Disk size, with LTO** | The wasm is half the download. Lives in `Library/`, per machine, which is why the script sets it |
-| IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed the game does not need |
+| IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed BitSorter does not need |
 | Managed stripping | Medium | Removes code nothing reaches; at Minimal every package went in whole. It was Low, the conservative level, until 2026-10-15: no runtime script uses reflection, and the browser build was smoke-tested at Medium before it was kept, since the risks are in packages (Unity Services, the Input System, `JsonUtility`) |
 | WebAssembly 2023 | **On** | Native exceptions, bulk memory, BigInt and SIMD where the original feature set used JavaScript trampolines. Needs Chrome 91, Firefox 89 or Safari 16.4 |
 
@@ -133,31 +147,31 @@ serving `.br` with the right `Content-Encoding` gives a faster start.
 
 ---
 
-## The sandbox, when describing the game
+## Describing it
 
-Store pages ask what is in the game, and the answer is not only the thirty
-levels: there is a free-play sandbox with player-configured sources and sinks and
-no grading. Worth a line on itch.io and Unity Play, because "thirty puzzle levels"
-undersells it and a screenshot of the sandbox looks like one more level otherwise.
+Store pages ask what is in it. BitSorter 5.0 is a SystemVerilog simulator for the
+Digital Systems and Computer Structure course, not a puzzle game: circuits drawn or
+written, run on a 4-state event-driven engine, waves, timing, import and export
+for ModelSim, and thirty-five Exercises checked by CHECK. Say so first, and
+mention that the puzzle game it began as is 4.0.0.
 
-It ships inside the same build and needs nothing from any host. It is built in
-code rather than authored under `Resources/Levels`, so it adds no file to package
-and cannot appear in the level rotation — see CLAUDE.md for why that matters.
+It ships as one build and needs nothing from any host. The Exercises are JSON under
+`Assets/Resources/Exercises/`, so they add no file to package.
 
 ---
 
 ## Analytics
 
-The game reports to Unity Analytics. **The README's "What it collects" section is
+BitSorter reports to Unity Analytics. **The README's "What it collects" section is
 the canonical list of what is sent** — this section covers only what publishing it
 requires.
 
-`GameAnalytics` initialises Unity Services, applies the player's consent through
+`GameAnalytics` initialises Unity Services, applies the user's consent through
 `EndUserConsent`, then reports `levelStarted` and `levelSolved`. It hangs off
 `[RuntimeInitializeOnLoadMethod]` rather than a scene component, because
 `HalfAdderDemoSceneBuilder` owns scene contents and a component would mean
 regenerating and re-verifying the scene for something that needs no inspector
-fields. The game ships one scene, so the hook fires exactly once.
+fields. BitSorter ships one scene, so the hook fires exactly once.
 
 Three things to know before trusting the numbers:
 
@@ -167,20 +181,20 @@ Three things to know before trusting the numbers:
   warning in the player log. The events being in the build is not enough.
 - **The project must stay linked.** Collection depends on the `cloudProjectId` in
   `ProjectSettings.asset`. Unlinking the project silently stops reporting.
-- **Reporting is on by default and the player can turn it off**, from Settings on
-  the main menu. `GameAnalytics` sets Unity's consent state rather than calling
+- **Reporting is on by default and the player can turn it off**, from the
+  workbench's SETTINGS. `GameAnalytics` sets Unity's consent state rather than calling
   the deprecated `StartDataCollection`, so denying really stops collection instead
   of hiding it. The two flows cannot be mixed: once consent is set this way, the
   SDK throws if the old calls are used, which is why none remain.
 - **The choice is remembered in `PlayerPrefs`, not by the consent framework.**
   `UnityEngine.UnityConsentModule` has no save, load or clear, so consent is
-  per-session and the game re-applies the stored answer at every launch. Clearing
+  per-session and BitSorter re-applies the stored answer at every launch. Clearing
   site data in a browser therefore resets it to on, exactly as it resets the frame
   cap.
 
-Reporting failures never interrupt play. A missing project, a blocked request or a
+Reporting failures never interrupt the user. A missing project, a blocked request or a
 rejected event warns and is otherwise ignored, because nothing about analytics is
-worth costing a player their run.
+worth costing anyone their work.
 
 Storefronts ask about data collection. itch.io and Unity Play both have a field for
 it, and the answer is now yes rather than no.
@@ -203,23 +217,26 @@ Then on the project page:
 
 1. **Kind of project** → *HTML*.
 2. Upload the zip, tick **"This file will be played in the browser"**.
-3. **Viewport dimensions** → `960 × 600` or larger. The game targets 16:9 and
-   `CameraFit` copes with other shapes, so anything in that region is fine.
+3. **Viewport dimensions** → `960 × 600` or larger. The interface targets 16:9 and
+   scales with the canvas, so anything in that region is fine.
 4. **Mobile friendly** → leave **off**. There is no touch input, by decision.
-5. **Fullscreen button** → enable. The board benefits from the space.
+5. **Fullscreen button** → enable. The circuit and the waves benefit from the space.
 
 Two things to know:
 
 - itch serves static files without custom headers, which is exactly the case the
   decompression fallback exists for. With it on, the build works there.
-- itch pages are `https`. The one network call the game makes is analytics, to
+- itch pages are `https`. The one network call BitSorter makes is analytics, to
   Unity Services over `https`, so mixed content has nothing to break.
 
 **What only you can provide:** a cover image (630 × 500), screenshots, the
 description, a price or "no payments", and whether the page is public or
-restricted. The GIF in the README works as a screenshot.
+restricted. The README's GIFs work as screenshots.
 
 ## Unity Play
+
+BitSorter 5.0 is not published here; 4.0.0 stays on Unity Play as it was released.
+What follows is how a build gets there, should one ever again.
 
 **Upload:** the same zip. Unity Play is built for Unity WebGL specifically and
 sets compression headers correctly, so it works with or without the fallback.
@@ -234,13 +251,13 @@ and agreement to their content terms.
 Unity Play enforces an upload size limit that has changed over time — check the
 current figure when you upload. For reference the 4.0.0 build is about 16 MB of
 compressed payload (16.8 MB zipped), which is small by their standards; 3.0.1's
-was about 20 MB, before the size settings above. 5.0's is about 14.4 MB so far
-(measured 2026-10-15, after the menu music went to 96 kbps in the browser build
-and the stripping and WebAssembly 2023 rows above).
+was about 20 MB, before the size settings above. 5.0's is in the table under
+"Compression, and why these settings".
 
 ## GitHub Pages
 
-Live at <https://adzahm.github.io/BitSorter/>, served from the `gh-pages` branch.
+Live at <https://adzahm.github.io/BitSorter/>, served from the `gh-pages` branch. It
+serves the current version, 5.0.0.
 
 **Publish with BitSorter → Publish WebGL to GitHub Pages**, or run
 `Tools/publish-pages.ps1` directly. Build first; the script warns if anything under
@@ -254,8 +271,8 @@ Pages by itself.
 public repositories only; in a private one the Pages settings offer to make it
 public or to upgrade, and until then the branch sits there unserved. The same
 applies to release downloads, which are only reachable by accounts with access to
-the repository. Of the three links in the README, only Unity Play works from a
-private repo, because Unity hosts that build rather than GitHub.
+the repository. Of the links in the README, only Unity Play works from a private
+repo, because Unity hosts that build rather than GitHub.
 
 ### The fallback is what makes this work
 
@@ -338,8 +355,8 @@ the `_DoNotShip` folder Unity leaves behind, so the folder can go out as it is.
   `%USERPROFILE%\AppData\LocalLow\ZADZ\BitSorter\progress.json`.
 
   **On desktop, renaming abandons existing saves rather than migrating them.** A
-  renamed build looks in a directory that does not exist yet and starts the player
-  from level 1, with their old file still on disk under the previous name. Nothing
+  renamed build looks in a directory that does not exist yet and starts the user
+  with nothing saved, with their old file still on disk under the previous name. Nothing
   errors and nothing warns. `ProgressStore` takes a path rather than deriving one,
   so a migration that reads the old location when the new one is missing would be a
   small change, if it ever matters.
@@ -378,7 +395,7 @@ Zip `Build/Windows/` **inside a containing folder**, so unzipping produces one
 `BitSorter/` folder rather than 185 loose files in someone's Downloads:
 
 ```text
-BitSorter-1.0.0-Windows.zip
+BitSorter-5.0.0-Windows.zip
 └── BitSorter/
     ├── BitSorter.exe
     ├── BitSorter_Data/
@@ -405,8 +422,8 @@ A release is three things bolted together: **a tag** naming one commit forever,
 **notes**, and **attached files**. The tag is the part that gets skipped.
 
 ```powershell
-git tag -a v1.0.0 -m "First release: nine levels, Windows and browser"
-git push origin v1.0.0
+git tag -a v5.0.0 -m "BitSorter 5.0.0: a SystemVerilog simulator for the course"
+git push origin v5.0.0
 ```
 
 `-a` makes it annotated, so it stores an author and a date as a real object; a bare
