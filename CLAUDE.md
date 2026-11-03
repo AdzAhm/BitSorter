@@ -141,7 +141,8 @@ stretch that way.
   starts them -- except that a scope's interfaces are made before its modules,
   which may be given one through a port (Part L8). Never let that order depend
   on anything else. A fork's branches (Part L5) start straight after the process
-  that forks them, in the order written, once it waits; Icarus 12 starts them
+  that forks them, in the order written, once it waits -- and a later fork's
+  ahead of an earlier one's not yet started, as ModelSim starts them (16c); Icarus 12 starts them
   last first, and the standard leaves it open (`Docs/oracle-notes.md`). Time 0
   begins as ModelSim begins it, Icarus's way one setting away (M5,
   `SimOptions.StartOrder`).
