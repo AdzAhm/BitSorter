@@ -795,6 +795,36 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsFalse(workbench.List.AllSignals.Any(r => r.Key == "a"));
         }
 
+        /// <summary>
+        /// A selected row's value still reads on its band: its readout, a word in the value's colour, at 4.5:1 against the
+        /// band (WCAG's for text), as it is on the ground.
+        /// </summary>
+        /// <remarks>
+        /// The brief holds a value's colour to 3:1 on the band, for its wave. A readout is a word, and in Schematic a 1 on the
+        /// band was 3.45:1 and a 0 3.61 (the accessibility review, 2026-11-03).
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ASelectedRowsReadout_ReadsOnItsBand()
+        {
+            yield return TestScene.Load();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(13.5);   // the reference's a is 1 there, as reference shot 27 shows it
+            yield return null;
+
+            int a = RowLabelled(workbench, "a");
+            yield return ClickAt(workbench.RowNameOnScreen(a));
+            Assert.IsTrue(workbench.RowBandShown(a), "sanity: a click on a row's name puts up its band");
+            yield return null;
+            Assert.AreEqual("1", workbench.ReadoutOf(a), "sanity: a is 1 at 13.5");
+
+            SchematicPalette palette = SchematicPalette.Current;
+            float contrast = SchematicPalette.Contrast(workbench.ReadoutColourOf(a), palette.Selection);
+            Assert.GreaterOrEqual(contrast, 4.5f, $"a selected row's 1 is {contrast:F2}:1 on its band");
+        }
+
         // -----------------------------------------------------------------
         // Adding signals, groups and names (Part 9b-2b, second half)
         // -----------------------------------------------------------------
