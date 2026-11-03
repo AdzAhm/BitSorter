@@ -259,8 +259,7 @@ namespace BitSorter.ViewModel
                 PartOutline outline = _hit.OutlineOf(handled);
                 for (int i = 0; i < BlockResize.Handles; i++)
                 {
-                    BoardPoint h = BlockResize.At(outline, i, SelectedRoom);
-                    double squared = (h.X - at.X) * (h.X - at.X) + (h.Y - at.Y) * (h.Y - at.Y);
+                    double squared = CanvasHit.Squared(BlockResize.At(outline, i, SelectedRoom), at);
                     if (squared <= best)
                     {
                         best = squared;
@@ -269,27 +268,14 @@ namespace BitSorter.ViewModel
                 }
             }
 
-            CanvasTarget found = handle.Kind != CanvasTargetKind.Nothing ? handle : CornerOrWhatIsAt(at, reach, best);
+            if (handle.Kind == CanvasTargetKind.Nothing)
+                return CornerOrWhatIsAt(at, reach, best);
 
             // A pin is nearer than the handle beside it: the middle pin of a side sits 0.15 of a cell from that side's
             // handle, inside the reach at any zoom up to 1.1, and a press on it wired nothing (the review of #140). The
             // nearer of the two takes the press, the pin on a tie.
-            if (handle.Kind != CanvasTargetKind.Nothing && _hit.At(at, reach) is CanvasTarget under && under.Kind == CanvasTargetKind.Pin
-                && PinAt(under) is BoardPoint pin && (pin.X - at.X) * (pin.X - at.X) + (pin.Y - at.Y) * (pin.Y - at.Y) <= best)
-                return under;
-            return found;
-        }
-
-        /// <summary>Where pin <paramref name="target"/> stands on the board; null when its part has no such pin.</summary>
-        private BoardPoint? PinAt(CanvasTarget target)
-        {
-            PartOutline outline = _hit.OutlineOf(target.Part);
-            if (outline == null)
-                return null;
-            foreach (PinSpot spot in outline.Pins)
-                if (spot.Pin == target.Pin)
-                    return spot.At;
-            return null;
+            CanvasTarget pin = _hit.PinWithin(at, best);
+            return pin.Kind == CanvasTargetKind.Pin ? pin : handle;
         }
 
         /// <summary>A selected wire's corner within <paramref name="best"/> (squared) of <paramref name="at"/>, else what is there.</summary>
@@ -308,7 +294,7 @@ namespace BitSorter.ViewModel
                     walked += Distance(points[i - 1], points[i]);
                     if (i == points.Count - 1)
                         break;
-                    double squared = (points[i].X - at.X) * (points[i].X - at.X) + (points[i].Y - at.Y) * (points[i].Y - at.Y);
+                    double squared = CanvasHit.Squared(points[i], at);
                     if (squared <= best)
                     {
                         best = squared;

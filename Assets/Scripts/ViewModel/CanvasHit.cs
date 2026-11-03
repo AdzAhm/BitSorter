@@ -135,25 +135,7 @@ namespace BitSorter.ViewModel
         /// <summary>What <paramref name="p"/> is on, within <paramref name="reach"/> cells of a pin or a wire.</summary>
         public CanvasTarget At(BoardPoint p, double reach)
         {
-            double best = reach * reach;
-            CanvasTarget found = CanvasTarget.Nothing;
-
-            foreach ((int id, PartOutline outline) in _parts)
-            {
-                // By index: the list behind an interface, whose enumerator would be boxed for every part (the 15g-3 review).
-                IReadOnlyList<PinSpot> pins = outline.Pins;
-                for (int i = 0; i < pins.Count; i++)
-                {
-                    PinSpot pin = pins[i];
-                    double squared = Squared(p, pin.At);
-                    if (squared <= best)
-                    {
-                        best = squared;
-                        found = new CanvasTarget(CanvasTargetKind.Pin, part: id, pin: pin.Pin);
-                    }
-                }
-            }
-
+            CanvasTarget found = PinWithin(p, reach * reach);
             if (found.Kind != CanvasTargetKind.Nothing)
                 return found;
 
@@ -164,7 +146,7 @@ namespace BitSorter.ViewModel
                     return new CanvasTarget(CanvasTargetKind.Part, part: _parts[i].Id);
             }
 
-            best = reach * reach;
+            double best = reach * reach;
             foreach ((int id, IReadOnlyList<BoardPoint> points) in _wires)
             {
                 double length = WireGeometry.Length(points), walked = 0;
@@ -179,6 +161,35 @@ namespace BitSorter.ViewModel
                     }
 
                     walked += step;
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// The pin nearest <paramref name="p"/> no further than the square root of <paramref name="squared"/> cells, the last
+        /// placed on a tie; <see cref="CanvasTarget.Nothing"/> for none. What <see cref="At"/> looks for first, and what a
+        /// selected block's handle gives way to (Part 16).
+        /// </summary>
+        public CanvasTarget PinWithin(BoardPoint p, double squared)
+        {
+            double best = squared;
+            CanvasTarget found = CanvasTarget.Nothing;
+
+            foreach ((int id, PartOutline outline) in _parts)
+            {
+                // By index: the list behind an interface, whose enumerator would be boxed for every part (the 15g-3 review).
+                IReadOnlyList<PinSpot> pins = outline.Pins;
+                for (int i = 0; i < pins.Count; i++)
+                {
+                    PinSpot pin = pins[i];
+                    double d = Squared(p, pin.At);
+                    if (d <= best)
+                    {
+                        best = d;
+                        found = new CanvasTarget(CanvasTargetKind.Pin, part: id, pin: pin.Pin);
+                    }
                 }
             }
 
@@ -207,7 +218,8 @@ namespace BitSorter.ViewModel
             }
         }
 
-        private static double Squared(BoardPoint a, BoardPoint b) => (a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y);
+        /// <summary>The squared distance between two points of the board.</summary>
+        internal static double Squared(BoardPoint a, BoardPoint b) => (a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y);
 
         private static double Distance(BoardPoint a, BoardPoint b) => Math.Sqrt(Squared(a, b));
 
