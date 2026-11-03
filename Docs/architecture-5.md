@@ -4576,6 +4576,15 @@ nothing recompiles.
   blended edges, and its paper's blue, could come out a level apart. Where URP must convert to sRGB on its way to the
   screen (`Display.main.requiresSrgbBlitToBackbuffer`, which a browser's canvas may want) the camera keeps targets of its
   own, in 8-bit colour of the same size, and saves nothing; whether a browser is such a place, a browser build will tell.
+- **Left as it is**: `m_StripUnusedPostProcessingVariants`, which has nothing to strip with no post-processing shader in a
+  build -- and little if there were one, because it keeps every effect a volume profile under `Assets` holds and URP's
+  default profile holds them all; that default profile, which URP's volume framework needs and which costs nothing a frame
+  with no `Volume` in the scene (`VolumeManager.Update` returns before it resets the stack); the 2D renderer's lights and
+  shadows, whose shaders and default materials (`Renderer2DResources`) URP keeps in any build that has a 2D renderer, and
+  whose textures are the render graph's, made only for a pass that uses them, which with no light none does -- the
+  Universal renderer would drop them and bring its own, and would draw the PNG another way; the XR shaders, which URP 17.3
+  includes with no setting to leave them out; and the render graph's settings, compilation caching and the validity
+  checks the editor's tests want.
 
 ---
 
