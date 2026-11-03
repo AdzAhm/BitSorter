@@ -465,6 +465,48 @@ endmodule"), 20);
         }
 
         [Test]
+        public void ADelayThatWorksOutNegative_IsAnUnsignedTime_SoLongItNeverComesDue()
+        {
+            // IEEE 1800, 9.4.1: a negative delay is read as a two's-complement unsigned number as wide as a time -- 2^64 less
+            // its size -- and an x or z one as no delay. Icarus 12 waits 2^64 - 5 for an integer's -5; ModelSim makes a
+            // literal one 0, and an integer's 2^32 - 5 (Docs/oracle-notes.md, "Processes").
+            Simulator sim = Run(Clean(@"
+module t;
+    integer d = -5;
+    logic signed [3:0] s = -4'sd1;
+    real r = -2.5;
+    logic a, b, c, e, f, g, h, unknown;
+    initial #d a = 1;
+    initial #(-1) b = 1;
+    initial #s c = 1;
+    initial #r e = 1;
+    initial f = #(-2) 1'b1;
+    initial g <= #(-3) 1'b1;
+    initial begin #(d + 10) h = 1; end
+    initial #(1'bx) unknown = 1;
+endmodule"), 1_000_000);
+
+            foreach (string never in new[] { "a", "b", "c", "e", "f", "g" })
+                CollectionAssert.AreEqual(new[] { "0 x" }, Changes(sim, never), never + " waits past any run");
+            CollectionAssert.AreEqual(new[] { "0 x", "5 1" }, Changes(sim, "h"), "-5 + 10 is no negative delay");
+            CollectionAssert.AreEqual(new[] { "0 1" }, Changes(sim, "unknown"), "an unknown delay is no delay");
+            Assert.IsFalse(sim.Stopped);
+
+            // The same in a module with a timescale, where a delay is counted in ticks.
+            Simulator scaled = Run(Clean(@"
+`timescale 1ns/1ps
+module t;
+    real r = -2.5;
+    logic a, b;
+    initial #r a = 1;
+    initial #(-1) b = 1;
+endmodule"), 1_000_000_000);
+
+            CollectionAssert.AreEqual(new[] { "0 x" }, Changes(scaled, "a"));
+            CollectionAssert.AreEqual(new[] { "0 x" }, Changes(scaled, "b"));
+        }
+
+        [Test]
         public void Finish_EndsTheRun_AndSaysWhereFrom()
         {
             Design design = Clean(@"

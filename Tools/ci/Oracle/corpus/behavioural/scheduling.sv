@@ -66,5 +66,11 @@ module scheduling;
     initial q8 <= #43 d8;
     initial begin #41 b8 = 1'b1; d8 = 1'b1; end
 
+    // S9: a delay that works out negative is read as an unsigned time (IEEE 1800, 9.4.1), so long it
+    // never comes due: q9 stays 0.
+    integer d9 = -5;
+    logic q9 = 1'b0;
+    initial #d9 q9 = 1'b1;
+
     initial #50 $finish;
 endmodule
