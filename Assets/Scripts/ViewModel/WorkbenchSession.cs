@@ -1323,7 +1323,7 @@ namespace BitSorter.ViewModel
         {
             if (Untouchable is EditResult locked)
                 return locked;
-            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);   // the drawing's parts, turned by hand (15h-4f)
+            Module module = DrawnModule;   // the drawing's parts, turned by hand (15h-4f)
             if (module == null || parts == null || parts.Count == 0)
                 return EditResult.Refused("There is nothing selected to turn.");
 
@@ -1376,29 +1376,33 @@ namespace BitSorter.ViewModel
         {
             if (Untouchable is EditResult locked)
                 return locked;
-            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);
+            Module module = DrawnModule;
             var to = new Dictionary<int, Placement>();
             if (module != null && parts != null)
                 foreach (int part in parts)
-                {
-                    Placement was = module.Layout.PlacementOf(part);
-                    if (was.HasSize && PartGeometry.Resizable(module.FindPart(part)))
-                        to[part] = was.WithSize(0, 0);
-                }
+                    if (Resized(module, part))
+                        to[part] = module.Layout.PlacementOf(part).WithSize(0, 0);
             return to.Count == 0 ? EditResult.Refused(NothingResized) : Move(to);
         }
 
         /// <summary>Whether RESET SIZE would do something: a part of <paramref name="parts"/> was resized.</summary>
         public bool AnyResized(IReadOnlyCollection<int> parts)
         {
-            Module module = ShowsDrawingOfCode ? DrawnModule : Project.Find(Module);
+            Module module = DrawnModule;
             if (module == null || parts == null)
                 return false;
             foreach (int part in parts)
-                if (module.Layout.PlacementOf(part).HasSize && PartGeometry.Resizable(module.FindPart(part)))
-                    return true;   // a size kept under a key whose part now takes none is no size on screen (the review of #140)
+                if (Resized(module, part))
+                    return true;
             return false;
         }
+
+        /// <summary>
+        /// Whether <paramref name="part"/> of <paramref name="module"/> has a size of its own: one kept under a key whose part
+        /// now takes none is no size on screen (the review of #140).
+        /// </summary>
+        private static bool Resized(Module module, int part) =>
+            module.Layout.PlacementOf(part).HasSize && PartGeometry.Resizable(module.FindPart(part));
 
         /// <summary>A circuit edit made: drawn over the run there is, and replayed from <paramref name="from"/>.</summary>
         private EditResult Edited(EditResult result, long from = 0)
