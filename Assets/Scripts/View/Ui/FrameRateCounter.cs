@@ -165,7 +165,9 @@ namespace BitSorter.View
             UiTheme.Anchor(_root, new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-Inset, -1f), new Vector2(Width, Height));
 
-            _label = UiTheme.Label("fps", _root, UiType.Micro, UiTheme.Text, TextAlignmentOptions.MidlineRight);
+            // In the workbench's text colour, since the workbench is what it is drawn over: the interface's, Neon Board's
+            // near-white in both Schematic looks, was 1.01:1 on Schematic Light's paper (the accessibility review, 2026-11-03).
+            _label = UiTheme.Label("fps", _root, UiType.Micro, SchematicPalette.Current.Text, TextAlignmentOptions.MidlineRight);
             UiTheme.Stretch(_label.rectTransform);
             _label.raycastTarget = false;
         }

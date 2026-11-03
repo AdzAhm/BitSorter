@@ -1115,7 +1115,9 @@ the frame rate to itself, but what the frame rate is is worth seeing anywhere
 (asked for after the 4.0.0 browser playtest, 2026-10-05). It sits in the margin every top-right
 control keeps, so it is above BACK rather than on it at any window size, and over
 every panel on a canvas of its own sorted above the interface's; it takes no
-clicks. It counts half a second of real time, and hands TextMeshPro its digits in
+clicks. It writes in the workbench's text colour (`SchematicPalette.Current.Text`),
+since the workbench is what it is over -- the interface's near-white could not be
+seen on Schematic Light's paper (1.01:1). It counts half a second of real time, and hands TextMeshPro its digits in
 a reused buffer (`SetCharArray`) rather than formatting a string, because it
 redraws by design. `FrameRateCounterPlayTests` holds the counting frames to no
 allocation and a redraw to two: in the editor, and only there, `SetCharArray` also
