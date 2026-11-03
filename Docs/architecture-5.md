@@ -4666,6 +4666,38 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
   still `BitSorter.LogicCore.Tests`, the name of the 4.x engine 16a deleted. The `.asmdef` kept its `.meta`, so its GUID is
   the same; no other assembly, setting or test names it, and the `unity-test-loop` skill's list of DLLs says the new name.
 
+**As built in Part 16: the zero-GC pass** (the `csharp-zero-gc` skill, 2026-11-03). The commitment is the skill's L2 for the
+workbench's frame: **what a frame asks of the view-model and the engine, standing still or playing, allocates nothing once warm**;
+a run being made, an edit, a gesture's routing and a tab's work slices are work, and are measured as such, not held to zero.
+WorkbenchPanel.Update measured about 10 KB a frame paused on the pipelined processor and 28 KB playing, in the editor.
+
+- **Measured under dotnet**, `GC.GetAllocatedBytesForCurrentThread` round each ask the panel makes a frame, with
+  `DOTNET_JitObjectStackAllocation=0`: dotnet keeps an object that never leaves a method on the stack, and Unity's runtimes never do.
+- **The pattern was foreach through an interface.** An `IReadOnlyList`'s or `IReadOnlyCollection`'s enumerator is an object, 32 to 40
+  bytes, where a `List`'s or a `HashSet`'s own is a struct. `Project.Find`, `Module.FindPart` and `FindWire` walked their lists so,
+  and the panel makes about a hundred finds a frame through `WorkbenchSession.Module` (3.7 KB a frame, counted from its call
+  sites); so did
+  `SchematicLayout.NetAt` a net (2.3 KB a frame with the pointer on the processor), the canvas's selection
+  (`CanvasSelection.Parts` and `Wires` are a struct, `SelectedIds`, now), a controller's rows (`TableReading.RowOf`) and the canvas's
+  wires, pins and ports as they are drawn (`WorkbenchDrawing`, two a net every time a wires chunk is drawn again). **On a per-frame
+  path, count through an `IReadOnlyList`; foreach a concrete `List`, `HashSet` or array.**
+- **A drawing of code playing** worked its wires out of a netlist sorted again every moment (`RtlEvaluator`): 7.6 KB a frame on the
+  pipelined processor, 43 KB on the multicycle controller. The order is kept with the netlist and the values written into the
+  model's own array.
+- **A controller shown** made its signals' names every frame to look them up (`ControllerNow`, 0.5 to 0.9 KB): found once now.
+- **The editor's own**: `UiText.Typing` asked the event system's selection for a field with `GetComponent`, which in the editor makes
+  an object for a component that is not there, for each of the seventeen key readers a frame once the shell was clicked;
+  `TryGetComponent` makes none.
+- **Already clean, and now held**: the engine recording a run allocates exactly its history's buffers growing, to the byte
+  (`RecordingAllocationTests`); the chip, the time, the playhead's texts and the waves' spans were made once.
+- **Held by** `FrameAllocationTests` (ViewModel, every frame ask at 0 bytes), `RtlEvaluatorReuseTests` and
+  `RecordingAllocationTests` (Sim), `WorkbenchPerformanceTests.EverythingDrawnAgain_MakesNoGarbageForTheCircuitItDraws` (Edit Mode)
+  and `KeyboardReadPlayTests` (Play Mode).
+- **Left, measured**: a drag's preview routes the dragged parts' wires every frame it moves (`CanvasEditor.Overlay` through
+  `WireGeometry.Following`, 22 to 36 KB a frame on the small samples), rebuilding every outline and the obstacle map each time --
+  the unmoved parts' could be kept from the press; the first-time hints' check every 30 frames (`SimulatorHints.Due`, in hand elsewhere in Part 16e); a bus row's
+  readout made once each time its value changes (`WaveformView.Readout`).
+
 ---
 
 ## 11. The parts
