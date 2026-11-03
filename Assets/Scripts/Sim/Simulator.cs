@@ -1615,8 +1615,8 @@ namespace BitSorter.Sim
         }
 
         /// <summary>
-        /// <c>release</c>: a wire goes back to what drives it; a variable nothing drives keeps the value it
-        /// was forced to until it is next written (IEEE 1800, 10.6.2).
+        /// <c>release</c>: a wire goes back to what drives it -- z, with nothing driving it; a variable nothing drives keeps
+        /// the value it was forced to until it is next written (IEEE 1800, 10.6.2).
         /// </summary>
         private void Release(LPiece[] target)
         {
@@ -2252,14 +2252,18 @@ namespace BitSorter.Sim
         /// <summary>A signal's value from its drivers or from what was last written, with any force laid over it.</summary>
         private LogicVec Resolve(int s) => _forces == null ? ResolveOwn(s) : Overlay(s, ResolveOwn(s));
 
-        /// <summary>A signal's value from its drivers -- resolved as a wire if it has several -- or from what was last written.</summary>
+        /// <summary>
+        /// A signal's value from its drivers -- resolved as a wire if it has several -- or from what was last written: for a net
+        /// nothing drives, the value it started with, z, which nothing writes (the review of 16c: it was the value shown, so a
+        /// force on one was kept once released).
+        /// </summary>
         private LogicVec ResolveOwn(int s)
         {
             SignalInfo info = _design.Signals[s];
             int[] drivers = _driversOf[s];
 
             if (drivers.Length == 0)
-                return info.Kind == SignalKind.Variable ? _written[s] : _values[s];
+                return _written[s];
 
             if (_sliced[s])
                 return Shape(ResolveSlices(info, drivers), info);

@@ -333,8 +333,9 @@ writes. Where Icarus 12 cannot run it, `LibraryTests` holds it to the standard:
 `corpus/behavioural/testbench_control.sv` runs in both and agrees on every signal and line: the three
 joins, a fork in a fork, `wait fork`, `disable fork`, `disable` of a named block, of a named fork and of
 a task, events, `force` and `release` of a wire, its bits and a clocked variable, and assertions with
-pass and fail actions. Where Icarus 12 runs otherwise or not at all, BitSorter follows the standard, and
-`TestbenchControlTests` holds it:
+pass and fail actions -- and, since the review of 16c (2026-11-03), of a wire nothing drives, which is z again once
+released (10.6.2), as both print and BitSorter had not: it kept the forced value. Where Icarus 12 runs otherwise or
+not at all, BitSorter follows the standard, and `TestbenchControlTests` holds it:
 
 | Question | Icarus 12 | The standard, and BitSorter |
 | --- | --- | --- |
