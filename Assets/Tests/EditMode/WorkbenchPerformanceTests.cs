@@ -663,5 +663,57 @@ namespace BitSorter.EditMode.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        /// <summary>
+        /// Every layer drawn again -- each wire chunk, the parts and the ports, the waveform's rows -- makes no garbage for the
+        /// circuit it draws (the zero-GC pass, Part 16): fewer allocations than one for every ten of its 300 wires more than a
+        /// frame that draws only the playhead, so whatever uGUI's own update makes is left out and anything made a wire, a
+        /// net or a part is caught. Its branches, junctions and pins were walked with foreach through their lists' interface,
+        /// an enumerator object each, two a net every time a wire chunk was drawn -- every frame of a processor playing.
+        /// </summary>
+        [Test]
+        public void EverythingDrawnAgain_MakesNoGarbageForTheCircuitItDraws()
+        {
+            (WorkbenchModel model, WorkbenchLayers layers, GameObject canvas) = Bench();
+            try
+            {
+                Show(model, layers, 30.0, all: true);
+                Show(model, layers, 30.0, all: true);
+
+                int quiet = AllocationsIn(() => Show(model, layers, 30.0));
+                Dictionary<WorkbenchGraphic, int> before = layers.All.ToDictionary(g => g, g => g.Rebuilds);
+                int everything = AllocationsIn(() => Show(model, layers, 30.0, all: true));
+
+                int wires = layers.All.Count(g => g.Draws == WorkbenchGraphic.Layer.Wires && g.Rebuilds != before[g]);
+                Assert.AreEqual(layers.All.Count(g => g.Draws == WorkbenchGraphic.Layer.Wires), wires, "sanity: every wire chunk was drawn again");
+                int nets = model.Layout.Nets.Count;
+                Assert.Less(everything - quiet, nets / 10,
+                    $"drawing everything again made {everything} allocations and drawing the playhead {quiet}: the drawing made garbage going through {nets} nets");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        /// <summary>How many managed allocations <paramref name="action"/> makes, on this thread (as <c>Is.Not.AllocatingGCMemory</c> counts them).</summary>
+        private static int AllocationsIn(System.Action action)
+        {
+            UnityEngine.Profiling.Recorder recorder = UnityEngine.Profiling.Recorder.Get("GC.Alloc");
+            recorder.enabled = false;
+            recorder.FilterToCurrentThread();
+            recorder.enabled = true;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                recorder.enabled = false;
+                recorder.CollectFromAllThreads();
+            }
+
+            return recorder.sampleBlockCount;
+        }
     }
 }
