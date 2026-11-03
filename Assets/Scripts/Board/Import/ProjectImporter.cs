@@ -457,6 +457,22 @@ namespace BitSorter.Board
 
             var decided = new Dictionary<string, Module>(StringComparer.Ordinal);
             var written = new List<Module>();
+
+            // The written modules a module makes, all the way down: all a drawing of it can place as blocks. Handed every
+            // module written so far, each edit of the attempt checked all of them again: 460 MB in one frame for the
+            // pipelined processor, whose every module comes in written (Part 16b).
+            List<Module> WrittenUnder(string name)
+            {
+                var under = new HashSet<string>(StringComparer.Ordinal);
+                var stack = new Stack<string>();
+                stack.Push(name);
+                while (stack.Count > 0)
+                    if (uses.TryGetValue(stack.Pop(), out List<string> made))
+                        foreach (string inner in made)
+                            if (under.Add(inner))
+                                stack.Push(inner);
+                return written.FindAll(m => under.Contains(m.Name));
+            }
             void Decide(ModuleDeclaration module, int depth)
             {
                 if (decided.ContainsKey(module.Name) || depth > 64)
@@ -470,7 +486,7 @@ namespace BitSorter.Board
                 texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string fileText);
                 bool template = CourseTemplate.TryRead(fileText, out _);
 
-                Module chosen = module == bench || template || lookedInto.Contains(module.Name) ? null : Drawn(tree, module.Name, written, kept);
+                Module chosen = module == bench || template || lookedInto.Contains(module.Name) ? null : Drawn(tree, module.Name, WrittenUnder(module.Name), kept);
                 if (chosen == null)
                 {
                     chosen = Written(module);
