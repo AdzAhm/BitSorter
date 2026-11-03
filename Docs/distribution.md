@@ -116,10 +116,14 @@ last clicked:
 | Managed stripping | Medium | Removes code nothing reaches; at Minimal every package went in whole. It was Low, the conservative level, until 2026-10-15: no runtime script uses reflection, and the browser build was smoke-tested at Medium before it was kept, since the risks are in packages (Unity Services, the Input System, `JsonUtility`) |
 | WebAssembly 2023 | **On** | Native exceptions, bulk memory, BigInt and SIMD where the original feature set used JavaScript trampolines. Needs Chrome 91, Firefox 89 or Safari 16.4 |
 
-URP's film-grain noise textures are left out too: the renderer points at a copy of URP's
-post-processing data, `Assets/Settings/PostProcessData.asset`, with its film-grain list emptied.
-No look uses film grain, URP only reads that list while film grain is on, and noise barely
-compresses, so it was about 2.5 MB of the download for nothing.
+URP's post-processing is left out of the build whole: nothing BitSorter draws is
+post-processed, so the 2D renderer carries no post-processing data, and the sixteen shaders
+and the textures that data names do not go in (Part 16's URP pass, `Docs/architecture-5.md`).
+Before that the renderer pointed at a copy of URP's data, `Assets/Settings/PostProcessData.asset`,
+with its film-grain list emptied: no look uses film grain, and noise barely compresses, so the
+package's own copy put about 2.5 MB of the download in for nothing. The copy is kept for that
+reason, though nothing points at it now: post-processing turned on again points at it, not at
+the package's.
 
 **What the browser build weighs**, measured from the release build's `Build/` folder, Brotli-compressed as
 served. 4.0.0's was 16,931,273 bytes; Part 16b records each cut it makes here against these.

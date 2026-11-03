@@ -4469,10 +4469,9 @@ each member below was removed only after a search of `Assets` and `Tools` found 
   `renderPostProcessing` and SMAA (a post-processing step; the camera draws only its ground colour).
   **`LookBoot` stays**: it was thought to exist only for the bloom, but it is the one thing that puts the player's chosen
   look on before the first scene in a build, and without it STYLE would not survive a launch. **The renderer's
-  `PostProcessData` is left as it is.** Clearing the 2D renderer's reference would not take the post-processing shaders out
-  of a build, because URP 17.3 keeps them in `UniversalRenderPipelineGlobalSettings`, and the editor is likely to put the
-  package's own copy back in a cleared reference, with the film-grain textures the project's copy has emptied
-  (`Docs/distribution.md`); neither was tried.
+  `PostProcessData` was left as it was** here, on two beliefs that were not tried -- that URP 17.3 keeps the
+  post-processing shaders in `UniversalRenderPipelineGlobalSettings` anyway, and that the editor would put the package's
+  own copy back in a cleared reference. Neither holds, and Part 16's URP pass below cleared it.
 - **The looks.** `Look` is a palette, how its panels are drawn, and its canvas and glow. Gone: `Bodies`, `Grid`, `Bits`,
   `BitScale`, `BitGlow`, `TrailWidth`, `TrailLength`, `GateGlow`, `FixtureGlow`, `GridMarkSize`, `BoardUnits` and
   `BoardLineWidth`, with `BodyStyle`, `GridStyle` and `BitStyle`. All four looks stay. `Palette` is down to the ground and
@@ -4540,6 +4539,27 @@ simulator does -- STATIC TIMING ANALYSIS, LOGIC ANALYSIS, SCHEMATIC DRAWING, WAV
 seventeen, every one his. The thanks are to every tester, where they said playtester, and ModelSim stands under CHECKED
 AGAINST beside Icarus Verilog, as the course's simulator and the second check (Part 15i-4). `PlayerTextTests` no longer
 excuses the roles; `CreditsTests` holds the new ones and refuses the old.
+
+**As built in Part 16's sweep: URP with nothing to post-process** (the `urp-postprocessing` pass, 2026-11-03). Since 16b the
+camera draws only its ground colour, under the workbench's opaque ground; what URP still did for the bloom was looked for in
+the package's own source (URP 17.3.0, the editor's built-in copy), and taken out where nothing drawn depends on it.
+`RenderSettingsTests` (`Tools/ci/Repo.Tests`) holds each from the files, since a tick box in an inspector changes it and
+nothing recompiles.
+
+- **The 2D renderer has no post-processing data** (`Assets/Settings/Renderer2D.asset`, `m_PostProcessData` empty: the
+  inspector's Post-processing box unticked). The data was the one reference that put URP's sixteen post-processing shaders
+  in every build -- uber post, bloom, both depths of field, motion blur, SMAA, TAA, the two lens flares, the two LUT
+  builders, panini, stop-NaN, the scaling setup, FSR's EASU and the final pass -- with SMAA's two textures and the 32
+  blue-noise ones. Nothing drawn changes: no camera asks for post-processing (neither the main camera nor `WaveformPng`'s
+  is given a `UniversalAdditionalCameraData`, and URP reads a camera without one, or with one at its defaults, as asking
+  for none), and the 2D renderer makes its post-processing passes only from that data and runs them only for a camera
+  that asks. 16b's reasons for leaving it, read
+  against the source: `UniversalRenderPipelineGlobalSettings`' copies (`PostProcessData/ShaderResources` and
+  `TextureResources`) are editor-only -- their `isAvailableInPlayerBuild` is false, and the runtime list the last build
+  wrote into the asset leaves them out -- and nothing fills a cleared reference: a renderer is given the package's data
+  only when it is created, or when the box is ticked. `Assets/Settings/PostProcessData.asset`, the copy with its film
+  grain emptied, is kept, though nothing points at it: whoever turns post-processing on again points the renderer at it,
+  not at the package's, or the film-grain noise comes back (`Docs/distribution.md`).
 
 ---
 

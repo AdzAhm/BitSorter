@@ -512,7 +512,9 @@ stretch that way.
   and a UI Toolkit panel, and both are drawn after the camera's post-processing,
   so the bloom a look set in the scene's volume profile blurred an empty camera
   image every frame and never touched anything on screen. The volume, its
-  profile, `Look.ApplyBloom` and the camera's post-processing are gone;
+  profile, `Look.ApplyBloom` and the camera's post-processing are gone, and so
+  is the 2D renderer's post-processing data, which put URP's post-processing
+  shaders in every build (Part 16's URP pass, `RenderSettingsTests`);
   `LookBoot` stays for the one thing else it does, which is to put the player's
   chosen look on before the first scene in a build. A look is now a palette, how
   its panels are drawn, and its canvas and glow: the 4.x board's gate bodies,
