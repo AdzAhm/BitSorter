@@ -47,27 +47,33 @@ namespace BitSorter.Board
         /// <summary>The code <see cref="Arrangement"/> was made against: its numbered keys are dropped once the code is other.</summary>
         public string ArrangedFor { get; init; }
 
+        // The lookups below are asked many times a frame, and walk their lists by index: foreach over the interface is an
+        // enumerator Mono and IL2CPP make on the heap, 32 to 40 bytes a lookup (Part 16e, LookupCostTests).
+
         public Part FindPart(int id)
         {
-            foreach (Part part in Parts)
-                if (part.Id == id)
-                    return part;
+            IReadOnlyList<Part> parts = Parts;
+            for (int i = 0; i < parts.Count; i++)
+                if (parts[i].Id == id)
+                    return parts[i];
             return null;
         }
 
         public Part FindPart(string name)
         {
-            foreach (Part part in Parts)
-                if (string.Equals(part.Name, name, StringComparison.Ordinal))
-                    return part;
+            IReadOnlyList<Part> parts = Parts;
+            for (int i = 0; i < parts.Count; i++)
+                if (string.Equals(parts[i].Name, name, StringComparison.Ordinal))
+                    return parts[i];
             return null;
         }
 
         public Wire FindWire(int id)
         {
-            foreach (Wire wire in Wires)
-                if (wire.Id == id)
-                    return wire;
+            IReadOnlyList<Wire> wires = Wires;
+            for (int i = 0; i < wires.Count; i++)
+                if (wires[i].Id == id)
+                    return wires[i];
             return null;
         }
 
@@ -178,11 +184,16 @@ namespace BitSorter.Board
         /// </summary>
         public IReadOnlyList<ProjectFile> Files { get; init; } = Array.Empty<ProjectFile>();
 
+        /// <summary>
+        /// The module called <paramref name="name"/>, or null. Asked dozens of times a frame -- the module shown, whether it is
+        /// written -- so it walks the list by index, never through an enumerator Mono and IL2CPP would make on the heap.
+        /// </summary>
         public Module Find(string name)
         {
-            foreach (Module module in Modules)
-                if (string.Equals(module.Name, name, StringComparison.Ordinal))
-                    return module;
+            IReadOnlyList<Module> modules = Modules;
+            for (int i = 0; i < modules.Count; i++)
+                if (string.Equals(modules[i].Name, name, StringComparison.Ordinal))
+                    return modules[i];
             return null;
         }
 
