@@ -469,9 +469,13 @@ stretch that way.
   with memory snapshots (2026-11-01), a whole Play Mode run adds nothing under
   FontEngine where it added about 400 MB. **A runtime font asset that is given
   glyphs is made full and kept, or reads no kerning** -- one made empty per
-  domain brings the leak back. An Edit Mode run still adds about 27 MB, not yet
-  traced; `UiThemeTests` measuring goals through the dynamic fallback is the
-  first suspect.
+  domain brings the leak back. An Edit Mode run still added about 27 MB on
+  2026-11-01, not traced. The suspect named then, `UiThemeTests` measuring the
+  4.x levels' goals through the dynamic fallback, went with the 4.x game in Part
+  16a, and no word of the app's own reaches that fallback now -- every character
+  in its strings and its exercises is in Plex's static atlas but μ, which only
+  the shell's faces are given -- so the 27 MB wants measuring again before anyone
+  chases it.
 - **Every colour comes from `Palette`**, board and interface alike -- no colour
   literal, and no serialized colour field on a renderer. They used to live
   wherever each was first needed, and nothing could compare them: the interface
