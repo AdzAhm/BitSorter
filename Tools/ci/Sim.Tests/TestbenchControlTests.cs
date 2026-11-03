@@ -248,6 +248,26 @@ module t;
 endmodule"));
         }
 
+        [Test]
+        public void AWireNothingDrives_IsZAgainOnceReleased_AllOfItOrABitOfIt()
+        {
+            // IEEE 1800, 10.6.2: a released net's value is its drivers' -- with none, z. Icarus 12 and ModelSim agree; the
+            // corpus's testbench_control.sv asks it of both.
+            CollectionAssert.AreEqual(new[] { "forced 1 zz10", "released z zzzz" }, Printed(@"
+module t;
+    wire w;
+    wire [3:0] v;
+    initial begin
+        force w = 1'b1;
+        force v[1:0] = 2'b10;
+        #1 $display(""forced %b %b"", w, v);
+        #4 release w;
+        release v[1:0];
+        #1 $display(""released %b %b"", w, v);
+    end
+endmodule"));
+        }
+
         // -----------------------------------------------------------------
         // assign and deassign inside a process (M4)
         // -----------------------------------------------------------------
