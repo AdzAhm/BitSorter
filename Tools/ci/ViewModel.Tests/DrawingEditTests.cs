@@ -94,6 +94,34 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(Chooser, session.Code.Text, "and the code shown again is the document's");
         }
 
+        /// <summary>
+        /// The question asked of a block's drawing of code, answered after Alt+Up has stepped out of it -- which closes no
+        /// question and changes no document -- makes nothing: the edit was the drawing's, and its ids are not the module now
+        /// shown's (the 16d sweep: it was made on the parent, deleting whichever of its parts had the ids).
+        /// </summary>
+        [Test]
+        public void TheQuestion_AnsweredAfterAStepOut_MakesNothing()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Assert.IsTrue(editor.AddWrittenModule("pick", Chooser).Done);
+            Assert.IsTrue(editor.Add("top", new BlockPart { Name = "p1", Module = "pick" }, new Placement(5, 0)).Done);
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            Module top = session.Project.TopModule;
+            Assert.IsTrue(session.StepInto(top.Parts.OfType<BlockPart>().Single().Id));
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the block's drawing of code");
+            int both = session.DrawnModule.Parts.First(p => top.FindPart(p.Id) != null).Id;   // an id the parent's parts have too
+
+            Assert.AreEqual(WorkbenchSession.RewriteAsked, session.Remove(new[] { both }).Refusal);
+            Assert.IsTrue(session.StepOut());
+            Project before = session.Project;
+            EditResult answered = session.AnswerRewrite(true);
+            Assert.IsFalse(answered.Done, "nothing made: the edit was the drawing's");
+            Assert.AreSame(before, session.Project, "the parent untouched");
+            Assert.AreEqual(Chooser, session.Project.Find("pick").Source, "and the code too");
+            Assert.IsFalse(session.AsksToRewrite);
+        }
+
         [Test]
         public void TheQuestion_IsAskedOnceForAModule()
         {
