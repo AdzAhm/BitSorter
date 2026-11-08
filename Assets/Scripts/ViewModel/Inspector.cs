@@ -511,7 +511,12 @@ namespace BitSorter.ViewModel
             if (why != null)
                 return EditResult.Refused(why);
 
-            bool stimulus = Changed("period") || Changed("release");
+            // A time typed again in other words -- 10 where it shows 10 ps -- is the time it is: no change, as the same text is
+            // none (the 16d sweep: the text was compared, and the stimulus made again with the same time, a step and a replay).
+            Stimulus now = editor.Project.Stimulus;
+            bool newPeriod = Changed("period") && !(now != null && ClockOf(now, part.Name) is ClockTrack clock && clock.Period == period);
+            bool newRelease = Changed("release") && !(now != null && TryRelease(now, part.Name, out long was) && was == release);
+            bool stimulus = newPeriod || newRelease;
             if (changed.Equals(part) && !stimulus && retimed == null)
                 return EditResult.Ok(part.Id);
 
@@ -539,9 +544,9 @@ namespace BitSorter.ViewModel
                 // The port's name as it is now: renamed in this same step, its tracks were renamed with it.
                 string port = editor.Project.Find(module)?.FindPart(part.Id)?.Name ?? oldName;
                 Stimulus s = editor.Project.Stimulus;
-                if (Changed("period"))
+                if (newPeriod)
                     s = s with { Clocks = WithClock(s.Clocks, port, period) };
-                if (Changed("release"))
+                if (newRelease)
                     s = s with { Tracks = WithRelease(s.Tracks, port, release) };
                 EditResult driven = editor.SetStimulus(s);
                 return driven.Done ? EditResult.Ok(part.Id) : driven;

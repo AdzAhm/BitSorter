@@ -5098,6 +5098,9 @@ exercises, each fixed with a test that failed first.
   the drawing, written into the code, and the drawing made again, every part numbered afresh; the ids it handed back were the
   throw-away's, naming other parts of the new drawing, which a Delete or a turn straight after acted on. What was pasted is
   found again by its name, which the code keeps; its wires, which keep none, are not selected.
+- **A time typed again in other words is no change** (`Inspector.Apply`). The inspector compares a field's text, so 10 typed
+  where PERIOD shows 10 ps was a change, and the stimulus was made again with the same time: an undo step that did nothing
+  and the whole run played again. A clock's period and a reset's release are compared as the times they are.
 
 ---
 
