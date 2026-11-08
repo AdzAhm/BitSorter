@@ -1127,22 +1127,23 @@ namespace BitSorter.Sim
         }
 
         /// <summary>Text for the transcript: each line it completes becomes a message.</summary>
+        /// <remarks>
+        /// Only the new text is read for a line's end, and the open line is copied out once, as it ends: a line built by
+        /// many <c>$write</c>s costs as much as its characters. Each call scanned and copied the whole line (the 16d sweep,
+        /// engine-12): twenty thousand stars made 400 MB of strings.
+        /// </remarks>
         private void Print(Severity severity, string text, bool endLine)
         {
-            _line.Append(text);
-
             int start = 0;
-            string all = _line.ToString();
-            for (int i = 0; i < all.Length; i++)
+            for (int i = text.IndexOf('\n'); i >= 0; i = text.IndexOf('\n', start))
             {
-                if (all[i] != '\n')
-                    continue;
-                _history.Message(_now, severity, all.Substring(start, i - start));
+                _line.Append(text, start, i - start);
+                _history.Message(_now, severity, _line.ToString());
+                _line.Clear();
                 start = i + 1;
             }
 
-            _line.Clear();
-            _line.Append(all, start, all.Length - start);
+            _line.Append(text, start, text.Length - start);
 
             if (endLine)
                 EndLine(severity, always: true);
