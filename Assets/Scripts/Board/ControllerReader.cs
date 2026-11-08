@@ -13,10 +13,11 @@ namespace BitSorter.Board
     /// tab's search by running stops at four input bits.
     /// </summary>
     /// <remarks>
-    /// **A state machine** is a register of an enum type given a value in an <c>always_ff</c> -- the value its reset gives it
-    /// the start -- whose next value is either a variable set in an <c>always_comb</c> that is, after plain assignments of
-    /// what holds unless an arm says otherwise, one <c>case</c> on the register; or a <c>case</c> on the register in the
-    /// <c>always_ff</c> itself. Each state's arm -- its own label's, else <c>default</c>'s -- is followed down every way through
+    /// **A state machine** is a register given a value in an <c>always_ff</c> -- the value its reset gives it the start -- its
+    /// states the members of its enum type, or, with none, the case's labels, each a constant (<c>localparam ONE = 2'd1</c>,
+    /// the sequence detector's) or a number, two at least; whose next value is either a variable set in an
+    /// <c>always_comb</c> that is, after plain assignments of what holds unless an arm says otherwise, one <c>case</c> on the
+    /// register; or a <c>case</c> on the register in the <c>always_ff</c> itself. Each state's arm -- its own label's, else <c>default</c>'s -- is followed down every way through
     /// it: an <c>if</c> and its <c>else</c>, a nested <c>case</c> on something else, a <c>?:</c> in the next value. A second
     /// <c>always_comb</c> that is a <c>case</c> on the register gives each state's outputs too, the three-process style.
     ///
@@ -200,7 +201,7 @@ namespace BitSorter.Board
                 if (machine == null && (tables.Count == 0 || !whole))
                 {
                     why = tables.Count == 0
-                        ? "Neither a state machine -- an enum register with a case on it -- nor a decoder: no case of constants on one subject."
+                        ? "Neither a state machine -- a register with a case on it of its states -- nor a decoder: no case of constants on one subject."
                         : "Its decoders are only some of it: the rest is not a table.";
                     return null;
                 }
