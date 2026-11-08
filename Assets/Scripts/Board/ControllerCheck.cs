@@ -143,6 +143,7 @@ namespace BitSorter.Board
                 int subject = Signal(table.Subject);
                 if (subject < 0)
                     continue;   // a case on an expression: its rows are not tried
+                int subjectNet = NetOf(netlist, subject);
                 for (int r = 0; r < table.Rows.Count; r++)
                     foreach (LogicVec match in table.Rows[r].Matches)
                     {
@@ -153,10 +154,17 @@ namespace BitSorter.Board
                             Randomise();
                             values[subject] = match.Resize(design.Signals[subject].Width);
                             LogicVec[] nets = RtlEvaluator.Evaluate(netlist, values);
+
+                            // The row the circuit's own subject picks: the one forced where nothing in the module works the
+                            // subject out, else whichever the inputs make it -- the netlist works a driven subject out again
+                            // from them, whatever it is given (the 16d sweep: a decoder on another's output was never shown).
+                            int row = subjectNet >= 0 ? table.RowOf(nets[subjectNet]) : r;
+                            if (row < 0)
+                                continue;   // a value no row takes, nor a default
                             for (int c = 0; c < table.Columns.Count; c++)
-                                if (table.Rows[r].Cells[c].Constant is LogicVec constant && NetOf(netlist, Signal(table.Columns[c])) is int net && net >= 0
+                                if (table.Rows[row].Cells[c].Constant is LogicVec constant && NetOf(netlist, Signal(table.Columns[c])) is int net && net >= 0
                                     && !Same(nets[net], constant))
-                                    return $"{table.Subject} = {table.Rows[r].Label} gives {table.Columns[c]} = {nets[net]}, where the table says {table.Rows[r].Cells[c].Text}.";
+                                    return $"{table.Subject} = {table.Rows[row].Label} gives {table.Columns[c]} = {nets[net]}, where the table says {table.Rows[row].Cells[c].Text}.";
                         }
                     }
             }
