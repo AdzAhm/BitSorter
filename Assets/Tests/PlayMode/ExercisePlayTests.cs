@@ -291,6 +291,13 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         [UnityTest]
         public IEnumerator Check_GradesTheCodeOnScreen_AndChecksNothingThatDoesNotApply()
+
+        /// CHECK grades the code on screen (Part 16d's sweep), as EXPORT hands in what is: typed and not yet applied -- inside
+        /// the editor's pause -- it is applied first, and code that cannot apply is refused saying what is wrong with it, never
+        /// graded, and solved, as the last text that did. CHECK graded the document alone, a step behind the screen.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Check_GradesTheCodeOnScreen_NeverTheLastTextThatApplied()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Workbench;
@@ -325,6 +332,62 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(typed, session.Project.TopModule.Source, "typed and not yet applied: applied first");
             Assert.IsTrue(workbench.LastGrade.Solved, string.Join("\n", workbench.LastGrade.Faults.Concat(workbench.LastGrade.Problems)));
             Assert.IsTrue(Store.IsComplete("half-adder"), "and the code on screen solves it");
+        }
+
+        /// <summary>
+<<<<<<< HEAD
+        /// CHECK grades the code on screen, as EXPORT exports it (the 16d sweep): code typed with an error is not checked, the
+        /// chip saying why, and never marked solved as the last code that applied; code typed and not yet applied is applied
+        /// first, then graded. It graded the document alone, the last code that applied.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Check_GradesTheCodeOnScreen_AndChecksNothingThatDoesNotApply()
+=======
+        /// CHECK grades the code on screen (Part 16d's sweep), as EXPORT hands in what is: typed and not yet applied -- inside
+        /// the editor's pause -- it is applied first, and code that cannot apply is refused saying what is wrong with it, never
+        /// graded, and solved, as the last text that did. CHECK graded the document alone, a step behind the screen.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Check_GradesTheCodeOnScreen_NeverTheLastTextThatApplied()
+>>>>>>> 394e02b7 (test: CHECK must grade the code on screen, not the last text that applied (red))
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            yield return Click(WorkbenchPanel.CodeButton);
+            WorkbenchSession session = workbench.Session;
+            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+
+            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string ports = "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n";
+            string swapped = header + ports + "    xor #1 g1 (carry, a, b);\n    and #1 g2 (sum, a, b);\nendmodule\n";
+            string solved = header + ports + "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            EditResult wrong = session.SetSource(swapped);
+            Assert.IsTrue(wrong.Done, wrong.Refusal);
+
+            // The answer typed, and CHECK pressed inside the pause: graded as it is on screen. Typed on the code editor's clock,
+            // in milliseconds (CodeEditorView), or the view would find the pause long over and apply it itself.
+            CodeDocument code = session.Code;
+            code.Type(solved, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(code.Pending, "sanity: typed and not applied");
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.IsNotNull(workbench.LastGrade, "sanity: CHECK graded something");
+            Assert.IsTrue(workbench.LastGrade.Solved, "the code on screen is the answer, and CHECK grades it: " +
+                string.Join("\n", workbench.LastGrade.Faults.Concat(workbench.LastGrade.Problems)));
+            Assert.IsFalse(code.Pending, "applied on the way");
+            Assert.AreEqual(solved, session.Project.TopModule.Source);
+            workbench.ExerciseCard.Close();
+            yield return null;
+
+            // A fault typed over it: refused, saying so -- never graded as the last text that applied.
+            Grade before = workbench.LastGrade;
+            code.Type(solved.Replace("(carry, a, b);", "(carry, a, b)"), Time.timeAsDouble * 1000.0);
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.AreSame(before, workbench.LastGrade, "code on screen that does not apply is not graded");
+            StringAssert.Contains("does not apply", workbench.ChipText, "and the chip says why");
+            Assert.AreEqual(solved, session.Project.TopModule.Source, "the document keeps the last code that applied");
         }
 
         [UnityTest]
