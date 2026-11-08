@@ -27,6 +27,10 @@ namespace BitSorter.Sim.Tests
             ["y9"] = new[] { "0 x", "2 0", "12 1", "15 0" },          // the reference glitch: NOT 3, AND 2
             ["y10"] = new[] { "0 x", "2 0" },                         // NOT 1, AND 2: the glitch swallowed
             ["y11"] = new[] { "0 x", "4 0" },                         // a gate output declared logic
+            ["y12a"] = new[] { "0 x", "2 0", "22 x" },                // three delays, 0 to x: the smallest of the three
+            ["y12b"] = new[] { "0 x", "2 1", "22 x" },                // 1 to x: the same
+            ["y12c"] = new[] { "0 x", "2 z", "22 x" },                // z to x: the same, not the smaller of rise and fall
+            ["y12d"] = new[] { "0 x", "2 0", "22 x" },                // an assign's three delays: the same
         };
 
         public static (Design Design, Stimulus Stimulus) Build()
@@ -91,6 +95,17 @@ namespace BitSorter.Sim.Tests
             SignalId a11 = b.Variable("a11"), b11 = b.Variable("b11"), y11 = b.Variable("y11");
             b.Gate(GateKind.Xor, "g11", y11, Delay.Of(2, 3), a11, b11);
             s.Set(1, a11, Zero).Set(1, b11, Zero);
+
+            // P12
+            SignalId d12a = b.Variable("d12a"), d12b = b.Variable("d12b"), e12c = b.Variable("e12c"), d12c = b.Variable("d12c");
+            SignalId a12d = b.Variable("a12d"), on12 = b.Variable("on12");
+            SignalId y12a = b.Net("y12a"), y12b = b.Net("y12b"), y12c = b.Net("y12c"), y12d = b.Net("y12d");
+            b.Gate(GateKind.Bufif1, "g12a", y12a, Delay.Of(5, 2, 7), d12a, on12);
+            b.Gate(GateKind.Bufif1, "g12b", y12b, Delay.Of(2, 5, 7), d12b, on12);
+            b.Gate(GateKind.Bufif1, "g12c", y12c, Delay.Of(6, 5, 2), d12c, e12c);
+            b.Assign(y12d, b.Read(a12d), Delay.Of(5, 2, 7));
+            s.Set(0, on12, One).Set(0, d12a, Zero).Set(0, d12b, One).Set(0, e12c, Zero).Set(0, d12c, One).Set(0, a12d, Zero)
+             .Set(20, d12a, X).Set(20, d12b, X).Set(20, e12c, X).Set(20, a12d, X);
 
             return (b.Build(), s);
         }

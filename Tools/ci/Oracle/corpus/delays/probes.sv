@@ -62,6 +62,16 @@ module probes;
   xor #(2, 3) g11 (y11, a11, b11);
   initial begin #1 a11 = 0; b11 = 0; end
 
+  // P12: with three delays, going to x takes the smallest of the three, wherever it comes from
+  // (IEEE 1800, table 28-9): from 0, from 1 and from z, each with another of the three the smallest
+  // but for the one that comes from where it could only go to it. All x at 22.
+  logic d12a = 0, d12b = 1, e12c = 0, d12c = 1, a12d = 0, on12 = 1; wire y12a, y12b, y12c, y12d;
+  bufif1 #(5, 2, 7) g12a (y12a, d12a, on12);
+  bufif1 #(2, 5, 7) g12b (y12b, d12b, on12);
+  bufif1 #(6, 5, 2) g12c (y12c, d12c, e12c);
+  assign #(5, 2, 7) y12d = a12d;
+  initial begin #20 d12a = 1'bx; d12b = 1'bx; e12c = 1'bx; a12d = 1'bx; end
+
   initial begin
     $dumpfile("probes.vcd");
     $dumpvars(0, probes);

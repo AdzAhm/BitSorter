@@ -29,6 +29,15 @@ Every probe below is a block of `Tools/ci/Oracle/corpus/delays/probes.sv` and a 
 | P9 | `y = a & ~a`, NOT 3, AND 2, a rises at 10 | 1 at 12, 0 at 15 | the reference visual's glitch, to the unit |
 | P10 | the same with NOT 1 | output never moves | a glitch shorter than the gate after it is swallowed |
 | P11 | `xor #(2, 3)` driving a `logic`, inputs set at 1 | x, then 0 at 4 | a gate output starts at x; the first fall takes the fall delay |
+| P12 | `bufif1 #(5, 2, 7)` from 0, `#(2, 5, 7)` from 1, `#(6, 5, 2)` from z, `assign #(5, 2, 7)` from 0, each to x at 20 | x at 22, all four | going to x takes the smallest of three delays, wherever it comes from |
+
+**Going to x with three delays** (probed 2026-11-09, in Icarus 12 and ModelSim 2020.1, for Ahmad's decision of
+2026-11-03 that a gate's transition to x follow the standard's table, IEEE 1800 table 28-9, by where it comes from,
+rather than take the smallest of the three). The table's three-delay column gives min(d1, d2, d3) for 0 to x, 1 to x
+and z to x alike -- where it comes from changes nothing there; it decides only the other rows (x to 0 takes d2, x to 1
+d1, x to z d3), which `Delay.For` already gives by the new value. So the engine already followed the table, and P12
+holds every to-x row against both simulators, each with a different one of the three the smallest. The two-delay
+column's min(d1, d2) is what `Delay.Of(rise, fall)` gives too, its turn-off being the smaller of the two.
 
 These are also the engine's hand-computed waveform tests (`WaveformTests`), so the expectation is
 written down twice: once as Icarus printed it, once as the standard predicts it, and they agree.

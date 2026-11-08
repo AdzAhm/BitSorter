@@ -10,7 +10,8 @@ namespace BitSorter.Sim
     /// <remarks>
     /// Which of them a change takes depends on where the output is going (IEEE 1800, 28.16):
     /// - a single bit going to 1 takes the rise delay, to 0 the fall delay, to z the turn-off delay,
-    ///   and to x the smallest of them;
+    ///   and to x the smallest of them -- from 0, from 1 and from z alike, as table 28-9 has it with three
+    ///   delays (probe P12, held against Icarus and ModelSim; Docs/oracle-notes.md);
     /// - a vector going from nonzero to all zeros takes the fall delay, to all z the turn-off delay,
     ///   and anything else the rise delay.
     /// Without a turn-off delay, going to z takes the smaller of rise and fall. Icarus chooses a
