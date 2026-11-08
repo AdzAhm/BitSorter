@@ -1563,14 +1563,27 @@ namespace BitSorter.ViewModel
         private static bool Resized(Module module, int part) =>
             module.Layout.PlacementOf(part).HasSize && PartGeometry.Resizable(module.FindPart(part));
 
-        /// <summary>A circuit edit made: drawn over the run there is, and replayed from <paramref name="from"/>.</summary>
+        /// <summary>
+        /// A circuit edit made: drawn over the run there is, and replayed from <paramref name="from"/>. **One whose whole design
+        /// no run can be made of is refused and taken back** (<see cref="BoardEditor.TakeBack"/>), in the elaborator's words:
+        /// the rules check each module alone, so blocks of a big memory, or arrays of arrays, could pass them and be past what
+        /// BitSorter simulates -- and the replay threw out of the edit, which stayed, was saved, and threw again on every
+        /// launch (the 16d sweep).
+        /// </summary>
         private EditResult Edited(EditResult result, long from = 0)
         {
             if (!result.Done)
                 return result;
             Relayout();
-            StartReplay(from);
-            return result;
+            return StartReplay(from) is string refused ? TakenBack(refused) : result;
+        }
+
+        /// <summary>The edit just made taken back for <paramref name="refused"/>, the drawing made again as it was, and refused.</summary>
+        private EditResult TakenBack(string refused)
+        {
+            Editor.TakeBack();
+            Relayout();
+            return EditResult.Refused(refused);
         }
 
         /// <summary>An edit to where things are drawn made: drawn again, the run and any replay going on.</summary>
@@ -1644,7 +1657,8 @@ namespace BitSorter.ViewModel
             if (result.Done)
             {
                 Relayout();
-                StartReplay(0);
+                if (StartReplay(0) is string refused)
+                    return TakenBack(refused);
             }
 
             return result;
@@ -1724,8 +1738,11 @@ namespace BitSorter.ViewModel
             if (WhyNotUndo != null || !Editor.Undo())
                 return false;
             Relayout();
-            StartReplay(0);
-            return true;
+            if (StartReplay(0) == null)
+                return true;
+            Editor.Redo();   // a step back to a document no run can be made of -- one saved before the edits were held to it -- is not taken
+            Relayout();
+            return false;
         }
 
         /// <summary>The last edit taken back, made again, drawn at once, and replayed. False when there is none.</summary>
@@ -1734,22 +1751,36 @@ namespace BitSorter.ViewModel
             if (WhyNotRedo != null || !Editor.Redo())
                 return false;
             Relayout();
-            StartReplay(0);
-            return true;
+            if (StartReplay(0) == null)
+                return true;
+            Editor.Undo();
+            Relayout();
+            return false;
         }
 
         private EditResult Replayed(EditResult result, long from)
         {
-            if (result.Done)
-                StartReplay(from);
+            if (result.Done && StartReplay(from) is string refused)
+                return TakenBack(refused);
             return result;
         }
 
-        private void StartReplay(long from)
+        /// <summary>The replay of the document as it is now started, from <paramref name="from"/>; why no run can be made of it, or null.</summary>
+        private string StartReplay(long from)
         {
+            RunSession replay;
+            try
+            {
+                replay = RunSession.Open(Project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
+            }
+            catch (DoesNotRunException doesNotRun)
+            {
+                return doesNotRun.Reason;
+            }
             ChangedFrom = Math.Max(0, from);
-            Replay = RunSession.Open(Project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
+            Replay = replay;
             _replayRanOn = false;
+            return null;
         }
 
         // -----------------------------------------------------------------

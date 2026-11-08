@@ -5039,6 +5039,16 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   variable after the first takes the type before it now, and the lint's walk of what a block declares asks the same.
   Icarus 12 cannot read the list; ModelSim runs it so (`Docs/oracle-notes.md`).
 
+**As built in Part 16d: the session and the exercises**, what the sweep confirmed in the workbench's session and the
+exercises, each fixed with a test that failed first.
+
+- **An edit no run can be made of is refused and taken back** (`WorkbenchSession.Edited`, `BoardEditor.TakeBack`). The rules
+  check each module alone, so two blocks of a written module with a big memory, or arrays of arrays, passed them with a whole
+  design past `Elaborator.MaxBits`, `MaxSignals` or `MaxInstances`: the edit was kept, the replay threw out of it, the circuit
+  was saved half a second later, and BitSorter -- opening on the last thing open -- threw again on every launch. The replay
+  is tried, and a document `WorkbenchModel.Prepare` cannot run (`DoesNotRunException`) is refused in the elaborator's words,
+  the step taken back with nothing to redo; an undo or a redo to one is not taken.
+
 ---
 
 ## 11. The parts

@@ -954,6 +954,19 @@ namespace BitSorter.Board
             return true;
         }
 
+        /// <summary>
+        /// The last step taken back and forgotten, with nothing to redo: an edit the rules let through -- each module checked
+        /// alone -- whose whole design no run can be made of, which the workbench's session refuses once it tries (the 16d
+        /// sweep). False with no step to take back.
+        /// </summary>
+        public bool TakeBack()
+        {
+            if (!Undo())
+                return false;
+            _redo.RemoveAt(_redo.Count - 1);
+            return true;
+        }
+
         private void Restore(Project project)
         {
             Project = project;

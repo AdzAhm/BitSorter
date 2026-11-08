@@ -609,6 +609,27 @@ namespace BitSorter.Board.Tests
             Assert.AreSame(after, b.Project);
         }
 
+        /// <summary>An edit no run can be made of, taken back by the workbench's session (the 16d sweep): gone, and nothing to redo.</summary>
+        [Test]
+        public void TakeBack_GivesBackTheDocumentBefore_AndLeavesNothingToRedo()
+        {
+            Bench b = Bench.HalfAdder();
+            Project before = b.Project;
+            b.Gate(GateKind.Nor);
+            b.Gate(GateKind.And);
+            Assert.IsTrue(b.Editor.Undo());
+            Project middle = b.Project;
+            b.Gate(GateKind.Or);
+
+            Assert.IsTrue(b.Editor.TakeBack());
+            Assert.AreSame(middle, b.Project);
+            Assert.IsFalse(b.Editor.CanRedo, "the step taken back is no step to redo, and the one undone before it went with the edit");
+            Assert.IsTrue(b.Editor.Undo(), "the steps before it are as they were");
+            Assert.AreSame(before, b.Project);
+
+            Assert.IsFalse(new BoardEditor(Project.New("top")).TakeBack(), "nothing to take back");
+        }
+
         [Test]
         public void ADrag_IsOneStep_AndARefusedEdit_IsNone()
         {

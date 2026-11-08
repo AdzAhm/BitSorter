@@ -333,14 +333,32 @@ namespace BitSorter.ViewModel
         {
             CompiledProject compiled = BoardCompiler.Compile(project);
             if (!compiled.Succeeded)
-                throw new InvalidOperationException("The document does not compile: " + string.Join("; ", compiled.Diagnostics));
+                throw new DoesNotRunException("The document does not compile: " + string.Join("; ", compiled.Diagnostics),
+                    FirstError(compiled.Diagnostics));
 
             Elaboration elaboration = compiled.Elaborate();
             if (elaboration.HasErrors)
-                throw new InvalidOperationException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics));
+                throw new DoesNotRunException("The document does not elaborate: " + string.Join("; ", elaboration.Diagnostics),
+                    FirstError(elaboration.Diagnostics));
 
             long horizon = project.Stimulus?.StopTime ?? 100;
             return (elaboration.Design, layoutOf != null ? layoutOf(project, compiled) : DocumentSchematic.Build(project, compiled), horizon);
+        }
+
+        private static string FirstError(IReadOnlyList<BoardDiagnostic> diagnostics)
+        {
+            foreach (BoardDiagnostic d in diagnostics)
+                if (d.IsError)
+                    return d.Message;
+            return "The circuit does not compile.";
+        }
+
+        private static string FirstError(IReadOnlyList<SystemVerilog.Syntax.Diagnostic> diagnostics)
+        {
+            foreach (SystemVerilog.Syntax.Diagnostic d in diagnostics)
+                if (d.Severity == SystemVerilog.Syntax.DiagnosticSeverity.Error)
+                    return d.Message;
+            return "The circuit does not elaborate.";
         }
 
         public SimSession Session { get; }
@@ -959,5 +977,18 @@ namespace BitSorter.ViewModel
 
             return last;
         }
+    }
+
+    /// <summary>
+    /// What <see cref="WorkbenchModel.Prepare"/> throws for a document no run can be made of -- one that does not compile, or
+    /// whose whole design does not elaborate, past what BitSorter simulates -- with <see cref="Reason"/>, its first error in
+    /// the compiler's or the elaborator's own words: what the session refuses an edit with (the 16d sweep).
+    /// </summary>
+    public sealed class DoesNotRunException : InvalidOperationException
+    {
+        public DoesNotRunException(string message, string reason) : base(message) => Reason = reason;
+
+        /// <summary>The first error, as the student is told it.</summary>
+        public string Reason { get; }
     }
 }
