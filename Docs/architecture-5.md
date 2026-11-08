@@ -4831,10 +4831,18 @@ two kinds of call need them:
 - **A task, or a function called as a statement**, has its statements written into the calling process
   where the call stands, between its arguments copied in and its outputs copied back (13.3). So a task's
   time is its caller's: it may wait, print and write the design's signals, and a `void` function may print.
-  A task that calls itself is refused (`SV0309`): written in place it would never end.
+  A static task that calls itself is refused (`SV0309`): written in place it would never end. **An automatic
+  task may** (13.3.1; Ahmad's decision, 2026-11-03): its statements are written in once, at the outer call, and a
+  call from inside them -- directly, or through another automatic task -- is an `OpCode.Call` back to their start,
+  which puts the call's own signals aside and starts them afresh, until the `OpCode.Return` at their end gives the
+  outputs back and the signals with them. A process holds at most `Simulator.MaxCallDepth` (10,000) such calls under
+  way before the run stops; a `disable` of the task leaves every one.
 - **Its own signals are the design's own working variables**, made once, the first time a call needs them,
-  and shared by every call: static storage, the standard's default, with an automatic function or task
-  starting each call from its locals' starting values. A function called again while it is running --
+  and shared by every call of a static function or task: static storage, the standard's default. **An automatic
+  task gives each call written in its own** -- the first the task's, every later one a frame made for it, with its
+  blocks' variables, which are kept out of a dump as automatic variables are (21.7.1.2) -- so two branches of a
+  fork running it at once keep theirs across their waits; they shared them until Ahmad's decision. An automatic
+  function or task starts each call from its locals' starting values. A function called again while it is running --
   recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
   only such a call copies anything. The calls under way hold at most a stack's worth of frames between them, each
   costing its body's deepest expression, and at most a hundred calls, across every function; the call past either gives

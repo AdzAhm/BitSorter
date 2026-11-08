@@ -232,6 +232,22 @@ namespace BitSorter.Sim
         /// <summary>The instruction each process is held at -- a wait, a delay, a join -- for <c>disable</c> to tell whether it is inside a block.</summary>
         private readonly int[] _blockedAt;
 
+        /// <summary>
+        /// Each process's calls under way of an automatic task that called itself (<see cref="OpCode.Call"/>), innermost
+        /// last: the call, where it goes back to, and the task's own signals as the caller had them. Null until it has one.
+        /// </summary>
+        private readonly List<CallFrame>[] _calls;
+
+        private struct CallFrame
+        {
+            public CallSpec Spec;
+            public int ReturnPc;
+            public LogicVec[] Saved;
+        }
+
+        /// <summary>How deep an automatic task may call itself, each call inside the last, before the run stops: far past any a course writes.</summary>
+        public const int MaxCallDepth = 10_000;
+
         /// <summary>Where phase 3 has got to in <see cref="_running"/>: a fork's branches go in straight after it.</summary>
         private int _runningAt;
 
@@ -463,6 +479,7 @@ namespace BitSorter.Sim
             _joinPc = new int[processes];
             _generation = new int[processes];
             _blockedAt = new int[processes];
+            _calls = new List<CallFrame>[processes];
             var children = new List<int>[processes];
             var procedural = new bool[signals];
 
@@ -1444,6 +1461,7 @@ namespace BitSorter.Sim
                         foreach (ProcessInfo branch in branches)
                         {
                             int b = branch.Index;
+                            _calls[b]?.Clear();
                             _pc[b] = 0;
                             _done[b] = false;
                             _waitingAt[b] = -1;
@@ -1487,7 +1505,60 @@ namespace BitSorter.Sim
                         pc = RunDisable(p, pc, ins.Disable);
                         if (_done[p])
                             return;   // it was inside what it disabled: a branch of a fork in the block
+                        Unwind(p, pc);
                         break;
+
+                    case OpCode.Call:
+                    {
+                        CallSpec call = ins.Call;
+                        List<CallFrame> calls = _calls[p] ?? (_calls[p] = new List<CallFrame>());
+                        if (calls.Count >= MaxCallDepth)
+                        {
+                            _pc[p] = pc;
+                            StopOnDeepCall(p, call);
+                            return;
+                        }
+
+                        // The arguments in the caller's values, then its signals aside, the task's started afresh, and the inputs in.
+                        var given = new LogicVec[call.Inputs.Length];
+                        for (int i = 0; i < given.Length; i++)
+                            given[i] = call.Inputs[i].Evaluate(_values);
+                        var saved = new LogicVec[call.Saved.Length];
+                        for (int i = 0; i < saved.Length; i++)
+                            saved[i] = _written[call.Saved[i]];
+                        calls.Add(new CallFrame { Spec = call, ReturnPc = pc + 1, Saved = saved });
+
+                        for (int i = 0; i < call.Saved.Length; i++)
+                            Write(call.Saved[i], 0, call.Starts[i]);
+                        for (int i = 0; i < given.Length; i++)
+                            Write(call.Formals[i], 0, given[i]);
+                        pc = call.Body;
+                        break;
+                    }
+
+                    case OpCode.Return:
+                    {
+                        List<CallFrame> calls = _calls[p];
+                        if (calls == null || calls.Count == 0 || calls[calls.Count - 1].Spec.Body != ins.Jump)
+                        {
+                            pc++;   // the call written in place: on to its outputs
+                            break;
+                        }
+
+                        // The outputs as the call left them, then the caller's signals back, then the outputs given to it.
+                        CallFrame frame = calls[calls.Count - 1];
+                        calls.RemoveAt(calls.Count - 1);
+                        CallSpec call = frame.Spec;
+                        var outputs = new LogicVec[call.OutValues.Length];
+                        for (int i = 0; i < outputs.Length; i++)
+                            outputs[i] = call.OutValues[i].Evaluate(_values);
+                        for (int i = 0; i < call.Saved.Length; i++)
+                            Write(call.Saved[i], 0, frame.Saved[i]);
+                        for (int i = 0; i < outputs.Length; i++)
+                            Store(call.OutTargets[i], call.OutWidths[i], outputs[i]);
+                        pc = frame.ReturnPc;
+                        break;
+                    }
 
                     case OpCode.Force:
                         Force(ref ins, assigned: false);
@@ -1643,6 +1714,7 @@ namespace BitSorter.Sim
         /// </summary>
         private void Kill(int p)
         {
+            _calls[p]?.Clear();
             if (!_done[p])
             {
                 Cancel(p);
@@ -1704,11 +1776,36 @@ namespace BitSorter.Sim
                 KillForksIn(q, range);
                 Cancel(q);
                 _pc[q] = range.End;
+                Unwind(q, range.End);
                 _blockedAt[q] = -1;
                 _runnable.Add(q);
             }
 
             return next;
+        }
+
+        /// <summary>
+        /// A process a <c>disable</c> has sent to <paramref name="pc"/> leaves every call of an automatic task under way whose
+        /// statements that is outside: disabling the task ends every call of it, and a block inside it only that block.
+        /// </summary>
+        private void Unwind(int p, int pc)
+        {
+            List<CallFrame> calls = _calls[p];
+            while (calls != null && calls.Count > 0)
+            {
+                CallSpec call = calls[calls.Count - 1].Spec;
+                if (pc >= call.Body && pc <= call.ReturnAt)
+                    break;
+                calls.RemoveAt(calls.Count - 1);
+            }
+        }
+
+        private void StopOnDeepCall(int p, CallSpec call)
+        {
+            Stopped = true;
+            _history.Message(_now, Severity.Error,
+                $"At t = {_now} {_processes[p].Name} had called {call.Name} {MaxCallDepth:N0} deep, each call inside the last, " +
+                "and the run stops there. Does each call come nearer to one that does not call again?");
         }
 
         private void StopOnForkAgain(int p, int branch)
@@ -2374,6 +2471,12 @@ namespace BitSorter.Sim
                 {
                     case OpCode.Jump:
                         todo.Push(ins.Jump);
+                        break;
+                    case OpCode.Call:
+                        foreach (Expr input in ins.Call.Inputs)
+                            input.CollectReads(reads);
+                        todo.Push(ins.Call.Body);
+                        todo.Push(at + 1);
                         break;
                     case OpCode.JumpIf:
                     case OpCode.JumpUnless:

@@ -87,6 +87,9 @@ namespace BitSorter.Sim
         /// <summary>Whether it is being compiled now: a call met then is a call back into itself.</summary>
         public bool Compiling;
 
+        /// <summary>Whether an automatic task's own signals have been given to a call written in: every later call has a frame made for it.</summary>
+        public bool Called;
+
         /// <summary>Whether its signals or its statements could not be made, which has been said once already.</summary>
         public bool Failed;
 
@@ -219,6 +222,24 @@ namespace BitSorter.Sim
         /// path is its parent's, and for the compilation unit.
         /// </summary>
         public int Index = -1;
+
+        /// <summary>
+        /// For the scope of one call of an automatic task written into a process, the call's number; 0 for every other.
+        /// What is declared inside it is that call's own (Ahmad's decision, 2026-11-03).
+        /// </summary>
+        public int Frame;
+
+        /// <summary>The call of an automatic task this scope is inside, by <see cref="Frame"/>; 0 outside every one.</summary>
+        public int FrameOf
+        {
+            get
+            {
+                for (Scope s = this; s != null; s = s.Parent)
+                    if (s.Frame != 0)
+                        return s.Frame;
+                return 0;
+            }
+        }
 
         /// <summary>
         /// The scope of the hierarchy what is declared here belongs to: this one, or the nearest around it

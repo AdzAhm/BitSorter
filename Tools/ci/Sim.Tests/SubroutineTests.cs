@@ -497,6 +497,43 @@ endmodule");
             CollectionAssert.AreEqual(new[] { "4 total=10" }, Printed(sim));
         }
 
+        /// <summary>
+        /// An automatic task that calls itself with no way out, waiting as it goes, stops the run once its calls are
+        /// <see cref="Simulator.MaxCallDepth"/> deep -- each call keeps what it put aside, so the run would grow without end --
+        /// and a disable of the task leaves every call of it under way.
+        /// </summary>
+        [Test]
+        public void AnAutomaticTaskCallingItselfWithNoWayOut_StopsTheRun_AndADisableLeavesEveryCall()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    task automatic down(input int n);
+        #1 down(n + 1);
+    endtask
+    initial down(0);
+endmodule");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            Assert.AreEqual(RunStatus.Stopped, sim.RunTo(50_000).Status);
+            StringAssert.Contains("down 10,000 deep", sim.History.Messages.Last().Text);
+
+            Simulator disabled = Run(@"
+module t;
+    int depth = 0;
+    task automatic deeper(input int n);
+        depth = n;
+        if (n == 3) disable deeper;
+        #1 deeper(n + 1);
+        $display(""never back at %0d"", n);
+    endtask
+    initial begin
+        deeper(0);
+        $display(""%0t out at depth %0d"", $time, depth);
+    end
+endmodule", 100);
+            CollectionAssert.AreEqual(new[] { "3 out at depth 3" }, Printed(disabled));
+        }
+
         [Test]
         public void ATaskWithANamedBlock_IsCalledAgain_AndFromAnotherProcess_SharingTheBlocksStatics()
         {

@@ -20,14 +20,34 @@ namespace BitSorter.Sim
         ///   signals, and a void function may print. A task that calls itself is refused: written in place,
         ///   it would never end.
         ///
-        /// **Every call uses the same signals of its own** (<see cref="SubroutineEntry.Frame"/>), made the
-        /// first time one is needed: static storage, as the standard's default is. An automatic one starts
-        /// each call from its locals' starting values. Two processes running one task at the same moment
-        /// would share them -- as two callers of a static task do in any simulator.
+        /// **Every call of a static one uses the same signals of its own** (<see cref="SubroutineEntry.Frame"/>),
+        /// made the first time one is needed: static storage, as the standard's default is, so two processes
+        /// running one static task at the same moment share them, as they do in any simulator. **An automatic
+        /// task gives each call its own** (IEEE 1800, 13.3.1; Ahmad's decision, 2026-11-03): the first call
+        /// written in takes the task's, every later one a frame made for it, its blocks' variables with it, and
+        /// each starts from its locals' starting values -- so two branches of a fork running it at once keep
+        /// theirs across their waits. **And it may call itself**: its statements are written in once, at the
+        /// outer call, and a call from inside them is an <see cref="OpCode.Call"/> back to their start, which
+        /// puts the call's own signals aside until the <see cref="OpCode.Return"/> at their end gives them back.
+        /// A static task, or a function called as a statement, that calls itself is still refused.
         /// </remarks>
         private sealed partial class Run
         {
             private readonly HashSet<SubroutineEntry> _inlining = new HashSet<SubroutineEntry>();
+
+            /// <summary>The calls of automatic tasks being written in now, by task: in which process, with whose signals, where their statements begin.</summary>
+            private readonly Dictionary<SubroutineEntry, Calling> _calling = new Dictionary<SubroutineEntry, Calling>();
+
+            /// <summary>The calls of automatic tasks written in so far, numbering each one's scope (<see cref="Scope.Frame"/>).</summary>
+            private int _callFrames;
+
+            private sealed class Calling
+            {
+                public Proc Proc;
+                public SubroutineEntry Frame;
+                public int Body = -1;
+                public readonly List<CallSpec> Calls = new List<CallSpec>();
+            }
 
             private void DeclareSubroutine(Scope scope, SubroutineDeclaration s)
             {
@@ -359,28 +379,150 @@ namespace BitSorter.Sim
                     return;
                 }
 
+                bool automatic = r.IsTask && r.Declaration.IsAutomatic;
                 if (!_inlining.Add(r))
                 {
+                    // An automatic task calling itself: a call back to its statements, written in once at the outer call.
+                    if (automatic && _calling.TryGetValue(r, out Calling outer) && outer.Proc == p && outer.Body >= 0)
+                    {
+                        CallAgain(p, scope, call, outer);
+                        return;
+                    }
+
                     Error(call.Location, ElaborationCodes.Recursion,
                         $"{call.Name} calls itself as a statement, which BitSorter cannot run: written in place it would never end. " +
-                        "A function that calls itself inside an expression can.");
+                        (r.IsTask ? "An automatic task can: task automatic " + call.Name + "." : "A function that calls itself inside an expression can."));
                     p.Failed = true;
                     return;
                 }
 
+                // Each call of an automatic task has signals of its own: the first the task's, every later one a frame made for it.
+                SubroutineEntry frame = r;
+                if (automatic)
+                {
+                    if (r.Called)
+                    {
+                        frame = new SubroutineEntry
+                        {
+                            Declaration = r.Declaration, Scope = r.Scope, Declared = r.Declared, Compile = r.Compile, Width = r.Width, Signed = r.Signed,
+                        };
+                        if (!EnsureFrame(frame))
+                        {
+                            _inlining.Remove(r);
+                            p.Failed = true;
+                            return;
+                        }
+                    }
+
+                    r.Called = true;
+                    frame.Frame.Frame = ++_callFrames;
+                    _calling[r] = new Calling { Proc = p, Frame = frame };
+                }
+
                 try
                 {
-                    InlineBody(p, scope, call, r);
+                    InlineBody(p, scope, call, r, frame);
                 }
                 finally
                 {
                     _inlining.Remove(r);
+                    if (automatic)
+                        _calling.Remove(r);
                 }
             }
 
-            private void InlineBody(Proc p, Scope scope, CallStatement call, SubroutineEntry r)
+            /// <summary>
+            /// An automatic task calling itself, from inside its statements written in at <paramref name="outer"/>: its
+            /// arguments worked out here, in the caller's scope, as a call written in place works them out, and its outputs
+            /// given back to the targets named here once the call's signals are back (<see cref="OpCode.Call"/>).
+            /// </summary>
+            private void CallAgain(Proc p, Scope scope, CallStatement call, Calling outer)
+            {
+                SubroutineEntry r = outer.Frame;
+                if (call.Arguments.Count > r.Arguments.Count)
+                {
+                    Error(call.Location, ElaborationCodes.BadCall,
+                        $"{call.Name} takes {r.Arguments.Count} argument{(r.Arguments.Count == 1 ? "" : "s")}, and this call gives {call.Arguments.Count}.");
+                    p.Failed = true;
+                    return;
+                }
+
+                var formals = new List<int>();
+                var inputs = new List<Expr>();
+                var outValues = new List<Expr>();
+                var outTargets = new List<LPiece[]>();
+                var outWidths = new List<int>();
+                for (int i = 0; i < r.Arguments.Count; i++)
+                {
+                    (SignalEntry formal, PortDirection direction, Expression fallback) = r.Arguments[i];
+                    Expression given = i < call.Arguments.Count ? call.Arguments[i] : null;
+
+                    if (direction != PortDirection.Output)
+                    {
+                        Expression value = given ?? fallback;
+                        if (value == null)
+                        {
+                            Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} needs a value for {ExpressionBuilder.Short(formal)}, its argument {i + 1}.");
+                            p.Failed = true;
+                            continue;
+                        }
+
+                        var builder = Builder(p, given != null ? scope : r.Scope);
+                        Expr built = Sized(builder, value, formal.Width, formal.Type);
+                        if (builder.Failed)
+                            p.Failed = true;
+                        formals.Add(formal.Signal.Index);
+                        inputs.Add(built);
+                    }
+
+                    if (direction != PortDirection.Input)
+                    {
+                        if (given == null)
+                        {
+                            Error(call.Location, ElaborationCodes.BadCall, $"{call.Name} gives a value back through its argument {i + 1}, so the call needs a variable there to take it.");
+                            p.Failed = true;
+                            continue;
+                        }
+
+                        var builder = Builder(p, scope);
+                        var parts = new List<ExpressionBuilder.ProcPart>();
+                        if (!builder.TryProceduralTarget(given, parts))
+                        {
+                            p.Failed = true;
+                            continue;
+                        }
+
+                        int width = 0;
+                        foreach (ExpressionBuilder.ProcPart part in parts)
+                            width += part.Width;
+                        Expr read = _builder.Read(formal.Signal);
+                        read = width > formal.Width ? Expr.Resize(read, width, formal.Signed)
+                            : width < formal.Width ? Expr.Slice(read, 0, width)
+                            : read;
+                        outValues.Add(read);
+                        outTargets.Add(Pieces(p, parts));
+                        outWidths.Add(width);
+                    }
+                }
+
+                var spec = new CallSpec
+                {
+                    Name = call.Name,
+                    Formals = formals.ToArray(),
+                    Inputs = inputs.ToArray(),
+                    OutValues = outValues.ToArray(),
+                    OutTargets = outTargets.ToArray(),
+                    OutWidths = outWidths.ToArray(),
+                };
+                outer.Calls.Add(spec);
+                p.Emit(new Instruction { Op = OpCode.Call, Call = spec });
+            }
+
+            private void InlineBody(Proc p, Scope scope, CallStatement call, SubroutineEntry declared, SubroutineEntry r)
             {
                 SubroutineDeclaration s = r.Declaration;
+                bool automatic = r.IsTask && s.IsAutomatic;
+                var before = automatic ? new HashSet<int>(p.Locals) : null;
 
                 if (call.Arguments.Count > r.Arguments.Count)
                 {
@@ -398,6 +540,8 @@ namespace BitSorter.Sim
                 {
                     p.Locals.Add(own.Signal.Index);
                     p.Writes.Add(own.Signal.Index);
+                    if (!s.IsAutomatic)
+                        p.StaticOwn.Add(own.Signal.Index);
 
                     // An automatic one starts each call afresh: every local, and the result, back to its start.
                     if (s.IsAutomatic && !arguments.Contains(own))
@@ -449,6 +593,10 @@ namespace BitSorter.Sim
                 var frame = new Frame(r);
                 p.Frames.Add(frame);
                 int body = p.Here;
+                if (automatic && _calling.TryGetValue(declared, out Calling calling))
+                    calling.Body = body;
+                else
+                    calling = null;
 
                 foreach (Statement statement in s.Statements)
                     Statement(p, r.Frame, statement);
@@ -456,6 +604,28 @@ namespace BitSorter.Sim
                 foreach (int at in frame.Returns)
                     p.Patch(at, p.Here);
                 p.Frames.RemoveAt(p.Frames.Count - 1);
+
+                // Called from inside: its end goes back to the call under way, and each call puts aside what this one made --
+                // its own signals, its blocks', those of the automatic calls written in it -- but a static task's.
+                if (calling != null && calling.Calls.Count > 0)
+                {
+                    int returnAt = p.Emit(new Instruction { Op = OpCode.Return, Jump = body });
+                    var saved = new List<int>();
+                    foreach (int local in p.Locals)
+                        if (!before.Contains(local) && !p.StaticOwn.Contains(local))
+                            saved.Add(local);
+                    saved.Sort();
+                    var starts = new LogicVec[saved.Count];
+                    for (int i = 0; i < starts.Length; i++)
+                        starts[i] = FunctionRunner.Start(_builder.InfoOf(new SignalId(saved[i])));
+                    foreach (CallSpec spec in calling.Calls)
+                    {
+                        spec.Body = body;
+                        spec.ReturnAt = returnAt;
+                        spec.Saved = saved.ToArray();
+                        spec.Starts = starts;
+                    }
+                }
                 p.Loops.Clear();
                 p.Loops.AddRange(callerLoops);
 
@@ -464,7 +634,7 @@ namespace BitSorter.Sim
 
                 // Where this call is, for a disable of the task: past its outputs, which the standard leaves open.
                 var range = new BlockRange { Start = body, End = p.Here };
-                r.Inlined.Add(range);
+                declared.Inlined.Add(range);
                 p.Ranges.Add(range);
             }
 

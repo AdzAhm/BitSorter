@@ -34,6 +34,7 @@ namespace BitSorter.Ci.Oracle
             new TestCaseData("behavioural/multiplier.sv", "multiplier_tb", null, null),
             new TestCaseData("behavioural/two_state.sv", "two_state_tb", null, null),
             new TestCaseData("behavioural/subroutines.sv", "subroutines_tb", null, null),
+            new TestCaseData("behavioural/automatic_tasks.sv", "automatic_tasks_tb", null, null),
             new TestCaseData("behavioural/function_sensitivity.sv", "function_sensitivity", null, null),
             new TestCaseData("behavioural/expressions.sv", "expressions_tb", null, null),
             new TestCaseData("behavioural/data_types.sv", "data_types_tb", null, null),

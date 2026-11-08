@@ -123,8 +123,48 @@ namespace BitSorter.Sim
         /// <summary><c>$fflush</c>: writes out the file <see cref="Instruction.Value"/> describes, or every one when it is null.</summary>
         FileFlush,
 
+        /// <summary>
+        /// An automatic task calling itself (Ahmad's decision, 2026-11-03): <see cref="Instruction.Call"/>'s arguments worked
+        /// out in the caller's values, the task's own signals put aside and started afresh, and the task's statements run from
+        /// their start, already written into this process. Waits inside it are the process's, as a task's always are.
+        /// </summary>
+        Call,
+
+        /// <summary>
+        /// The end of an automatic task's statements, written once into its process: back from the <see cref="Call"/> that
+        /// began the call under way, if one did -- its outputs given back, its own signals put back -- else on to the
+        /// outputs of the call written in place. <see cref="Instruction.Jump"/> is where the statements begin.
+        /// </summary>
+        Return,
+
         /// <summary>The process has nothing left to do.</summary>
         End,
+    }
+
+    /// <summary>
+    /// A call of an automatic task from inside its own statements (<see cref="OpCode.Call"/>): where they begin and end, the
+    /// task's own signals and the values they start from, and its arguments.
+    /// </summary>
+    internal sealed class CallSpec
+    {
+        /// <summary>The task's name, for a message.</summary>
+        public string Name;
+
+        /// <summary>Where its statements begin, and where its <see cref="OpCode.Return"/> is.</summary>
+        public int Body, ReturnAt;
+
+        /// <summary>Its own signals -- arguments, locals, its blocks' and the automatic calls' inside it -- and their starting values.</summary>
+        public int[] Saved = Array.Empty<int>();
+        public LogicVec[] Starts = Array.Empty<LogicVec>();
+
+        /// <summary>Its inputs: each formal's signal, and the value the call gives it, worked out in the caller's values.</summary>
+        public int[] Formals = Array.Empty<int>();
+        public Expr[] Inputs = Array.Empty<Expr>();
+
+        /// <summary>Its outputs: each read of a formal at the target's width, and the target the call names, written once the call's signals are back.</summary>
+        public Expr[] OutValues = Array.Empty<Expr>();
+        public LPiece[][] OutTargets = Array.Empty<LPiece[]>();
+        public int[] OutWidths = Array.Empty<int>();
     }
 
     /// <summary>How a <c>fork</c> waits for its branches.</summary>
@@ -286,6 +326,9 @@ namespace BitSorter.Sim
         public MemoryTask Memory;
         public ForkSpec Fork;
         public DisableSpec Disable;
+
+        /// <summary>For <see cref="OpCode.Call"/>: the call.</summary>
+        public CallSpec Call;
 
         /// <summary>The line of the statement it is part of, in its process's file: what the drawing of code points at (Part 15h-5).</summary>
         public int Line;

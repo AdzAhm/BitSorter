@@ -189,6 +189,17 @@ landed, as ModelSim does. Writes to bits apart land together in both, so an expr
 hand, and
 `ProcessTests.TwoNonblockingWritesInOneStep_...` holds every row.
 
+### Automatic tasks (probed 2026-11-09)
+
+An automatic task gives each call variables of its own (IEEE 1800, 13.3.1). Icarus 12 and ModelSim 2020.1 agree on
+every line of `corpus/behavioural/automatic_tasks.sv` -- two branches of a fork running one task at once, each keeping
+its id and its wait across them; a task calling itself twice in its body, a block's variable and an output into a
+local of the call above among them; two tasks calling each other -- and on a `disable` of a task from deep inside its
+own calls, which ends them all. BitSorter shared one set of signals between every call written in, and refused a task
+that called itself, until Ahmad's decision of 2026-11-03; `BehaviouralOracleTests` now holds the file to both.
+A static task's two calls at once share theirs in every simulator, but which branch's values they then show is the
+order a fork's branches start in, which the two simulators settle differently ("Testbench control", below).
+
 ### The last time step of a `$stop`
 
 With `vvp -n`, as the oracle runs it, `$stop` ends the run like `$finish` does, **but Icarus's VCD

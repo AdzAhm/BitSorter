@@ -92,6 +92,9 @@ namespace BitSorter.Sim
                 public readonly List<Instruction> Code = new List<Instruction>();
                 public readonly HashSet<int> Writes = new HashSet<int>();
                 public readonly HashSet<int> Locals = new HashSet<int>();
+
+                /// <summary>The own signals of the static tasks written into it, which a call of an automatic one never puts aside.</summary>
+                public readonly HashSet<int> StaticOwn = new HashSet<int>();
                 public readonly List<Loop> Loops = new List<Loop>();
 
                 /// <summary>The functions and tasks whose statements are being written in, innermost last: where a return goes.</summary>
@@ -466,17 +469,21 @@ namespace BitSorter.Sim
             /// <summary>
             /// The blocks and forks with a name or declarations already compiled, by statement and by where:
             /// a task's are written into a caller again on every call, and take the name, the scope and the
-            /// variables the first call made -- the task's statics -- rather than declaring them twice.
+            /// variables the first call made -- the task's statics -- rather than declaring them twice. A call of
+            /// an automatic task is a where of its own (<see cref="Scope.Frame"/>), so its blocks are its own.
             /// </summary>
             private readonly Dictionary<(Statement, string), (InstanceEntry Entry, Scope Inner, List<int> Locals)> _blocks =
                 new Dictionary<(Statement, string), (InstanceEntry, Scope, List<int>)>();
+
+            /// <summary>Where a block is, for <see cref="_blocks"/>: its path, and inside an automatic task's call that call's number.</summary>
+            private static string Where(Scope scope) => scope.FrameOf == 0 ? scope.Path : scope.Path + "#" + scope.FrameOf;
 
             /// <summary>A block or fork compiled before at the same place, made ready again; false the first time.</summary>
             private bool Again(Proc p, Scope scope, Statement statement, string label, out InstanceEntry entry, out Scope inner)
             {
                 entry = null;
                 inner = scope;
-                if (!_blocks.TryGetValue((statement, scope.Path), out (InstanceEntry Entry, Scope Inner, List<int> Locals) again))
+                if (!_blocks.TryGetValue((statement, Where(scope)), out (InstanceEntry Entry, Scope Inner, List<int> Locals) again))
                     return false;
 
                 entry = again.Entry;
@@ -498,7 +505,7 @@ namespace BitSorter.Sim
                 foreach (int local in p.Locals)
                     if (!before.Contains(local))
                         locals.Add(local);
-                _blocks[(statement, scope.Path)] = (entry, inner, locals);
+                _blocks[(statement, Where(scope))] = (entry, inner, locals);
             }
 
             private void Block(Proc p, Scope scope, BlockStatement b)
@@ -521,11 +528,14 @@ namespace BitSorter.Sim
 
                     inner = new Scope(b.Label != null ? scope.Path + "." + b.Label : scope.Path, scope, scope.Module);
 
-                    // A named block is a scope of the hierarchy: what it declares is recorded under its name.
-                    if (named)
+                    // A named block is a scope of the hierarchy: what it declares is recorded under its name -- but inside an
+                    // automatic task's call, where what it declares is that call's own, as automatic variables are kept
+                    // out of a dump (IEEE 1800, 21.7.1.2), and each call is a block of its own.
+                    bool recorded = named && scope.FrameOf == 0;
+                    if (recorded)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    DeclareOwn(p, scope, b, entry, inner, b.Declarations, recorded: b.Label != null);
+                    DeclareOwn(p, scope, b, entry, inner, b.Declarations, recorded: recorded);
                 }
 
                 int start = p.Here;
@@ -1126,10 +1136,11 @@ namespace BitSorter.Sim
                     }
 
                     inner = new Scope(f.Label != null ? scope.Path + "." + f.Label : scope.Path, scope, scope.Module);
-                    if (entry != null)
+                    bool recorded = f.Label != null && scope.FrameOf == 0;   // as a named block's, inside an automatic task's call
+                    if (entry != null && recorded)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    DeclareOwn(p, scope, f, entry, inner, f.Declarations, recorded: f.Label != null);
+                    DeclareOwn(p, scope, f, entry, inner, f.Declarations, recorded: recorded);
                 }
 
                 var branches = new ProcessInfo[f.Branches.Count];
