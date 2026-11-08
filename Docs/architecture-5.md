@@ -1959,7 +1959,8 @@ code editor in the circuit's window, and a block made from a selection asks for 
   document keeps the last text that worked, so the run is never of a design that does not build. A header that would
   leave a wire without its pin is said there too, in the document's words. An undo is followed. **REVERT** puts back
   the document's text.
-- **Escape lets the code go and holds the press**, as RUN TO's does; a second closes the workbench. Ctrl+Enter is read
+- **Escape lets the code go and holds the press**, as RUN TO's does; a second closed the workbench, until Part 15a made it
+  close nothing (CLAUDE.md, "The workbench arbitrates its own pointer"). Ctrl+Enter is read
   from the keyboard while the field holds it (`UiText.FieldKeys`), since TextMesh Pro would type it as a new line.
 - **The letters are a monospaced face the computer has** (`CodeFont`: Consolas, Menlo, DejaVu Sans Mono...), since none
   ships with the game; in a browser there is none, and CodeMirror takes the window's place in 12f.

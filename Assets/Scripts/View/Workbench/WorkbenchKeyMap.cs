@@ -11,7 +11,7 @@ namespace BitSorter.View
     /// </summary>
     /// <remarks>
     /// A popup of the shell (<see cref="ShellPopup"/>), in the middle of the window: <c>?</c> opens and shuts it, and a
-    /// click off it or Escape shuts it before Escape closes the workbench (<see cref="IHoldsEscape"/>). It replaced the two
+    /// click off it or Escape shuts it, and that Escape does nothing more (<see cref="IHoldsEscape"/>). It replaced the two
     /// lines of help along the bottom, which named every gesture at once and no key.
     /// </remarks>
     public sealed class WorkbenchKeyMap : MonoBehaviour, IHoldsEscape

@@ -18,8 +18,8 @@ namespace BitSorter.View
     /// - **What it edits is a <see cref="CodeDocument"/>**: typing applies itself once it pauses, and Ctrl+Enter at once;
     ///   a fault is marked beside its line number and listed under the text, each a click to its place; a header that
     ///   would leave a wire without its pin is said there too, in the document's words.
-    /// - **The field holds Escape while it has the keyboard** (<see cref="IHoldsEscape"/>): the first Escape lets it go,
-    ///   and only a second closes the workbench, as RUN TO's does.
+    /// - **The field holds Escape while it has the keyboard** (<see cref="IHoldsEscape"/>): the first Escape lets it go
+    ///   and does nothing more, as RUN TO's does; a second is the workbench's, which never closes it (Part 15a).
     /// - **Its letters are a monospaced face the computer already has** (<see cref="CodeFont"/>): code's columns line up
     ///   only in one, and none ships with the game. In a browser, CodeMirror takes this window's place (Part 12f).
     /// - **It answers the keys a writer reaches for, as the browser's editor does** (Part 14g): Ctrl+Z and Ctrl+Y step
