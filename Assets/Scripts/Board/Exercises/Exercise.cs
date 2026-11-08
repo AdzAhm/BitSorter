@@ -535,8 +535,8 @@ namespace BitSorter.Board
         }
 
         /// <summary>
-        /// <paramref name="saved"/> -- the student's own answer, kept from before, or a 4.x board of the level's migrated --
-        /// made this exercise's again (Part 15d): its test, its library, its settings, and the blocks it stocks as it gives
+        /// <paramref name="saved"/> -- the student's own answer, kept from before (a 4.x board of the level's, migrated, was
+        /// one too until Part 16a) -- made this exercise's again (Part 15d): its test, its library, its settings, and the blocks it stocks as it gives
         /// them. Null, saying why, when it is not an answer to it: its top is not the exercise's, or lacks a port the test
         /// drives; the exercise then opens fresh.
         /// </summary>

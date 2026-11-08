@@ -10,7 +10,7 @@ namespace BitSorter.View
     /// <summary>
     /// The exercises on the workbench (Part 15d): EXERCISES in the header lists them, chapter by chapter, solved ones and
     /// the next one marked, and the start page has a column of its own to carry on from. An exercise open is a document
-    /// like a circuit, kept under its id -- so a 4.x board of its level opens as it was left -- with its test, its library
+    /// like a circuit, kept under its id -- for the thirty, the 4.x level's name -- with its test, its library
     /// and the blocks it stocks locked (<see cref="BoardEditor"/>). The header says its number, title and goal; GOAL opens
     /// its brief, the hint behind an item; CHECK grades it, every failed check a TRANSCRIPT line that goes to its moment,
     /// and once it is solved a card says what it took and the student's best, and offers the next.
