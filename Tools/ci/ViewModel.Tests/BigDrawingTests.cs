@@ -273,6 +273,59 @@ namespace BitSorter.ViewModel.Tests
             Assert.Less(blocked, Budget, "MAKE BLOCK");
         }
 
+        /// <summary>
+        /// A selection of a thousand parts dragged, moved and taken away copies the placements once, never once a part (the 16d
+        /// sweep: a copy of every placement for each part selected). Measured under dotnet on 2026-11-09 for the 128-bit adder's
+        /// 1,028 parts: MoveParts made 68.3 MB, RemoveParts 30.9 MB, and a step of the drag's overlay 68.6 MB more than the
+        /// wires it routes; after, 0.1, 0.8 and 0.5 MB. The wires a drag routes are their own cost, 126 MB a step of a select-all
+        /// (<see cref="WireGeometry.Following"/>), measured here so the overlay is held to the rest.
+        /// </summary>
+        [Test]
+        public void AThousandPartSelection_IsDraggedMovedAndTakenAway_CopyingItsPlacementsOnce()
+        {
+            Project project = Adder(128);
+            var session = new WorkbenchSession(project, () => 0.0);
+            session.Finish();
+            Module module = session.Project.TopModule;
+            var editor = new CanvasEditor(session);
+            editor.SelectAll();
+            Placement first = module.Layout.PlacementOf(module.Parts[0].Id);
+            var from = new Point(first.Position.X, first.Position.Y);
+            editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: from));
+            editor.Do(new CanvasCommand(CanvasGesture.MoveTo, new Point(from.X + 1, from.Y), from));
+            var overlay = new CanvasOverlay();
+            editor.Overlay(overlay);   // warmed
+            Assert.AreEqual(module.Parts.Count, overlay.Ghosts.Count, "sanity: every part dragged");
+
+            long made = System.GC.GetAllocatedBytesForCurrentThread();
+            editor.Overlay(overlay);
+            long step = System.GC.GetAllocatedBytesForCurrentThread() - made;
+            var moved = new Dictionary<int, Placement>();
+            foreach (Part part in module.Parts)
+                moved[part.Id] = module.Layout.PlacementOf(part.Id).Moved(1, 0);
+            var placements = new Dictionary<int, Placement>(module.Layout.Parts);
+            foreach (KeyValuePair<int, Placement> part in moved)
+                placements[part.Key] = part.Value;
+            Layout movedLayout = module.Layout with { Parts = placements };
+            IReadOnlyDictionary<int, IReadOnlyList<Point>> kept = session.RoutesOf(session.Project, module);
+            made = System.GC.GetAllocatedBytesForCurrentThread();
+            WireGeometry.Following(session.Project, module with { Layout = movedLayout }, kept, moved.Keys);
+            long routing = System.GC.GetAllocatedBytesForCurrentThread() - made;
+
+            var board = new BoardEditor(project);
+            made = System.GC.GetAllocatedBytesForCurrentThread();
+            Assert.IsTrue(board.MoveParts(module.Name, moved).Done);
+            long move = System.GC.GetAllocatedBytesForCurrentThread() - made;
+            made = System.GC.GetAllocatedBytesForCurrentThread();
+            Assert.IsTrue(board.RemoveParts(module.Name, module.Parts.Where(p => !(p is PortPart)).Select(p => p.Id).ToList()).Done);
+            long remove = System.GC.GetAllocatedBytesForCurrentThread() - made;
+
+            TestContext.WriteLine($"overlay {step / 1e6:F1} MB (routing {routing / 1e6:F1}), move {move / 1e6:F1} MB, remove {remove / 1e6:F1} MB");
+            Assert.Less(step - routing, 8_000_000, "a step of the drag, beyond the wires it routes");
+            Assert.Less(move, 4_000_000, "MoveParts");
+            Assert.Less(remove, 8_000_000, "RemoveParts");
+        }
+
         /// <summary>The fastest of three runs: what the work costs, without whatever else the machine was doing in one of them.</summary>
         private static double Fastest(System.Action work)
         {
