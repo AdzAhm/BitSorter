@@ -1338,7 +1338,7 @@ namespace BitSorter.ViewModel
         /// </summary>
         private IEnumerable<int> ExerciseKeeps(IEnumerable<int> parts)
         {
-            if (parts == null || Project.Settings?.Exercise == null || Module != Project.Top)
+            if (parts == null || !AtAnExercisesTop)
                 return parts;
             Module top = ShowsDrawingOfCode ? DrawnModule : Project.TopModule;   // its drawing's ports, on the drawing of its code
             var kept = new List<int>();
@@ -1358,8 +1358,15 @@ namespace BitSorter.ViewModel
             return Edit((editor, module) => Inspector.Apply(editor, module, inspection, typed), r => ReferenceEquals(before, Project) ? r : Edited(r));
         }
 
-        /// <summary><paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed.</summary>
-        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) => Edit((editor, module) => Clipboard.Paste(editor, module, clip, parts, wires), r => Edited(r));
+        /// <summary>
+        /// <paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed. At an
+        /// exercise's top its ports are the exercise's own, so a cut of everything, which left them, pastes back onto them.
+        /// </summary>
+        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) =>
+            Edit((editor, module) => Clipboard.Paste(editor, module, clip, parts, wires, ownPorts: AtAnExercisesTop), r => Edited(r));
+
+        /// <summary>Whether the module shown is an exercise's top, whose ports are its test's (Part 15d).</summary>
+        private bool AtAnExercisesTop => Project.Settings?.Exercise != null && Module == Project.Top;
 
         /// <summary>
         /// <paramref name="wires"/> put back on the automatic route, their bends forgotten and a tap's place along its wire

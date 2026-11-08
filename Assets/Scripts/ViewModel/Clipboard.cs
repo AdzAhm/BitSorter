@@ -86,9 +86,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// Makes <paramref name="clip"/> again in <paramref name="module"/>, a step further on than the last paste, as one
-        /// step. <paramref name="parts"/> and <paramref name="wires"/> are what it made, to select.
+        /// step. <paramref name="parts"/> and <paramref name="wires"/> are what it made, to select. With
+        /// <paramref name="ownPorts"/> -- an exercise's top, whose ports are its test's -- a port of the clip the module has
+        /// one of, by name and way, is that one, not another: its wires go to it (the 16d sweep: a cut of everything in an
+        /// exercise left the ports, and its paste, adding them again, was refused whole).
         /// </summary>
-        public static EditResult Paste(BoardEditor editor, string module, Clip clip, List<int> parts, List<int> wires)
+        public static EditResult Paste(BoardEditor editor, string module, Clip clip, List<int> parts, List<int> wires, bool ownPorts = false)
         {
             if (editor == null || clip == null || clip.IsEmpty)
                 return EditResult.Refused("There is nothing to paste: copy something first, with Ctrl+C.");
@@ -97,11 +100,20 @@ namespace BitSorter.ViewModel
             double dx = Step * pasting, dy = -Step * pasting;
             var made = new Dictionary<int, int>();
             var madeWires = new Dictionary<int, int>();
+            var kept = new HashSet<int>();
 
             EditResult result = editor.Group(() =>
             {
                 foreach ((Part part, Placement at) in clip.Parts)
                 {
+                    if (ownPorts && part is PortPart port && editor.Project.Find(module)?.FindPart(port.Name) is PortPart own
+                        && own.Direction == port.Direction)
+                    {
+                        made[part.Id] = own.Id;
+                        kept.Add(own.Id);
+                        continue;
+                    }
+
                     var moved = at.Moved(dx, dy);
                     EditResult added = editor.Add(module, part with { Name = null }, moved);
                     if (!added.Done)
@@ -130,7 +142,9 @@ namespace BitSorter.ViewModel
 
             clip.Pastes = pasting;
             parts?.Clear();
-            parts?.AddRange(made.Values);
+            foreach (int part in made.Values)
+                if (!kept.Contains(part))
+                    parts?.Add(part);
             wires?.Clear();
             wires?.AddRange(madeWires.Values);
             return result;

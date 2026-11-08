@@ -5090,6 +5090,10 @@ exercises, each fixed with a test that failed first.
   Measured with `DOTNET_JitObjectStackAllocation=0` (`LessonCostTests.WhatIsDue_IsWorkedOutAgain_OnlyOnceTheRunHasChanged`):
   the counter run to 200,000 made 4.5 MB an ask, the pipelined processor and the reference circuit 2.6 KB; asked again of
   the same run, document and hints seen, nothing.
+- **In an exercise, a cut of everything pastes back onto its ports** (`Clipboard.Paste`'s `ownPorts`). A select-all cut leaves
+  the exercise's ports, which are its test's (the #88 review), but the clip still carried them, and the paste added each:
+  refused whole, so what was cut came back only by Ctrl+Z. At an exercise's top a port of the clip the exercise has, by name
+  and way, is now that one, its wires going to it; a copy wired onto a driven output is refused as two drivers are.
 
 ---
 
