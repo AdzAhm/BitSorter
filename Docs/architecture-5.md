@@ -1,9 +1,11 @@
 # BitSorter 5.0 — architecture and data model
 
-**Status:** the architecture 5.0 is built to, and the record of how it was built. Proposed for review in
-Part 0, before any 5.0 code was written, from the plan approved on 2026-10-12; every part since, through
-Part 16, is built, and each section's "As built" notes say what the code does where it differs from the
-proposal above them. Read a section's proposal with its notes: a note that corrects it is the current word.
+**Status:** the architecture 5.0 is built to, and the record of how it is being built. Proposed for review
+in Part 0, before any 5.0 code was written, from the plan approved on 2026-10-12; every part since, through
+Part 15, is built, and Part 16 is under way -- what of it is built has "As built in Part 16" notes of its
+own, and 5.0.0 is not yet released. Each section's "As built" notes say what the code does where it differs
+from the proposal above them. Read a section's proposal with its notes: a note that corrects it is the
+current word.
 **Decided by:** Ahmad Zoabi, from the 5.0 brief (2026-10-11); this document turns those decisions into
 an architecture.
 **Scope:** what 5.0 is built from and why. It was written before the code on purpose, and it changes
