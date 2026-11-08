@@ -27,7 +27,7 @@ namespace BitSorter.Sim.Tests
         [Test]
         public void AZeroDelayLoop_StopsWithAMessageNamingIt_InsteadOfHanging()
         {
-            (Design design, Stimulus stimulus, _) = Ring(Delay.Zero);
+            (Design design, Stimulus stimulus, SignalId y) = Ring(Delay.Zero);
             var sim = new Simulator(design, stimulus, new SimOptions { MaxDeltas = 1000 });
 
             var clock = Stopwatch.StartNew();
@@ -37,8 +37,49 @@ namespace BitSorter.Sim.Tests
             Assert.AreEqual(RunStatus.Stopped, result.Status);
             Assert.AreEqual(5, result.Time, "it stops in the time step the loop started in");
             Assert.AreEqual(1, sim.History.Messages.Count);
-            StringAssert.Contains("y", sim.History.Messages[0].Text);
+            StringAssert.Contains("Still changing: " + design[y].Name + ".", sim.History.Messages[0].Text, "names the gate's output, and nothing else");
             Assert.AreEqual(RunStatus.Stopped, sim.RunTo(200).Status, "a stopped run stays stopped");
+        }
+
+        /// <summary>
+        /// A zero-delay loop's message names what was still changing (the 16d sweep, engine-17): the test above asked only for
+        /// the letter y, which the message's own words have, so emptying the names held nothing -- and a loop through a process
+        /// and an assign, whose assign waited to be worked out again as the delta began, was named by nothing at all: "Still
+        /// changing: ." A force that follows itself says so, and at most eight names are given.
+        /// </summary>
+        [TestCase("logic [3:0] x = '0; wire [3:0] y; assign y = ~x; always @(y) x = y;", "t.y", false)]
+        [TestCase("wire w; assign w = 1'b0; initial #1 force w = ~w;", "t.w", true)]
+        public void AZeroDelayLoop_NamesWhatWasStillChanging(string design, string named, bool forced)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText("module t; " + design + " endmodule", "test.sv");
+            Elaboration e = Elaborator.Elaborate(tree, null);
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, new SimOptions { MaxDeltas = 500 });
+
+            Assert.AreEqual(RunStatus.Stopped, sim.RunTo(10).Status);
+            string said = sim.History.Messages.Last(m => m.Severity == Severity.Error).Text;
+            StringAssert.Contains("Still changing: " + named, said);
+            Assert.AreEqual(forced, said.Contains("A force follows what it reads"), said);
+        }
+
+        [Test]
+        public void AZeroDelayLoopOfManyParts_NamesEightOfThem()
+        {
+            var b = new NetlistBuilder("rings");
+            SignalId enable = b.Variable("enable");
+            for (int i = 0; i < 10; i++)
+            {
+                SignalId y = b.Net("y" + i);
+                b.Gate(GateKind.Nor, "g" + i, y, Delay.Zero, enable, y);
+            }
+            var sim = new Simulator(b.Build(), new Stimulus().Set(0, enable, Logic4.One).Set(5, enable, Logic4.Zero), new SimOptions { MaxDeltas = 500 });
+
+            Assert.AreEqual(RunStatus.Stopped, sim.RunTo(10).Status);
+            string said = sim.History.Messages.Single().Text;
+            string names = said.Substring(said.IndexOf("Still changing: ", StringComparison.Ordinal) + "Still changing: ".Length);
+            names = names.Substring(0, names.IndexOf(". ", StringComparison.Ordinal));
+            Assert.AreEqual(8, names.Split(", ").Length, said);
+            StringAssert.Contains("y0", names);
         }
 
         [Test]
