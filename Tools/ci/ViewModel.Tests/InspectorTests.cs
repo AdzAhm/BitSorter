@@ -247,6 +247,29 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreSame(before, b.Session.Project, "and nothing changed");
         }
 
+        /// <summary>
+        /// A register's width typed out of range while it has a reset value and a starting value, which are read again at its
+        /// new width, is refused in the document's words (the 16d sweep): a width below 1, or past what a value can be, threw
+        /// out of reading them.
+        /// </summary>
+        [Test]
+        public void ARegistersWidth_OutOfRange_WithItsValues_IsRefusedInTheDocumentsWords()
+        {
+            var b = new Bench();
+            int register = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "register"), new Placement(9, -4)));
+            Assert.IsTrue(b.Apply(b.Of(register), ("reset", "yes"), ("resetvalue", "1'b0"), ("start", "1'b1")).Done);
+            Project before = b.Session.Project;
+
+            foreach (string width in new[] { "0", "-1", "2000000" })
+            {
+                EditResult refused = default;
+                Assert.DoesNotThrow(() => refused = b.Apply(b.Of(register), ("width", width)), "WIDTH " + width);
+                Assert.IsFalse(refused.Done, "WIDTH " + width);
+                StringAssert.Contains("1 to " + BoardRules.MaxWidth, refused.Refusal, "in the document's own words");
+            }
+            Assert.AreSame(before, b.Session.Project, "and nothing changed");
+        }
+
         [Test]
         public void NothingChanged_IsDone_WithNothingMade()
         {
