@@ -2266,6 +2266,18 @@ namespace BitSorter.Sim
             e is CallExpression c && (c.Name == "$time" || c.Name == "$stime" || c.Name == "$realtime");
 
         /// <summary>One format string: its text, and a piece for each conversion, taking the arguments from <paramref name="next"/>. Returns the next unused argument.</summary>
+        /// <summary>A digit of a format's width or precision: 0 to 9 alone, never another script's, which char.IsDigit takes.</summary>
+        private static bool IsDigit(char c) => c >= '0' && c <= '9';
+
+        /// <summary>The number <paramref name="f"/>'s digits from <paramref name="from"/> to <paramref name="to"/> make, held at <paramref name="most"/>.</summary>
+        private static int Digits(string f, int from, int to, int most)
+        {
+            int n = 0;
+            for (int i = from; i < to && n < most; i++)
+                n = Math.Min(most, n * 10 + (f[i] - '0'));
+            return n;
+        }
+
         private int Format(StringLiteral format, List<Expression> args, int next, List<PrintSegment> segments)
         {
             string f = format.Value;
@@ -2303,17 +2315,18 @@ namespace BitSorter.Sim
                     j++;
                 }
 
+                // Only 0 to 9 are a width's digits, and one too long to count is held at the most printed (the 16d sweep,
+                // engine-9: int.Parse threw on both, out of the elaborator).
                 int digits = j;
-                while (j < f.Length && char.IsDigit(f[j]))
+                while (j < f.Length && IsDigit(f[j]))
                     j++;
 
                 int width = -1;
                 bool zero = false;
                 if (j > digits)
                 {
-                    string w = f.Substring(digits, j - digits);
-                    width = Math.Min(int.Parse(w, System.Globalization.CultureInfo.InvariantCulture), 1000);
-                    zero = w.Length > 1 && w[0] == '0';
+                    width = Digits(f, digits, j, 1000);
+                    zero = j - digits > 1 && f[digits] == '0';
                 }
 
                 // %10.3f: the places after the point (Part L7).
@@ -2321,9 +2334,9 @@ namespace BitSorter.Sim
                 if (j < f.Length && f[j] == '.')
                 {
                     int places = ++j;
-                    while (j < f.Length && char.IsDigit(f[j]))
+                    while (j < f.Length && IsDigit(f[j]))
                         j++;
-                    precision = j > places ? Math.Min(int.Parse(f.Substring(places, j - places), System.Globalization.CultureInfo.InvariantCulture), 100) : 0;
+                    precision = j > places ? Digits(f, places, j, 100) : 0;
                 }
 
                 if (j >= f.Length)

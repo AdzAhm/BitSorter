@@ -512,8 +512,9 @@ endmodule"));
         public void AFormatWidthInDigitsOfAnotherScript_IsNoWidth()
         {
             Elaboration e = null;
-            Assert.DoesNotThrow(() => e = Elaborate("module t; initial $display(\"%٣d\", 1); endmodule"));
-            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            string arabicIndicThree = ((char)0x0663).ToString();
+            Assert.DoesNotThrow(() => e = Elaborate("module t; initial $display(\"%" + arabicIndicThree + "d\", 1); endmodule"));
+            Assert.IsTrue(e.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "said, as a conversion it does not know: " + string.Join("\n", e.Diagnostics));
         }
 
         [Test]
