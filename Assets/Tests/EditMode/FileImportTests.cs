@@ -72,5 +72,28 @@ namespace BitSorter.EditMode.Tests
             Assert.IsFalse(import.Succeeded);
             StringAssert.Contains("an import takes at most 200", string.Join("\n", import.Notes));
         }
+
+        /// <summary>
+        /// The files a browser's page read come to the import in the order the desktop reads a folder in, by their paths: they
+        /// came in the order the browser listed them, and the import runs the first testbench it finds, so the same folder could
+        /// run another testbench in a browser than on the desktop, or another browser's (browser-7).
+        /// </summary>
+        [Test]
+        public void TheFilesABrowserRead_ComeInTheOrderTheDesktopReadsAFolderIn()
+        {
+            Put("tb_mux.sv", "module tb_mux;\nendmodule\n");
+            Put("mux2.sv", Mux);
+            Put("lib/and2.sv", "module and2 (input logic a, b, output logic y);\n    assign y = a & b;\nendmodule\n");
+            List<string> desktop = FileImport.ReadFolder().Select(f => f.Path).ToList();
+
+            const string Picked = "{\"files\":[" +
+                "{\"path\":\"tb_mux.sv\",\"text\":\"module tb_mux;\\nendmodule\\n\",\"read\":true,\"size\":24}," +
+                "{\"path\":\"lib/and2.sv\",\"text\":\"\",\"read\":false,\"size\":80}," +
+                "{\"path\":\"mux2.sv\",\"text\":\"\",\"read\":false,\"size\":70}]}";
+            List<SourceFile> browser = FileImport.FilesPicked(Picked);
+
+            CollectionAssert.AreEqual(desktop, browser.Select(f => f.Path), "the browser's in the desktop's order");
+            Assert.AreEqual("module tb_mux;\nendmodule\n", browser.Single(f => f.Path == "tb_mux.sv").Text, "each with what was read of it");
+        }
     }
 }
