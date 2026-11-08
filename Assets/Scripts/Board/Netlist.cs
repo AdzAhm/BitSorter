@@ -127,9 +127,12 @@ namespace BitSorter.Board
                 }
             }
 
+            // A node a wire's id: two wires of one id -- an error the rules say in words -- are one node, never a number past the
+            // end nor another wire's (the 16d sweep: the second took the next wire's number, and the last one past the end).
             var wireIndex = new Dictionary<int, int>();
             foreach (Wire wire in module.Wires)
-                wireIndex[wire.Id] = pins.Count + wireIndex.Count;
+                if (!wireIndex.ContainsKey(wire.Id))
+                    wireIndex[wire.Id] = pins.Count + wireIndex.Count;
 
             var parent = new int[pins.Count + wireIndex.Count];
             for (int i = 0; i < parent.Length; i++)
