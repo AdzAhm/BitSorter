@@ -36,6 +36,42 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(PartsCatalog.Find(own, "mine", "input"), "a circuit of the student's own has its ports to place");
         }
 
+        /// <summary>
+        /// In an exercise, a cut of everything takes all but its ports, which are its test's (the #88 review), and pastes back
+        /// onto them: the clip's ports are the exercise's own, not more of them (the 16d sweep: the paste was refused whole, so
+        /// what was cut could come back only by Ctrl+Z).
+        /// </summary>
+        [Test]
+        public void InAnExercise_ACutOfEverything_PastesBackOntoItsOwnPorts()
+        {
+            Exercise exercise = BitSorter.Board.Tests.ExerciseFiles.Load("half-adder");
+            var session = new WorkbenchSession(exercise.ToProject(new System.Collections.Generic.List<string>()), () => 0.0);
+            session.Finish();
+            Module top = session.Project.TopModule;
+            int Port(string name) => System.Linq.Enumerable.Single(session.Project.TopModule.Ports, p => p.Name == name).Id;
+            EditResult xor = session.Place(PartsCatalog.Find(session.Project, session.Module, "xor"), new Placement(8, -2));
+            Assert.IsTrue(xor.Done, xor.Refusal);
+            Assert.IsTrue(session.Connect(Endpoint.At(Port("a"), "out"), Endpoint.At(xor.Id, "a")).Done);
+            Assert.IsTrue(session.Connect(Endpoint.At(Port("b"), "out"), Endpoint.At(xor.Id, "b")).Done);
+            Assert.IsTrue(session.Connect(Endpoint.At(xor.Id, "y"), Endpoint.At(Port("sum"), "in")).Done);
+            int ports = top.Ports.Count;
+
+            var editor = new CanvasEditor(session);
+            editor.SelectAll();
+            Clip clip = editor.Cut();
+            Assert.IsNotNull(clip, editor.Refusal);
+            Assert.AreEqual(ports, session.Project.TopModule.Parts.Count, "the cut took all but the ports");
+
+            EditResult pasted = editor.Paste(clip);
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+            Module after = session.Project.TopModule;
+            Assert.AreEqual(ports, after.Ports.Count, "no port more");
+            GatePart gate = (GatePart)System.Linq.Enumerable.Single(after.Parts, p => p is GatePart);
+            Netlist nets = Netlist.Of(session.Project, after);
+            Assert.AreSame(nets.NetOf(new PinRef(Port("a"), "out")), nets.NetOf(new PinRef(gate.Id, "a")), "wired back to the exercise's own a");
+            Assert.AreSame(nets.NetOf(new PinRef(Port("sum"), "in")), nets.NetOf(new PinRef(gate.Id, "y")), "and its own sum");
+        }
+
         [Test]
         public void ARegisterPlaced_StartsWhereTheDocumentSays()
         {
