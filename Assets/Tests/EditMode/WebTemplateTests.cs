@@ -142,6 +142,26 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
+        /// The page's fullscreen button takes the page itself fullscreen, and the canvas fills it: a written block's code is a
+        /// box the page lays over the canvas (CodeMirror, Part 12f), and with the canvas alone the fullscreen element nothing
+        /// else on the page was drawn -- the code could be neither read nor typed until fullscreen was left (browser-2).
+        /// </summary>
+        [Test]
+        public void TheFullscreenButton_TakesThePageFullscreen_SoTheCodeShowsOverTheCanvas()
+        {
+            string page = Read("index.html");
+            int button = page.IndexOf("#unity-fullscreen-button\").onclick", System.StringComparison.Ordinal);
+            Assert.GreaterOrEqual(button, 0, "sanity: the page has its fullscreen button");
+            string handler = page.Substring(button, System.Math.Min(600, page.Length - button));
+
+            int whole = handler.IndexOf("document.documentElement", System.StringComparison.Ordinal);
+            int canvasAlone = handler.IndexOf("SetFullscreen", System.StringComparison.Ordinal);
+            Assert.GreaterOrEqual(whole, 0, "the button takes the canvas alone fullscreen, over the code's box");
+            Assert.IsTrue(canvasAlone < 0 || canvasAlone > whole, "the canvas alone only where the page cannot go fullscreen");
+            StringAssert.Contains("fullscreenElement", page, "and the canvas fills the screen while the page does");
+        }
+
+        /// <summary>
         /// The page around the game is the game's own dark, not the browser's white.
         /// </summary>
         /// <remarks>
