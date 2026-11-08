@@ -228,17 +228,9 @@ namespace BitSorter.PlayMode.Tests
         [UnityTest]
         public IEnumerator ALaunchThatStoppedWhileOpeningMyCircuit_NeverOpensItAgainByItself()
         {
-            Project gate = Project.New("my_circuit") with
-            {
-                Modules = new[]
-                {
-                    new Module
-                    {
-                        Name = "my_circuit", NextId = 2,
-                        Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = BitSorter.Sim.GateKind.Not, Inputs = 1 } },
-                    },
-                },
-            };
+            var editor = new BoardEditor(WorkbenchSamples.Blank());
+            Assert.IsTrue(editor.Add(editor.Project.Top, new GatePart { Kind = BitSorter.Sim.GateKind.Not, Inputs = 1 }, new Placement(4, 0)).Done);
+            Project gate = editor.Project;
 
             // Onto the start page, MY CIRCUIT under it: marked while it opens, as a launch onto anything else is.
             Plant(store => store.SetProject(WorkbenchSamples.MyCircuitKey, gate));

@@ -111,12 +111,17 @@ namespace BitSorter.View
         private void Start() => Launch();
 
         /// <summary>
-        /// Set while a launch opens what was open last, until it has stayed up <see cref="SurvivedFrames"/> frames (Part 16b).
-        /// Found still set, the last launch stopped while opening it -- a browser out of memory stops the page -- and this one
-        /// opens the start page instead: BitSorter opens on the last thing open, so it would stop again on every launch, as
-        /// the pipelined processor once did (15h-6d).
+        /// Set while a launch opens what was open last, until it has stayed up <see cref="SurvivedFrames"/> frames (Part 16b):
+        /// <see cref="OpeningMyCircuit"/> while that is MY CIRCUIT -- the start page's launch builds it under the page too --
+        /// and <see cref="OpeningOther"/> while it is anything else. Found still set, the last launch stopped while opening it
+        /// -- a browser out of memory stops the page -- and this one opens the start page over the reference circuit instead:
+        /// BitSorter opens on the last thing open, so it would stop again on every launch, as the pipelined processor once did
+        /// (15h-6d).
         /// </summary>
         public const string OpeningKey = "BitSorter.Launch.Opening";
+
+        /// <summary>What <see cref="OpeningKey"/> holds while a launch opens MY CIRCUIT, or anything else.</summary>
+        public const int OpeningMyCircuit = 2, OpeningOther = 1;
 
         /// <summary>What the chip says when the last launch stopped while opening what was open.</summary>
         public const string StoppedOpening =
@@ -176,23 +181,28 @@ namespace BitSorter.View
             ProgressStore store = Store();
             string key = Documents.LaunchKey(store != null ? store.LastOpen : null, DocumentKeys());
 
-            if (key != null && Preferences.GetInt(OpeningKey, 0) == 1)
+            int stopped = Preferences.GetInt(OpeningKey, 0);
+            if (stopped != 0)
             {
+                // The start page over the reference circuit: never over MY CIRCUIT, which may be what stopped the last launch,
+                // so a recovery that built it first stopped too, every launch (save-6). After MY CIRCUIT stopped it, the
+                // reference is what opens next, rather than the start page over MY CIRCUIT, until it is opened on purpose.
                 Preferences.SetInt(OpeningKey, 0);
                 _documentKey = WorkbenchSamples.MyCircuitKey;
-                _launchSample = 0;
+                _launchSample = ReferenceSample;
                 Open();
                 ShowHome();
+                if (stopped == OpeningMyCircuit)
+                    RememberWhatIsOpen(Documents.SampleKey(WorkbenchSamples.Chip[ReferenceSample].Name));
                 Notice(StoppedOpening);
                 return;
             }
 
             // Marked before it opens: written out at once, so in a browser the mark is on its way before the open can stop it.
-            if (key != null)
-            {
-                Preferences.SetInt(OpeningKey, 1);
-                _launchWatch = SurvivedFrames;
-            }
+            // The start page's launch too, which builds MY CIRCUIT under the page (save-6: it was never marked, so a MY CIRCUIT
+            // that stopped the page stopped every launch onto the start page after it).
+            Preferences.SetInt(OpeningKey, key == null || key == WorkbenchSamples.MyCircuitKey ? OpeningMyCircuit : OpeningOther);
+            _launchWatch = SurvivedFrames;
 
             // An exercise open last opens again, while it is one of the run (Part 15d); one since taken out, the start page.
             string exerciseId = Documents.ExerciseOf(key);
