@@ -28,19 +28,36 @@ namespace BitSorter.View
 
         /// <summary>
         /// Saves <paramref name="bytes"/> as <paramref name="fileName"/>, of type <paramref name="mime"/>,
-        /// and says where, in words for the chip: <c>to your downloads</c>, or <c>in</c> and the folder.
-        /// A file of the same name already there is replaced, as saving again means.
+        /// and says where in <paramref name="where"/>, in words for the chip: <c>to your downloads</c>, or
+        /// <c>in</c> and the folder. A file of the same name already there is replaced, as saving again means.
         /// </summary>
-        public static string Save(string fileName, byte[] bytes, string mime)
+        /// <remarks>
+        /// **False when the file cannot be written**, <paramref name="where"/> then the system's own words for
+        /// why -- a file held open by another program, a folder read only or full (Part 16d's sweep). The write
+        /// threw out of the click that asked for it: Unity logged it, and the chip said nothing.
+        /// </remarks>
+        public static bool TrySave(string fileName, byte[] bytes, string mime, out string where)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             BitSorterDownload(fileName, bytes, bytes.Length, mime);
-            return "to your downloads";
+            where = "to your downloads";
+            return true;
 #else
             string folder = Folder;
-            Directory.CreateDirectory(folder);
-            File.WriteAllBytes(Path.Combine(folder, fileName), bytes);
-            return "in " + folder;
+            try
+            {
+                Directory.CreateDirectory(folder);
+                File.WriteAllBytes(Path.Combine(folder, fileName), bytes);
+            }
+            catch (System.Exception exception) when (exception is IOException || exception is System.UnauthorizedAccessException ||
+                exception is System.Security.SecurityException || exception is System.NotSupportedException)
+            {
+                where = exception.Message;
+                return false;
+            }
+
+            where = "in " + folder;
+            return true;
 #endif
         }
 

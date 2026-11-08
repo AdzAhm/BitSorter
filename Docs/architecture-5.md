@@ -1368,7 +1368,9 @@ on an input's row, undo and redo -- is 9b-3b-2.
 - **Saving** (`FileSaver`): in a browser a download -- `Plugins/WebGL/BitSorterFiles.jslib` makes the bytes a
   Blob and clicks a link with a download name, which follows a click the player made and so is allowed in
   the iframe Unity Play and itch.io run the game in; elsewhere a file in the Exports folder beside the save.
-  `SaveGuard` points exports at a scratch folder for every fixture. The chip says what was saved and where.
+  `SaveGuard` points exports at a scratch folder for every fixture. The chip says what was saved and where, and since
+  Part 16d's sweep what could not be and why (`FileSaver.TrySave`): a file held open by another program or a folder
+  read only or full threw out of the click, and the chip said nothing.
 - **Checked.** `WaveExportTests` (12) and `WaveViewTests`' match under dotnet. In Play Mode: E offering the two
   and VCD saving the run, read back with its input and output in ps, and EXPORT doing the same; the PNG as wide
   and tall as it should be, its ground the paper's and its 1s in the paper's colour while the screen is in

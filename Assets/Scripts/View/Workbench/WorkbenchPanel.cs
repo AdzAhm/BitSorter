@@ -1130,8 +1130,7 @@ namespace BitSorter.View
             WriteMoment(TimeText.Tenths(_model.Time, _model.End));
             byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _playheadText,
                 _cursors, _playback.Breakpoints);
-            Notice("saved " + name + " " + FileSaver.Save(name, bytes, "image/png"));
-            return name;
+            return SaveExport(name, bytes, "image/png");
         }
 
         /// <summary>
@@ -1146,7 +1145,22 @@ namespace BitSorter.View
 
             string name = WaveExport.FileName(ExportName(), "vcd");
             byte[] bytes = new System.Text.UTF8Encoding(false).GetBytes(WaveExport.Vcd(_model));
-            Notice("saved " + name + " " + FileSaver.Save(name, bytes, "text/plain"));
+            return SaveExport(name, bytes, "text/plain");
+        }
+
+        /// <summary>
+        /// An export saved (<see cref="FileSaver"/>) and the chip saying where, then <paramref name="then"/>; or that it could not
+        /// be saved, and why. Returns the file's name, or null when it was not saved.
+        /// </summary>
+        private string SaveExport(string name, byte[] bytes, string mime, string then = "")
+        {
+            if (!FileSaver.TrySave(name, bytes, mime, out string where))
+            {
+                Notice(name + " could not be saved: " + where);
+                return null;
+            }
+
+            Notice("saved " + name + " " + where + then);
             return name;
         }
 

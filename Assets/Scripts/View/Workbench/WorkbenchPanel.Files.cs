@@ -444,8 +444,7 @@ namespace BitSorter.View
             }
 
             string name = WaveExport.FileName(ExportName(), "zip");
-            Notice("saved " + name + " " + FileSaver.Save(name, bytes, "application/zip") + ": unzip it, and in ModelSim type do run.do");
-            return name;
+            return SaveExport(name, bytes, "application/zip", ": unzip it, and in ModelSim type do run.do");
         }
 
         /// <summary>
@@ -470,9 +469,8 @@ namespace BitSorter.View
             string name = WaveExport.FileName(ExportName() + " submission", "zip");
             string uses = submission.NotHandedIn.Count == 0 ? ""
                 : ". It uses " + string.Join(", ", submission.NotHandedIn) + ", not in it: anything the course did not give you goes between the markers";
-            Notice("saved " + name + " " + FileSaver.Save(name, submission.Zip, "application/zip") + ": " + string.Join(", ", submission.Files) +
+            return SaveExport(name, submission.Zip, "application/zip", ": " + string.Join(", ", submission.Files) +
                 " as the course gave " + (submission.Files.Count == 1 ? "it" : "them") + ", with your code between the markers" + uses);
-            return name;
         }
     }
 }
