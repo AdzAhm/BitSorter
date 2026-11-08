@@ -301,6 +301,42 @@ namespace BitSorter.PlayMode.Tests
             }
         }
 
+        /// <summary>
+        /// A keep that failed for a passing reason -- the disk full a moment, the file held by a scan -- is tried again as
+        /// BitSorter loses the focus: it counted as kept, so the flush on focus loss and on quit found nothing to write, and
+        /// every edit since the last keep that worked stayed only in the window (save-5).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AKeepThatFailed_IsTriedAgain_AsBitSorterLosesTheFocus()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            string blocker = ProgressStore.DefaultPath + ".tmp";
+            System.IO.Directory.CreateDirectory(blocker);
+            try
+            {
+                Assert.IsTrue(workbench.TakeFromStrip("xor"));
+                yield return ClickAt(workbench, new BoardPoint(4, -2));
+                workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // kept at once, and failed
+                yield return null;
+                yield return null;
+                StringAssert.StartsWith("BitSorter could not save", workbench.ChipText, "sanity: the keep failed");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(blocker, true);
+            }
+
+            // What made it fail has passed; BitSorter loses the focus again, with no edit since.
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            Assert.IsTrue(store.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()),
+                "MY CIRCUIT written once the save could be");
+            Assert.AreEqual(1, kept.TopModule.Parts.Count, "with the edit that failed to be kept");
+        }
+
         [UnityTest]
         public IEnumerator MyCircuit_IsKept_AndTheWorkbenchOpensOnItWhenItHasAnythingInIt()
         {
