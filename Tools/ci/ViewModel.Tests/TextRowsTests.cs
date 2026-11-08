@@ -40,5 +40,59 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(rows.All(r => r.Length <= 26), string.Join(" / ", rows));
             Assert.AreEqual(assign, string.Join(" ", rows));
         }
+
+        /// <summary>
+        /// A wave row's name cut from its start to its room is measured a few times, however long: it was measured once for
+        /// every character cut, each a whole layout of what was left, so a 5,000-letter port name -- ten kilobytes, inside every
+        /// import limit -- laid out twelve million characters in one frame, and thirty thousand ran a browser's page out of
+        /// memory before the frame could end (browser-4).
+        /// </summary>
+        [Test]
+        public void ANameCutToItsRoom_IsMeasuredAFewTimes_HoweverLong()
+        {
+            string name = new string('a', 30_000) + "_port";
+            long measured = 0;
+            int asked = 0;
+            float Counted(string text)
+            {
+                asked++;
+                measured += text.Length;
+                return 6f * text.Length;
+            }
+
+            string cut = TextRows.Tail(name, 252f, Counted);
+
+            Assert.AreEqual("..." + name.Substring(name.Length - 39), cut, "the longest end that fits behind ...");
+            Assert.Less(asked, 40, "times measured");
+            Assert.Less(measured, 20_000, "characters laid out");
+        }
+
+        /// <summary>The end found by halves is the end found a character at a time, wherever the room falls.</summary>
+        [Test]
+        public void ANameCut_IsTheLongestEndThatFits_AsCuttingACharacterAtATimeFindsIt()
+        {
+            var random = new System.Random(7);
+            for (int trial = 0; trial < 500; trial++)
+            {
+                int length = random.Next(0, 120);
+                var made = new System.Text.StringBuilder();
+                for (int i = 0; i < length; i++)
+                    made.Append("aiWm_.0"[random.Next(7)]);
+                string name = made.ToString();
+                float room = random.Next(0, 400);
+                float Width(string text) => text.Sum(c => c == 'i' || c == '.' ? 3f : c == 'W' || c == 'm' ? 9f : 6f);
+
+                string slow = name;
+                if (Width(name) > room)
+                    for (int cut = 1; cut < name.Length; cut++)
+                        if (Width("..." + name.Substring(cut)) <= room)
+                        {
+                            slow = "..." + name.Substring(cut);
+                            break;
+                        }
+
+                Assert.AreEqual(slow, TextRows.Tail(name, room, Width), $"'{name}' in {room}");
+            }
+        }
     }
 }
