@@ -7,8 +7,9 @@ namespace BitSorter.Sim
     /// <summary>
     /// <c>$random</c>'s generator, exactly as the standard gives it -- the C of IEEE 1364's annex,
     /// <c>rtl_dist_uniform</c>, which IEEE 1800 keeps (20.15.2) so that a seed gives the same numbers in
-    /// every simulator (Part L3). Icarus's numbers for seeds 0, 7 and -5, and with no seed at all, are
-    /// held by <c>RandomTests</c>.
+    /// every simulator (Part L3). Icarus's numbers for seeds 0 and -5 are held by
+    /// <c>ExpressionTests.Random_IsTheStandardsGenerator_NumberForNumberAsIcarus</c>, and for seed 7 and with
+    /// no seed at all by the oracle's <c>corpus/behavioural/expressions.sv</c>, where Icarus runs.
     /// </summary>
     internal static class RtlRandom
     {
