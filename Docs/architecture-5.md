@@ -5080,6 +5080,10 @@ exercises, each fixed with a test that failed first.
 - **A register's values are read at a width it may have** (`Inspector.Apply`): its reset value and starting value are read
   again at a new WIDTH, and at 0, below or past what a value can be, reading them threw. Past the document's range they are
   left as they are, and the width is refused in the document's words.
+- **The question before a drawing of code is first edited waits only on that drawing** (`WorkbenchSession.AsksToRewrite`). It
+  was bound to the document alone, and Alt+Up steps out with the question still up and the document as it was: answered
+  then, the edit was made on the parent with the drawing's ids, deleting whichever of its parts had them. A step anywhere
+  now drops the question, and its answer makes nothing.
 
 ---
 

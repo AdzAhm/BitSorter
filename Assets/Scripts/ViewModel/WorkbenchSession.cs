@@ -907,6 +907,7 @@ namespace BitSorter.ViewModel
             {
                 _pendingRewrite = () => Edit(edit, after);
                 _pendingProject = Project;
+                _pendingStep = StepVersion;
                 RewriteAsks++;
                 return EditResult.Refused(RewriteAsked);
             }
@@ -947,6 +948,7 @@ namespace BitSorter.ViewModel
         private readonly HashSet<string> _rewriting = new HashSet<string>(StringComparer.Ordinal);
         private Func<EditResult> _pendingRewrite;
         private Project _pendingProject;
+        private int _pendingStep;
 
         /// <summary>
         /// What a part of the drawing of code shown does, in a sentence in its operands' names (<see cref="RtlDrawing.Describe"/>,
@@ -981,8 +983,12 @@ namespace BitSorter.ViewModel
         public IReadOnlyList<int> PartsOnLine(int line) =>
             ShowsController || ShownDrawing == null ? Array.Empty<int>() : ShownDrawing.PartsOn(line);
 
-        /// <summary>Whether an edit of the drawing of code waits on <see cref="RewriteQuestion"/>: the workbench asks it.</summary>
-        public bool AsksToRewrite => _pendingRewrite != null && ReferenceEquals(_pendingProject, Project);
+        /// <summary>
+        /// Whether an edit of the drawing of code waits on <see cref="RewriteQuestion"/>: the workbench asks it. Only over the
+        /// document and the drawing it was asked of -- a step anywhere, Alt+Up included, which closes no question, drops it:
+        /// answered over the parent, the edit was made there with the drawing's ids (the 16d sweep).
+        /// </summary>
+        public bool AsksToRewrite => _pendingRewrite != null && ReferenceEquals(_pendingProject, Project) && _pendingStep == StepVersion;
 
         /// <summary>How many times an edit has asked <see cref="RewriteQuestion"/>: the workbench asks once for each.</summary>
         public int RewriteAsks { get; private set; }
