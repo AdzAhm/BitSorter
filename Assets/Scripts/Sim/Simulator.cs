@@ -2352,9 +2352,15 @@ namespace BitSorter.Sim
                     case OpCode.Delay:
                     case OpCode.WaitEvent:
                     case OpCode.WaitUntil:
-                    case OpCode.Fork:
                     case OpCode.Stop:
                     case OpCode.Finish:
+                        continue;
+
+                    // A fork waits for its branches, but join_none, which goes on at once: what is read after it is read on
+                    // this wake too (the 16d sweep, engine-18's test found the reads stopping there).
+                    case OpCode.Fork:
+                        if (ins.Fork.Join == JoinKind.None)
+                            todo.Push(at + 1);
                         continue;
                 }
                 ins.Value?.CollectReads(reads);
