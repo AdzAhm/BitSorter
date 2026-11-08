@@ -247,6 +247,24 @@ endmodule
         [Test]
         public void TheMachineAlone_IsWhole() => Assert.IsTrue(ReadText(Nested, "nested").Reading.Whole);
 
+        /// <summary>A machine beside a memory it reads -- a ROM looked up by the state -- with the memory's words in it.</summary>
+        private static readonly string NestedWithARom = Nested
+            .Replace("output logic busy);", "output logic busy, output logic [7:0] out);")
+            .Replace("    st_t state, nxt;\n", "    st_t state, nxt;\n    logic [7:0] rom [0:3];\n    assign out = rom[state];\n");
+
+        /// <summary>
+        /// A machine beside a memory is held to the engine with the memory's words given values, as every other signal the
+        /// logic reads is (the 16d sweep: they were left with none, and the check threw from the first word it read).
+        /// </summary>
+        [Test]
+        public void AMachineBesideAMemory_IsHeldToTheEngine_ItsWordsGivenValues()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(NestedWithARom, "nested");
+            Assert.IsNotNull(reading.Machine, "the machine is read beside the ROM");
+            Assert.IsFalse(reading.Whole, "and the assign is not of it");
+            Assert.DoesNotThrow(() => ControllerEngine.Hold(tree, "nested", reading));
+        }
+
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
         [Test]
         public void ADecodersEnumLabels_PickTheirRows()

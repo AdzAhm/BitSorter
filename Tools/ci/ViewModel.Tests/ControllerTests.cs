@@ -186,6 +186,49 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains("no arrow", ControllerCheck.Why(new ControllerReading(reading.Module, fewer, reading.Tables, reading.Whole), design, netlist, top));
         }
 
+        private const string MachineWithARom = @"
+module lookup (input logic clk, rst, go, output logic [7:0] out);
+    typedef enum logic [1:0] {IDLE, RUN, DONE} st_t;
+    st_t state, nxt;
+    logic [7:0] rom [0:3];
+    assign out = rom[state];
+    always_ff @(posedge clk, posedge rst)
+        if (rst) state <= IDLE;
+        else state <= nxt;
+    always_comb begin
+        nxt = state;
+        case (state)
+            IDLE: if (go) nxt = RUN;
+            RUN: nxt = DONE;
+            default: nxt = IDLE;
+        endcase
+    end
+endmodule
+";
+
+        /// <summary>
+        /// A machine beside a memory it reads is held to the engine and shown, never thrown from the frame that asks for it; and a
+        /// check that throws leaves no reading behind to be shown unchecked (the 16d sweep: the memory's words had no values, the
+        /// check threw, and every later ask returned the reading it never finished checking).
+        /// </summary>
+        [Test]
+        public void AMachineBesideAMemory_IsShown_HeldToTheEngine()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Assert.IsTrue(editor.AddWrittenModule("lookup", MachineWithARom).Done);
+            EditResult top = editor.SetTop("lookup");
+            Assert.IsTrue(top.Done, top.Refusal);
+            double now = 0;
+            var session = new WorkbenchSession(editor.Project, () => now += 0.01);
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the drawing of its code");
+
+            ControllerReading reading = null;
+            Assert.DoesNotThrow(() => reading = session.Controller);
+            Assert.IsNotNull(reading?.Machine, "the machine, borne out by the engine");
+            CollectionAssert.AreEqual(new[] { "IDLE", "RUN", "DONE" }, reading.Machine.States);
+        }
+
         private static bool Overlap(Vec2 aMin, Vec2 aMax, Vec2 bMin, Vec2 bMax) =>
             aMin.x <= bMax.x && bMin.x <= aMax.x && aMin.y <= bMax.y && bMin.y <= aMax.y;
 
