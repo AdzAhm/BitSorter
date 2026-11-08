@@ -97,6 +97,29 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// Stepped into a copy of an array of blocks -- <c>ha[0]</c> -- what the panel asks every frame allocates nothing, as it
+        /// does over a block alone (the 16d sweep): the module shown was found again on every ask, the step's name and its
+        /// copy cut out of it as two new strings each time, and the panel asks about a hundred times a frame.
+        /// </summary>
+        [Test]
+        public void SteppedIntoACopyOfAnArray_TheSessionsFrameAsks_AllocateNothing()
+        {
+            WorkbenchSession session = Opened("Four half adders");
+            BlockPart array = session.DrawnModule.Parts.OfType<BlockPart>().Single(b => b.Copies > 1);
+            Assert.IsTrue(session.StepInto(array.Id));
+            Assert.AreEqual(array.Name + "[0]", session.Path.Single(), "sanity: stepped into its first copy");
+            Assert.AreEqual(array.Module, session.Module);
+
+            Assert.AreEqual(0, BytesEach(() => _ = session.Module), "the module shown");
+            Assert.AreEqual(0, BytesEach(() => _ = session.ShowsWritten), "whether it is written");
+            Assert.AreEqual(0, BytesEach(() => _ = session.ShowsDrawingOfCode), "whether it is the drawing of code");
+            Assert.AreEqual(0, BytesEach(() => _ = session.ShowsCode), "whether its code is shown");
+            Assert.AreEqual(0, BytesEach(() => _ = session.Code), "the code's editor's document");
+            Assert.AreEqual(0, BytesEach(() => _ = session.CanTidy), "TIDY up or not");
+            Assert.AreEqual(0, BytesEach(() => _ = session.DrawnModule), "what the canvas draws");
+        }
+
+        /// <summary>
         /// Playing a drawing of code, every wire's value read for a new moment each frame -- the wires no signal holds worked
         /// out from the netlist (<see cref="RtlEvaluator"/>) -- allocates nothing: at the processor's top, and stepped into its
         /// execute stage and its controller.

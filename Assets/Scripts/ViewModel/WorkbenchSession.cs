@@ -153,8 +153,29 @@ namespace BitSorter.ViewModel
         /// <summary>How many times the run shown has been drawn again round an edit (Part 10a): what tells the view the drawing changed under it.</summary>
         public int LayoutVersion { get; private set; }
 
-        /// <summary>The module the canvas edits: the design's top, or the module of the instance stepped into last (Part 12a).</summary>
-        public string Module => ModuleOn(Project, _path, out _, _codeSteps);
+        /// <summary>
+        /// The module the canvas edits: the design's top, or the module of the instance stepped into last (Part 12a). Found
+        /// once for each document and path (the 16d sweep): the panel asks it about a hundred times a frame, and inside a copy
+        /// of an array each ask cut the block's name and the copy out of the step, two new strings.
+        /// </summary>
+        public string Module
+        {
+            get
+            {
+                if (!ReferenceEquals(_moduleOf, Project) || _moduleAt != _pathVersion)
+                {
+                    _module = ModuleOn(Project, _path, out _, _codeSteps);
+                    _moduleOf = Project;
+                    _moduleAt = _pathVersion;
+                }
+                return _module;
+            }
+        }
+
+        // Module as last found, the document and the path's version it was found for; the version changes with every step.
+        private string _module;
+        private Project _moduleOf;
+        private int _moduleAt = -1, _pathVersion;
 
         // -----------------------------------------------------------------
         // Stepping inside a block (Part 12a)
@@ -185,6 +206,7 @@ namespace BitSorter.ViewModel
             {
                 _path.Add(ShownDrawing.InstanceOf(part));
                 _codeSteps.Add(((BlockPart)ShownDrawing.Module.FindPart(part)).Module);
+                _pathVersion++;
                 Stepped();
                 return true;
             }
@@ -192,6 +214,7 @@ namespace BitSorter.ViewModel
             var block = (BlockPart)Project.Find(Module).FindPart(part);
             _path.Add(block.Copies > 1 ? block.Name + "[0]" : block.Name);   // an array is stepped into at its first copy (Part 12c)
             _codeSteps.Add(null);
+            _pathVersion++;
             Stepped();
             return true;
         }
@@ -225,6 +248,7 @@ namespace BitSorter.ViewModel
             levels = Math.Min(levels, _path.Count);
             _path.RemoveRange(_path.Count - levels, levels);
             _codeSteps.RemoveRange(_codeSteps.Count - levels, levels);
+            _pathVersion++;
             Stepped();
             return true;
         }
@@ -265,6 +289,7 @@ namespace BitSorter.ViewModel
             _path.AddRange(names);
             _codeSteps.Clear();
             _codeSteps.AddRange(codeSteps);
+            _pathVersion++;
             Stepped();
             return true;
         }
@@ -346,7 +371,11 @@ namespace BitSorter.ViewModel
                     if (design == null || !_scopes.TryGetValue(at + "." + _path[i], out int s) || design.Scopes[s].Kind != ScopeKind.Instance
                         || !(Project.Find(design.Scopes[s].Module) is Module of))
                         return i;
-                    _codeSteps[i] = of.Name;
+                    if (_codeSteps[i] != of.Name)
+                    {
+                        _codeSteps[i] = of.Name;
+                        _pathVersion++;
+                    }
                     at = design.Scopes[s].Path;
                     module = of;
                     continue;
@@ -354,7 +383,11 @@ namespace BitSorter.ViewModel
 
                 if (!BlockStep(Project, module, _path[i], out Module inner, out bool copy))
                     return i;
-                _codeSteps[i] = null;
+                if (_codeSteps[i] != null)
+                {
+                    _codeSteps[i] = null;
+                    _pathVersion++;
+                }
                 at += copy ? "." + _path[i] + "." + BoardCompiler.ArrayInstance : "." + _path[i];
                 module = inner;
             }
@@ -1650,6 +1683,7 @@ namespace BitSorter.ViewModel
             {
                 _path.RemoveRange(valid, _path.Count - valid);
                 _codeSteps.RemoveRange(valid, _codeSteps.Count - valid);
+                _pathVersion++;
                 StepVersion++;
             }
 

@@ -5101,6 +5101,12 @@ exercises, each fixed with a test that failed first.
 - **A time typed again in other words is no change** (`Inspector.Apply`). The inspector compares a field's text, so 10 typed
   where PERIOD shows 10 ps was a change, and the stimulus was made again with the same time: an undo step that did nothing
   and the whole run played again. A clock's period and a reset's release are compared as the times they are.
+- **The module shown is found once for each document and path** (`WorkbenchSession.Module`). Inside a copy of an array --
+  `ha[0]` -- every read cut the block's name and the copy out of the step, two new strings, and the panel reads it about a
+  hundred times a frame. Measured with `DOTNET_JitObjectStackAllocation=0`
+  (`FrameAllocationTests.SteppedIntoACopyOfAnArray_TheSessionsFrameAsks_AllocateNothing`), bytes an ask before: the module
+  shown, whether it is written, whether its code is shown, the code's document and what the canvas draws 56 each, TIDY 112;
+  after, nothing.
 
 ---
 
