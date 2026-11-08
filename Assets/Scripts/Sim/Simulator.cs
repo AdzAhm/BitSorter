@@ -66,10 +66,12 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// The most a run may keep in its history -- value changes, transitions and lines printed
-        /// together -- before it stops. Each costs about 80 bytes, so the default holds a history near
-        /// 320 MB, well inside a browser tab's 2 GB: a testbench with no <c>$finish</c>, run to a
-        /// far-off time, must stop with a message rather than take the page and the student's work
-        /// down. The corpus processor keeps about 230,000 in its 2,716 cycles.
+        /// together -- before it stops, counted and weighed: at most this many, and at most 80 bytes for
+        /// each of them (<see cref="History.RecordedBytes"/>), since a wide value's change holds far more
+        /// than a bit's. The default holds a history near 320 MB, well inside a browser tab's 2 GB: a
+        /// testbench with no <c>$finish</c>, run to a far-off time, must stop with a message rather than
+        /// take the page and the student's work down. It is asked after every delta. The corpus processor
+        /// keeps about 230,000 in its 2,716 cycles.
         /// </summary>
         public long MaxRecorded { get; set; } = 4_000_000;
 
@@ -626,7 +628,7 @@ namespace BitSorter.Sim
 
                 processed += RunTimeStep(next);
 
-                if (!Stopped && _history.Recorded > _options.MaxRecorded)
+                if (!Stopped && HistoryFull)
                     StopOnFullHistory();
 
                 if (Suspended && !Stopped)
@@ -872,6 +874,11 @@ namespace BitSorter.Sim
 
                 SayFunctionsStopped();
                 SwapCurrent();
+
+                // Asked after every delta: a zero-delay loop of a wide value kept a delta's worth for each of its deltas,
+                // and its time step never settled for the bound to be asked (the 16d sweep, engine-7).
+                if (!Stopped && HistoryFull)
+                    StopOnFullHistory();
 
                 if (Stopped)
                     return events;
@@ -2590,14 +2597,25 @@ namespace BitSorter.Sim
                 "delay or event control never hands back. Give it a #delay or an @(...).");
         }
 
+        /// <summary>The bytes the history may hold: 80 for each thing <see cref="SimOptions.MaxRecorded"/> lets it keep.</summary>
+        private long MaxRecordedBytes => _options.MaxRecorded > long.MaxValue / 80 ? long.MaxValue : _options.MaxRecorded * 80;
+
+        /// <summary>Whether the history holds more things, or more bytes, than a run may keep.</summary>
+        private bool HistoryFull => _history.Recorded > _options.MaxRecorded || _history.RecordedBytes > MaxRecordedBytes;
+
         private void StopOnFullHistory()
         {
             Stopped = true;
+            string kept = _history.Recorded > _options.MaxRecorded
+                ? $"{_history.Recorded.ToString("N0", CultureInfo.InvariantCulture)} changes, transitions and lines printed, more than the " +
+                  $"{_options.MaxRecorded.ToString("N0", CultureInfo.InvariantCulture)}"
+                : $"about {Megabytes(_history.RecordedBytes)} MB of changes, transitions and lines printed, more than the " +
+                  $"{Megabytes(MaxRecordedBytes)} MB";
             _history.Message(_now, Severity.Error,
-                $"At t = {_now} the run had kept {_history.Recorded.ToString("N0", CultureInfo.InvariantCulture)} changes, " +
-                $"transitions and lines printed, more than the {_options.MaxRecorded.ToString("N0", CultureInfo.InvariantCulture)} " +
-                "a run may keep. Run to an earlier time, or end the testbench with $finish.");
+                $"At t = {_now} the run had kept {kept} a run may keep. Run to an earlier time, or end the testbench with $finish.");
         }
+
+        private static string Megabytes(long bytes) => (bytes / (1024.0 * 1024.0)).ToString("N1", CultureInfo.InvariantCulture);
 
         private void MarkDirty(int s)
         {

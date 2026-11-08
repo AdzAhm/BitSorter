@@ -466,8 +466,10 @@ VCD           written for export, read for the oracle comparison
   -- and this run keeps about 230,000, 19 MB; the page's whole managed heap after six runs was 46 MB. A
   browser build may have 2 GB, and a testbench with no `$finish` run to a far-off time would fill it and
   take the page down. **`SimOptions.MaxRecorded`** stops a run that has kept more than 4 million entries,
-  about 320 MB, with a message in the transcript saying so and the way out -- run to an earlier time, or
-  end the testbench with `$finish` -- which is invariant 2 extended to memory.
+  or more than 80 bytes for each of them -- about 320 MB either way, weighed by `History.RecordedBytes`, since a
+  65,536-bit value's change holds some 16 KB (the 16d sweep, engine-7) -- asked after every delta, with a message
+  in the transcript saying so and the way out -- run to an earlier time, or end the testbench with `$finish` --
+  which is invariant 2 extended to memory.
 
   **The budget, set from this:** a course processor's program of a few thousand cycles finishes in the
   browser in under half a second at the slowest figure measured, drawing every frame as it runs.

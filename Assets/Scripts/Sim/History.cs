@@ -238,6 +238,16 @@ namespace BitSorter.Sim
         /// </summary>
         public long Recorded { get; private set; }
 
+        /// <summary>
+        /// About how many bytes <see cref="Recorded"/> holds: each record's own, and a value wider than 64 bits its words
+        /// besides -- what <see cref="SimOptions.MaxRecorded"/> bounds too, at 80 bytes a record (the 16d sweep, engine-7: a
+        /// change of a 65,536-bit vector holds some 16 KB, and counting it as one let wide values fill a tab).
+        /// </summary>
+        public long RecordedBytes { get; private set; }
+
+        /// <summary>What a value holds beyond the record it is in: a wide one's words, both planes, in an array of its own.</summary>
+        private static long WordsOf(LogicVec value) => value.Width > 64 ? 24 + 16L * ((value.Width + 63) / 64) : 0;
+
         // -----------------------------------------------------------------
         // Recording, for the simulator
         // -----------------------------------------------------------------
@@ -246,11 +256,13 @@ namespace BitSorter.Sim
         {
             _changes[signal].Add(new ValueChange(time, delta, value));
             Recorded++;
+            RecordedBytes += 48 + WordsOf(value);
         }
 
         internal int BeginTransition(int driver, SignalId target, long scheduledAt, long dueAt, LogicVec value)
         {
             Recorded++;
+            RecordedBytes += 72 + WordsOf(value);
             _transitions.Add(new Transition
             {
                 Driver = driver,
@@ -275,6 +287,7 @@ namespace BitSorter.Sim
         {
             _messages.Add(new SimMessage(time, severity, text));
             Recorded++;
+            RecordedBytes += 64 + 2L * (text?.Length ?? 0);
         }
 
         /// <summary>
