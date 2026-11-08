@@ -428,6 +428,12 @@ endmodule
             (SyntaxTree tree, ControllerReading reading) = ReadText(Waiting.Replace("COND", condition), "waiting");
             CollectionAssert.AreEqual(new[] { "RUN", "IDLE" }, Out(reading.Machine, "IDLE").Select(a => a.To).ToArray(), "sanity: read");
             Assert.IsNull(Why(tree, "waiting", reading), condition);
+
+            MachineReading machine = reading.Machine;
+            var more = new MachineReading(machine.Register, machine.Next, machine.States, machine.Codes, machine.Start,
+                machine.Arrows.Append(new MachineArrow(0, 2, "never")).ToList(), machine.Settings);
+            Assert.AreEqual("No input takes IDLE to DONE.", Why(tree, "waiting", new ControllerReading(reading.Module, more, reading.Tables, reading.Whole)),
+                "an arrow no input takes is still refused, after the second look");
         }
 
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>

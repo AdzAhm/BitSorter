@@ -817,7 +817,9 @@ stretch that way.
   several signals -- a one-output case, the prime and seven-segment samples, stays its
   drawing -- and on it every edit is refused saying to press DRAWING. **Every reading
   is held to the engine before it is shown** (`ControllerCheck`): for every state and
-  every value of each input of eight bits or fewer, the others random, the next state
+  every value of each input of eight bits or fewer, the others random -- and, for a state
+  with an arrow not yet taken, a second look at each pair of inputs together and a wide
+  one at the constants its logic compares with (the 16d sweep) -- the next state
   the instance's netlist works out must be one the diagram has an arrow to, every
   arrow must be taken and every constant shown must be the circuit's -- a table's row
   at its labels or, for its default, at values no label takes, and as the circuit's own

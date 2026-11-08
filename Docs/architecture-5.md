@@ -3943,7 +3943,12 @@ diagram and a control table over a case-as-one-table box, splitting the controll
 - **Held to the engine before it is shown** (`Board/ControllerCheck`; the review of 15h-6e found the check only in the
   tests): the instance's netlist worked out (`RtlEvaluator`) for every state and every value of each input and held
   register of eight bits or fewer, the others random -- the next state is one the diagram has an arrow to, every arrow
-  is taken, and every constant a box, an arrow or a table shows is the circuit's. A machine of one process -- the
+  is taken, and every constant a box, an arrow or a table shows is the circuit's. A state with an arrow not yet taken
+  is looked at again first (16d sweep: `data == 8'd200 && valid` passed or failed by the seed, and a 16-bit compare's
+  arrow was all but never taken): a wide input at the netlist's constants, each pair of inputs at every pair of their
+  values where there are 1,024 or fewer, every input at once at random among those, 16,384 trials at most. A trial's
+  nets are written over in one array, so a check makes 2.2 MB for the multicycle controller where it made 16.9. A
+  machine of one process -- the
   `case` in the `always_ff` -- is tried with its reset let go (`MachineReading.LetGo`: `rst` at 0, `!rst_n` at 1), as
   two processes' next state never sees the reset, and what an arm sets is held to what its register is about to take,
   its D, not what it holds (the 16d sweep: no such machine with a reset or an output had ever passed); a memory's words

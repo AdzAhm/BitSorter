@@ -13,6 +13,10 @@ namespace BitSorter.Board
     /// module is drawn as its code builds instead, so a diagram never shows a circuit that is not there.
     /// </summary>
     /// <remarks>
+    /// A state with an arrow not yet taken after that is looked at again before the arrow is said never taken: a wide input at
+    /// the constants the logic compares with, each pair of inputs at every pair of their values where they are few enough, and
+    /// every input at once at random among those -- an arrow two inputs take together, or a 16-bit compare's, was missed.
+    ///
     /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
     /// (<see cref="MachineReading.LetGo"/>), and what its arms set held to what each register is about to take, its D.
     ///
@@ -72,6 +76,7 @@ namespace BitSorter.Board
                         read.Add(cell.Memory.First.Index + word);
             }
             var values = new LogicVec[design.Signals.Count];
+            var nets = new LogicVec[netlist.Nets.Count];   // every trial's, written over: none of it is kept past the trial
             var random = new Random(7919);
             void Randomise()
             {
@@ -109,7 +114,42 @@ namespace BitSorter.Board
                 if (nextNet < 0)
                     return "Its next state " + machine.Next + " is not in the netlist.";
                 var taken = new HashSet<(int, int)>();
+
+                // One trial in state s, its inputs given already: where the circuit goes must be an arrow, and what it sets what
+                // the diagram says; null where it is.
+                string Trial(int s)
+                {
+                    values[register] = machine.Codes[s].Resize(design.Signals[register].Width);
+                    if (letGo >= 0)
+                        values[letGo] = machine.LetGo.Value.Constant.Value.Resize(design.Signals[letGo].Width);
+                    RtlEvaluator.Evaluate(netlist, values, nets);
+                    int to = machine.StateOf(nets[nextNet]);
+                    MachineArrow? arrow = null;
+                    foreach (MachineArrow a in machine.Arrows)
+                        if (a.From == s && a.To == to)
+                            arrow = a;
+                    if (!(arrow is MachineArrow way))
+                        return $"From {machine.States[s]} the circuit goes to {(to >= 0 ? machine.States[to] : nets[nextNet].ToString())}, where the diagram has no arrow.";
+                    taken.Add((s, to));
+                    foreach (ReadValue set in way.Outputs)
+                        if (Differs(set, nets, Set) is string why)
+                            return $"From {machine.States[s]} to {machine.States[to]}, {why}";
+                    foreach (ReadValue set in machine.Settings[s])
+                        if (Differs(set, nets, Set) is string why)
+                            return $"In {machine.States[s]}, {why}";
+                    return null;
+                }
+
+                bool AllTaken(int s)
+                {
+                    foreach (MachineArrow a in machine.Arrows)
+                        if (a.From == s && !taken.Contains((a.From, a.To)))
+                            return false;
+                    return true;
+                }
+
                 for (int s = 0; s < machine.States.Count; s++)
+                {
                     foreach (int input in inputs)
                     {
                         int width = design.Signals[input].Width;
@@ -118,26 +158,13 @@ namespace BitSorter.Board
                         {
                             Randomise();
                             values[input] = width <= 8 ? LogicVec.FromUInt64((ulong)v, width) : Random(random, width);
-                            values[register] = machine.Codes[s].Resize(design.Signals[register].Width);
-                            if (letGo >= 0)
-                                values[letGo] = machine.LetGo.Value.Constant.Value.Resize(design.Signals[letGo].Width);
-                            LogicVec[] nets = RtlEvaluator.Evaluate(netlist, values);
-                            int to = machine.StateOf(nets[nextNet]);
-                            MachineArrow? arrow = null;
-                            foreach (MachineArrow a in machine.Arrows)
-                                if (a.From == s && a.To == to)
-                                    arrow = a;
-                            if (!(arrow is MachineArrow way))
-                                return $"From {machine.States[s]} the circuit goes to {(to >= 0 ? machine.States[to] : nets[nextNet].ToString())}, where the diagram has no arrow.";
-                            taken.Add((s, to));
-                            foreach (ReadValue set in way.Outputs)
-                                if (Differs(set, nets, Set) is string why)
-                                    return $"From {machine.States[s]} to {machine.States[to]}, {why}";
-                            foreach (ReadValue set in machine.Settings[s])
-                                if (Differs(set, nets, Set) is string why)
-                                    return $"In {machine.States[s]}, {why}";
+                            if (Trial(s) is string why)
+                                return why;
                         }
                     }
+                    if (!AllTaken(s) && SecondLook(s, inputs, Constants(netlist), Trial, AllTaken) is string missed)
+                        return missed;
+                }
                 foreach (MachineArrow arrow in machine.Arrows)
                     if (!taken.Contains((arrow.From, arrow.To)))
                         return $"No input takes {machine.States[arrow.From]} to {machine.States[arrow.To]}.";
@@ -156,7 +183,7 @@ namespace BitSorter.Board
                         {
                             Randomise();
                             values[subject] = match.Resize(design.Signals[subject].Width);
-                            LogicVec[] nets = RtlEvaluator.Evaluate(netlist, values);
+                            RtlEvaluator.Evaluate(netlist, values, nets);
 
                             // The row the circuit's own subject picks: the one forced where nothing in the module works the
                             // subject out, else whichever the inputs make it -- the netlist works a driven subject out again
@@ -172,6 +199,97 @@ namespace BitSorter.Board
                     }
             }
             return null;
+
+            // A second look before an arrow out of state s is said never taken (the 16d sweep): one input at a time, the rest
+            // at random, misses an arrow two inputs take together -- data == 200 && valid, about half the time by the seed --
+            // and sixteen random tries of a wide input all but never meet the one value it is compared with. So each input is
+            // tried at the values the logic compares it with too -- its constants, for a wide one -- each pair of inputs at
+            // every pair of their values where they are few enough, and every input at once at random among them.
+            string SecondLook(int s, List<int> tried, List<ulong> constants, Func<int, string> trial, Func<int, bool> allTaken)
+            {
+                int left = SecondLookTrials;
+                var candidates = new List<LogicVec>[tried.Count];
+                for (int i = 0; i < tried.Count; i++)
+                    candidates[i] = Candidates(design.Signals[tried[i]].Width, constants);
+
+                for (int i = 0; i < tried.Count; i++)
+                    if (design.Signals[tried[i]].Width > 8)
+                        foreach (LogicVec value in candidates[i])
+                            for (int again = 0; again < 2; again++)
+                            {
+                                Randomise();
+                                values[tried[i]] = value;
+                                if (trial(s) is string why)
+                                    return why;
+                                if (allTaken(s) || --left == 0)
+                                    return null;
+                            }
+
+                for (int i = 0; i < tried.Count; i++)
+                    for (int j = i + 1; j < tried.Count; j++)
+                        if (candidates[i].Count * candidates[j].Count <= PairTrials)
+                            foreach (LogicVec a in candidates[i])
+                                foreach (LogicVec b in candidates[j])
+                                {
+                                    Randomise();
+                                    values[tried[i]] = a;
+                                    values[tried[j]] = b;
+                                    if (trial(s) is string why)
+                                        return why;
+                                    if (allTaken(s) || --left == 0)
+                                        return null;
+                                }
+
+                for (int t = 0; t < LooseTrials; t++)
+                {
+                    Randomise();
+                    for (int i = 0; i < tried.Count; i++)
+                        values[tried[i]] = candidates[i][random.Next(candidates[i].Count)];
+                    if (trial(s) is string why)
+                        return why;
+                    if (allTaken(s) || --left == 0)
+                        return null;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// How many pairs of values two inputs are tried at together, how many tries every input at once has, and the most trials
+        /// a second look at a state makes in all -- a reading worked out once, as its module opens, in a frame.
+        /// </summary>
+        public const int PairTrials = 1024, LooseTrials = 256, SecondLookTrials = 16384;
+
+        /// <summary>Every value written as a constant in <paramref name="netlist"/>, as a number, each once: what its logic compares with.</summary>
+        private static List<ulong> Constants(RtlNetlist netlist)
+        {
+            var constants = new List<ulong>();
+            foreach (RtlCell cell in netlist.Cells)
+                if (cell.Kind == RtlKind.Constant && cell.Value.Width > 0 && cell.Value.TryGetUInt64(out ulong c) && !constants.Contains(c))
+                    constants.Add(c);
+            return constants;
+        }
+
+        /// <summary>
+        /// The values an input of <paramref name="width"/> bits is tried at in a second look: every one at eight bits or fewer;
+        /// wider, every one of <paramref name="constants"/> it can hold, and 0.
+        /// </summary>
+        private static List<LogicVec> Candidates(int width, List<ulong> constants)
+        {
+            var candidates = new List<LogicVec>();
+            if (width <= 8)
+            {
+                for (int v = 0; v < 1 << width; v++)
+                    candidates.Add(LogicVec.FromUInt64((ulong)v, width));
+                return candidates;
+            }
+            ulong mask = width >= 64 ? ulong.MaxValue : (1UL << width) - 1;
+            var seen = new HashSet<ulong> { 0 };
+            candidates.Add(LogicVec.FromUInt64(0, width));
+            foreach (ulong c in constants)
+                if ((c & ~mask) == 0 && seen.Add(c))
+                    candidates.Add(LogicVec.FromUInt64(c, width));
+            return candidates;
         }
 
         /// <summary>
