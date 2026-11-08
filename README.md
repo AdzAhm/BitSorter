@@ -237,11 +237,12 @@ Once a circuit works, the workbench answers the questions the course asks of it.
 **EXERCISES** lists the thirty-five, chapter by chapter in the course's order, the ones you
 have solved marked and the next one picked out. An Exercise opens with its brief: what to
 build, and a hint if you ask for it (**GOAL** brings the brief back). Its own test drives
-the inputs, and only its parts are in PARTS, each with how many are left. **CHECK** grades
-the circuit, and code as you typed it; code with an error is not checked, and the chip says
-why. Each check that failed is a line in the TRANSCRIPT that takes the run to its
-moment. Once it is solved, a card says how many gates it took and how fast it settles,
-beside your best, and offers the next.
+the inputs, so PARTS has no ports, and of the gates, registers and blocks only the ones the
+Exercise gives, each with how many are left -- beside SPLIT, JOIN, LAMP, a constant where
+it allows one, and blocks of your own. **CHECK** grades the circuit, and code as you typed
+it; code with an error is not checked, and the chip says why. Each check that failed is a
+line in the TRANSCRIPT that takes the run to its moment. Once it is solved, a card says how
+many gates it took and how fast it settles, beside your best, and offers the next.
 
 ![CHECK: an Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card.](Docs/gifs/check.gif)
 
