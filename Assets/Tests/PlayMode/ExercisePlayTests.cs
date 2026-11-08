@@ -390,6 +390,62 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(solved, session.Project.TopModule.Source, "the document keeps the last code that applied");
         }
 
+        /// <summary>
+        /// Code typed and not yet applied is not lost as another circuit opens (Part 16d's sweep): applied first where it
+        /// applies -- inside the editor's pause -- and, where it cannot, asked about before anything is left: CANCEL stays with
+        /// the code as typed, and LEAVE IT goes. The session was replaced with the typed text in it, without a word.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            yield return Click(WorkbenchPanel.CodeButton);
+            WorkbenchSession session = workbench.Session;
+            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+
+            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string solved = header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            session.Code.Type(solved, Time.timeAsDouble * 1000.0);   // on the editor's clock: inside its pause
+            Assert.IsTrue(session.Code.Pending, "sanity: typed and not applied");
+
+            workbench.OpenExercise("balance-the-paths");
+            yield return null;
+            Assert.AreEqual("balance-the-paths", workbench.ExerciseOpen?.Id, "sanity: the other exercise opened");
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            Assert.AreEqual(solved, workbench.Session.Project.TopModule.Source,
+                "what was typed was applied as the exercise was left, and kept under its id");
+
+            // A fault typed: leaving asks first.
+            if (workbench.ExerciseCard.IsOpen)
+                workbench.ExerciseCard.Close();
+            yield return null;
+            CodeDocument code = workbench.Session.Code;
+            Assert.IsNotNull(code, "sanity: an answer written in code reopens on its code");
+            string faulted = solved.Replace("(carry, a, b);", "(carry, a, b)");
+            code.Type(faulted, Time.timeAsDouble * 1000.0);
+            workbench.OpenExercise("balance-the-paths");
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "code on screen that cannot apply asks before it is left");
+            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id, "and nothing is left until it is answered");
+
+            yield return Click(AskMenu.NoItem);
+            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id, "CANCEL stays");
+            Assert.AreEqual(faulted, code.Text, "with the code as typed");
+
+            workbench.OpenExercise("balance-the-paths");
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "asked again");
+            yield return Click(AskMenu.YesItem);
+            Assert.AreEqual("balance-the-paths", workbench.ExerciseOpen?.Id, "and the answer that leaves it, leaves it");
+            Assert.IsFalse(workbench.Ask.IsOpen, "asked once: the way out does not ask again");
+        }
+
         [UnityTest]
         public IEnumerator TheTutorial_FollowsTheDocument_LightsWhatItMeans_AndEndsOnCheck()
         {
