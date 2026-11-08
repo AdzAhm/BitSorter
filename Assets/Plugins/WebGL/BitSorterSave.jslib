@@ -30,18 +30,33 @@ mergeInto(LibraryManager.library, {
     return save && save.elsewhere ? 1 : 0;
   },
 
-  // This tab's save written: told to the other tabs once IndexedDB has it, so a tab that takes it in takes this one.
+  // This tab's save written: told to the other tabs once IndexedDB has it, so a tab that takes it in takes this one. One
+  // write to IndexedDB at a time: saves come in runs -- a keep, then what is open -- and two in flight at once is only
+  // extra work, which Emscripten warns of; a save made while one is told is told after it, the latest stamp only.
   BitSorterSaveWritten: function (stampPtr) {
-    var stamp = UTF8ToString(stampPtr);
     var save = Module.bitSorterSave || (Module.bitSorterSave = { own: '', elsewhere: false, hearing: false });
-    save.own = stamp;
-    FS.syncfs(false, function () {
-      try {
-        window.localStorage.setItem('BitSorter.save', stamp);
-      } catch (e) {
-        // No localStorage -- a private window may refuse it -- and so no other tab hears: as it was before.
-      }
-    });
+    save.own = UTF8ToString(stampPtr);
+    if (save.telling) {
+      save.again = true;
+      return;
+    }
+    var tell = function () {
+      var stamp = save.own;
+      save.telling = true;
+      save.again = false;
+      FS.syncfs(false, function () {
+        try {
+          window.localStorage.setItem('BitSorter.save', stamp);
+        } catch (e) {
+          // No localStorage -- a private window may refuse it -- and so no other tab hears: as it was before.
+        }
+        if (save.again)
+          tell();
+        else
+          save.telling = false;
+      });
+    };
+    tell();
   },
 
   // RELOAD: the page loaded again, which reads the save from IndexedDB as the other tab left it.
