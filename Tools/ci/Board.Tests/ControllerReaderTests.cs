@@ -375,6 +375,24 @@ endmodule
                 "kind = 2'd2's y read as 15, where the circuit gives 6");
         }
 
+        /// <summary>
+        /// A table's default row is held to the engine as every other row is, at values of its subject no label takes, so a
+        /// default read wrong is refused (the 16d sweep: the default row had no label to force, and its constants were shown
+        /// unchecked). The chain's second default is no case the circuit ever comes to -- the first decoder never sets kind to
+        /// 0 -- so nothing the circuit does bears it out or not.
+        /// </summary>
+        [Test]
+        public void ADecodersDefaultRow_IsHeldToTheEngine_AsEveryOtherRowIs()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(Chained, "chain");
+            ControllerEngine.Hold(tree, "chain", reading);
+            int otherwise = reading.Tables[0].Rows.ToList().FindIndex(r => r.Otherwise);
+            Assert.AreEqual(2, otherwise, "sanity: op's default row");
+            string why = Why(tree, "chain", WithCell(reading, 0, otherwise, 0, LogicVec.FromUInt64(0, 2)));
+            Assert.IsNotNull(why, "op's default read as kind = 0, where the circuit gives 3");
+            StringAssert.Contains("otherwise gives kind", why);
+        }
+
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
         [Test]
         public void ADecodersEnumLabels_PickTheirRows()
