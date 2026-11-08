@@ -491,6 +491,31 @@ endmodule"));
             CollectionAssert.AreEqual(new[] { "a=1 b=" }, Printed(Run(e.Design)));
         }
 
+        /// <summary>
+        /// A width or a precision too long to count is held at the largest one printed, and only the digits 0 to 9 are a
+        /// width's (the 16d sweep, engine-9): int.Parse ran before the hold, so %99999999999d threw an OverflowException out
+        /// of the elaborator, and a width written in another script's digits, which char.IsDigit takes, a FormatException --
+        /// where the engine never throws on a design.
+        /// </summary>
+        [TestCase("%99999999999d", 1000)]
+        [TestCase("%-99999999999d", 1000)]
+        [TestCase("%.99999999999f", 102)]
+        public void AFormatWidthOrPrecisionTooLongToCount_IsHeldAtTheMost(string format, int length)
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate("module t; initial $display(\"" + format + "\", " + (format.EndsWith("f") ? "1.0" : "1") + "); endmodule"));
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            Assert.AreEqual(length, Printed(Run(e.Design)).Single().Length);
+        }
+
+        [Test]
+        public void AFormatWidthInDigitsOfAnotherScript_IsNoWidth()
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate("module t; initial $display(\"%٣d\", 1); endmodule"));
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+        }
+
         [Test]
         public void AVcd_LeavesAMemorysWordsOut_AsIcarusDoes()
         {
