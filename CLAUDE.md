@@ -274,8 +274,9 @@ stretch that way.
 
   **`TestScene.Clear` takes the save with the game**, deleting it after the
   unload, because the game writes the save until it is gone: the workbench
-  writes MY CIRCUIT half a second after its last edit, by real time, so a circuit
-  from one load would reach the next whenever a frame ran slow. A fixture's own
+  writes MY CIRCUIT half a second after an edit, and code typed into it two
+  seconds after (its drafts), by real time, so a circuit from one load would
+  reach the next whenever a frame ran slow. A fixture's own
   `[TearDown]` cannot do it: Unity Test Framework runs it before the
   `[UnityTearDown]` that unloads, with the game still loaded. And a test that
   loads the game more than once clears it between loads too.
