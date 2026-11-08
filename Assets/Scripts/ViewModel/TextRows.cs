@@ -75,5 +75,26 @@ namespace BitSorter.ViewModel
                 rows.Add(row.TrimEnd());
             return rows;
         }
+
+        /// <summary>
+        /// <paramref name="text"/> cut from its start behind "...", until it is no wider than <paramref name="room"/> by
+        /// <paramref name="width"/>: whole where it fits, and as it is where not even its last character fits behind "..." --
+        /// a wave row's name, whose end tells it from the rest.
+        /// </summary>
+        public static string Tail(string text, float room, Func<string, float> width)
+        {
+            if (width == null)
+                throw new ArgumentNullException(nameof(width));
+            if (string.IsNullOrEmpty(text) || width(text) <= room)
+                return text ?? "";
+            for (int cut = 1; cut < text.Length; cut++)
+            {
+                string shorter = "..." + text.Substring(cut);
+                if (width(shorter) <= room)
+                    return shorter;
+            }
+
+            return text;
+        }
     }
 }

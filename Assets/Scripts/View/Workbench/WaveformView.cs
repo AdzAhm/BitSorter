@@ -201,20 +201,11 @@ namespace BitSorter.View
         /// <summary>How many rows it shows.</summary>
         public int Rows => _readouts.Length;
 
-        /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units.</summary>
-        private static string FitName(string name, float most)
-        {
-            if (UiTheme.TextWidth(name, UiType.Micro) <= most)
-                return name;
-            for (int cut = 1; cut < name.Length; cut++)
-            {
-                string shorter = "..." + name.Substring(cut);
-                if (UiTheme.TextWidth(shorter, UiType.Micro) <= most)
-                    return shorter;
-            }
+        /// <summary>A name cut from its start, behind "...", until it is no wider than <paramref name="most"/> units (<see cref="TextRows.Tail"/>).</summary>
+        private static string FitName(string name, float most) => TextRows.Tail(name, most, MicroWidth);
 
-            return name;
-        }
+        /// <summary>How wide a row's name is drawn, as <see cref="TextRows.Tail"/> asks it.</summary>
+        private static readonly Func<string, float> MicroWidth = text => UiTheme.TextWidth(text, UiType.Micro);
 
         /// <summary>What row <paramref name="row"/>'s readout says now: what a test reads.</summary>
         public string ReadoutOf(int row) => _readouts[row].text;
