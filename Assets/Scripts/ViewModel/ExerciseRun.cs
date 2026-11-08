@@ -151,8 +151,28 @@ namespace BitSorter.ViewModel
         public static string Took(int gates, long? settle, string unit) =>
             Count(gates, "gate") + (settle.HasValue ? ", settling in " + Number(settle.Value) + " " + unit : "");
 
-        /// <summary>The student's best at <paramref name="exercise"/>, in the solved card's words: what <see cref="Took(int, long?, string)"/> says.</summary>
-        public static string Best(Exercise exercise, int gates, long? settle, string unit) => Took(gates, settle, unit);
+        /// <summary>
+        /// The student's best at <paramref name="exercise"/>, in the solved card's words: its gates and how fast it settled
+        /// (<see cref="Took(int, long?, string)"/>) -- but at an exercise that gives only blocks, each counted whole, its gates
+        /// are always 0 and no measure, so only how fast it settled (the 16d sweep: "Your best: 0 gates", beside "It took 4 FA").
+        /// </summary>
+        public static string Best(Exercise exercise, int gates, long? settle, string unit)
+        {
+            if (settle.HasValue && GivesOnlyBlocks(exercise))
+                return "settling in " + Number(settle.Value) + " " + unit;
+            return Took(gates, settle, unit);
+        }
+
+        /// <summary>Whether every part <paramref name="exercise"/> gives is a block: none a gate nor a register.</summary>
+        private static bool GivesOnlyBlocks(Exercise exercise)
+        {
+            if (exercise?.Stock == null || exercise.Stock.Count == 0)
+                return false;
+            foreach (PartCount count in exercise.Stock)
+                if (count.Part == PartCount.Register || Enum.TryParse(count.Part, ignoreCase: true, out Sim.GateKind _))
+                    return false;
+            return true;
+        }
 
         /// <summary>
         /// What <paramref name="grade"/>'s design took at <paramref name="exercise"/>: the blocks it gives, each counted whole,

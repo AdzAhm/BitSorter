@@ -5110,6 +5110,10 @@ exercises, each fixed with a test that failed first.
 - **With GATES on, a drag to move a part is told what a move is told** (`CanvasEditor.Do`): that the gates lay themselves
   out, `GatesArrangeRefusal`. Every drag was told an edit's words, that the code is written from the boxes, though a move
   writes no code; a wire drawn still is.
+- **The solved card's best at an exercise of blocks is how fast it settled** (`ExerciseRun.Best`). At four-at-once and
+  look-ahead every part given is a block, counted whole, so the gates kept as the best are always 0: the card read "It took 4
+  FA, settling in 9 ns. Your best: 0 gates, settling in 9 ns." Where every part given is a block, the best says only how fast
+  it settled.
 
 ---
 
