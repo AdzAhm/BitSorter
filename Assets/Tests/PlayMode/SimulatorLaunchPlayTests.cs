@@ -219,6 +219,51 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(0, Preferences.GetInt(WorkbenchPanel.OpeningKey, 0), "the mark off once it has stayed up");
         }
 
+        /// <summary>
+        /// The launch after one that stopped while opening MY CIRCUIT opens the start page over the reference circuit, never
+        /// over MY CIRCUIT, and remembers the reference as what opens next: the recovery built MY CIRCUIT before its start
+        /// page, so a MY CIRCUIT that stopped the page stopped it again, every launch (save-6). A launch onto the start page is
+        /// marked while it builds MY CIRCUIT under it, as any other open is.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ALaunchThatStoppedWhileOpeningMyCircuit_NeverOpensItAgainByItself()
+        {
+            Project gate = Project.New("my_circuit") with
+            {
+                Modules = new[]
+                {
+                    new Module
+                    {
+                        Name = "my_circuit", NextId = 2,
+                        Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = BitSorter.Sim.GateKind.Not, Inputs = 1 } },
+                    },
+                },
+            };
+
+            // Onto the start page, MY CIRCUIT under it: marked while it opens, as a launch onto anything else is.
+            Plant(store => store.SetProject(WorkbenchSamples.MyCircuitKey, gate));
+            yield return TestScene.LoadSimulator();
+            Assert.IsTrue(Find<WorkbenchPanel>().StartPageShowing, "sanity: nothing open last");
+            Assert.AreEqual(0, Find<WorkbenchPanel>().Sample, "sanity: MY CIRCUIT under it");
+            int opening = Preferences.GetInt(WorkbenchPanel.OpeningKey, 0);
+            Assert.AreNotEqual(0, opening, "marked while it builds MY CIRCUIT under the page");
+            yield return TestScene.Clear();
+
+            // As that launch left it had MY CIRCUIT stopped the page.
+            Plant(store =>
+            {
+                store.SetProject(WorkbenchSamples.MyCircuitKey, gate);
+                store.LastOpen = WorkbenchSamples.MyCircuitKey;
+            });
+            Preferences.SetInt(WorkbenchPanel.OpeningKey, opening);
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.StartPageShowing, "the start page");
+            Assert.AreEqual(1, workbench.Sample, "over the reference circuit, never MY CIRCUIT, which stopped the last launch");
+            Assert.AreEqual(Documents.SampleKey(WorkbenchSamples.Chip[1].Name), Find<ProgressTracker>().Store.LastOpen,
+                "and the reference is what opens next, until MY CIRCUIT is opened on purpose");
+        }
+
         [UnityTest]
         public IEnumerator ASampleOpenLast_IsWhatItOpensOnAgain_AndOneSinceGoneIsTheStartPage()
         {
