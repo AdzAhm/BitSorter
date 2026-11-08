@@ -75,6 +75,23 @@ in which case the console logs *"IndexedDB is not available. Data will not
 persist"* and BitSorter runs fine but forgets. That is a browser policy, not
 something the build can fix.
 
+### Two tabs — handled
+
+Each tab keeps that in-memory filesystem of its own, read from IndexedDB once as
+the page loads and written back whole whenever a file in it changes, so a tab that
+read the save before another tab wrote it would put its older save back over the
+newer one -- and not only when it saved, but whenever it wrote anything, a
+setting included. Every save carries a stamp, and `BitSorterSave.jslib` tells the
+other tabs each one through localStorage once IndexedDB has it: a tab that hears
+of a stamp not its own takes IndexedDB's files into memory at once and writes no
+save until the page is loaded again, which the chip offers (FILE, RELOAD THE
+SAVE). Two tabs saving within the same moment can still lose the later of the
+two changes; nothing short of a lock across tabs closes that.
+
+**Worth testing by hand**: open the build in two tabs, solve an Exercise in one,
+edit MY CIRCUIT in the other -- the chip says another window saved and asks to
+reload -- reload, and check the solve is there.
+
 ### Audio — gone
 
 Browsers refuse to start audio until the page has been interacted with, and

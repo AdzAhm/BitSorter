@@ -815,6 +815,29 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   game; an older file's solves and hints still read, being the same names. `Migrator` and `LegacyCircuit` stayed in the
   Board layer, with their tests, for Part 16b's tidy: `Migrator.NameFrom` names every exercise's and circuit's module and
   is all that is left of them (see "As built in Part 16b: the tidy").
+- **Nothing is written over a save this window did not read** (Ahmad's decisions, 2026-11-03; the Part 16d sweep's
+  browser-1, save-7). Each save carries a `stamp` of its own, made afresh as it is written and first in the file, so the
+  head of the file says it. Before it writes, `ProgressStore` reads the stamp the file has now: one that is not the stamp it
+  read or last wrote -- a second BitSorter has written the file, or made one where there was none -- holds it
+  (`SaveHold.WrittenElsewhere`), and so does a file that was there and could not be read as it opened (`CouldNotRead`),
+  which is no damaged file and is never replaced by the empty store that load left. Held, every save leaves the file as it
+  is; the chip says so in plain words, the question to reload goes up once, and FILE, RELOAD THE SAVE opens BitSorter again
+  on the save as it is. **In a browser each tab's file system is its own**, read from IndexedDB once and written back whole
+  whenever a file in it changes, so the file never shows another tab's write: the page (`BitSorterSave.jslib`) tells every
+  tab each save's stamp through localStorage once the save is in IndexedDB, and a tab that hears of one not its own is held,
+  and takes IndexedDB's files into memory at once, so whatever else it writes -- a setting -- carries the newer save back.
+  RELOAD there loads the page again.
+- **A save from a newer BitSorter** -- its `format` past 5, or a key this one does not know, at any depth -- is said to be
+  one as BitSorter opens, and copied beside itself as it was, `progress.json.newer-version-<date>`, before this one first
+  writes over it; a copy that cannot be made leaves the save unwritten. `JsonUtility` passes over an unknown key without a
+  word, so `SaveFile.NotKept` sets the keys read beside the keys of the same save written back; the 4.x game's are an
+  older save's, never a newer one's.
+- **A document the save keeps that cannot open** -- one the rules refuse, edited by hand or written by a newer BitSorter --
+  threw from the workbench's Start on every launch that opened it (the sweep's save-1). `WorkbenchSession.TryOpen` gives
+  no session and the rules' first error instead; the workbench leaves the document in the save as it is, shows the
+  reference circuit in its place -- a sample, never kept over anything -- says why, and offers to START IT AGAIN, blank.
+  The rules refuse what a saved document can hold that would stop them first: a count no part can have (no nets are built
+  past it), a wire id given twice, and a time past the latest an edit puts one at (`StimulusEdits.MaxTime`).
 
 ---
 

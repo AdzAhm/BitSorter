@@ -186,7 +186,17 @@ stretch that way.
   (`Docs/architecture-5.md`, section 8). Every key added later is read as absent
   by an older file. 4.x had no version field, and its boards, free play and
   blocks are no longer read -- its solves and hints still are, being the same
-  names.
+  names. **Nothing is written over a save this window did not read** (Ahmad's
+  decisions, 2026-11-03): every save carries a fresh `stamp`, first in the file,
+  and a store whose save was written since it read it -- a second BitSorter, or
+  in a browser a second tab, which the page tells through localStorage
+  (`BrowserSave`) -- is held (`SaveHold`), as is one whose file was there and
+  could not be read: the chip says so until FILE, RELOAD THE SAVE reads it again.
+  A save from a newer BitSorter -- its format past 5, or a key this one does not
+  know at any depth (`SaveFile.NotKept`) -- is said to be one as BitSorter opens,
+  and copied beside itself, dated, before the first write. A document the save
+  keeps that cannot open is left as it is, the reference circuit shown in its
+  place (`WorkbenchSession.TryOpen`).
 
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**
