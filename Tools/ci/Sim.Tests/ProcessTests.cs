@@ -506,6 +506,36 @@ endmodule"), 1_000_000_000);
             CollectionAssert.AreEqual(new[] { "0 x" }, Changes(scaled, "b"));
         }
 
+        /// <summary>
+        /// A gate's or an assign's delay past what a run can count never comes due either, as a process's does (the 16d
+        /// sweep, elaborator-7 and engine-4), and the elaborator says so. Counted in ticks it was held at the largest, and
+        /// a change after t = 0 added the time to it unchecked: it came due at once, at a negative time, the run's clock
+        /// went back past 0, and the history showed y's new value from the start.
+        /// </summary>
+        [TestCase("assign #(64'd9223372036854775807) y = a;")]
+        [TestCase("assign #1e19 y = a;")]
+        [TestCase("buf #(64'hFFFFFFFFFFFFFFFF) g (y, a);")]
+        public void AGateOrAssignDelayPastWhatARunCanCount_NeverComesDue_AndIsSaid(string driver)
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    logic a;
+    wire y;
+    " + driver + @"
+    initial begin a = 0; #5 a = 1; #5 a = 0; end
+endmodule");
+
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            Assert.IsTrue(e.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Warning && d.Message.Contains("never comes due")),
+                "the elaborator says so: " + string.Join("\n", e.Diagnostics));
+
+            Simulator sim = Run(e.Design, 20);
+            Assert.AreEqual(20, sim.Now, "the run's clock goes forward only");
+            CollectionAssert.AreEqual(new[] { "0 x" }, Changes(sim, "y"), "y waits past any run");
+            for (int i = 0; i < sim.History.ChangeCount(sim.Design.Find("t.y")); i++)
+                Assert.GreaterOrEqual(sim.History.Change(sim.Design.Find("t.y"), i).Time, 0);
+        }
+
         [Test]
         public void Finish_EndsTheRun_AndSaysWhereFrom()
         {
