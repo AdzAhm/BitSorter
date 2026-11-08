@@ -339,9 +339,10 @@ namespace BitSorter.Board
                                 codes.Add(code.Resize(Math.Max(1, width)));
                             }
                         }
-                    if (states.Count < 2)
-                        throw new NotReadable($"A case on {register} of fewer than two states is no state machine.");
                 }
+                // Of an enum or of labels alike (the 16d sweep: an empty enum read as a machine of no states, whose layout threw).
+                if (states.Count < 2)
+                    throw new NotReadable($"A case on {register} of fewer than two states is no state machine.");
                 int startState = StateOf(start, states, codes) ?? -1;
 
                 // Every other always_comb that is a case on the register only gives outputs: the three-process style.
