@@ -162,6 +162,55 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(1, model.RowSwallowedSoFar(0), "one of them by 20");
         }
 
+        /// <summary>
+        /// Where the waves have room to name a glitch swallowed (Part 16d's sweep): in the window, up to now, in time order and
+        /// never closer than the room asked for. A buffer of delay 7 on a clock of period 4 swallows every pulse -- 2,000 in its
+        /// run -- and the waves named every one in view, a label each, which a fitted window of the run made 2,000 of.
+        /// </summary>
+        [Test]
+        public void RowSwallowedApart_IsTheMarksInTheWindow_UpToNow_AndNoCloserThanAsked()
+        {
+            ProjectImport import = ProjectImporter.Import(new[]
+            {
+                new SourceFile("slow.sv", "module slow (input logic a, output logic y);\n    buf #7 g (y, a);\nendmodule\n"),
+                new SourceFile("slow_tb.sv", "module slow_tb;\n    logic a = 1'b0, y;\n    slow dut (.a(a), .y(y));\n" +
+                    "    always #2 a = ~a;\n    initial #4000 $stop;\nendmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, "sanity: imported");
+            RunSession run = RunSession.Open(import.Project, () => 0.0);
+            run.Finish();
+            WorkbenchModel model = run.Model;
+            int y = Enumerable.Range(0, model.RowCount).Single(r => model.RowSwallowedCount(r) > 0);
+            Assert.AreEqual(2000, model.RowSwallowedCount(y), "sanity: every pulse swallowed");
+
+            var all = new List<double>();
+            var apart = new List<double>();
+            model.Seek(model.End);
+            model.RowSwallowed(y, all, model.End);
+            all.Sort();
+
+            // Every one, asked with no room between: what the waves named before.
+            model.RowSwallowedApart(y, 0, model.End, 0, apart);
+            CollectionAssert.AreEqual(all, apart, "with no room asked, every mark in the window, in time order");
+
+            // A window of the whole run 1,660 pixels wide, a label 140 pixels: twelve where there were 2,000.
+            double room = 140.0 / (1660.0 / model.End);
+            model.RowSwallowedApart(y, 0, model.End, room, apart);
+            TestContext.WriteLine($"{all.Count} glitches swallowed, named at {apart.Count} of them");
+            Assert.LessOrEqual(apart.Count, (int)(model.End / room) + 1, "never closer than the room asked for");
+            Assert.GreaterOrEqual(apart.Count, (int)(model.End / room) - 1, "and wherever there is room");
+            Assert.AreEqual(all[0], apart[0], "the first of them named");
+            for (int i = 1; i < apart.Count; i++)
+                Assert.GreaterOrEqual(apart[i] - apart[i - 1], room, $"labels {i - 1} and {i} apart");
+
+            // Only the window, and only up to now.
+            model.RowSwallowedApart(y, 1000, 2000, 0, apart);
+            Assert.IsTrue(apart.All(t => t >= 1000 && t <= 2000) && apart.Count == all.Count(t => t >= 1000 && t <= 2000), "the window's");
+            model.Seek(500);
+            model.RowSwallowedApart(y, 0, model.End, 0, apart);
+            Assert.IsTrue(apart.Count > 0 && apart.All(t => t <= 500), "and none not yet swallowed");
+        }
+
         [Test]
         public void RowsSetWhileTheRunIsMade_AreMarkedAsRowsSetAfterIt()
         {

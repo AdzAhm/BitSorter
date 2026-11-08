@@ -1066,6 +1066,10 @@ Precise, and no casing under the wires.
     and read as far as the view shows the row (`WorkbenchModel.RowSwallowedIn`, a binary search; the 16d sweep:
     the waves' labels and crosses took every mark since the run began at each redraw) -- timed by
     `GlitchMarkCostTests`, and the view held to it by `WaveFrameRulesTests`, which dotnet reads as source.
+    **Its words are written where they have room** (Part 16d's sweep, `WorkbenchModel.RowSwallowedApart`): a "glitch
+    swallowed" at the first of any closer than its label is wide, found by halving the row's sorted marks, where every
+    one in view had a TextMeshPro label of its own, kept and moved every frame -- 2,000 for a buffer of delay 7 on a
+    clock of period 4 run 4,000 units and fitted, 12 now. Every one is still marked by its cross.
   - **Reduced motion is read once** (`ReducedMotion`): it was read from PlayerPrefs for every part on
     every frame, some five hundred reads, and a frame went from 22 ms to 13 in the editor, where
     PlayerPrefs is the registry, once it was kept.

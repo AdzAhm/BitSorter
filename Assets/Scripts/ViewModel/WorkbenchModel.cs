@@ -804,6 +804,38 @@ namespace BitSorter.ViewModel
                 into.Add(times[i]);
         }
 
+        /// <summary>
+        /// The moments a row's changes were swallowed, up to now, from <paramref name="from"/> to <paramref name="to"/>, in time
+        /// order and each at least <paramref name="apart"/> after the last: where the waves have room to write "glitch
+        /// swallowed" (Part 16d's sweep). They wrote it at every one in view, and a fast clock into a slow gate swallows every
+        /// pulse. Found by halving, so a row that swallowed a million changes costs what one that swallowed a few does.
+        /// </summary>
+        public void RowSwallowedApart(int row, double from, double to, double apart, List<double> into)
+        {
+            if (into == null)
+                throw new ArgumentNullException(nameof(into));
+            into.Clear();
+
+            List<double> times = _swallowedTimes[row];
+            double until = Math.Min(to, Time);
+            for (int i = FirstAtOrAfter(times, from, 0); i < times.Count && times[i] <= until; i = FirstAtOrAfter(times, times[i] + apart, i + 1))
+                into.Add(times[i]);
+        }
+
+        /// <summary>The first of <paramref name="times"/>, from <paramref name="start"/> on, at or after <paramref name="time"/>.</summary>
+        private static int FirstAtOrAfter(List<double> times, double time, int start)
+        {
+            int low = start, high = times.Count;
+            while (low < high)
+            {
+                int mid = (low + high) >> 1;
+                if (times[mid] < time) low = mid + 1;
+                else high = mid;
+            }
+
+            return low;
+        }
+
         /// <summary>How many changes on their way to a row's signal are swallowed so far in the run: what its glitch marks can cost.</summary>
         public int RowSwallowedCount(int row) => _swallowedOf[row].Count;
 

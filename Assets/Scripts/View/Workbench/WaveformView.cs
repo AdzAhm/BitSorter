@@ -73,6 +73,9 @@ namespace BitSorter.View
         private readonly List<WaveSpan> _spans = new List<WaveSpan>(32);
         private readonly List<double> _swallowed = new List<double>(4);
 
+        /// <summary>The room a "glitch swallowed" takes along its row, in pixels: two are never closer.</summary>
+        private const float GlitchLabelWidth = 140f;
+
         // Each row's readout as last written, and the text it was made from: a new string only when the value changes.
         private readonly string[] _readoutOf, _readout;
         // Every unit is two letters at most.
@@ -434,13 +437,14 @@ namespace BitSorter.View
                     PlaceBusLabels(row, middle, palette);
                 WriteLegibly(row, palette);
 
-                _model.RowSwallowedIn(row, View, _swallowed);
-                for (int i = 0; i < _swallowed.Count; i++)
+                // Named where its words have room, the first of any closer: every one is marked by its cross. Every one in view
+                // was named, a label each, kept and moved every frame -- thousands for a fast clock into a slow gate (Part 16d).
+                _model.RowSwallowedApart(row, View.Start, View.End, GlitchLabelWidth / View.PixelsPerUnit, _swallowed);
+                foreach (double at in _swallowed)
                 {
-                    double at = _swallowed[i];
                     if (glitches == _glitchLabels.Count)
                         _glitchLabels.Add(WorkbenchPanel.StageLabel(Rect, "glitch swallowed", Vector2.zero, UiType.Micro, palette.TextDim,
-                            TextAlignmentOptions.MidlineLeft, 140f));
+                            TextAlignmentOptions.MidlineLeft, GlitchLabelWidth));
 
                     TextMeshProUGUI label = _glitchLabels[glitches++];
                     WorkbenchPanel.Show(label, true);
