@@ -156,6 +156,31 @@ namespace BitSorter.Board.Tests
             Assert.IsTrue(found.Any(d => d.IsError && d.Message.Contains("same id")), string.Join("\n", found));
         }
 
+        /// <summary>
+        /// A gate's or a multiplexer's inputs, or a splitter's or joiner's width, saved as a count no such part can have -- a
+        /// hand-edited or hostile save -- is refused by the rules in words, never thrown out of them: the netlist they build
+        /// made a pin for every one of the count, and a count below zero indexed outside the pins, or past int's end
+        /// overflowed (save-2).
+        /// </summary>
+        [TestCase("gate", -1)]
+        [TestCase("mux", -1)]
+        [TestCase("splitter", -1)]
+        [TestCase("joiner", int.MaxValue)]
+        public void ACountSavedThatNoPartCanHave_IsRefusedInWords_NeverThrown(string kind, int count)
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            PartRecord part = file.modules[0].parts[4];
+            part.kind = kind;
+            part.gate = "and";
+            part.inputs = count;
+            part.width = kind == "splitter" || kind == "joiner" ? count : 1;
+            Project read = file.ToProject(new List<string>());
+
+            List<BoardDiagnostic> found = null;
+            Assert.DoesNotThrow(() => found = BoardRules.Check(read));
+            Assert.IsTrue(found.Any(d => d.IsError && d.Part == part.id), string.Join("\n", found));
+        }
+
         [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {
