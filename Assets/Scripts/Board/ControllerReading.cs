@@ -101,7 +101,7 @@ namespace BitSorter.Board
     public sealed class MachineReading
     {
         public MachineReading(string register, string next, IReadOnlyList<string> states, IReadOnlyList<LogicVec> codes, int start,
-            IReadOnlyList<MachineArrow> arrows, IReadOnlyList<IReadOnlyList<ReadValue>> settings)
+            IReadOnlyList<MachineArrow> arrows, IReadOnlyList<IReadOnlyList<ReadValue>> settings, ReadValue? letGo = null)
         {
             Register = register;
             Next = next;
@@ -110,7 +110,16 @@ namespace BitSorter.Board
             Start = start;
             Arrows = arrows;
             Settings = settings;
+            LetGo = letGo;
         }
+
+        /// <summary>
+        /// For a machine whose one process both works out its next state and holds it -- the case in the <c>always_ff</c> itself
+        /// -- its reset at the value that lets it go, <c>rst = 0</c> or <c>rst_n = 1</c>: the arms are what it does then, and
+        /// <see cref="ControllerCheck"/> holds the reset there, as the next state of two processes never sees it. Null for two
+        /// processes, for none, and for a reset that is no lone signal, <c>!</c>ed or not.
+        /// </summary>
+        public ReadValue? LetGo { get; }
 
         /// <summary>The register holding the state: <c>state</c>.</summary>
         public string Register { get; }

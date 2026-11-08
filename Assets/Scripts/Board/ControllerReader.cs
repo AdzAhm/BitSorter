@@ -223,12 +223,14 @@ namespace BitSorter.Board
                     // if (reset) S <= START; else <the rest>, or the rest alone: what the reset gives each register.
                     Statement rest = body;
                     var resets = new Dictionary<string, Expression>(StringComparer.Ordinal);
+                    Expression resetWhen = null;
                     if (body is IfStatement reset && reset.Else != null)
                     {
                         foreach (Statement s in Flatten(reset.Then))
                             if (s is AssignmentStatement a && a.IsNonBlocking && SimpleName(a.Target) is string target)
                                 resets[target] = a.Value;
                         rest = Single(reset.Else);
+                        resetWhen = reset.Condition;
                     }
 
                     // The next value from a variable another process works out as a case on the register: S <= N, beside any
@@ -263,10 +265,29 @@ namespace BitSorter.Board
                             && CaseOn(rest, subject, out List<AssignmentStatement> ownDefaults, nonBlocking: true) is CaseStatement own)
                         {
                             used.Add(register);
-                            return Machine(subject, subject, StartOf(subject, resets), ownDefaults, own, blocking: false, processes, used);
+                            return Machine(subject, subject, StartOf(subject, resets), ownDefaults, own, blocking: false, processes, used,
+                                resetWhen != null ? LetGo(resetWhen) : null);
                         }
                 }
                 return null;
+            }
+
+            /// <summary>
+            /// The value that lets a reset written <paramref name="when"/> go: <c>rst</c> at 0, <c>!rst_n</c> or <c>~rst_n</c> at 1,
+            /// for a signal of one bit; null for any other test, which the check then does not hold.
+            /// </summary>
+            private ReadValue? LetGo(Expression when)
+            {
+                when = Unparenthesized(when);
+                ulong idle = 0;
+                if (when is UnaryExpression not && (not.Operator == "!" || not.Operator == "~"))
+                {
+                    when = Unparenthesized(not.Operand);
+                    idle = 1;
+                }
+                if (!(SimpleName(when) is string signal) || WidthOf(signal) > 1)
+                    return null;
+                return new ReadValue(signal, idle == 1 ? "1" : "0", LogicVec.FromUInt64(idle, 1), 1);
             }
 
             /// <summary>
@@ -282,7 +303,7 @@ namespace BitSorter.Board
                 Unparenthesized(e) is NameExpression n && n.Path.Count == 1 ? n.Name : null;
 
             private MachineReading Machine(string register, string next, Expression start, List<AssignmentStatement> defaults, CaseStatement arms,
-                bool blocking, List<ProceduralBlock> processes, HashSet<ProceduralBlock> used)
+                bool blocking, List<ProceduralBlock> processes, HashSet<ProceduralBlock> used, ReadValue? letGo = null)
             {
                 var states = new List<string>();
                 var codes = new List<LogicVec>();
@@ -369,7 +390,7 @@ namespace BitSorter.Board
                     }
                     settings.Add(set);
                 }
-                return new MachineReading(register, next, states, codes, startState, arrows, settings);
+                return new MachineReading(register, next, states, codes, startState, arrows, settings, letGo);
             }
 
             /// <summary>

@@ -13,6 +13,9 @@ namespace BitSorter.Board
     /// module is drawn as its code builds instead, so a diagram never shows a circuit that is not there.
     /// </summary>
     /// <remarks>
+    /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
+    /// (<see cref="MachineReading.LetGo"/>), and what its arms set held to what each register is about to take, its D.
+    ///
     /// What it does not hold is the words: an arrow's condition and a cell's expression are the code's own, printed as written.
     /// The tests hold every corpus, exercise and sample controller to it (<c>ControllerEngine</c>).
     /// </remarks>
@@ -83,7 +86,21 @@ namespace BitSorter.Board
             {
                 if (register < 0)
                     return "Its state register " + machine.Register + " is not in the instance.";
-                int nextNet = machine.Next != machine.Register ? NetOf(netlist, Signal(machine.Next)) : RegisterInput(netlist, register);
+                // One process works out the next state and holds it (the case in the always_ff): its next state is the
+                // register's D, which the reset is folded into, so the arms are tried with the reset let go -- as two processes'
+                // next state never sees it -- and what an arm sets is what the register it sets is about to take, its D, not
+                // what it holds (the 16d sweep: no such machine with a reset or an output was ever shown).
+                bool oneProcess = machine.Next == machine.Register;
+                int letGo = machine.LetGo is ReadValue go ? Signal(go.Signal) : -1;
+                if (letGo >= 0)
+                    inputs.Remove(letGo);
+                int Set(string name)
+                {
+                    int signal = Signal(name);
+                    return oneProcess && RegisterInput(netlist, signal) is int d && d >= 0 ? d : NetOf(netlist, signal);
+                }
+
+                int nextNet = !oneProcess ? NetOf(netlist, Signal(machine.Next)) : RegisterInput(netlist, register);
                 if (nextNet < 0)
                     return "Its next state " + machine.Next + " is not in the netlist.";
                 var taken = new HashSet<(int, int)>();
@@ -97,6 +114,8 @@ namespace BitSorter.Board
                             Randomise();
                             values[input] = width <= 8 ? LogicVec.FromUInt64((ulong)v, width) : Random(random, width);
                             values[register] = machine.Codes[s].Resize(design.Signals[register].Width);
+                            if (letGo >= 0)
+                                values[letGo] = machine.LetGo.Value.Constant.Value.Resize(design.Signals[letGo].Width);
                             LogicVec[] nets = RtlEvaluator.Evaluate(netlist, values);
                             int to = machine.StateOf(nets[nextNet]);
                             MachineArrow? arrow = null;
@@ -107,10 +126,10 @@ namespace BitSorter.Board
                                 return $"From {machine.States[s]} the circuit goes to {(to >= 0 ? machine.States[to] : nets[nextNet].ToString())}, where the diagram has no arrow.";
                             taken.Add((s, to));
                             foreach (ReadValue set in way.Outputs)
-                                if (Differs(set, netlist, nets, Signal) is string why)
+                                if (Differs(set, nets, Set) is string why)
                                     return $"From {machine.States[s]} to {machine.States[to]}, {why}";
                             foreach (ReadValue set in machine.Settings[s])
-                                if (Differs(set, netlist, nets, Signal) is string why)
+                                if (Differs(set, nets, Set) is string why)
                                     return $"In {machine.States[s]}, {why}";
                         }
                     }
@@ -144,11 +163,12 @@ namespace BitSorter.Board
             return null;
         }
 
-        private static string Differs(ReadValue set, RtlNetlist netlist, LogicVec[] nets, Func<string, int> signal)
+        /// <summary>Why <paramref name="set"/>'s constant is not what the net <paramref name="netOf"/> gives its signal holds; null where it is, or is no constant.</summary>
+        private static string Differs(ReadValue set, LogicVec[] nets, Func<string, int> netOf)
         {
             if (!(set.Constant is LogicVec constant))
                 return null;
-            int net = NetOf(netlist, signal(set.Signal));
+            int net = netOf(set.Signal);
             return net >= 0 && !Same(nets[net], constant) ? $"{set.Signal} is {nets[net]}, where it says {set.Text}." : null;
         }
 

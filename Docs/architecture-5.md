@@ -3939,8 +3939,12 @@ diagram and a control table over a case-as-one-table box, splitting the controll
 - **Held to the engine before it is shown** (`Board/ControllerCheck`; the review of 15h-6e found the check only in the
   tests): the instance's netlist worked out (`RtlEvaluator`) for every state and every value of each input and held
   register of eight bits or fewer, the others random -- the next state is one the diagram has an arrow to, every arrow
-  is taken, and every constant a box, an arrow or a table shows is the circuit's. A reading it does not bear out is not
-  shown. The words are the code's own and not checked. The tests hold every corpus, exercise and sample reading to it
+  is taken, and every constant a box, an arrow or a table shows is the circuit's. A machine of one process -- the
+  `case` in the `always_ff` -- is tried with its reset let go (`MachineReading.LetGo`: `rst` at 0, `!rst_n` at 1), as
+  two processes' next state never sees the reset, and what an arm sets is held to what its register is about to take,
+  its D, not what it holds (the 16d sweep: no such machine with a reset or an output had ever passed); a memory's words
+  are given values as every other signal the logic reads is. A reading it does not bear out is not shown. The words are
+  the code's own and not checked. The tests hold every corpus, exercise and sample reading to it
   (`ControllerEngine`). Read: the three processors' controllers (11 states and the ALU decoder; two tables each), the
   traffic light (its counter left to the drawing), the multiplier's Mealy control, the sequence detector and the
   samples' traffic lights -- and, as one-column tables that open on their drawings, "Is it prime?" and the seven
