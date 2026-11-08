@@ -110,6 +110,29 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// With GATES on, a drag that moves a part of the drawing of code is told what a move is told -- the gates lay
+        /// themselves out -- and a wire drawn what an edit is (the 16d sweep: the drag was told its code is written from the
+        /// boxes, though a move writes no code).
+        /// </summary>
+        [Test]
+        public void WithGatesOn_ADragToMove_IsToldWhatAMoveIs_AndAWireWhatAnEditIs()
+        {
+            WorkbenchSession session = InsideTheWrittenAdder();
+            session.DrawCode(true);
+            session.DrawGates(true);
+            Assert.IsTrue(session.ShowsGatesOfCode, "sanity: GATES on");
+            var canvas = new CanvasEditor(session);
+            Part gate = session.DrawnModule.Parts.First(p => p is GatePart);
+            var target = new CanvasTarget(CanvasTargetKind.Part, part: gate.Id);
+            Board.Point at = session.DrawnModule.Layout.PlacementOf(gate.Id).Position;
+
+            EditResult? moved = canvas.Do(new CanvasCommand(CanvasGesture.BeginMove, from: at, target: target));
+            Assert.AreEqual(WorkbenchSession.GatesArrangeRefusal, moved?.Refusal, "a move");
+            EditResult? wired = canvas.Do(new CanvasCommand(CanvasGesture.BeginWire, from: at, target: target));
+            Assert.AreEqual(WorkbenchSession.GatesRefusal, wired?.Refusal, "a wire");
+        }
+
+        /// <summary>
         /// An edit that changes the design's signals, undone and done again while the drawing is up: every wire still reads
         /// this run's signals by name, never another design's numbers (the review of #108: redo threw).
         /// </summary>
