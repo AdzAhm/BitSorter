@@ -219,6 +219,31 @@ namespace BitSorter.ViewModel.Tests
                 Refused(join, "width", n, "takes 2 to 64");
             }
 
+        /// A count or a width a part's pins are made by, typed out of its range -- a gate's or a mux's inputs, a splitter's or a
+        /// joiner's width -- is refused in the document's words like any other (the 16d sweep): the rules said why, and then
+        /// made the module's netlist anyway, which threw for a count below 0 and made a pin array of a huge one.
+        /// </summary>
+        [Test]
+        public void ACountOrAWidthAPartsPinsAreMadeBy_OutOfRange_IsRefusedInTheDocumentsWords()
+        {
+            var b = new Bench();
+            CatalogEntry Entry(string key) => PartsCatalog.Find(b.Session.Project, b.Session.Module, key);
+            int mux = Must(b.Session.Place(Entry("mux"), new Placement(9, -9)));
+            int split = Must(b.Session.Place(Entry("splitter"), new Placement(12, -9)));
+            int join = Must(b.Session.Place(Entry("joiner"), new Placement(15, -9)));
+            Project before = b.Session.Project;
+
+            foreach ((int part, string field, string typed, string words) in new[]
+            {
+                (b.And, "inputs", "-1", "2 to 8"), (b.And, "inputs", "-2", "2 to 8"), (mux, "inputs", "-3", "2, 4 or 8"),
+                (split, "width", "-2", "2 to 64"), (join, "width", "500000000", "2 to 64"),
+            })
+            {
+                EditResult refused = default;
+                Assert.DoesNotThrow(() => refused = b.Apply(b.Of(part), (field, typed)), field + " = " + typed);
+                Assert.IsFalse(refused.Done, field + " = " + typed);
+                StringAssert.Contains(words, refused.Refusal, "in the document's own words");
+            }
             Assert.AreSame(before, b.Session.Project, "and nothing changed");
         }
 
