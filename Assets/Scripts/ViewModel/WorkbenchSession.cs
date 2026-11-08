@@ -78,6 +78,43 @@ namespace BitSorter.ViewModel
             Run = RunSession.Open(project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
         }
 
+        /// <summary>
+        /// A session of <paramref name="project"/>, or null and <paramref name="why"/> there is none (save-1): a document read
+        /// from the save that the rules refuse -- edited by hand, or written by a newer BitSorter -- or one that does not
+        /// elaborate. The workbench opens only a document that compiles, and the constructor throws for any other, from the
+        /// workbench's Start on every launch that opened it; this says why instead, in the rules' own words where they have any.
+        /// </summary>
+        public static WorkbenchSession TryOpen(Project project, Func<double> nowMilliseconds, out string why)
+        {
+            why = null;
+            try
+            {
+                return new WorkbenchSession(project, nowMilliseconds);
+            }
+            catch (Exception e) when (!(e is OutOfMemoryException))
+            {
+                why = FirstError(project) ?? e.Message;
+                return null;
+            }
+        }
+
+        /// <summary>The first error the rules find in <paramref name="project"/>, in their words; null for none.</summary>
+        private static string FirstError(Project project)
+        {
+            try
+            {
+                foreach (BoardDiagnostic found in BoardRules.Check(project))
+                    if (found.IsError)
+                        return found.Message;
+            }
+            catch (Exception e) when (!(e is OutOfMemoryException))
+            {
+                // The rules threw too: the open's own words say what it could.
+            }
+
+            return null;
+        }
+
         /// <summary>The document, and its undo; every change goes through it, and through this session's own edits for a replay.</summary>
         public BoardEditor Editor { get; }
 

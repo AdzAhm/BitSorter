@@ -22,6 +22,33 @@ namespace BitSorter.ViewModel.Tests
             return () => { double read = now; now += step; return read; };
         }
 
+        /// <summary>
+        /// A document the rules refuse -- a save edited by hand, or a newer BitSorter's -- is no session, and says why in the
+        /// rules' own words; a run saved to end at long's end, which the rules let through and the slicer threw for, is refused
+        /// as any such document is (save-1, save-8). A document that compiles opens as ever.
+        /// </summary>
+        [Test]
+        public void ADocumentTheRulesRefuse_IsNoSession_AndSaysWhyInTheirWords()
+        {
+            Project gate = Project.New("broken") with
+            {
+                Modules = new[]
+                {
+                    new Module { Name = "broken", NextId = 2, Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = GateKind.And, Inputs = 1 } } },
+                },
+            };
+            Assert.IsNull(WorkbenchSession.TryOpen(gate, () => 0, out string why));
+            StringAssert.Contains("2 to 8", why);
+
+            Project forever = ReferenceCircuit.Document();
+            forever = forever with { Stimulus = forever.Stimulus with { End = long.MaxValue } };
+            Assert.IsNull(WorkbenchSession.TryOpen(forever, () => 0, out why));
+            StringAssert.Contains(StimulusEdits.MaxTime.ToString(System.Globalization.CultureInfo.InvariantCulture), why);
+
+            Assert.IsNotNull(WorkbenchSession.TryOpen(ReferenceCircuit.Document(), () => 0, out why));
+            Assert.IsNull(why);
+        }
+
         /// <summary>The reference circuit, made a few events a slice so a replay takes many frames.</summary>
         private static WorkbenchSession Reference()
         {

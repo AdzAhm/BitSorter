@@ -1703,7 +1703,7 @@ namespace BitSorter.View
         /// </summary>
         private void OpenRun()
         {
-            _session = new WorkbenchSession(_sample == 0 ? MyCircuit() : SampleOnItsProgram(_sample), () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0);
+            _session = OpenSession();
             // A circuit opens as it was left, locked or not (Part 15h-4d); a sample and an exercise never are.
             _session.Locked = _sample == 0 && _exercise == null && Store() is ProgressStore locks && locks.IsLocked(_documentKey);
             // In a browser GATES opens no more than a browser draws in good time; the desktop opens them all (Part 15h-6).
@@ -1908,6 +1908,7 @@ namespace BitSorter.View
             FitView();
             Restart();
             RememberWhatIsOpen(OpenKey());
+            SayItCouldNotOpen();   // a circuit that could not be opened, the reference in its place (save-1)
         }
 
         /// <summary>Every popup of the workbench shut: what showing another circuit, or the start page, does first.</summary>

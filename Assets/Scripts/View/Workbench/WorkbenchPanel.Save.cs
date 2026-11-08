@@ -1,3 +1,6 @@
+using System;
+using BitSorter.Board;
+using BitSorter.ViewModel;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -75,6 +78,99 @@ namespace BitSorter.View
             }
 
             SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
+        }
+
+        // -----------------------------------------------------------------
+        // A circuit the save keeps that cannot be opened (save-1)
+        // -----------------------------------------------------------------
+
+        /// <summary>The place on the SAMPLE chip of the reference circuit, which opens in place of one that cannot.</summary>
+        private const int ReferenceSample = 1;
+
+        /// <summary>What the circuit asked for last and not opened is called, and why it was not; null once it is said.</summary>
+        private string _couldNotOpen, _couldNotOpenWhy;
+
+        /// <summary>The key of the circuit not opened -- an exercise's, its id -- which START IT AGAIN starts again blank.</summary>
+        private string _couldNotOpenKey;
+
+        /// <summary>
+        /// The session of what is to be shown: a sample, or the circuit open. One the save keeps that cannot be opened -- one the
+        /// rules refuse, edited by hand or written by a newer BitSorter -- threw from the workbench's Start, which then never
+        /// built, on every launch that opened it, and from FILE, OPEN half way through the switch (save-1, save-4). It is left in
+        /// the save as it is, and never kept over, for the reference circuit is shown in its place -- MY CIRCUIT where the SAMPLE
+        /// chip goes back to -- and why is said once what is shown is built (<see cref="SayItCouldNotOpen"/>).
+        /// </summary>
+        private WorkbenchSession OpenSession()
+        {
+            Func<double> clock = () => UnityEngine.Time.realtimeSinceStartupAsDouble * 1000.0;
+            if (_sample != 0)
+                return new WorkbenchSession(SampleOnItsProgram(_sample), clock);
+
+            WorkbenchSession opened = WorkbenchSession.TryOpen(MyCircuit(), clock, out string why);
+            if (opened != null)
+                return opened;
+
+            _couldNotOpen = _exercise != null ? _exercise.Title
+                : _documentKey == WorkbenchSamples.MyCircuitKey ? "MY CIRCUIT" : Documents.NameOf(_documentKey);
+            _couldNotOpenWhy = why;
+            _couldNotOpenKey = _exercise != null ? _exercise.Id : _documentKey;
+            Debug.LogWarning($"BitSorter: {_couldNotOpen} could not be opened -- {why}");
+
+            LeaveTheExercise();
+            _documentKey = WorkbenchSamples.MyCircuitKey;
+            _sample = ReferenceSample;
+            return new WorkbenchSession(SampleOnItsProgram(_sample), clock);
+        }
+
+        /// <summary>What is said of a circuit called <paramref name="name"/> that could not be opened, <paramref name="why"/>.</summary>
+        public static string CouldNotOpen(string name, string why) =>
+            name + " could not be opened: " + why + " It is kept in the save as it was, and the reference circuit is shown instead.";
+
+        /// <summary>What START IT AGAIN asks first, of a circuit called <paramref name="name"/>.</summary>
+        public static string StartAgainQuestion(string name) =>
+            "Start " + name + " again, blank? What the save keeps of it now goes for good.";
+
+        /// <summary>The answer that starts it again.</summary>
+        public const string StartAgainYes = "START IT AGAIN";
+
+        /// <summary>A circuit that could not be opened said, and the question to start it again asked, once what is shown is built.</summary>
+        private void SayItCouldNotOpen()
+        {
+            if (_couldNotOpen == null)
+                return;
+            string name = _couldNotOpen;
+            _couldNotOpen = null;
+            Notice(CouldNotOpen(name, _couldNotOpenWhy));
+            _askedStartAgain = _couldNotOpenKey;
+            _ask?.Ask(UnderTheFileChip(), StartAgainQuestion(name), StartAgainYes, StartAgain);
+        }
+
+        /// <summary>The circuit START IT AGAIN was asked of: the answer starts that one again or nothing.</summary>
+        private string _askedStartAgain;
+
+        /// <summary>
+        /// START IT AGAIN: the circuit that could not be opened made blank in the save, and opened -- MY CIRCUIT as it starts, a
+        /// circuit of the student's under its own name, an exercise as it starts.
+        /// </summary>
+        public void StartAgain()
+        {
+            string key = _askedStartAgain;
+            _askedStartAgain = null;
+            ProgressStore store = Store();
+            if (key == null || store == null)
+                return;
+
+            if (Documents.IsDocument(key))
+            {
+                store.SetProject(key, key == WorkbenchSamples.MyCircuitKey ? WorkbenchSamples.Blank() : Project.New(Documents.ModuleNameFor(Documents.NameOf(key))));
+                store.Save();
+                OpenDocument(key);
+                return;
+            }
+
+            store.RemoveProject(key);   // an exercise's answer: the exercise as it starts
+            store.Save();
+            OpenExercise(key);
         }
 
         /// <summary>What the save itself has to say as BitSorter opens: held, or a newer BitSorter's; null for nothing.</summary>

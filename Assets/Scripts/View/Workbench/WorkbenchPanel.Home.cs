@@ -154,6 +154,13 @@ namespace BitSorter.View
                 return;
 
             OpenOnLaunch();
+            if (_couldNotOpen != null)
+            {
+                // What was open last could not be opened: the start page, over the reference circuit, saying why (save-1).
+                ShowHome();
+                SayItCouldNotOpen();
+            }
+
             string says = WhatTheSaveSays();
             if (says != null)
                 Notice(_notice != null ? _notice + " " + says : says);
