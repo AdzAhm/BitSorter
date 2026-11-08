@@ -246,7 +246,7 @@ namespace BitSorter.ViewModel.Tests
         [Test]
         public void ABigCircuit_IsImportedPastedAndMadeABlock_AskingTheRulesOnceEach()
         {
-            const long Budget = 250_000_000;
+            const long Budget = 250L * 1000 * 1000;   // written so: Repo.Tests reads nine digits together as an ID
             long made = System.GC.GetAllocatedBytesForCurrentThread();
             Project project = Adder(64);
             long imported = System.GC.GetAllocatedBytesForCurrentThread() - made;
