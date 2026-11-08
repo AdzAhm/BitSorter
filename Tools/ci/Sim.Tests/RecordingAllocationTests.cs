@@ -36,6 +36,13 @@ namespace BitSorter.Sim.Tests
 
             // The multicycle processor's demonstration, every change and transition recorded: it prints only at its end.
             Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.Read("processor/mcpu.sv", sources), "mcpu_demo_tb").Design;
+
+            // The same stretches run once first, so the runtime has compiled what they run before any is measured: a method
+            // the JIT compiled again part-way through a stretch -- on-stack replacement, guided by what tiered PGO had seen --
+            // was counted against the run, a few hundred bytes to a few KB in one full suite run in two, and none with
+            // DOTNET_TieredPGO=0 or DOTNET_JitObjectStackAllocation=0 (the 16d fixes).
+            new Simulator(design, null, new SimOptions { Files = files, RecordChanges = true, RecordTransitions = true }).RunTo(1300);
+
             var sim = new Simulator(design, null, new SimOptions { Files = files, RecordChanges = true, RecordTransitions = true });
             sim.RunTo(100);
 
