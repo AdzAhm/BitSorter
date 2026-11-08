@@ -210,13 +210,10 @@ namespace BitSorter.View
             }
 
             _comparing = false;
-            foreach (SourceFile file in files)
-                if (file.Path.EndsWith(".vcd", System.StringComparison.OrdinalIgnoreCase) && file.Text != null)
-                {
-                    Compare(file.Text, file.Path);
-                    return;
-                }
-            Notice("pick the " + ProjectExport.ModelSimDump + " ModelSim wrote to compare with");
+            if (DumpPick.TryChoose(files, out SourceFile dump, out string why))
+                Compare(dump.Text, dump.Path);
+            else
+                Notice(why);
         }
 
         // -----------------------------------------------------------------
