@@ -42,6 +42,9 @@ namespace BitSorter.View
                 // A warning rather than an error: the simulator is fine, the record is not.
                 Debug.LogWarning($"BitSorter: could not read progress -- {_store.LastError}");
             }
+
+            if (_store.FromANewerVersion != null)
+                Debug.LogWarning($"BitSorter: the save is a newer BitSorter's -- {_store.FromANewerVersion}; it is copied beside itself before it is first written");
         }
 
         /// <summary>

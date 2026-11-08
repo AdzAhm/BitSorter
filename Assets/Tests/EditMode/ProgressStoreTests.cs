@@ -47,6 +47,21 @@ namespace BitSorter.EditMode.Tests
                 if (File.Exists(path))
                     File.Delete(path);
             }
+
+            foreach (string copy in NewerCopies())
+                File.Delete(copy);
+        }
+
+        /// <summary>The copies kept beside the save of one a newer BitSorter wrote.</summary>
+        private string[] NewerCopies() =>
+            Directory.GetFiles(Path.GetDirectoryName(_path), Path.GetFileName(_path) + ".newer-version-*");
+
+        /// <summary>The save read by a store of its own, as another window, or the next session, reads it.</summary>
+        private ProgressStore Reread()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            return store;
         }
 
         // -----------------------------------------------------------------
@@ -255,6 +270,7 @@ namespace BitSorter.EditMode.Tests
             var older = new ProgressStore(_path);
             older.Load();
             Assert.IsNull(older.LastError, "a file the 4.x game wrote to is not an error");
+            Assert.IsNull(older.FromANewerVersion, "nor a newer BitSorter's: its keys are an older one's");
             Assert.IsTrue(older.IsComplete("half-adder"), "its solves are the exercises' names, and still read");
             Assert.IsTrue(older.HasSeenHint(Hint.Collision), "and its hints");
             Assert.IsTrue(older.HasProject("doc/adder"), "a 5.0 circuit beside the 4.x keys is kept");
@@ -388,6 +404,108 @@ namespace BitSorter.EditMode.Tests
             var reread = new ProgressStore(_path);
             reread.Load();
             Assert.IsTrue(reread.IsComplete("half-adder"), "the other window wrote its older save over the solve");
+        }
+
+        // -----------------------------------------------------------------
+        // Two windows, and a newer BitSorter's save (Ahmad's decisions, 2026-11-03)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// A window held says why, and writes nothing however often it saves, while the window that wrote goes on writing; one
+        /// that began on no save while another made it is held as well, and a window that read the save after it was written
+        /// writes (browser-1).
+        /// </summary>
+        [Test]
+        public void AWindowHeld_SaysWhy_WhileTheOneThatWroteGoesOnWriting()
+        {
+            var one = new ProgressStore(_path);
+            one.Load();
+            var other = new ProgressStore(_path);
+            other.Load();
+
+            one.MarkComplete("half-adder");
+            Assert.AreEqual(SaveHold.None, one.Held);
+
+            other.MarkComplete("four-corners");
+            Assert.AreEqual(SaveHold.WrittenElsewhere, other.Held, "it began on no save, while the other made one");
+            StringAssert.Contains("another window", other.LastError);
+            other.Save();
+            Assert.AreEqual(SaveHold.WrittenElsewhere, other.Held, "and stays held until it reads the save again");
+
+            one.MarkComplete("carry-the-one");
+            Assert.IsNull(one.LastError, "the window that wrote last goes on writing");
+
+            ProgressStore reread = Reread();
+            Assert.IsTrue(reread.IsComplete("half-adder") && reread.IsComplete("carry-the-one"));
+            Assert.IsFalse(reread.IsComplete("four-corners"), "the held window's solve is its own until it reloads");
+            reread.MarkHintSeen(Hint.Stalled);
+            Assert.IsNull(reread.LastError, "a window that read the save after it was written writes");
+        }
+
+        /// <summary>A save from before stamps is written by the window that read it, and stamped from then on.</summary>
+        [Test]
+        public void ASaveFromBeforeStamps_IsWrittenByTheWindowThatReadIt()
+        {
+            File.WriteAllText(_path, "{\"completed\":[\"route-the-bit\"],\"format\":5}");
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            store.MarkComplete("half-adder");
+
+            Assert.IsNull(store.LastError);
+            Assert.AreEqual(SaveHold.None, store.Held);
+            StringAssert.Contains("\"stamp\"", File.ReadAllText(_path), "stamped from now on");
+            Assert.IsTrue(Reread().IsComplete("route-the-bit"));
+        }
+
+        /// <summary>
+        /// A save a newer BitSorter wrote -- its format past this one's -- is said to be so as it is read, and copied beside
+        /// itself as it was, dated, before this BitSorter first writes over it: once, and only then (Ahmad's decision,
+        /// 2026-11-03).
+        /// </summary>
+        [Test]
+        public void ASaveFromANewerBitSorter_IsSaidSo_AndCopiedAsItWasBeforeTheFirstWrite()
+        {
+            const string Newer = "{\"format\":6,\"completed\":[\"route-the-bit\"],\"glow\":true}";
+            File.WriteAllText(_path, Newer);
+            var store = new ProgressStore(_path);
+            store.Load();
+
+            StringAssert.Contains("format is 6", store.FromANewerVersion);
+            Assert.IsNull(store.NewerCopy, "nothing copied while nothing is written");
+            CollectionAssert.IsEmpty(NewerCopies());
+            Assert.IsTrue(store.IsComplete("route-the-bit"), "what this BitSorter knows of it is read");
+
+            store.MarkHintSeen(Hint.Stalled);
+            Assert.IsNotNull(store.NewerCopy, "copied before the first write");
+            StringAssert.StartsWith(_path + ".newer-version-", store.NewerCopy, "beside it, dated");
+            Assert.AreEqual(Newer, File.ReadAllText(store.NewerCopy), "as it was");
+            store.MarkHintSeen(Hint.Collision);
+            Assert.AreEqual(1, NewerCopies().Length, "once");
+
+            Assert.IsNull(Reread().FromANewerVersion, "the save written is this BitSorter's own");
+        }
+
+        /// <summary>
+        /// A key this BitSorter does not know, as deep in the save as a project's own fields, makes it a newer one's: the
+        /// reader passes over it without a word, and the next save would drop it.
+        /// </summary>
+        [Test]
+        public void AKeyThisBitSorterDoesNotKnow_AtAnyDepth_MakesTheSaveANewerOnes()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.SetProject("doc/adder", BitSorter.Board.Project.New("adder"));
+            store.SetLocked("doc/adder", true);
+            store.LastOpen = "doc/adder";
+            store.Save();
+
+            string written = File.ReadAllText(_path);
+            Assert.IsNull(Reread().FromANewerVersion, "a save this BitSorter wrote is its own");
+            StringAssert.Contains("\"timeUnit\"", written, "sanity: a project's field to set a newer one beside");
+
+            File.WriteAllText(_path, written.Replace("\"timeUnit\"", "\"glow\": true, \"timeUnit\""));
+            StringAssert.Contains("glow", Reread().FromANewerVersion);
         }
 
         // -----------------------------------------------------------------

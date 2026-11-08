@@ -232,6 +232,19 @@ namespace BitSorter.View
         /// <summary>The stamp of the save as this store last read or wrote it; null for none (<see cref="ProgressFile.stamp"/>).</summary>
         private string _stamp;
 
+        /// <summary>
+        /// Why the save read is a newer BitSorter's, in words -- its format past this one's, or a key this one does not know --
+        /// or null (Ahmad's decision, 2026-11-03). What this one does not know it drops as it writes, so the file as it was is
+        /// copied beside it first (<see cref="NewerCopy"/>).
+        /// </summary>
+        public string FromANewerVersion { get; private set; }
+
+        /// <summary>Where the save from a newer BitSorter was copied before this one first wrote over it; null until then.</summary>
+        public string NewerCopy { get; private set; }
+
+        /// <summary>The newer BitSorter's save read, while it is still to be copied aside before the first write.</summary>
+        private string _newerFrom;
+
         public bool IsComplete(string levelName) =>
             !string.IsNullOrEmpty(levelName) && _completed.Contains(levelName);
 
@@ -303,6 +316,9 @@ namespace BitSorter.View
             Held = SaveHold.None;
             _keepAsideFrom = null;
             _stamp = null;
+            FromANewerVersion = null;
+            NewerCopy = null;
+            _newerFrom = null;
             _completed.Clear();
             _hintsSeen.Clear();
             _milestones.Clear();
@@ -378,6 +394,11 @@ namespace BitSorter.View
                 }
 
                 LoadedFormat = file.format;
+
+                // A newer BitSorter's -- its format past this one's, or a key this one would drop as it writes -- is said as
+                // it opens, and copied aside before this one first writes over it (Ahmad's decision, 2026-11-03).
+                FromANewerVersion = BitSorter.ViewModel.SaveFile.Newer(file.format, ProjectRecord.Format, json, JsonUtility.ToJson(file));
+                _newerFrom = FromANewerVersion != null ? source : null;
 
                 // Absent in every 4.x file, so null; guarded like every key before it.
                 if (file.projects != null)
@@ -525,6 +546,20 @@ namespace BitSorter.View
 
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     Directory.CreateDirectory(directory);
+
+                // A newer BitSorter's save, beside it as it was, dated, before this one first writes over it; one that cannot
+                // be copied is not written over (Ahmad's decision, 2026-11-03).
+                if (_newerFrom != null)
+                {
+                    if (File.Exists(_newerFrom))
+                    {
+                        string copy = BitSorter.ViewModel.SaveFile.NewerCopyOf(_path, DateTime.Now);
+                        if (!File.Exists(copy))
+                            File.Copy(_newerFrom, copy);
+                        NewerCopy = copy;
+                    }
+                    _newerFrom = null;
+                }
 
                 File.WriteAllText(TempPath, JsonUtility.ToJson(file, true));
 
