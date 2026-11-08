@@ -181,6 +181,33 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(typed, session.Code.Text);
         }
 
+        /// <summary>
+        /// An undo with the drawing up leaves no code pending (the review of Part 16d's sweep): the editor's text, kept while the
+        /// drawing is shown, is a step behind the document once the document moves under it, and the editor sets it aside as
+        /// it next shows. It is not code typed and not applied, and applying it -- as leaving a circuit, CHECK, EXPORT and the
+        /// lock do -- put the undone edit back.
+        /// </summary>
+        [Test]
+        public void AnUndoWithTheDrawingUp_LeavesNoCodePending_AndApplyingPutsNothingBack()
+        {
+            WorkbenchSession session = InsideTheWrittenAdder();
+            CodeDocument code = session.Code;
+            string original = code.Text, edited = original + "// an edit that applied\n";
+            code.Type(edited, 100);
+            Assert.IsTrue(code.Apply().Done, "sanity: the edit applied");
+            session.DrawCode(true);
+            Assert.IsTrue(session.Undo());
+            Assert.AreEqual(original, session.Project.Find(code.Module).Source, "sanity: undone");
+
+            Assert.IsNull(session.PendingCode, "nothing typed, so nothing pending");
+            Assert.IsFalse(code.Pending);
+            Assert.IsTrue(code.Apply().Done);
+            Assert.AreEqual(original, session.Project.Find(code.Module).Source, "applying the editor's text leaves the undo standing");
+
+            session.DrawCode(false);
+            Assert.AreEqual(original, session.Code.Text, "and the editor follows the document as it shows");
+        }
+
         private const string HalfAdderCode =
             "module ha (input logic a, b, output logic s, c);\n" +
             "    assign s = a ^ b;\n" +

@@ -78,6 +78,18 @@ namespace BitSorter.ViewModel.Tests
             WorkbenchSession session = Written(Chooser, "pick");
             session.DrawCode(false);
             Assert.IsNotNull(session.Code, "sanity: its code");
+
+        /// An edit of the drawing after a look at its code leaves no code pending (the review of Part 16d's sweep): the
+        /// editor's text, kept while the drawing is up, is the code before the edit, and the editor sets it aside as it next
+        /// shows. Applying it -- as leaving a circuit, CHECK, EXPORT and the lock do -- wrote the old code back over the edit.
+        /// </summary>
+        [Test]
+        public void AnEditOfTheDrawing_AfterALookAtItsCode_LeavesNoCodePending()
+        {
+            WorkbenchSession session = Written(Chooser, "pick");
+            session.DrawCode(false);
+            CodeDocument code = session.Code;   // CODE looked at: its text is kept while the drawing is up
+            Assert.IsNotNull(code, "sanity: CODE shows its text");
             session.DrawCode(true);
             Assert.IsNull(session.PendingCode, "sanity: nothing typed");
 
@@ -120,6 +132,17 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreSame(before, session.Project, "the parent untouched");
             Assert.AreEqual(Chooser, session.Project.Find("pick").Source, "and the code too");
             Assert.IsFalse(session.AsksToRewrite);
+        }
+
+            session.Remove(new[] { Mux(session) });
+            Assert.IsTrue(session.AnswerRewrite(true).Done);
+            string written = Code(session);
+            StringAssert.DoesNotContain("?", written, "sanity: the mux taken out of the code");
+
+            Assert.IsNull(session.PendingCode, "the drawing's edit is the document's, and nothing typed is left over it");
+            Assert.IsFalse(code.Pending);
+            Assert.IsTrue(code.Apply().Done);
+            Assert.AreEqual(written, Code(session), "applying the editor's text puts nothing back");
         }
 
         [Test]
