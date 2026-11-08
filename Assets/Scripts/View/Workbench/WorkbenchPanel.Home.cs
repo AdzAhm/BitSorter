@@ -145,13 +145,26 @@ namespace BitSorter.View
         // OnDestroy (WorkbenchPanel.cs) takes the mark off too: a scene unloaded -- a look changed, a test done -- is no stop.
 
         /// <summary>
-        /// Opens the workbench on what was open last (<see cref="Documents.LaunchKey"/>): that circuit, that sample, or with
-        /// nothing, the start page over MY CIRCUIT, which Escape leaves it for.
+        /// Opens the workbench on what was open last (<see cref="OpenOnLaunch"/>), and says what the save itself has to say: a
+        /// newer BitSorter's (Ahmad's decision, 2026-11-03).
         /// </summary>
         private void Launch()
         {
             if (_canvas == null)
                 return;
+
+            OpenOnLaunch();
+            string says = WhatTheSaveSays();
+            if (says != null)
+                Notice(_notice != null ? _notice + " " + says : says);
+        }
+
+        /// <summary>
+        /// Opens the workbench on what was open last (<see cref="Documents.LaunchKey"/>): that circuit, that sample, or with
+        /// nothing, the start page over MY CIRCUIT, which Escape leaves it for.
+        /// </summary>
+        private void OpenOnLaunch()
+        {
 
             ProgressStore store = Store();
             string key = Documents.LaunchKey(store != null ? store.LastOpen : null, DocumentKeys());

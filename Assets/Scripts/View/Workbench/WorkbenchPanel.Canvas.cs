@@ -176,8 +176,8 @@ namespace BitSorter.View
                 store.Save();
 
                 // Said until a keep succeeds, over whatever is opened next: it failed in silence for a whole session (the
-                // 16c pilot), and a notice alone went with the next circuit opened.
-                _saveTrouble = store.LastError != null ? CouldNotSave + store.LastError : null;
+                // 16c pilot), and a notice alone went with the next circuit opened. A save held says why itself.
+                _saveTrouble = store.LastError != null && store.Held == SaveHold.None ? CouldNotSave + store.LastError : null;
             }
 
             _keptProject = _session.Project;

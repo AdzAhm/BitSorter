@@ -78,6 +78,13 @@ namespace BitSorter.EditMode.Tests
 
             lines.Add(new Line("CreditsPanel.HelpText", CreditsPanel.HelpText));
 
+            // What the workbench says of the save itself (Ahmad's decisions, 2026-11-03).
+            lines.Add(new Line("WorkbenchPanel.SavedElsewhere", WorkbenchPanel.SavedElsewhere));
+            lines.Add(new Line("WorkbenchPanel.SaveNotRead", WorkbenchPanel.SaveNotRead));
+            lines.Add(new Line("WorkbenchPanel.SaveFromANewerBitSorter", WorkbenchPanel.SaveFromANewerBitSorter));
+            lines.Add(new Line("WorkbenchPanel.ReloadQuestion", WorkbenchPanel.ReloadQuestion));
+            lines.Add(new Line("WorkbenchPanel.ReadAgainQuestion", WorkbenchPanel.ReadAgainQuestion));
+
             // The credits. Gaps are the roll's own spacing and carry no text on purpose.
             foreach (Credits.Line line in Credits.Roll(Credits.Tagline, "v0.0.0"))
             {

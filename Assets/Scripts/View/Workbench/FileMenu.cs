@@ -7,6 +7,12 @@ namespace BitSorter.View
     /// <summary>What the FILE menu does (Part 13).</summary>
     public enum FileAction
     {
+        /// <summary>
+        /// The save read again, while it is held: another window wrote it since this one read it, or it could not be read
+        /// (Ahmad's decision, 2026-11-03).
+        /// </summary>
+        ReloadSave,
+
         /// <summary>A new, blank circuit, named (Part 15a).</summary>
         NewCircuit,
 
@@ -61,11 +67,12 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _rename, _delete, _backToImported, _export, _submission, _compare, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _reload, _rename, _delete, _backToImported, _export, _submission, _compare, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
             FileMenu menu = Make<FileMenu>(shell, owner, RootName, palette, ItemWidth);
+            menu._reload = menu.Item(ActionItem + FileAction.ReloadSave, WorkbenchPanel.ReloadYes, () => onChoose?.Invoke(FileAction.ReloadSave));
             menu.Item(ActionItem + FileAction.NewCircuit, "NEW CIRCUIT", () => onChoose?.Invoke(FileAction.NewCircuit));
             menu.Item(ActionItem + FileAction.OpenCircuit, "OPEN A CIRCUIT", () => onChoose?.Invoke(FileAction.OpenCircuit));
             menu._rename = menu.Item(ActionItem + FileAction.RenameCircuit, "RENAME THIS CIRCUIT", () => onChoose?.Invoke(FileAction.RenameCircuit));
@@ -93,6 +100,7 @@ namespace BitSorter.View
         {
             ShellButton item = action switch
             {
+                FileAction.ReloadSave => _reload,
                 FileAction.RenameCircuit => _rename,
                 FileAction.DeleteCircuit => _delete,
                 FileAction.BackToImported => _backToImported,
@@ -114,11 +122,13 @@ namespace BitSorter.View
         /// -- a circuit of the student's other than MY CIRCUIT -- CONVERT only while <paramref name="hasTestbench"/>, and EXPORT
         /// FOR SUBMISSION only while <paramref name="hasTemplate"/>, and BACK TO AS IMPORTED only while <paramref name="imported"/>.
         /// None of those, nor EXPORT PROJECT, while the start page hides the circuit they would act on
-        /// (<paramref name="circuitShown"/> false; the #84 review).
+        /// (<paramref name="circuitShown"/> false; the #84 review). RELOAD THE SAVE, first, only while the save is
+        /// <paramref name="held"/>, under the start page or not.
         /// </summary>
         public void Open(Vector2 screenPoint, bool hasTestbench, bool hasTemplate, bool ownCircuit = false, bool circuitShown = true,
-            bool imported = false)
+            bool imported = false, bool held = false)
         {
+            Offer(_reload, held);
             Offer(_backToImported, imported && circuitShown);
             bool picks = FileImport.Picks;
             ownCircuit &= circuitShown;

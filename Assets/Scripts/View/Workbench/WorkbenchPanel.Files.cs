@@ -40,7 +40,7 @@ namespace BitSorter.View
             }
 
             _fileMenu.Open(at, _session != null && _session.Project.Bench != null, _session != null && FromATemplate(_session.Project) > 0,
-                _sample == 0 && Documents.IsOwn(_documentKey), circuitShown: !PageShowing, imported: CameIn());
+                _sample == 0 && Documents.IsOwn(_documentKey), circuitShown: !PageShowing, imported: CameIn(), held: Held() != SaveHold.None);
         }
 
         /// <summary>How many of <paramref name="project"/>'s modules came from a course template (Part 13e).</summary>
@@ -57,6 +57,9 @@ namespace BitSorter.View
         {
             switch (action)
             {
+                case FileAction.ReloadSave:
+                    ReloadTheSave();
+                    break;
                 case FileAction.NewCircuit:
                     AskNewCircuit();
                     break;

@@ -1457,6 +1457,7 @@ namespace BitSorter.View
             Fit();
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
 
+            WatchTheSave();   // held: said, and the question to reload asked, as it is found
             OpenPendingGoal();   // an exercise's brief, once GOAL has its place (Part 15d)
             TickLessons();   // the tutorial's step, or a first-time hint the run has earned (Part 15f)
 
@@ -2322,6 +2323,9 @@ namespace BitSorter.View
         {
             if (_notice != null)
                 return _notice;
+            string held = HeldWords(Held());
+            if (held != null)
+                return held;   // until the save is read again (Ahmad's decisions, 2026-11-03)
             if (_saveTrouble != null)
                 return _saveTrouble;
 

@@ -217,6 +217,64 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Another window's save is never written over (browser-1; Ahmad's decision, 2026-11-03: warn and reload): a second
+        /// BitSorter reads the save, solves an exercise and writes it, and this window's next keep writes nothing, says so on
+        /// the chip in plain words and asks to reload -- and FILE, RELOAD THE SAVE opens what the other window saved.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnotherWindowsSave_IsNeverWrittenOver_TheChipSaysSo_AndReloadOpensIt()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.TakeFromStrip("xor"));
+            yield return ClickAt(workbench, new BoardPoint(4, -2));
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // kept at once
+            Assert.AreEqual(SaveHold.None, Find<ProgressTracker>().Store.Held, "sanity: this window's own save, written");
+
+            // Another window: it reads the save as this one left it, solves an exercise, and writes it.
+            var other = new ProgressStore(ProgressStore.DefaultPath);
+            other.Load();
+            Assert.IsTrue(other.MarkComplete("half-adder"));
+
+            Assert.IsTrue(workbench.TakeFromStrip("and"));
+            yield return ClickAt(workbench, new BoardPoint(4, 2));
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(SaveHold.WrittenElsewhere, Find<ProgressTracker>().Store.Held);
+            Assert.AreEqual(WorkbenchPanel.SavedElsewhere, workbench.ChipText, "said on the chip");
+            Assert.AreEqual(WorkbenchPanel.ReloadQuestion, workbench.Ask.Question, "and the question to reload asked");
+            var saved = new ProgressStore(ProgressStore.DefaultPath);
+            saved.Load();
+            Assert.IsTrue(saved.IsComplete("half-adder"), "the other window's solve is in the save still");
+            Assert.IsTrue(saved.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()));
+            Assert.AreEqual(1, kept.TopModule.Parts.Count, "MY CIRCUIT as this window kept it before the other wrote, not since");
+
+            workbench.Ask.Close();
+            workbench.OpenFileMenu();
+            yield return null;
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ReloadSave), "FILE offers to reload while the save is held");
+            yield return Click(FileMenu.ActionItem + FileAction.ReloadSave);
+
+            WorkbenchPanel again = null;
+            for (int frame = 0; frame < 300 && again == null; frame++)
+            {
+                yield return null;
+                WorkbenchPanel found = Find<WorkbenchPanel>();
+                if (found != null && found != workbench && found.IsOpen)
+                    again = found;
+            }
+            Assert.IsNotNull(again, "BitSorter opened again");
+            ProgressStore reread = Find<ProgressTracker>().Store;
+            Assert.AreEqual(SaveHold.None, reread.Held, "on the save as it is now");
+            Assert.IsTrue(reread.IsComplete("half-adder"), "the other window's solve read");
+            Assert.AreEqual(0, again.Sample, "on what was open, MY CIRCUIT");
+            Assert.AreEqual(1, Top(again).Parts.Count, "as the save keeps it");
+        }
+
+        /// <summary>
         /// A save that fails says so on the chip (the 16c pilot: every keep failed in silence, a whole session's work held only
         /// in the window): here a folder stands where the save writes first.
         /// </summary>

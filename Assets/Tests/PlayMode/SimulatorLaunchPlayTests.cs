@@ -297,6 +297,82 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.FileMenu.Offers(FileAction.NewCircuit) && workbench.FileMenu.Offers(FileAction.OpenCircuit));
             Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ExportProject), "nothing that acts on the circuit the page hides");
             Assert.IsFalse(workbench.FileMenu.Offers(FileAction.RenameCircuit) || workbench.FileMenu.Offers(FileAction.DeleteCircuit));
+            Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ReloadSave), "no RELOAD THE SAVE while the save is this window's own");
+        }
+
+        /// <summary>
+        /// A save a newer BitSorter wrote is said to be one as BitSorter opens on it, and copied beside itself as it was before
+        /// this one first writes over it (Ahmad's decision, 2026-11-03).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASaveFromANewerBitSorter_IsSaidSoAsItOpens_AndCopiedBeforeTheFirstWrite()
+        {
+            const string Newer = "{\"format\":6,\"completed\":[\"half-adder\"],\"glow\":true}";
+            SaveGuard.Plant(Newer);
+            string copy = null;
+            try
+            {
+                yield return TestScene.LoadSimulator();
+                WorkbenchPanel workbench = Find<WorkbenchPanel>();
+                ProgressStore store = Find<ProgressTracker>().Store;
+                Assert.IsTrue(workbench.StartPageShowing, "sanity: nothing was open last");
+                StringAssert.Contains(WorkbenchPanel.SaveFromANewerBitSorter, workbench.StartPageNotice, "said as it opens");
+                Assert.IsTrue(store.IsComplete("half-adder"), "and what this BitSorter knows of it read");
+
+                workbench.ShowSample(2);   // what is open, remembered: a write
+                yield return null;
+                copy = store.NewerCopy;
+                Assert.IsNotNull(copy, "copied before the first write");
+                Assert.AreEqual(Newer, System.IO.File.ReadAllText(copy), "as it was");
+            }
+            finally
+            {
+                if (copy != null && System.IO.File.Exists(copy))
+                    System.IO.File.Delete(copy);
+            }
+        }
+
+        /// <summary>
+        /// A save that could not be read as BitSorter opened -- another program held it -- is said to be so, never written over,
+        /// and FILE, RELOAD THE SAVE reads it again (save-7).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASaveNotReadAsItOpened_IsSaidSo_NeverWrittenOver_AndReloadReadsIt()
+        {
+            Plant(store => store.MarkComplete("half-adder"));
+            WorkbenchPanel workbench;
+            using (new System.IO.FileStream(ProgressStore.DefaultPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.None))
+            {
+                yield return TestScene.LoadSimulator();
+                workbench = Find<WorkbenchPanel>();
+                yield return null;
+                Assert.AreEqual(SaveHold.CouldNotRead, Find<ProgressTracker>().Store.Held);
+            }
+
+            Assert.IsTrue(workbench.StartPageShowing);
+            Assert.AreEqual(WorkbenchPanel.SaveNotRead, workbench.StartPageNotice, "said where it can be seen");
+            Assert.AreEqual(WorkbenchPanel.ReadAgainQuestion, workbench.Ask.Question, "and asked to read it again");
+            workbench.ShowSample(2);   // a write, which writes nothing
+            yield return null;
+            var saved = new ProgressStore(ProgressStore.DefaultPath);
+            saved.Load();
+            Assert.IsTrue(saved.IsComplete("half-adder"), "the save not read is not written over");
+
+            workbench.OpenFileMenu();
+            yield return null;
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ReloadSave));
+            yield return Click(FileMenu.ActionItem + FileAction.ReloadSave);
+            WorkbenchPanel again = null;
+            for (int frame = 0; frame < 300 && again == null; frame++)
+            {
+                yield return null;
+                WorkbenchPanel found = Find<WorkbenchPanel>();
+                if (found != null && found != workbench && found.IsOpen)
+                    again = found;
+            }
+            Assert.IsNotNull(again, "BitSorter opened again");
+            Assert.AreEqual(SaveHold.None, Find<ProgressTracker>().Store.Held);
+            Assert.IsTrue(Find<ProgressTracker>().Store.IsComplete("half-adder"), "the save read, now nothing holds it");
         }
 
         /// <summary>A change of look comes back to Settings over the simulator, and BACK to what Settings went over.</summary>
