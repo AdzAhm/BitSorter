@@ -308,6 +308,13 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         [UnityTest]
         public IEnumerator AKeepThatFailed_IsTriedAgain_AsBitSorterLosesTheFocus()
+
+        /// A keep that failed is tried again, never taken for written (Part 16d's sweep): the save's way clear again and no edit
+        /// made since, BitSorter losing the focus -- or closing -- writes it, and the chip stops saying it could not. The failed
+        /// keep was marked kept, so every keep after it found nothing to write, and the last edits went with the window.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AKeepThatFailed_IsTriedAgain_OnceTheSaveCanBeWritten()
         {
             yield return TestScene.Load();
             yield return OpenMyCircuit();
@@ -321,6 +328,10 @@ namespace BitSorter.PlayMode.Tests
                 workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // kept at once, and failed
                 yield return null;
                 yield return null;
+
+                Assert.AreEqual(1, Top(workbench).Parts.Count, "sanity: placed");
+                workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // kept at once, and failed
+                workbench.Seek(workbench.Model.Time);   // the chip written again
                 StringAssert.StartsWith("BitSorter could not save", workbench.ChipText, "sanity: the keep failed");
             }
             finally
@@ -388,6 +399,18 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("broken", still.Top, "the circuit that could not open, as it was");
             Assert.IsTrue(saved.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project mine, new System.Collections.Generic.List<string>()));
             Assert.AreEqual(2, mine.TopModule.Parts.Count, "and MY CIRCUIT's edits under its own name");
+        }
+
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // no edit since
+            var store = new ProgressStore(ProgressStore.DefaultPath);
+            store.Load();
+            Assert.IsTrue(store.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()),
+                "MY CIRCUIT written once the save can be");
+            Assert.AreEqual(1, kept.TopModule.Parts.Count, "with the edit whose keep failed");
+
+            workbench.Seek(workbench.Model.Time);
+            StringAssert.DoesNotStartWith("BitSorter could not save", workbench.ChipText ?? "", "and the chip no longer says it could not");
+            yield return null;
         }
 
         [UnityTest]
