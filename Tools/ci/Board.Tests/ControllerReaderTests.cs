@@ -247,6 +247,54 @@ endmodule
         [Test]
         public void TheMachineAlone_IsWhole() => Assert.IsTrue(ReadText(Nested, "nested").Reading.Whole);
 
+        /// <summary>A state machine in one process -- the case on the state in the always_ff itself -- with a reset and a registered output.</summary>
+        private const string OneProcess = @"
+module one (input logic clk, rst, go, output logic busy);
+    typedef enum logic [1:0] {IDLE, RUN, DONE} st_t;
+    st_t state;
+    always_ff @(posedge clk)
+        if (rst) begin
+            state <= IDLE;
+            busy <= 1'b0;
+        end else
+            case (state)
+                IDLE: begin busy <= 1'b0; if (go) state <= RUN; end
+                RUN: begin busy <= 1'b1; state <= DONE; end
+                default: begin busy <= 1'b0; state <= IDLE; end
+            endcase
+endmodule
+";
+
+        /// <summary>
+        /// A machine written in one process is held to the engine as one in two is: its arms read with the reset let go, and an
+        /// output it sets compared with what it is about to take, not what it holds -- whatever the reset's edge or its sense.
+        /// And the check still refuses such a reading that the engine does not bear out (the 16d sweep: the reset, folded into
+        /// the register's next value, took every state to IDLE where no arrow went, so no such diagram was ever shown).
+        /// </summary>
+        [TestCase("@(posedge clk)", "rst", "rst", TestName = "AOneProcessMachine_WithASynchronousReset_IsHeldToTheEngine")]
+        [TestCase("@(posedge clk, posedge rst)", "rst", "rst", TestName = "AOneProcessMachine_WithAnAsynchronousReset_IsHeldToTheEngine")]
+        [TestCase("@(posedge clk, negedge rst_n)", "rst_n", "!rst_n", TestName = "AOneProcessMachine_WithAnActiveLowReset_IsHeldToTheEngine")]
+        public void AOneProcessMachine_IsHeldToTheEngine(string events, string reset, string condition)
+        {
+            string text = OneProcess.Replace("@(posedge clk)", events).Replace("input logic clk, rst,", "input logic clk, " + reset + ",")
+                .Replace("if (rst) begin", "if (" + condition + ") begin");
+            (SyntaxTree tree, ControllerReading reading) = ReadText(text, "one");
+            MachineReading machine = reading.Machine;
+            Assert.AreEqual(machine.Register, machine.Next, "sanity: one process");
+            CollectionAssert.AreEqual(new[] { "RUN: go", "IDLE: otherwise" }, Out(machine, "IDLE").Select(a => a.To + ": " + a.Condition).ToArray());
+            CollectionAssert.AreEqual(new[] { "busy = 1" }, Settings(machine, "RUN"));
+            Assert.IsTrue(reading.Whole);
+            ControllerEngine.Hold(tree, "one", reading);
+
+            Elaboration elaboration = Elaborator.Elaborate(tree, "one");
+            Design design = elaboration.Design;
+            string top = design.Scopes.Single(s => s.Kind == ScopeKind.Top).Path;
+            var fewer = new MachineReading(machine.Register, machine.Next, machine.States, machine.Codes, machine.Start,
+                machine.Arrows.Skip(1).ToList(), machine.Settings);
+            StringAssert.Contains("no arrow", ControllerCheck.Why(new ControllerReading(reading.Module, fewer, reading.Tables, reading.Whole), design,
+                RtlExtractor.Of(design, top), top), "an arrow taken away is still refused");
+        }
+
         /// <summary>A machine beside a memory it reads -- a ROM looked up by the state -- with the memory's words in it.</summary>
         private static readonly string NestedWithARom = Nested
             .Replace("output logic busy);", "output logic busy, output logic [7:0] out);")
