@@ -5094,6 +5094,10 @@ exercises, each fixed with a test that failed first.
   the exercise's ports, which are its test's (the #88 review), but the clip still carried them, and the paste added each:
   refused whole, so what was cut came back only by Ctrl+Z. At an exercise's top a port of the clip the exercise has, by name
   and way, is now that one, its wires going to it; a copy wired onto a driven output is refused as two drivers are.
+- **A paste on the drawing of code selects what it pasted** (`WorkbenchSession.Paste`). It is made on a throw-away project of
+  the drawing, written into the code, and the drawing made again, every part numbered afresh; the ids it handed back were the
+  throw-away's, naming other parts of the new drawing, which a Delete or a turn straight after acted on. What was pasted is
+  found again by its name, which the code keeps; its wires, which keep none, are not selected.
 
 ---
 

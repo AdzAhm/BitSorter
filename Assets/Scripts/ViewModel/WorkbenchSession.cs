@@ -1362,8 +1362,38 @@ namespace BitSorter.ViewModel
         /// <paramref name="clip"/> pasted (<see cref="Clipboard.Paste"/>; Part 10d), one step: drawn now, and replayed. At an
         /// exercise's top its ports are the exercise's own, so a cut of everything, which left them, pastes back onto them.
         /// </summary>
-        public EditResult Paste(Clip clip, List<int> parts, List<int> wires) =>
-            Edit((editor, module) => Clipboard.Paste(editor, module, clip, parts, wires, ownPorts: AtAnExercisesTop), r => Edited(r));
+        public EditResult Paste(Clip clip, List<int> parts, List<int> wires)
+        {
+            bool onDrawing = ShowsDrawingOfCode;
+            List<string> named = null;
+            EditResult result = Edit((editor, module) =>
+            {
+                EditResult pasted = Clipboard.Paste(editor, module, clip, parts, wires, ownPorts: AtAnExercisesTop);
+                if (onDrawing && pasted.Done && parts != null)
+                {
+                    named = new List<string>(parts.Count);
+                    Module on = editor.Project.Find(module);
+                    foreach (int part in parts)
+                        if (on?.FindPart(part)?.Name is string name)
+                            named.Add(name);
+                }
+                return pasted;
+            }, r => Edited(r));
+
+            // On the drawing of code, what was pasted is written into the code and the drawing made again from it, every part
+            // numbered afresh: the ids handed back were the drawing's before, naming other parts in the new one (the 16d
+            // sweep). What was pasted is found again by its name, which the code keeps; its wires have none to keep.
+            if (onDrawing && result.Done)
+            {
+                parts?.Clear();
+                wires?.Clear();
+                if (named != null && ShownDrawing is RtlDrawing drawing)
+                    foreach (string name in named)
+                        if (drawing.Module.FindPart(name) is Part part)
+                            parts?.Add(part.Id);
+            }
+            return result;
+        }
 
         /// <summary>Whether the module shown is an exercise's top, whose ports are its test's (Part 15d).</summary>
         private bool AtAnExercisesTop => Project.Settings?.Exercise != null && Module == Project.Top;
