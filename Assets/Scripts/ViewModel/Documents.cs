@@ -179,8 +179,16 @@ namespace BitSorter.ViewModel
             return null;
         }
 
-        /// <summary>The top module a new circuit called <paramref name="name"/> starts with: the name as SystemVerilog takes one.</summary>
-        public static string ModuleNameFor(string name) => Migrator.NameFrom(name, "circuit");
+        /// <summary>
+        /// The top module a new circuit called <paramref name="name"/> starts with: the name as SystemVerilog takes one, and an
+        /// _ after a name the library has (save-9: FILE, NEW NAND2 made a circuit whose module the rules refused, and which so
+        /// could not open).
+        /// </summary>
+        public static string ModuleNameFor(string name)
+        {
+            string module = Migrator.NameFrom(name, "circuit");
+            return BoardRules.IsTheLibrarys(module) ? module + "_" : module;
+        }
 
         private static bool IsNamed(string key, string prefix) =>
             key != null && key.Length > prefix.Length && key.StartsWith(prefix, StringComparison.Ordinal);

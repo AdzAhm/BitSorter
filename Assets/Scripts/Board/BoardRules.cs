@@ -73,6 +73,13 @@ namespace BitSorter.Board
             return null;
         }
 
+        /// <summary>
+        /// Whether <paramref name="name"/> is the library's, which no module may be called (<see cref="Check"/>): a cell's, or
+        /// the file's the cells are written to, on a disk that does not tell case apart.
+        /// </summary>
+        public static bool IsTheLibrarys(string name) =>
+            BoardImporter.IsCell(name) || string.Equals(name + ".sv", CellLibrary.FileName, StringComparison.OrdinalIgnoreCase);
+
         public static List<BoardDiagnostic> Check(Project project)
         {
             var found = new List<BoardDiagnostic>();
