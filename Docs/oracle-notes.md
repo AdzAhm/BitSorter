@@ -155,6 +155,31 @@ under a `` `timescale 1s/1fs ``. It too never comes due, and the elaborator says
 16d sweep (elaborator-7, engine-4) it was held at the largest count and added to the time unchecked, so a change after
 t = 0 came due at once, at a negative time; `ProcessTests.AGateOrAssignDelayPastWhatARunCanCount_...` holds it.
 
+### Two nonblocking writes to one variable in one moment (probed 2026-11-09)
+
+```systemverilog
+initial begin #10 a <= 0; a <= 1; end      // a was 1
+```
+
+The standard applies each nonblocking update as an event of its own, in the order the statements ran (IEEE 1800,
+10.4.2 and 4.9.4), so the fall between is a value change, and a process waiting on it is woken. Until Ahmad's decision
+of 2026-11-03 BitSorter landed the region's updates together and lost the edge.
+
+| What waits on it | Icarus 12 | ModelSim 2020.1 | BitSorter |
+| --- | --- | --- | --- |
+| `@(negedge a)`, `@(posedge a)`, `@(a)` | each woken once, and each reads 1 | the same | the same |
+| `assign y = a;` and `@(negedge y)` | y falls and rises: woken | y never moves | as ModelSim |
+| `v[0] <= 0; v[1] <= 1;` with `@(v[1] ^ v[0])`, from `01` | not woken | not woken | not woken |
+| A VCD of `a` | `1` at 10 | `0` then `1` at 10 | the history keeps both, in deltas apart; the waves and a VCD show `1` |
+
+Every update of the region lands before anything it wakes runs -- both simulators do that -- so a process woken by the
+fall reads the 1 the last write left. Whether a continuous assignment sees the value between the standard leaves open
+(it is an evaluation event like any other), and the two disagree; BitSorter evaluates its drivers once the region has
+landed, as ModelSim does. Writes to bits apart land together in both, so an expression of them shows no value between.
+`scheduling.sv`'s S10 holds the wake against both -- `a <= 1; a <= 0;` wakes `@(posedge a)` -- the rest was probed by
+hand, and
+`ProcessTests.TwoNonblockingWritesInOneStep_...` holds every row.
+
 ### The last time step of a `$stop`
 
 With `vvp -n`, as the oracle runs it, `$stop` ends the run like `$finish` does, **but Icarus's VCD

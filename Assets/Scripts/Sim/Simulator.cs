@@ -114,7 +114,10 @@ namespace BitSorter.Sim
     ///
     /// **Regions** (IEEE 1800, 4.4). Once a delta leaves nothing active, the processes waiting on
     /// <c>#0</c> run (the inactive region); once that is empty too, the nonblocking writes of the time
-    /// step are applied together (the NBA region), which may wake more. Only then does time move on.
+    /// step are applied (the NBA region), which may wake more. Only then does time move on. They land in
+    /// turn (IEEE 1800, 10.4.2): one to bits an earlier one of the region wrote waits for a delta of its
+    /// own, so the value between is a change, and its edge wakes what waits on it; what they wake runs
+    /// once all have landed (<see cref="TakeNba"/>).
     ///
     /// **Inertial delay** (IEEE 1800, 28.16, confirmed against Icarus in Docs/oracle-notes.md): a
     /// driver has at most one change on its way. A new evaluation that gives the same value leaves it
@@ -268,6 +271,14 @@ namespace BitSorter.Sim
         private List<Event> _current = new List<Event>();
         private List<Event> _next = new List<Event>();
         private readonly List<Event> _nba = new List<Event>();
+
+        // The NBA region's updates land in turn (IEEE 1800, 10.4.2; Ahmad's decision, 2026-11-03): as many as land together
+        // as touch bits apart, the rest in the deltas after, before anything they wake runs. Where the region has got to in
+        // _nba, and for each signal the bits the delta landing now has written, by the chunk's number.
+        private int _nbaAt;
+        private bool _nbaLanding;
+        private int _nbaChunk;
+        private readonly int[] _nbaStamp, _nbaLow, _nbaHigh;
         private List<int> _runnable = new List<int>();
         private List<int> _running = new List<int>();
         private readonly List<int> _inactive = new List<int>();
@@ -388,6 +399,9 @@ namespace BitSorter.Sim
             _values = new LogicVec[signals];
             _written = new LogicVec[signals];
             _signalStamp = new int[signals];
+            _nbaStamp = new int[signals];
+            _nbaLow = new int[signals];
+            _nbaHigh = new int[signals];
             _origin = new int[signals];
             _written0 = new int[signals];
             _originRegion = new long[signals];
@@ -664,6 +678,9 @@ namespace BitSorter.Sim
                         _current.RemoveAt(i);
                     }
 
+            // The deltas the NBA region's updates take to land in turn: as many as it has updates at most, never a loop.
+            int landed = 0;
+
             for (int delta = firstDelta; ; delta++)
             {
                 if (!first && _current.Count == 0 && _toEvaluate.Count == 0 && _runnable.Count == 0)
@@ -690,8 +707,8 @@ namespace BitSorter.Sim
                     {
                         CheckRaces();
                         _region++;
-                        _current.AddRange(_nba);
-                        _nba.Clear();
+                        _nbaLanding = true;
+                        TakeNba(_current);
                     }
                     else
                     {
@@ -700,7 +717,7 @@ namespace BitSorter.Sim
                     }
                 }
 
-                if (delta - firstDelta >= _options.MaxDeltas)
+                if (delta - firstDelta - landed >= _options.MaxDeltas)
                 {
                     StopOnLoop(time);
                     return events;
@@ -791,6 +808,19 @@ namespace BitSorter.Sim
                     first = false;
                 }
 
+                // The rest of the NBA region's updates land first, in the deltas after this one: what they wake -- drivers and
+                // processes alike -- waits until every one has, and then reads the value the last one left, as Icarus and
+                // ModelSim run it. A process waiting on the edge a value between makes has been woken by it all the same.
+                if (_nbaLanding && _nbaAt < _nba.Count)
+                {
+                    TakeNba(_next);
+                    landed++;
+                    SwapCurrent();
+                    continue;
+                }
+
+                _nbaLanding = false;
+
                 // Phase 2: every driver that reads a change decides its next output.
                 for (int i = 0; i < _toEvaluate.Count; i++)
                 {
@@ -832,10 +862,7 @@ namespace BitSorter.Sim
                 }
 
                 SayFunctionsStopped();
-
-                List<Event> swap = _current;
-                _current = _next;
-                _next = swap;
+                SwapCurrent();
 
                 if (Stopped)
                     return events;
@@ -860,6 +887,53 @@ namespace BitSorter.Sim
             }
 
             return events;
+        }
+
+        /// <summary>What the next delta takes up: what this one put off.</summary>
+        private void SwapCurrent()
+        {
+            List<Event> swap = _current;
+            _current = _next;
+            _next = swap;
+        }
+
+        /// <summary>
+        /// The NBA region's next updates, into <paramref name="into"/>: in order, as many as touch bits apart -- an update to
+        /// bits within those an earlier one of them wrote waits for a delta of its own, so the value between is a value of
+        /// its own, and an edge it makes wakes what waits on it (IEEE 1800, 10.4.2). Bits apart land together, as both
+        /// oracles land them: a wait on an expression of them sees no value between.
+        /// </summary>
+        private void TakeNba(List<Event> into)
+        {
+            _nbaChunk++;
+            int at = _nbaAt;
+            for (; at < _nba.Count; at++)
+            {
+                Event e = _nba[at];
+                int s = e.Index, low = e.Lowest, high = e.Lowest + e.Value.Width;
+                if (_nbaStamp[s] == _nbaChunk)
+                {
+                    if (low < _nbaHigh[s] && high > _nbaLow[s])
+                        break;
+                    _nbaLow[s] = Math.Min(_nbaLow[s], low);
+                    _nbaHigh[s] = Math.Max(_nbaHigh[s], high);
+                }
+                else
+                {
+                    _nbaStamp[s] = _nbaChunk;
+                    _nbaLow[s] = low;
+                    _nbaHigh[s] = high;
+                }
+
+                into.Add(e);
+            }
+
+            _nbaAt = at;
+            if (_nbaAt == _nba.Count)
+            {
+                _nba.Clear();
+                _nbaAt = 0;
+            }
         }
 
         /// <summary>The postponed region: the monitor, then every strobe, with the values the step settled on.</summary>

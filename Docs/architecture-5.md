@@ -320,6 +320,12 @@ VCD           written for export, read for the oracle comparison
 - **Regions.** A nonblocking write is worked out when it runs and applied once nothing active is left in
   the time step; `#0` waits for that moment too, and runs before the nonblocking writes (IEEE 1800, 4.4).
   `q <= #3 d` takes `d` now and writes it three units on; `a = #3 b` takes `b` now, waits, and writes.
+  **The region's writes land in turn** (10.4.2; Ahmad's decision, 2026-11-03): those to bits apart together, one to
+  bits an earlier one of the region wrote in a delta of its own, so `a <= 0; a <= 1;` makes the fall between and
+  wakes a process waiting on it -- the history keeps the value between, the waves show what the step settled on.
+  Nothing they wake runs until every one has landed, so it reads the value the last one left, as Icarus and ModelSim
+  run it, and a continuous assignment never sees the value between, as ModelSim's does not (Icarus passes it on).
+  Those deltas are not counted as a zero-delay loop's. They all landed together until then, and the edge was lost.
 - **Waiting.** Every wait's signals are known when the design is built, so a change wakes exactly the
   processes waiting on it, with no list that grows. An edge is the standard's on the lowest bit, x and z
   included; an event on an expression of several signals is judged once every change of the delta is in.
