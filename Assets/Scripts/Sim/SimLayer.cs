@@ -5,8 +5,9 @@ namespace BitSorter.Sim
     /// system tasks, the recorded history and VCD.
     /// </summary>
     /// <remarks>
-    /// The middle of three pure layers. It may use <c>BitSorter.SystemVerilog</c> and nothing above it: the
-    /// document layer and the view read the engine, never the other way round. Docs/architecture-5.md
+    /// The second of four pure layers -- SystemVerilog, Sim, Board, ViewModel. It may use
+    /// <c>BitSorter.SystemVerilog</c> and nothing above it: the document layer, the view-model and the view
+    /// read the engine, never the other way round. Docs/architecture-5.md
     /// has the whole contract -- above all that the same design and stimulus always give the same
     /// history, and that no design, however broken, makes the engine throw or hang.
     ///

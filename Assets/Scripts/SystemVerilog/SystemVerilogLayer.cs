@@ -5,8 +5,8 @@ namespace BitSorter.SystemVerilog
     /// syntax tree and printer.
     /// </summary>
     /// <remarks>
-    /// The bottom of three pure layers -- SystemVerilog, then <c>BitSorter.Sim</c>, then
-    /// <c>BitSorter.Board</c> -- and nothing here may refer to either of the other two. That
+    /// The bottom of four pure layers -- SystemVerilog, then <c>BitSorter.Sim</c>, <c>BitSorter.Board</c>
+    /// and <c>BitSorter.ViewModel</c> -- and nothing here may refer to any of the other three. That
     /// direction, and the rest of the rules below, are written out in Docs/architecture-5.md and held
     /// by Tools/ci/Repo.Tests.
     ///
