@@ -5073,6 +5073,10 @@ exercises, each fixed with a test that failed first.
   exercise solved, keep its best and report its solve for code that was not what the editor showed. It now applies what is
   typed first, as EXPORT, the hand-in and the lock do (`ApplyTypedCode`, through `WorkbenchSession.ApplyTyping`), and checks
   nothing that does not apply, the chip saying why.
+- **A part whose pins cannot be made leaves no netlist to make** (`BoardRules.PinsCanBeMade`). A gate's or a mux's inputs, or a
+  splitter's or a joiner's width, typed out of range in the inspector was said by `CheckPart` -- and then the module's netlist
+  was made anyway: a count below 0 threw out of the edit with no refusal shown, and a width in the hundreds of millions was a
+  pin array that size. The module's check stops at the part's own error, which the edit is refused with.
 
 ---
 

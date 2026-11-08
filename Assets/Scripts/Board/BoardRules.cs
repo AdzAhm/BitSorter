@@ -328,6 +328,13 @@ namespace BitSorter.Board
                 CheckPart(project, part, Error, Warning);
             }
 
+            // A part whose pins cannot be made -- a count or a width they are made by out of its range, which CheckPart has
+            // just said -- leaves no netlist to make: making one threw for a count below 0, and made a pin array of a huge
+            // one (the 16d sweep).
+            foreach (Part part in module.Parts)
+                if (!PinsCanBeMade(part))
+                    return;
+
             foreach (Wire wire in module.Wires)
             {
                 if (!ids.Add(wire.Id))
@@ -475,24 +482,21 @@ namespace BitSorter.Board
         /// </summary>
         public static bool IsTri(Net net, Module module) => net != null && (net.InOuts.Count > 0 || IsBus(net, module));
 
-        /// <summary>The most bits a splitter takes apart, or a joiner makes into a bus.</summary>
+        /// <summary>The most bits a splitter splits, or a joiner joins.</summary>
         private const int MostSplit = 64;
 
         /// <summary>
-        /// Whether <paramref name="part"/>'s pins can be made: each of its counts no more than the rules let a part have, and
-        /// none below zero (save-2). <see cref="CheckPart"/> says what is wrong with one that cannot.
+        /// Whether <paramref name="part"/>'s pins can be made at all: the count or the width they are made by -- a gate's or a
+        /// mux's inputs, a splitter's or a joiner's width -- in the range <see cref="CheckPart"/> holds it to (save-2, session-3).
         /// </summary>
-        private static bool PinsCanBeMade(Part part)
+        private static bool PinsCanBeMade(Part part) => part switch
         {
-            switch (part)
-            {
-                case GatePart gate: return gate.Inputs >= 0 && gate.Inputs <= GatePart.MaxInputs;
-                case MuxPart mux: return mux.Inputs >= 0 && mux.Inputs <= 8;
-                case SplitterPart splitter: return splitter.Width >= 0 && splitter.Width <= MostSplit;
-                case JoinerPart joiner: return joiner.Width >= 0 && joiner.Width <= MostSplit;
-                default: return true;
-            }
-        }
+            GatePart gate => gate.Inputs >= 1 && gate.Inputs <= GatePart.MaxInputs,
+            MuxPart mux => mux.Inputs == 2 || mux.Inputs == 4 || mux.Inputs == 8,
+            SplitterPart splitter => splitter.Width >= 2 && splitter.Width <= MostSplit,
+            JoinerPart joiner => joiner.Width >= 2 && joiner.Width <= MostSplit,
+            _ => true,
+        };
 
         private static void CheckPart(Project project, Part part, Action<string, int, int> error, Action<string, int, int> warning)
         {
