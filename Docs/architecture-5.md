@@ -2334,7 +2334,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   to register, register to output, and input to output, each walked back along the arcs that set it.
 - **A register's clock to Q and setup** (`RegisterPart.Tcq`, `Tsetup`; saved as `tcq` and `tsetup`, read as 0 from an
   older file; neither may be less than 0). The clock to Q is a delay on the register's write, `q <= #Tcq d`, so the run
-  shows it and Icarus agrees; the import reads it back as the register's. The setup is checked, never simulated -- the
+  shows it and Icarus agrees -- a reset's write of its value too, so a register with a clock to Q takes its reset value
+  that long after rst rises (the 16d sweep: its summary said at once); the import reads it back as the register's. The setup is checked, never simulated -- the
   course's simulations do not -- so the compiler hands it over beside the code (`CompiledModule.Registers`) and
   `TimingAnalysis` gives it to the graph by full name in every instance of its module. A written module's register takes
   its clock to Q from its own `#` and has no setup. A setup does not survive an export and an import, since the code

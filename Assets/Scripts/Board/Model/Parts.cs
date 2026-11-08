@@ -150,9 +150,10 @@ namespace BitSorter.Board
 
     /// <summary>
     /// A register: q takes d on the rising edge of clk. With a reset, a rising rst puts the reset value
-    /// in at once (an asynchronous, active-high reset, as the course writes them). Without either, it
-    /// starts as x -- or as <see cref="Initial"/>, which is how a board that started at 0 in 4.x keeps
-    /// doing so.
+    /// in without waiting for clk (an asynchronous, active-high reset, as the course writes them) -- after
+    /// its clock to Q, <see cref="Tcq"/>, as every write of q is, so at once only for an ideal register.
+    /// Without either, it starts as x -- or as <see cref="Initial"/>, which is how a board that started
+    /// at 0 in 4.x keeps doing so.
     /// </summary>
     public sealed record RegisterPart : Part
     {
@@ -166,8 +167,9 @@ namespace BitSorter.Board
         public LogicVec? Initial { get; init; }
 
         /// <summary>
-        /// Its clock to Q (Part 14a): how long after the clock's edge q changes. The run shows it -- it compiles as
-        /// <c>q &lt;= #Tcq d</c> -- and static timing starts a path there. 0, as before Part 14, for an ideal register.
+        /// Its clock to Q (Part 14a): how long after the clock's edge q changes -- and after a reset's, which writes q the
+        /// same way. The run shows it -- it compiles as <c>q &lt;= #Tcq d</c>, and <c>q &lt;= #Tcq</c> the reset value --
+        /// and static timing starts a path there. 0, as before Part 14, for an ideal register.
         /// </summary>
         public long Tcq { get; init; }
 
