@@ -147,6 +147,31 @@ namespace BitSorter.Sim.Tests
                 "endmodule\n"));
         }
 
+        /// <summary>
+        /// A fork that does not wait -- join_none -- is on a process's way to its next wait, so what it reads after it is read
+        /// on that wake (the 16d sweep, engine-18): the reads stopped at every fork, so a read after a join_none of what another
+        /// process changed on the same edge went unsaid.
+        /// </summary>
+        [Test]
+        public void AReadAfterAForkThatDoesNotWait_IsReadOnTheSameWake_SoItsRaceIsSaid()
+        {
+            string[] said = Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, a = 1'b0, r;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    always @(posedge clk) a = ~a;\n" +
+                "    initial forever begin\n" +
+                "        @(posedge clk);\n" +
+                "        fork #1; join_none\n" +
+                "        r = a;\n" +
+                "    end\n" +
+                "    initial #40 $finish;\n" +
+                "endmodule\n");
+
+            Assert.AreEqual(1, said.Length, string.Join("\n", said));
+            StringAssert.Contains("changes tb.a", said[0]);
+        }
+
         [Test]
         public void AWriterThatMadeTheEdge_OrAReaderThatSetTheWriterGoing_IsNoRace()
         {
