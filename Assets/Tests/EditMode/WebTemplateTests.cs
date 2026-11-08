@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using BitSorter.View;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -22,6 +27,10 @@ namespace BitSorter.EditMode.Tests
 
         private static string Read(string file) =>
             File.ReadAllText(Path.Combine(Application.dataPath, Template, file));
+
+        /// <summary>The page with its comments taken out, so that a line commented out never counts as one that runs.</summary>
+        private static string Code(string page) =>
+            Regex.Replace(page, @"/\*.*?\*/|<!--.*?-->|^\s*//[^\n]*", "", RegexOptions.Singleline | RegexOptions.Multiline);
 
         /// <summary>The declarations of one CSS rule, found by its selector.</summary>
         /// <remarks>
@@ -147,6 +156,167 @@ namespace BitSorter.EditMode.Tests
 
             StringAssert.Contains("background: {{{ BACKGROUND_COLOR }}}", page,
                 "the page around the game is left to the browser, which paints it white");
+        }
+
+        /// <summary>
+        /// The page shows BitSorter while it loads, not Unity: no Unity logo, no stock progress bar, and none of their
+        /// images left behind.
+        /// </summary>
+        /// <remarks>
+        /// Unity's template drew its logo and its loading bar over the canvas, and its logo again in the footer; the
+        /// loading screen took the place of all three (Part 16). An image left in the template's folder is copied into
+        /// every build whether the page draws it or not.
+        /// </remarks>
+        [Test]
+        public void ThePage_CarriesNoUnityBranding()
+        {
+            string page = Read("index.html") + Read("TemplateData/style.css");
+
+            StringAssert.Contains("id=\"bs-loading\"", page, "sanity: the page has no loading screen of its own");
+            StringAssert.DoesNotContain("unity-logo", page, "the page still draws Unity's logo");
+            StringAssert.DoesNotContain("progress-bar-", page, "the page still draws Unity's stock progress bar");
+
+            string[] files = Directory.GetFiles(Path.Combine(Application.dataPath, Template, "TemplateData"))
+                .Select(file => Path.GetFileName(file)).ToArray();
+            CollectionAssert.Contains(files, "favicon.ico", "sanity: the template's own files are not where they are looked for");
+            CollectionAssert.IsEmpty(files.Where(file => file.StartsWith("unity-logo", StringComparison.Ordinal)
+                                                         || file.StartsWith("progress-bar-", StringComparison.Ordinal)),
+                "Unity's stock images are still in the template, and so in every build");
+        }
+
+        /// <summary>
+        /// The loading screen keeps still for a reader who has asked for reduced motion.
+        /// </summary>
+        /// <remarks>
+        /// It takes both halves. The style sheet's media query stops the CSS animations -- the drift, the waves, the
+        /// halo -- but every front along a wire is a Web Animation made by the script, which no style reaches, so the
+        /// script asks the same question and pauses each one at a single moment.
+        /// </remarks>
+        [Test]
+        public void TheLoadingScreen_HonoursReducedMotion()
+        {
+            string page = Code(Read("index.html"));
+
+            StringAssert.IsMatch(@"@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{[^\n]*#bs-loading \*\s*\{\s*animation\s*:\s*none", page,
+                "the loading screen's CSS animations run whatever the reader asked for");
+            StringAssert.IsMatch(@"still = matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches", page,
+                "the loading screen's script never asks whether the reader wants reduced motion");
+            StringAssert.IsMatch(@"if \(still\) \{ a\.pause\(\);", page,
+                "the loading screen's Web Animations run whatever the reader asked for");
+        }
+
+        /// <summary>
+        /// The loading screen's colours are the default look's -- <see cref="SchematicPalette.Dark"/>'s, to the digit.
+        /// </summary>
+        /// <remarks>
+        /// The page is drawn before BitSorter exists, so it cannot ask the palette and writes its colours out: a second
+        /// copy of each, and a second copy is how two things drift. Each colour the page declares is held to the
+        /// palette's field it was taken from, and a colour added to the page that the palette does not have fails too.
+        /// </remarks>
+        [Test]
+        public void TheLoadingScreensColours_AreThePalettes()
+        {
+            SchematicPalette palette = SchematicPalette.Dark;
+            var expected = new Dictionary<string, Color>
+            {
+                ["--ground"] = palette.Ground, ["--grid"] = palette.Grid, ["--chip"] = palette.Chip,
+                ["--edge"] = palette.CardEdge, ["--outline"] = palette.Outline, ["--text"] = palette.Text,
+                ["--dim"] = palette.TextDim, ["--muted"] = palette.Muted, ["--accent"] = palette.Accent,
+                ["--v0"] = palette.Zero, ["--v1"] = palette.One, ["--vx"] = palette.Unknown, ["--vz"] = palette.HighZ,
+                ["--bus"] = palette.Bus, ["--playhead"] = palette.Playhead, ["--cursor"] = palette.Cursor,
+                ["--sel"] = palette.Selection,
+            };
+
+            Match root = Regex.Match(Read("index.html"), @":root\s*\{([^}]*)\}");
+            Assert.IsTrue(root.Success, "sanity: the page declares no colours of its own");
+
+            var declared = new Dictionary<string, string>();
+            foreach (Match colour in Regex.Matches(root.Groups[1].Value, @"(--[\w-]+)\s*:\s*(#[0-9A-Fa-f]+)"))
+                declared[colour.Groups[1].Value] = colour.Groups[2].Value.ToUpperInvariant();
+
+            CollectionAssert.AreEquivalent(expected.Keys, declared.Keys,
+                "the page declares a colour the palette is not asked for, or leaves one out");
+            foreach (KeyValuePair<string, Color> colour in expected)
+                Assert.AreEqual("#" + ColorUtility.ToHtmlStringRGB(colour.Value), declared[colour.Key],
+                    $"the page's {colour.Key} is not the palette's");
+        }
+
+        /// <summary>
+        /// The loading screen leaves the page once BitSorter is running, and leaves nothing running behind it.
+        /// </summary>
+        /// <remarks>
+        /// It is about a thousand elements and two hundred animations over the canvas. Hidden and left in place, they
+        /// would go on being laid out and animated under every frame of the simulator. So once the loader's promise
+        /// resolves the page calls finishLoading, which cancels the animations, clears the timers and takes the layer
+        /// out of the page.
+        /// </remarks>
+        [Test]
+        public void TheLoadingScreen_IsRemovedOnceBitSorterIsRunning()
+        {
+            string page = Code(Read("index.html"));
+
+            int ready = page.IndexOf(".then((unityInstance) =>", StringComparison.Ordinal);
+            int failed = ready < 0 ? -1 : page.IndexOf(".catch(", ready, StringComparison.Ordinal);
+            Assert.IsTrue(failed > ready && ready >= 0, "sanity: the page has no loader promise to wait on");
+            StringAssert.Contains("finishLoading();", page.Substring(ready, failed - ready),
+                "the page never says BitSorter is running, so the loading screen stays over it");
+
+            int finish = page.IndexOf("function finishLoading()", StringComparison.Ordinal);
+            Assert.IsTrue(finish >= 0, "sanity: the page has no finishLoading");
+            string body = page.Substring(finish, page.IndexOf("\n}", finish, StringComparison.Ordinal) - finish);
+            StringAssert.Contains("L.parentNode.removeChild(L)", body, "the loading screen is never taken out of the page");
+            StringAssert.Contains("a.cancel()", body, "the loading screen's animations outlive it");
+            StringAssert.Contains("timers.forEach(clearTimeout)", body, "the loading screen's timers outlive it");
+        }
+
+        /// <summary>
+        /// A load that fails stops the loading screen where it stands, and still says why.
+        /// </summary>
+        /// <remarks>
+        /// The loader's failure was put up in an alert, and still is; the loading screen stops first, so a page that will
+        /// not load does not go on looking as though it were loading.
+        /// </remarks>
+        [Test]
+        public void AFailedLoad_StopsTheLoadingScreen_AndStillSaysWhy()
+        {
+            string page = Code(Read("index.html"));
+
+            int failed = page.IndexOf(".catch((message) =>", StringComparison.Ordinal);
+            Assert.IsTrue(failed >= 0, "sanity: the page has no failure handler");
+            string handler = page.Substring(failed, page.IndexOf("});", failed, StringComparison.Ordinal) - failed);
+            StringAssert.Contains("stopLoading();", handler, "a failed load leaves the loading screen moving as if loading");
+            StringAssert.Contains("alert(message);", handler, "a failed load no longer says why");
+        }
+
+        /// <summary>
+        /// The page's dark is the workbench's ground, which the build takes from the palette.
+        /// </summary>
+        /// <remarks>
+        /// The template's BACKGROUND_COLOR -- the page round the canvas, and the canvas until BitSorter draws -- is the
+        /// splash screen's background colour, and it was Unity's warm #231F20 beside the loading screen's #151515.
+        /// WebGLBuild sets it from the palette before every browser build, and the project's settings hold the same
+        /// value, so a build made before Configure has ever run looks no different.
+        /// </remarks>
+        [Test]
+        public void ThePagesDark_IsTakenFromThePalette()
+        {
+            string build = Regex.Replace(
+                File.ReadAllText(Path.Combine(Application.dataPath, "Scripts", "View", "Editor", "WebGLBuild.cs")), "//[^\n]*", "");
+            int configure = build.IndexOf("void Configure()", StringComparison.Ordinal);
+            Assert.IsTrue(configure >= 0, "sanity: WebGLBuild has no Configure");
+            StringAssert.Contains("PlayerSettings.SplashScreen.backgroundColor = SchematicPalette.Dark.Ground;",
+                build.Substring(configure, build.IndexOf("\n        }", configure, StringComparison.Ordinal) - configure),
+                "the browser build does not take the page's dark from the palette");
+
+            string path = Path.Combine(Application.dataPath, "..", "ProjectSettings", "ProjectSettings.asset");
+            Match saved = Regex.Match(File.ReadAllText(path),
+                @"^\s*m_SplashScreenBackgroundColor:\s*\{r: ([\d.]+), g: ([\d.]+), b: ([\d.]+)", RegexOptions.Multiline);
+            Assert.IsTrue(saved.Success, "sanity: ProjectSettings.asset has no splash screen colour");
+            var colour = new Color(float.Parse(saved.Groups[1].Value, CultureInfo.InvariantCulture),
+                float.Parse(saved.Groups[2].Value, CultureInfo.InvariantCulture),
+                float.Parse(saved.Groups[3].Value, CultureInfo.InvariantCulture));
+            Assert.AreEqual(ColorUtility.ToHtmlStringRGB(SchematicPalette.Dark.Ground), ColorUtility.ToHtmlStringRGB(colour),
+                "the project's settings keep a page colour that is not the palette's ground");
         }
     }
 }
