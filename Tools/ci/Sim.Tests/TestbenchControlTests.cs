@@ -268,6 +268,29 @@ module t;
 endmodule"));
         }
 
+        /// <summary>
+        /// A force or a release of part of an earlier, wider force takes those bits alone (IEEE 1800, 10.6.2; the 16d sweep,
+        /// engine-10): the earlier force was taken away whole, so its bits outside went back to their drivers -- zz00 for
+        /// 1100 -- and releasing one bit released four. Icarus 12 and ModelSim print these lines.
+        /// </summary>
+        [Test]
+        public void AForceOrReleaseOfPartOfAWiderForce_TakesThoseBitsAlone()
+        {
+            CollectionAssert.AreEqual(new[] { "1100 1000" }, Printed(@"
+module t;
+    wire [3:0] v;
+    wire [3:0] w;
+    assign w = 4'h5;
+    initial begin
+        force v = 4'b1111;
+        force w = 4'hA;
+        #1 force v[1:0] = 2'b00;
+        release w[1];
+        #1 $display(""%b %b"", v, w);
+    end
+endmodule"));
+        }
+
         // -----------------------------------------------------------------
         // assign and deassign inside a process (M4)
         // -----------------------------------------------------------------
