@@ -1015,8 +1015,11 @@ stretch that way.
   ones. The workbench is one, and Settings and the credits are pages of it.
 
   **Escape closes what is on top, one thing a press.** What is on top may be a
-  popup, a page, an exercise's card or a first-time hint; each implements
-  `IHoldsEscape` and joins `UiEscape`. A holder answers true while a press would
+  popup, a page, an exercise's card or a code field with the keyboard; each
+  implements `IHoldsEscape` and joins `UiEscape`. A first-time hint is not one:
+  its strip stands along the circuit window's foot while the student goes on
+  working, and GOT IT takes it down, as SKIP stops the tutorial on the same strip
+  (this said a hint closed on Escape until Part 16d's sweep found it never had). A holder answers true while a press would
   close it and for the rest of the frame once Escape has -- one press, one thing,
   whichever updates first. Among themselves **the last one opened takes the
   press** (`UiEscape.TryTake`), as undo undoes the last thing done: each tells
