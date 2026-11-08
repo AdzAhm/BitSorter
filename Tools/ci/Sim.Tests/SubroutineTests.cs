@@ -134,6 +134,28 @@ endmodule", 1);
         }
 
         /// <summary>
+        /// A call whose later argument comes back into the same call gives each call its own arguments (the 16d sweep,
+        /// engine-1): Ackermann's <c>ack(m - 1, ack(m, n - 1))</c> works out its second argument through the same call, and
+        /// one array of arguments for the call let the inner call put its m where the outer one's was -- ack(0, 3) ran for
+        /// ack(1, 3), and 4 was printed for 5, with no word.
+        /// </summary>
+        [Test]
+        public void ACallWhoseArgumentCallsBackIntoIt_KeepsItsOwnArguments()
+        {
+            Simulator sim = Run(@"
+module t;
+    function automatic int ack(input int m, input int n);
+        if (m == 0) return n + 1;
+        else if (n == 0) return ack(m - 1, 1);
+        else return ack(m - 1, ack(m, n - 1));
+    endfunction
+    initial $display(""%0d %0d"", ack(2, 1), ack(2, 3));
+endmodule", 1);
+
+            CollectionAssert.AreEqual(new[] { "5 9" }, Printed(sim));
+        }
+
+        /// <summary>
         /// A call runs on the machine's own stack, so a function that calls itself with no way out would overflow it --
         /// which nothing can catch: the editor, a desktop build or a browser's page would end there (Part 13f). So calls nest
         /// a hundred deep at most, and one that would go a hundred and fifty is stopped, and the run says why.
