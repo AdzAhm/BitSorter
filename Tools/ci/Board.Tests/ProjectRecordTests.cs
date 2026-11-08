@@ -138,6 +138,25 @@ namespace BitSorter.Board.Tests
         }
 
         [Test]
+        /// Two wires saved under one id -- a hand-edited or hostile save -- are refused by the rules in words, as a document's
+        /// repeated id always was, never thrown out of them: the netlist the rules build first indexed past its end (save-3),
+        /// from the workbench's Start, on every launch that opened the circuit.
+        /// </summary>
+        [Test]
+        public void TwoWiresSavedUnderOneId_AreRefusedInWords_NeverThrown()
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            WireRecord[] wires = file.modules[0].wires;
+            Assert.Greater(wires.Length, 1, "sanity: wires to share an id");
+            wires[wires.Length - 1].id = wires[0].id;
+            Project read = file.ToProject(new List<string>());
+
+            List<BoardDiagnostic> found = null;
+            Assert.DoesNotThrow(() => found = BoardRules.Check(read));
+            Assert.IsTrue(found.Any(d => d.IsError && d.Message.Contains("same id")), string.Join("\n", found));
+        }
+
+        [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {
             ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
