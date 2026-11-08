@@ -161,15 +161,22 @@ namespace BitSorter.View
             string json = BitSorterTakeFiles();
             if (string.IsNullOrEmpty(json))
                 return false;
-            Picked picked = JsonUtility.FromJson<Picked>(json);
-            files = new List<SourceFile>();
-            foreach (PickedFile file in picked?.files ?? Array.Empty<PickedFile>())
-                if (!IsHidden(file.path))
-                    files.Add(file.read ? new SourceFile(file.path, file.text) : SourceFile.Unread(file.path, file.size));
+            files = FilesPicked(json);
             return true;
 #else
             return false;
 #endif
+        }
+
+        /// <summary>The files the page read, as it hands them over in <paramref name="json"/>: a hidden folder's left out.</summary>
+        public static List<SourceFile> FilesPicked(string json)
+        {
+            Picked picked = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<Picked>(json);
+            var files = new List<SourceFile>();
+            foreach (PickedFile file in picked?.files ?? Array.Empty<PickedFile>())
+                if (file != null && !IsHidden(file.path))
+                    files.Add(file.read ? new SourceFile(file.path, file.text) : SourceFile.Unread(file.path, file.size));
+            return files;
         }
 
         [Serializable]
