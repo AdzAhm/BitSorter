@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Board;
 using BitSorter.Sim;
@@ -266,6 +267,73 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(fixedUp, session.Code.Text, "within the pause: kept");
             Assert.IsTrue(session.Code.Frame(2000 + CodeDocument.PauseMilliseconds + 1));
             Assert.AreEqual(fixedUp, session.Project.Find(session.Module).Source, "and applied once the pause is over");
+        }
+
+        /// <summary>
+        /// What is typed and not applied is the session's drafts, by module (Ahmad, 2026-11-03: kept in the save): a session
+        /// opened on them shows each in its module's code, marked, and one with no error applies once it is shown.
+        /// </summary>
+        [Test]
+        public void TheDrafts_AreWhatIsTypedAndNotApplied_AndASessionOpensOnThem()
+        {
+            WorkbenchSession session = Inside();
+            int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+            CodeDocument code = session.Code;
+            Assert.IsEmpty(session.Drafts, "nothing typed");
+            string broken = Replace(code.Text, "= a + b;", "= a + ;");
+            int version = session.DraftsVersion;
+            code.Type(broken, 0);
+            Assert.AreNotEqual(version, session.DraftsVersion, "typing changes the drafts, for the workbench to keep");
+            Assert.IsTrue(session.StepOut());
+            CollectionAssert.AreEquivalent(new Dictionary<string, string> { ["add4"] = broken }, session.Drafts, "kept, stepped out of");
+
+            var reopened = new WorkbenchSession(session.Project, Ticking(0.01), drafts: session.Drafts);
+            reopened.Finish();
+            Assert.IsTrue(reopened.StepInto(add));
+            Assert.IsTrue(reopened.ShowsCode, "a module with a draft opens on its code, to be seen");
+            Assert.AreEqual(broken, reopened.Code.Text);
+            Assert.IsTrue(reopened.Code.Pending && reopened.Code.HasErrors, "marked, not applied");
+            reopened.Code.Frame(0);
+            Assert.AreEqual(WorkbenchSamples.AdderSource, reopened.Project.Find("add4").Source, "with an error, it never applies");
+
+            string fixedUp = Replace(broken, "= a + ;", "= b + a;");
+            var clean = new WorkbenchSession(session.Project, Ticking(0.01),
+                drafts: new Dictionary<string, string> { ["add4"] = fixedUp, ["nothing"] = "x", ["adder"] = "not written" });
+            clean.Finish();
+            Assert.IsTrue(clean.StepInto(add));
+            Assert.IsTrue(clean.Code.Frame(0), "its pause long over");
+            Assert.AreEqual(fixedUp, clean.Project.Find("add4").Source, "with none, applied as it is shown");
+            Assert.IsEmpty(clean.Drafts, "and a draft of a module there is not, or that is drawn, is no draft");
+        }
+
+        /// <summary>
+        /// What EXPORT, the hand-in, the lock and CHECK do first: everything typed and not applied, on screen or not, applied --
+        /// or refused at the first that does not apply, saying whose it is, and nothing changed.
+        /// </summary>
+        [Test]
+        public void ApplyingTheTyping_AppliesEveryModulesText_OrRefusesSayingWhose()
+        {
+            WorkbenchSession session = Inside();
+            int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+            string broken = Replace(session.Code.Text, "= a + b;", "= a + ;");
+            session.Code.Type(broken, 0);
+            Assert.IsTrue(session.StepOut());
+
+            EditResult refused = session.ApplyTyping(out string whose);
+            Assert.IsFalse(refused.Done);
+            Assert.AreEqual("add4", whose);
+            StringAssert.Contains("line", refused.Refusal, "what is wrong with it, at its line");
+            Assert.AreEqual(WorkbenchSamples.AdderSource, session.Project.Find("add4").Source, "nothing changed");
+
+            Assert.IsTrue(session.StepInto(add));
+            string fixedUp = Replace(broken, "= a + ;", "= b + a;");
+            session.Code.Type(fixedUp, 0);
+            Assert.IsTrue(session.StepOut());
+            Assert.IsTrue(session.ApplyTyping(out whose).Done, "applied, stepped out of or not");
+            Assert.IsNull(whose);
+            Assert.AreEqual(fixedUp, session.Project.Find("add4").Source);
+            Assert.IsEmpty(session.Drafts, "nothing typed left");
+            Assert.IsTrue(session.ApplyTyping(out _).Done, "and with nothing typed, nothing to do");
         }
 
         [Test]

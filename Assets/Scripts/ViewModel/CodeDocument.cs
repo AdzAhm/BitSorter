@@ -43,6 +43,13 @@ namespace BitSorter.ViewModel
     /// whole lines -- Tab, Ctrl+/ -- one of its own, as the browser's editor does; what they come to applies once they pause,
     /// as typing does. A desktop build's field had none, so Ctrl+Z there did nothing while typing. An undo or a redo of the
     /// document starts it afresh, since the text under it is not what it remembers.
+    ///
+    /// **Text that is not applied is a draft, kept for its module** (Ahmad, 2026-11-03): the session keeps one document for
+    /// each written module it has shown, so stepping out of the code, into another block or onto the drawing never drops
+    /// what was typed -- text with an error, which never applies, or text typed within the pause -- and the workbench keeps
+    /// it in the save under the circuit's key, so opening another circuit or a sample, and quitting, do not either. Shown
+    /// again it is as it was left, marked; a draft with no error applies once the pause is over, as typing does. Only the
+    /// document changing under it -- an undo, an edit of the drawing -- sets it aside, as the editor follows the document.
     /// </remarks>
     public sealed class CodeDocument
     {
@@ -71,12 +78,22 @@ namespace BitSorter.ViewModel
         /// <summary>When the text last changed, if it has not been checked since; NaN when it has.</summary>
         private double _typedAt = double.NaN;
 
-        internal CodeDocument(WorkbenchSession session, string module)
+        /// <summary>
+        /// The editor's document for <paramref name="module"/>, its text the module's -- or <paramref name="draft"/>, text
+        /// typed into it and not applied, kept from before: due to apply at once, as text whose pause is over is, where it
+        /// has no error.
+        /// </summary>
+        internal CodeDocument(WorkbenchSession session, string module, string draft = null)
         {
             _session = session;
             Module = module;
             _base = Applied ?? string.Empty;
             Text = _base;
+            if (draft != null && draft != _base)
+            {
+                Text = draft;
+                _typedAt = double.NegativeInfinity;
+            }
             Check();
         }
 
@@ -142,7 +159,7 @@ namespace BitSorter.ViewModel
             _typedOn.Clear();
             Text = text;
             _typedAt = now;
-            Version++;
+            Changed();
         }
 
         /// <summary>An edit of whole lines (<see cref="CodeEdits"/>: Tab, Ctrl+/) at <paramref name="now"/>: typed, and a step of its own.</summary>
@@ -156,7 +173,7 @@ namespace BitSorter.ViewModel
             _typedOn.Clear();
             Text = text;
             _typedAt = now;
-            Version++;
+            Changed();
         }
 
         /// <summary>Whether Ctrl+Z in the editor has a step of typing to go back to.</summary>
@@ -184,7 +201,7 @@ namespace BitSorter.ViewModel
             from.RemoveAt(from.Count - 1);
             _stepAt = double.NaN;
             _typedAt = now;
-            Version++;
+            Changed();
             return true;
         }
 
@@ -212,20 +229,32 @@ namespace BitSorter.ViewModel
         /// </summary>
         public bool Frame(double now)
         {
-            string applied = Applied ?? string.Empty;
-            if (applied != _base)
-            {
-                _base = applied;
-                Text = applied;
-                _typedAt = double.NaN;
-                ForgetTyping();
-                Check();
+            if (Follow())
                 return true;
-            }
 
             if (double.IsNaN(_typedAt) || now - _typedAt < PauseMilliseconds)
                 return false;
             Apply();
+            return true;
+        }
+
+        /// <summary>
+        /// The editor following the document, if an undo, a redo or an edit of the drawing changed the module's text under
+        /// it: what was typed against the text before is set aside. The session asks it of a document not shown -- its
+        /// module's drawing up, or the module stepped out of -- before it says what is typed there (the 16d sweep: never
+        /// followed while the drawing was up, its old text was applied over an edit of the drawing). True when it changed.
+        /// </summary>
+        internal bool Follow()
+        {
+            string applied = Applied ?? string.Empty;
+            if (ReferenceEquals(applied, _base) || applied == _base)
+                return false;
+            _base = applied;
+            Text = applied;
+            _typedAt = double.NaN;
+            ForgetTyping();
+            Check();
+            _session.TypingChanged();
             return true;
         }
 
@@ -239,7 +268,7 @@ namespace BitSorter.ViewModel
             if (!clean)
                 return EditResult.Refused(FirstProblem);
 
-            EditResult result = _session.SetSource(Text);
+            EditResult result = _session.SetSourceOf(Module, Text);   // its own module's, shown or not
             if (result.Done)
             {
                 _base = Text;
@@ -250,6 +279,7 @@ namespace BitSorter.ViewModel
                 Version++;
             }
 
+            _session.TypingChanged();
             return result;
         }
 
@@ -267,6 +297,7 @@ namespace BitSorter.ViewModel
             Text = _base;
             _typedAt = double.NaN;
             Check();
+            _session.TypingChanged();
         }
 
         /// <summary>Where in <see cref="Text"/> line <paramref name="line"/>, column <paramref name="column"/> is: where the caret goes for a mark.</summary>
@@ -285,6 +316,13 @@ namespace BitSorter.ViewModel
             if (end < 0)
                 end = Text.Length;
             return System.Math.Min(end, offset + System.Math.Max(0, column - 1));
+        }
+
+        /// <summary>The text changed: the editor redraws it, and the session's drafts are not what they were.</summary>
+        private void Changed()
+        {
+            Version++;
+            _session.TypingChanged();
         }
 
         /// <summary>The text held to the document's rules as it would be with it: its marks, and what it would break elsewhere. True with no error.</summary>

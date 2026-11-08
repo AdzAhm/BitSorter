@@ -66,15 +66,26 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// <paramref name="project"/>, compiled and its first slice run, each slice timed by
-        /// <paramref name="nowMilliseconds"/>. Throws when the document does not compile.
+        /// <paramref name="nowMilliseconds"/>. Throws when the document does not compile. <paramref name="drafts"/> is the
+        /// text typed into its written modules and not applied, by module, as the save kept it (<see cref="Drafts"/>): each
+        /// module with one opens on its code, the draft in its editor.
         /// </summary>
         public WorkbenchSession(Project project, Func<double> nowMilliseconds,
-            int chunkEvents = RunSlicer.ChunkEvents, double budgetMilliseconds = RunSlicer.BudgetMilliseconds)
+            int chunkEvents = RunSlicer.ChunkEvents, double budgetMilliseconds = RunSlicer.BudgetMilliseconds,
+            IReadOnlyDictionary<string, string> drafts = null)
         {
             _now = nowMilliseconds ?? throw new ArgumentNullException(nameof(nowMilliseconds));
             _chunkEvents = chunkEvents;
             _budgetMilliseconds = budgetMilliseconds;
             Editor = new BoardEditor(project);
+            if (drafts != null)
+                foreach (KeyValuePair<string, string> draft in drafts)
+                    if (draft.Key != null && draft.Value != null && project.Find(draft.Key) is Module written && written.IsWritten
+                        && written.Source != draft.Value)
+                    {
+                        _codes[draft.Key] = new CodeDocument(this, draft.Key, draft.Value);
+                        _codeChosen.Add(draft.Key);   // to be seen: its code, not its drawing
+                    }
             Run = RunSession.Open(project, _now, _chunkEvents, _budgetMilliseconds, LayoutOf);
         }
 
@@ -533,7 +544,80 @@ namespace BitSorter.ViewModel
         // Written blocks (Part 12d)
         // -----------------------------------------------------------------
 
-        private CodeDocument _code;
+        /// <summary>
+        /// The editor's document of each written module whose code has been shown, by module, kept for as long as the session
+        /// is (Ahmad, 2026-11-03): what was typed into one and not applied -- text with an error, which never applies, or text
+        /// within the pause -- is its draft, there again when its code is shown again, whatever was shown between.
+        /// </summary>
+        private readonly Dictionary<string, CodeDocument> _codes = new Dictionary<string, CodeDocument>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Changes each time anything typed into a written module changes, or what the document applied of it: what tells the
+        /// workbench <see cref="Drafts"/> may need keeping in the save.
+        /// </summary>
+        public int DraftsVersion { get; private set; }
+
+        internal void TypingChanged() => DraftsVersion++;
+
+        /// <summary>
+        /// The text typed into each written module and not applied, by module -- on screen or kept from before, the editor
+        /// following any undo or edit of the drawing that changed the module under it first: what the workbench keeps in the
+        /// save beside the document, and gives back to the session it opens next (Ahmad, 2026-11-03). Made afresh each ask.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Drafts
+        {
+            get
+            {
+                var drafts = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, CodeDocument> each in _codes)
+                    if (Typed(each.Value) is CodeDocument code)
+                        drafts[code.Module] = code.Text;
+                return drafts;
+            }
+        }
+
+        /// <summary><paramref name="code"/> if its module is written and it has text typed and not applied, the document followed first; else null.</summary>
+        private CodeDocument Typed(CodeDocument code)
+        {
+            if (code == null || Project.Find(code.Module)?.IsWritten != true)
+                return null;
+            code.Follow();
+            return code.Pending ? code : null;
+        }
+
+        /// <summary>
+        /// Every written module's text typed and not applied -- on screen, or kept while its drawing is up or since it was
+        /// stepped out of -- applied now, as the pause would apply it: what EXPORT, the hand-in, the lock and CHECK do first,
+        /// so that what they take is what the student typed. Done when nothing typed is left; refused at the first text that
+        /// does not apply, with what is wrong with it, <paramref name="module"/> saying whose it is.
+        /// </summary>
+        public EditResult ApplyTyping(out string module)
+        {
+            module = null;
+            if (_codes.Count == 0)
+                return EditResult.Ok();
+
+            // The code on screen first, then the rest as they were shown.
+            var typed = new List<CodeDocument>(_codes.Count);
+            if (_codes.TryGetValue(Module, out CodeDocument shown))
+                typed.Add(shown);
+            foreach (CodeDocument code in _codes.Values)
+                if (!ReferenceEquals(code, shown))
+                    typed.Add(code);
+
+            foreach (CodeDocument code in typed)
+            {
+                if (Typed(code) == null)
+                    continue;
+                EditResult applied = code.Apply();
+                if (!applied.Done)
+                {
+                    module = code.Module;
+                    return applied;
+                }
+            }
+            return EditResult.Ok();
+        }
 
         /// <summary>Whether the module shown is written and its text is shown: CODE chosen for it, or no drawing of it could be made.</summary>
         public bool ShowsCode => ShowsWritten && !ShowsDrawingOfCode;
@@ -554,11 +638,12 @@ namespace BitSorter.ViewModel
         private readonly HashSet<string> _codeChosen = new HashSet<string>(StringComparer.Ordinal);
 
         /// <summary>
-        /// The text typed into the written module shown and not yet applied, kept while its drawing is up -- what EXPORT has to
-        /// apply or refuse, as it does with the code on screen (the review of #111: typed, then DRAWING, then EXPORT handed
-        /// over the older code without a word). Null for none.
+        /// The text typed into the written module shown and not yet applied, on screen or kept while its drawing is up -- what
+        /// EXPORT has to apply or refuse, as it does with the code on screen (the review of #111: typed, then DRAWING, then
+        /// EXPORT handed over the older code without a word). Followed to the document first: an edit of the drawing or an
+        /// undo since sets aside what was typed against the code before (the 16d sweep). Null for none.
         /// </summary>
-        public CodeDocument PendingCode => _code != null && _code.Module == Module && _code.Pending ? _code : null;
+        public CodeDocument PendingCode => _codes.TryGetValue(Module, out CodeDocument code) ? Typed(code) : null;
 
         /// <summary>
         /// The written module <paramref name="module"/> shown as its code from now on -- what + CODE and WRITE IT ask, since the
@@ -1084,16 +1169,22 @@ namespace BitSorter.ViewModel
             return layout;
         }
 
-        /// <summary>The text of the written module shown, as its editor has it; null while the module shown is drawn.</summary>
+        /// <summary>
+        /// The text of the written module shown, as its editor has it; null while the module shown is drawn, or is the drawing
+        /// of its code. The same document each time its code is shown again (<see cref="_codes"/>), what was typed in it kept.
+        /// </summary>
         public CodeDocument Code
         {
             get
             {
                 if (!ShowsCode)
-                    return ShowsDrawingOfCode && _code?.Module == Module ? null : _code = null;   // its text kept while its drawing is shown
-                if (_code == null || _code.Module != Module)
-                    _code = new CodeDocument(this, Module);
-                return _code;
+                    return null;
+                string module = Module;
+                if (!_codes.TryGetValue(module, out CodeDocument code))
+                    _codes[module] = code = new CodeDocument(this, module);
+                else
+                    code.Follow();   // shown again after an undo of it: its editor is given the document's text, not the old
+                return code;
             }
         }
 
@@ -1172,7 +1263,10 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>The written module shown given <paramref name="source"/> (<see cref="BoardEditor.SetSource"/>): one step, drawn now, and replayed.</summary>
-        public EditResult SetSource(string source) => Unchangeable ?? Edited(Editor.SetSource(Module, source));
+        public EditResult SetSource(string source) => SetSourceOf(Module, source);
+
+        /// <summary>The written module <paramref name="module"/>, shown or not, given <paramref name="source"/>: its editor's text applied.</summary>
+        internal EditResult SetSourceOf(string module, string source) => Unchangeable ?? Edited(Editor.SetSource(module, source));
 
         /// <summary>
         /// A new written module called <paramref name="name"/>, from the template (<see cref="BoardEditor.AddWrittenModule"/>):
@@ -1190,7 +1284,8 @@ namespace BitSorter.ViewModel
             EditResult result = Edited(Editor.ReplaceProject(imported));
             if (result.Done)
             {
-                _code = null;   // text typed and not applied goes too: the code as it came in, never broken text left read only (the review)
+                _codes.Clear();   // text typed and not applied goes too: the code as it came in, never broken text left read only (the review)
+                TypingChanged();
                 Locked = locked;
             }
             return result;
