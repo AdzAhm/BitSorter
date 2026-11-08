@@ -138,8 +138,7 @@ namespace BitSorter.View
                 size = new System.IO.FileInfo(path).Length;
                 if (size > FileImport.MaxDumpSize)
                 {
-                    Notice(System.IO.Path.GetFileName(path) + " is " + (size >> 20) + " MB, more than COMPARE reads (" + (FileImport.MaxDumpSize >> 20) +
-                        " MB): run to an earlier moment, or dump fewer signals");
+                    Notice(DumpPick.TooLarge(System.IO.Path.GetFileName(path), size));
                     return;
                 }
                 text = System.IO.File.ReadAllText(path);

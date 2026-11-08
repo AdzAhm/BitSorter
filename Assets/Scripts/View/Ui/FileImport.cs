@@ -117,11 +117,8 @@ namespace BitSorter.View
 #endif
         }
 
-        /// <summary>
-        /// The largest dump COMPARE WITH MODELSIM reads (Part 15i-5): a VCD of a long run is far larger than a project's code,
-        /// and reading one takes about twenty times its size in memory -- 16 MB about 315 MB, measured in the 15i-5 review.
-        /// </summary>
-        public const long MaxDumpSize = 16L << 20;
+        /// <summary>The largest dump COMPARE WITH MODELSIM reads (<see cref="BitSorter.ViewModel.DumpPick.MostSize"/>).</summary>
+        public const long MaxDumpSize = BitSorter.ViewModel.DumpPick.MostSize;
 
         /// <summary>Asks the page for one file, a dump to compare with, which <see cref="TryTake"/> has once it is read.</summary>
         public static void PickDump()
