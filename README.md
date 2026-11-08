@@ -94,6 +94,11 @@ adder written as code, a traffic light, a two-bit ALU, a test for a prime, a seq
 detector and a seven segment decoder. `S` steps through them, and on through the three
 RISC-V processors.
 
+adder written as code, a traffic light, a two-bit ALU, a check of whether a 4-bit
+number is prime (the one to open LOGIC on: its truth table, its K-map and its smallest
+sum of products), a sequence detector and a seven segment decoder. `S` steps through
+them, and on through the three RISC-V processors.
+
 ### Drawing a circuit
 
 Pick a part in PARTS and click to place it; `Esc` puts a part in hand down.
