@@ -408,7 +408,8 @@ namespace BitSorter.Sim
                 case ConditionalExpression c:
                 {
                     Expr condition = BuildTruth(c.Condition);
-                    return Expr.Conditional(condition, BuildAt(c.WhenTrue, width, signed), BuildAt(c.WhenFalse, width, signed));
+                    // Both choices at the context's width and signedness, so a known condition may leave the other alone.
+                    return Expr.Conditional(condition, BuildAt(c.WhenTrue, width, signed), BuildAt(c.WhenFalse, width, signed), signed);
                 }
 
                 default:

@@ -286,9 +286,13 @@ namespace BitSorter.Sim
         /// </summary>
         public static Expr Part(Expr a, Expr offset, int step, int width) => new PartExpr(a, offset, step, width);
 
-        /// <summary><c>condition ? whenTrue : whenFalse</c>.</summary>
-        public static Expr Conditional(Expr condition, Expr whenTrue, Expr whenFalse) =>
-            new ConditionalExpr(condition, whenTrue, whenFalse);
+        /// <summary>
+        /// <c>condition ? whenTrue : whenFalse</c>. Given the signedness both choices are worked out at --
+        /// <paramref name="signed"/>, the context's -- a known condition works out only its choice where the other calls a
+        /// function (IEEE 1800, 11.4.11); without it, both are always worked out, as nothing else can tell.
+        /// </summary>
+        public static Expr Conditional(Expr condition, Expr whenTrue, Expr whenFalse, bool? signed = null) =>
+            new ConditionalExpr(condition, whenTrue, whenFalse, signed);
 
         /// <summary>The value at another width, sign-extended or not: how a context widens an operand.</summary>
         public static Expr Resize(Expr a, int width, bool signExtend) =>
@@ -553,7 +557,21 @@ namespace BitSorter.Sim
                 }
             }
 
-            public override LogicVec Evaluate(LogicVec[] values) => Apply(_op, _a.Evaluate(values), _b.Evaluate(values));
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec a = _a.Evaluate(values);
+
+                // && and || stop once the first operand decides (IEEE 1800, 11.3.5): the second is not worked out, so a
+                // function in it does not run. The answer is the one both operands would give.
+                if (_op == BinaryOp.LogicalAnd || _op == BinaryOp.LogicalOr)
+                {
+                    Logic4 truth = LogicVec.Truth(a);
+                    if (_op == BinaryOp.LogicalAnd ? truth == Logic4.Zero : truth == Logic4.One)
+                        return _op == BinaryOp.LogicalAnd ? LogicVec.LogicalAnd(a, a) : LogicVec.LogicalOr(a, a);
+                }
+
+                return Apply(_op, a, _b.Evaluate(values));
+            }
 
             internal override int ToRtl(RtlBuilder b)
             {
@@ -833,17 +851,59 @@ namespace BitSorter.Sim
             private readonly Expr _whenTrue;
             private readonly Expr _whenFalse;
 
-            public ConditionalExpr(Expr condition, Expr whenTrue, Expr whenFalse)
+            /// <summary>The signedness both choices are worked out at, the context's; null where it is not known.</summary>
+            private readonly bool? _signed;
+
+            /// <summary>Whether each choice calls a function, which a condition known to pass it over must not run.</summary>
+            private readonly bool _trueCalls, _falseCalls;
+
+            public ConditionalExpr(Expr condition, Expr whenTrue, Expr whenFalse, bool? signed)
             {
                 _condition = condition ?? throw new ArgumentNullException(nameof(condition));
                 _whenTrue = whenTrue ?? throw new ArgumentNullException(nameof(whenTrue));
                 _whenFalse = whenFalse ?? throw new ArgumentNullException(nameof(whenFalse));
+                _signed = signed;
+
+                if (signed.HasValue)
+                {
+                    var calls = new List<FunctionInfo>();
+                    whenTrue.CollectCalls(calls);
+                    _trueCalls = calls.Count > 0;
+                    calls.Clear();
+                    whenFalse.CollectCalls(calls);
+                    _falseCalls = calls.Count > 0;
+                }
             }
 
             public override int Width => Math.Max(_whenTrue.Width, _whenFalse.Width);
 
-            public override LogicVec Evaluate(LogicVec[] values) =>
-                LogicVec.Conditional(_condition.Evaluate(values), _whenTrue.Evaluate(values), _whenFalse.Evaluate(values));
+            /// <summary>
+            /// A known condition gives its choice without working out the other (IEEE 1800, 11.4.11) where the other calls a
+            /// function -- which would run, and a recursion whose base case is a ?: would never reach it (the 16d sweep,
+            /// engine-2). Elsewhere both are worked out, which gives the same value. An x or z condition works out both.
+            /// </summary>
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec condition = _condition.Evaluate(values);
+                if (_trueCalls || _falseCalls)
+                {
+                    Logic4 truth = LogicVec.Truth(condition);
+                    if (truth == Logic4.One && _falseCalls)
+                        return Chosen(_whenTrue.Evaluate(values));
+                    if (truth == Logic4.Zero && _trueCalls)
+                        return Chosen(_whenFalse.Evaluate(values));
+                }
+
+                return LogicVec.Conditional(condition, _whenTrue.Evaluate(values), _whenFalse.Evaluate(values));
+            }
+
+            /// <summary>The choice as <see cref="LogicVec.Conditional"/> gives it: at the wider width, signed only if both are.</summary>
+            private LogicVec Chosen(LogicVec value)
+            {
+                bool signed = value.IsSigned && _signed.Value;
+                value = value.Extend(Width, signed);
+                return value.IsSigned == signed ? value : signed ? value.AsSigned() : value.AsUnsigned();
+            }
 
             internal override int ToRtl(RtlBuilder b)
             {
