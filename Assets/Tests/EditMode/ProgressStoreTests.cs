@@ -345,6 +345,30 @@ namespace BitSorter.EditMode.Tests
             Assert.IsFalse(store.IsComplete(string.Empty));
         }
 
+        /// <summary>
+        /// A save that cannot be read just now -- held by another program as BitSorter opens, which is no damaged file -- is
+        /// never written over by the empty store that load left: the first save after it replaced every circuit and solve
+        /// with nothing, and the copy kept of an unreadable save failed on the same lock (save-7).
+        /// </summary>
+        [Test]
+        public void ASaveThatCouldNotBeReadJustNow_IsNeverWrittenOver()
+        {
+            var first = new ProgressStore(_path);
+            first.Load();
+            first.MarkComplete("route-the-bit");
+
+            var store = new ProgressStore(_path);
+            using (new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.None))
+                store.Load();
+            Assert.IsNotNull(store.LastError, "sanity: it could not be read");
+
+            store.MarkHintSeen(Hint.Stalled);   // any write at all, once the lock has gone
+
+            var reread = new ProgressStore(_path);
+            reread.Load();
+            Assert.IsTrue(reread.IsComplete("route-the-bit"), "the save was written over by a store that never read it");
+        }
+
         // -----------------------------------------------------------------
         // A save that dies half way
         // -----------------------------------------------------------------
