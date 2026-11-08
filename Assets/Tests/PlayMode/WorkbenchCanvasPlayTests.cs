@@ -3133,8 +3133,11 @@ namespace BitSorter.PlayMode.Tests
             workbench.Pause();
             workbench.Session.Finish();
             yield return null;
+            workbench.Wave.Fit(workbench.Model.End);   // the whole run in view, however the import opened the waves (the review)
             workbench.Seek(workbench.Model.End);
             yield return null;
+            Assert.IsTrue(workbench.Wave.IsFitted && workbench.Wave.Start == 0.0 && workbench.Wave.End >= workbench.Model.End,
+                "sanity: every glitch of the run in view, as many as there can be");
 
             int swallowed = 0;
             for (int row = 0; row < workbench.Model.RowCount; row++)
