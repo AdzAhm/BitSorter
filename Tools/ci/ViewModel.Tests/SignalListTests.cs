@@ -422,5 +422,28 @@ endmodule
             Assert.AreEqual(1, list.LineOf(gone), "kept in its place");
             Assert.AreEqual("h1.s", list.LabelOf(list.Lines[1]), "named by its key");
         }
+        /// <summary>
+        /// A design of a thousand ports opens on as many rows as the waves have room for, the first of its ports in the layout's
+        /// order: every port was a row, and each row a band and two labels on the canvas, so a module of a hundred thousand
+        /// ports -- 1.5 MB, inside every import limit -- made three hundred thousand of them in one frame (browser-5). + SIGNAL
+        /// adds any of the rest.
+        /// </summary>
+        [Test]
+        public void ADesignOfAThousandPorts_OpensOnAsManyRowsAsTheWavesHaveRoomFor()
+        {
+            var source = new System.Text.StringBuilder("module wide (");
+            for (int i = 0; i < 1000; i++)
+                source.Append("input logic a").Append(i).Append(", ");
+            source.Append("output logic y);\n    assign y = a0;\nendmodule\n");
+            BitSorter.Board.ProjectImport import = BitSorter.Board.ProjectImporter.Import(new[] { new BitSorter.Board.SourceFile("wide.sv", source.ToString()) });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            WorkbenchModel model = WorkbenchModel.Of(import.Project);
+            Assert.Greater(model.Layout.Rows.Count, 256, "sanity: a port row for every port");
+
+            WaveList list = WaveList.OfPorts(model);
+
+            Assert.LessOrEqual(list.Lines.Count, 256, "rows made as the circuit opens");
+            Assert.AreEqual(model.Layout.Rows[0].Signal, model.Signals.FullName(list.Lines[0].Signal.Signal), "the first port first");
+        }
     }
 }
