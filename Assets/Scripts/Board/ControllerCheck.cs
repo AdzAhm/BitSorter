@@ -370,7 +370,17 @@ namespace BitSorter.Board
             return -1;
         }
 
-        private static bool Same(LogicVec value, LogicVec constant) =>
-            value.TryGetUInt64(out ulong v) && constant.Resize(value.Width).TryGetUInt64(out ulong c) && v == c;
+        /// <summary>
+        /// Whether the circuit gives <paramref name="value"/> where the reading shows <paramref name="constant"/>: the same number,
+        /// or, for a constant the code writes with an x or a z in it -- a decoder's <c>default: a = 2'bxx;</c>, leaving it free
+        /// -- the same bits, x for x (the review of the 16d fixes: once the default row was tried, an x never matched).
+        /// </summary>
+        private static bool Same(LogicVec value, LogicVec constant)
+        {
+            LogicVec wanted = constant.Resize(value.Width);
+            if (!wanted.IsKnown)
+                return LogicVec.CaseEqual(value, wanted).IsTrue;
+            return value.TryGetUInt64(out ulong v) && wanted.TryGetUInt64(out ulong c) && v == c;
+        }
     }
 }

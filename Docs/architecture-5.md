@@ -3948,7 +3948,8 @@ diagram and a control table over a case-as-one-table box, splitting the controll
 - **Held to the engine before it is shown** (`Board/ControllerCheck`; the review of 15h-6e found the check only in the
   tests): the instance's netlist worked out (`RtlEvaluator`) for every state and every value of each input and held
   register of eight bits or fewer, the others random -- the next state is one the diagram has an arrow to, every arrow
-  is taken, and every constant a box, an arrow or a table shows is the circuit's. A state with an arrow not yet taken
+  is taken, and every constant a box, an arrow or a table shows is the circuit's -- one written with an x, a decoder's
+  `default: a = 2'bxx;`, bit for bit, x for x (the review of the 16d fixes: it never matched). A state with an arrow not yet taken
   is looked at again first (16d sweep: `data == 8'd200 && valid` passed or failed by the seed, and a 16-bit compare's
   arrow was all but never taken): a wide input at the netlist's constants, each pair of inputs at every pair of their
   values where there are 1,024 or fewer, every input at once at random among those, 16,384 trials at most. A trial's
