@@ -393,6 +393,43 @@ endmodule
             StringAssert.Contains("otherwise gives kind", why);
         }
 
+        /// <summary>A machine whose way out of IDLE is taken only at <c>COND</c>.</summary>
+        private const string Waiting = @"
+module waiting (input logic clk, rst, valid, go, ready, input logic [7:0] data, input logic [15:0] count, output logic busy);
+    typedef enum logic [1:0] {IDLE, RUN, DONE} st_t;
+    st_t state, nxt;
+    always_ff @(posedge clk, posedge rst)
+        if (rst) state <= IDLE;
+        else state <= nxt;
+    always_comb begin
+        nxt = state;
+        busy = 1'b0;
+        case (state)
+            IDLE: if (COND) nxt = RUN;
+            RUN: begin busy = 1'b1; nxt = DONE; end
+            default: nxt = IDLE;
+        endcase
+    end
+endmodule
+";
+
+        /// <summary>
+        /// An arrow taken only at two inputs' values together, three's, or one wide input's value the logic compares with, is
+        /// found taken, and the correct machine shown (the 16d sweep: one input was tried at a time, the rest at random, so
+        /// such a machine passed or failed by the seed -- about half of those of an 8-bit compare and a valid -- and a 16-bit
+        /// compare's arrow was almost never taken in sixteen random tries).
+        /// </summary>
+        [TestCase("data == 8'd200 && valid", TestName = "AnArrowOfTwoInputsAtOnce_IsFoundTaken")]
+        [TestCase("valid && go && ready && data[0]", TestName = "AnArrowOfFourInputsAtOnce_IsFoundTaken")]
+        [TestCase("count == 16'd1000", TestName = "AnArrowOfAWideInputsValue_IsFoundTaken")]
+        [TestCase("count == 16'd1000 && valid", TestName = "AnArrowOfAWideInputsValueAndAnother_IsFoundTaken")]
+        public void AnArrowTakenOnlyAtSomeInputsTogether_IsFoundTaken(string condition)
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(Waiting.Replace("COND", condition), "waiting");
+            CollectionAssert.AreEqual(new[] { "RUN", "IDLE" }, Out(reading.Machine, "IDLE").Select(a => a.To).ToArray(), "sanity: read");
+            Assert.IsNull(Why(tree, "waiting", reading), condition);
+        }
+
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
         [Test]
         public void ADecodersEnumLabels_PickTheirRows()
