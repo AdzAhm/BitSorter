@@ -181,6 +181,28 @@ namespace BitSorter.Board.Tests
             Assert.IsTrue(found.Any(d => d.IsError && d.Part == part.id), string.Join("\n", found));
         }
 
+        /// <summary>
+        /// A count far past any part's, saved, is refused without a pin made for each: fifty million inputs made fifty million
+        /// pins and their names, gigabytes in one go -- a browser's page dies at two -- before the rules could say no (save-2).
+        /// </summary>
+        [Test]
+        public void ACountFarPastAnyPartsSaved_IsRefusedWithoutMakingItsPins()
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            PartRecord part = file.modules[0].parts[4];
+            part.kind = "mux";
+            part.inputs = 50_000_000;
+            part.width = 1;
+            Project read = file.ToProject(new List<string>());
+
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            List<BoardDiagnostic> found = BoardRules.Check(read);
+            long made = System.GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.IsTrue(found.Any(d => d.IsError && d.Part == part.id && d.Message.Contains("2, 4 or 8")), string.Join("\n", found));
+            Assert.Less(made, 16L << 20, $"the rules made {made:N0} bytes for a part they refuse");
+        }
+
         [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {

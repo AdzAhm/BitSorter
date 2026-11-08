@@ -335,6 +335,13 @@ namespace BitSorter.Board
                 }
             }
 
+            // A part's pins are made from its own counts, so a count no part can have -- read from a save edited by hand --
+            // would make a pin for each of them, or throw for one below zero (save-2). Its error is said above; the nets,
+            // which need its pins, are not looked at.
+            foreach (Part part in module.Parts)
+                if (!PinsCanBeMade(part))
+                    return;
+
             Netlist netlist = Netlist.Of(project, module);
             var partsById = new Dictionary<int, Part>();
             foreach (Part part in module.Parts)
@@ -461,6 +468,25 @@ namespace BitSorter.Board
         /// </summary>
         public static bool IsTri(Net net, Module module) => net != null && (net.InOuts.Count > 0 || IsBus(net, module));
 
+        /// <summary>The most bits a splitter takes apart, or a joiner makes into a bus.</summary>
+        private const int MostSplit = 64;
+
+        /// <summary>
+        /// Whether <paramref name="part"/>'s pins can be made: each of its counts no more than the rules let a part have, and
+        /// none below zero (save-2). <see cref="CheckPart"/> says what is wrong with one that cannot.
+        /// </summary>
+        private static bool PinsCanBeMade(Part part)
+        {
+            switch (part)
+            {
+                case GatePart gate: return gate.Inputs >= 0 && gate.Inputs <= GatePart.MaxInputs;
+                case MuxPart mux: return mux.Inputs >= 0 && mux.Inputs <= 8;
+                case SplitterPart splitter: return splitter.Width >= 0 && splitter.Width <= MostSplit;
+                case JoinerPart joiner: return joiner.Width >= 0 && joiner.Width <= MostSplit;
+                default: return true;
+            }
+        }
+
         private static void CheckPart(Project project, Part part, Action<string, int, int> error, Action<string, int, int> warning)
         {
             void Error(string message) => error(message, part.Id, -1);
@@ -537,13 +563,13 @@ namespace BitSorter.Board
                     break;
 
                 case SplitterPart splitter:
-                    if (splitter.Width < 2 || splitter.Width > 64)
-                        Error($"{splitter.Name} splits {splitter.Width} bits; a splitter takes 2 to 64.");
+                    if (splitter.Width < 2 || splitter.Width > MostSplit)
+                        Error($"{splitter.Name} splits {splitter.Width} bits; a splitter takes 2 to {MostSplit}.");
                     break;
 
                 case JoinerPart joiner:
-                    if (joiner.Width < 2 || joiner.Width > 64)
-                        Error($"{joiner.Name} joins {joiner.Width} bits; a joiner takes 2 to 64.");
+                    if (joiner.Width < 2 || joiner.Width > MostSplit)
+                        Error($"{joiner.Name} joins {joiner.Width} bits; a joiner takes 2 to {MostSplit}.");
                     break;
 
                 case LampPart lamp:
