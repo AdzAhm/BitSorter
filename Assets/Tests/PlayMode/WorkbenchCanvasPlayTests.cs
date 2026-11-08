@@ -3403,6 +3403,44 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// RESET PROGRESS with code typed in an exercise and not yet applied, and no page up (the review of Part 16d's sweep):
+        /// the exercise is let go as it is, nothing of it applied or kept, and MY CIRCUIT opens under the start page. MY CIRCUIT
+        /// was opened through the way a student leaves a circuit, which applies code typed first: after the reset had made MY
+        /// CIRCUIT the key the stage keeps under, so the exercise's code, applied, was written over MY CIRCUIT and opened as it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ResetProgress_WithCodeTypedInAnExercise_WritesNothingOfItUnderMyCircuit()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(0);
+            yield return null;
+            yield return Place(workbench, "and", new BoardPoint(2, 0), new System.Collections.Generic.List<int>());
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();   // its brief opens over the circuit
+            yield return Click(WorkbenchPanel.CodeButton);   // WRITE IT
+            WorkbenchSession session = workbench.Session;
+            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+            CodeDocument code = session.Code;
+            code.Type(code.Text + "// typed, and not applied\n", Time.timeAsDouble * 1000.0);   // on the editor's clock: inside its pause
+            Assert.IsTrue(code.Pending, "sanity: typed and not applied");
+            Assert.IsFalse(Find<SettingsPanel>().IsShowing, "sanity: no page up, so MY CIRCUIT opens at once");
+
+            Assert.IsTrue(Find<ProgressTracker>().ResetProgress());
+            yield return null;
+
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.IsTrue(workbench.StartPageShowing, "the start page, over MY CIRCUIT");
+            Assert.IsFalse(Top(workbench).IsWritten, "MY CIRCUIT on the stage, not the exercise's code");
+            Assert.AreEqual(BitSorter.Sim.GateKind.And, Top(workbench).Parts.OfType<GatePart>().Single().Kind, "MY CIRCUIT's AND");
+            ProgressStore store = Find<ProgressTracker>().Store;
+            Assert.IsTrue(store.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()));
+            Assert.IsFalse(kept.TopModule.IsWritten, "and MY CIRCUIT in the save is the student's own");
+            Assert.IsFalse(store.HasProject("half-adder"), "nothing of the exercise written back");
+        }
+
+        /// <summary>
         /// While Settings is up the workbench takes no keys (the 15g-2 review): S, the sample chip's key on the start page,
         /// changed the circuit under Settings unseen. The chip itself, in the header over Settings, still shows the next
         /// sample, and takes Settings down as HOME does.
