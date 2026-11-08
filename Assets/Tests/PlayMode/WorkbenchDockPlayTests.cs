@@ -141,6 +141,38 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// The transcript's filter in use, and the part in hand, are marked by more than their caption's colour (Part 16d's
+        /// sweep), as the dock's tab is by its underline: the accent against the text was the only mark, 1.06:1 in Classic and
+        /// 1.83:1 in Schematic, and ALL looked as ERRORS did (WCAG 1.4.1).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheFilterInUse_AndThePartInHand_AreMarkedByMoreThanColour()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowTranscript();
+            yield return null;
+            yield return ClickOn(WorkbenchPanel.TranscriptFilterName + TranscriptFilter.Errors);
+            foreach (TranscriptFilter filter in new[] { TranscriptFilter.All, TranscriptFilter.Errors, TranscriptFilter.Warnings, TranscriptFilter.Messages })
+                Assert.AreEqual(filter == TranscriptFilter.Errors, Marked(WorkbenchPanel.TranscriptFilterName + filter), $"{filter}: marked only while in use");
+
+            Assert.IsTrue(workbench.TakeFromStrip("xor"));
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Marked(WorkbenchPanel.PartButtonName("xor")), "the part in hand is marked");
+            Assert.IsFalse(Marked(WorkbenchPanel.PartButtonName("and")), "and no other");
+        }
+
+        /// <summary>Whether a control shows its mark of being chosen, a bar of its own, beyond its caption's colour.</summary>
+        private static bool Marked(string name)
+        {
+            VisualElement control = ShellPanel.Find<VisualElement>(name);
+            Assert.IsNotNull(control, $"no '{name}' in the shell");
+            VisualElement mark = UQueryExtensions.Q(control, "chosen");
+            return mark != null && mark.resolvedStyle.display == DisplayStyle.Flex && mark.resolvedStyle.height > 0f;
+        }
+
         [UnityTest]
         public IEnumerator TheCircuitsWindowAndTheWaves_AreWhereTheirPanelsAre()
         {
