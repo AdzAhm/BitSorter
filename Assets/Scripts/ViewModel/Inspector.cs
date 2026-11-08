@@ -395,8 +395,11 @@ namespace BitSorter.ViewModel
                             why ??= "Reset is yes or no.";
                     }
 
-                    // The values are read at the register's width as it will be, so a wider register takes a wider value.
-                    if (Changed("resetvalue") || Changed("width"))
+                    // The values are read at the register's width as it will be, so a wider register takes a wider value -- a
+                    // width a register can have: past it the values stay as they are, and the document refuses the width in its
+                    // own words (the 16d sweep: they were read at 0 bits, which threw).
+                    bool readable = register.Width >= 1 && register.Width <= BoardRules.MaxWidth;
+                    if (readable && (Changed("resetvalue") || Changed("width")))
                     {
                         string text = Typed("resetvalue");
                         if (text.Length == 0)
@@ -405,7 +408,7 @@ namespace BitSorter.ViewModel
                             register = register with { ResetValue = reset };
                     }
 
-                    if (Changed("start") || Changed("width"))
+                    if (readable && (Changed("start") || Changed("width")))
                     {
                         string text = Typed("start");
                         if (text.Length == 0)
