@@ -369,6 +369,27 @@ namespace BitSorter.EditMode.Tests
             Assert.IsTrue(reread.IsComplete("route-the-bit"), "the save was written over by a store that never read it");
         }
 
+        /// <summary>
+        /// Two windows of BitSorter on one save -- two tabs of the browser build, or two of the desktop's -- each read it once
+        /// and wrote it whole, so the second to save put its older save over the first's: a solve made in one window was gone
+        /// once the other saved anything (browser-1).
+        /// </summary>
+        [Test]
+        public void TwoWindows_TheOneThatReadTheSaveBeforeTheOtherWroteIt_NeverWritesOverIt()
+        {
+            var one = new ProgressStore(_path);
+            one.Load();
+            var other = new ProgressStore(_path);
+            other.Load();
+
+            one.MarkComplete("half-adder");
+            other.MarkHintSeen(Hint.Stalled);   // any write of the other window's, which read the save before the solve
+
+            var reread = new ProgressStore(_path);
+            reread.Load();
+            Assert.IsTrue(reread.IsComplete("half-adder"), "the other window wrote its older save over the solve");
+        }
+
         // -----------------------------------------------------------------
         // A save that dies half way
         // -----------------------------------------------------------------
