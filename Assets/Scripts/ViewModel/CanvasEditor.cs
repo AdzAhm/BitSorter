@@ -424,8 +424,9 @@ namespace BitSorter.ViewModel
                 return EditResult.Refused(WorkbenchSession.LockedRefusal);
             if (drag && _session.ShowsDrawingOfCode && command.Gesture == CanvasGesture.BeginReshape)
                 return EditResult.Refused(WorkbenchSession.ArrangeRefusal);   // it routes its own wires; its parts move (15h-4f)
-            if (drag && _session.ShowsDrawingOfCode && !_session.EditsDrawingOfCode)
-                return EditResult.Refused(WorkbenchSession.GatesRefusal);
+            if (drag && _session.ShowsDrawingOfCode && !_session.EditsDrawingOfCode)   // GATES on: a move and a resize arrange, a wire edits
+                return EditResult.Refused(command.Gesture == CanvasGesture.BeginMove || command.Gesture == CanvasGesture.BeginResize
+                    ? WorkbenchSession.GatesArrangeRefusal : WorkbenchSession.GatesRefusal);
 
             switch (command.Gesture)
             {

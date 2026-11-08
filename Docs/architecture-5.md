@@ -5107,6 +5107,9 @@ exercises, each fixed with a test that failed first.
   (`FrameAllocationTests.SteppedIntoACopyOfAnArray_TheSessionsFrameAsks_AllocateNothing`), bytes an ask before: the module
   shown, whether it is written, whether its code is shown, the code's document and what the canvas draws 56 each, TIDY 112;
   after, nothing.
+- **With GATES on, a drag to move a part is told what a move is told** (`CanvasEditor.Do`): that the gates lay themselves
+  out, `GatesArrangeRefusal`. Every drag was told an edit's words, that the code is written from the boxes, though a move
+  writes no code; a wire drawn still is.
 
 ---
 
