@@ -1743,7 +1743,11 @@ namespace BitSorter.Sim
             }
         }
 
-        /// <summary>Takes away every force -- or, <paramref name="assigned"/>, every procedural assign -- on the bits given; whether there was one.</summary>
+        /// <summary>
+        /// Takes away every force -- or, <paramref name="assigned"/>, every procedural assign -- from the bits given, and from
+        /// those alone: one wider than them keeps its bits below and above, as forces of their own (the 16d sweep, engine-10:
+        /// it was taken away whole, so release w[1] released four bits). Whether there was one.
+        /// </summary>
         private bool Unforce(int s, int lowest, int width, bool assigned)
         {
             List<ForceRecord> forces = _forces?[s];
@@ -1751,19 +1755,49 @@ namespace BitSorter.Sim
                 return false;
 
             bool any = false;
+            int top = lowest + width;
             for (int i = forces.Count - 1; i >= 0; i--)
             {
                 ForceRecord force = forces[i];
-                if (force.Assigned != assigned || force.Lowest >= lowest + width || force.Lowest + force.Width <= lowest)
+                int end = force.Lowest + force.Width;
+                if (force.Assigned != assigned || force.Lowest >= top || end <= lowest)
                     continue;
 
                 forces.RemoveAt(i);
                 foreach (int read in force.Reads)
                     _forceReaders[read]?.Remove(force);
                 any = true;
+
+                if (force.Lowest < lowest)
+                    KeepPart(forces, force, force.Lowest, lowest - force.Lowest);
+                if (end > top)
+                    KeepPart(forces, force, top, end - top);
             }
 
             return any;
+        }
+
+        /// <summary>The bits of <paramref name="force"/> from <paramref name="lowest"/>, <paramref name="width"/> of them, kept as a force of their own.</summary>
+        private void KeepPart(List<ForceRecord> forces, ForceRecord force, int lowest, int width)
+        {
+            int from = lowest - force.Lowest;
+            var part = new ForceRecord
+            {
+                Signal = force.Signal,
+                Lowest = lowest,
+                Width = width,
+                Offset = force.Offset + from,
+                Total = force.Total,
+                Value = force.Value,
+                Reads = force.Reads,
+                Assigned = force.Assigned,
+                Current = force.Current.Slice(from, width),
+                Pending = force.Pending.IsEmpty ? force.Pending : force.Pending.Slice(from, width),
+            };
+
+            forces.Add(part);
+            foreach (int read in part.Reads)
+                (_forceReaders[read] ?? (_forceReaders[read] = new List<ForceRecord>())).Add(part);
         }
 
         private LogicVec Value(ForceRecord force) => Fit(force.Value.Evaluate(_values), force.Total).Slice(force.Offset, force.Width);
