@@ -4975,8 +4975,12 @@ two kinds of call need them:
 - **Files are written, not read** (21.3). `$fopen(name, "w")` or `"a"` gives a descriptor with the top bit
   set, and `$fopen(name)` one bit of a multichannel descriptor, bit 0 being the transcript -- the lowest
   free one each time, as Icarus gives them. `$fdisplay`, `$fwrite` and `$fstrobe` print to it; descriptor 1
-  and 2 are the transcript. What is written is handed to the run's files (`ISimFiles`) on `$fclose` and
-  `$fflush` and whenever a run hands back, never a line at a time. `$fopen` in an expression is run just
+  and 2 are the transcript. What is written is handed to the run's files (`ISimFiles`) on `$fflush`, before
+  the design reads the file, and whenever a run hands back but paused by its budget -- never a line at a time,
+  nor at every `$fclose` or slice of a run: each copied the whole file, and an append read it back in, so a log
+  opened and closed each cycle cost the square of its length (the 16d sweep, engine-6). The run keeps what it
+  wrote by path, closed or not, for an append to go on from, and holds a file to `Simulator.MaxFileCharacters`,
+  sixteen million, saying once what it left out. `$fopen` in an expression is run just
   before its statement, as `$random` is. The corpus test now compares every file a testbench writes with
   Icarus's, word for word.
 - **Icarus 12 cannot run four of these** (`oracle-notes.md`, "Packages, macros, strings and files"), so

@@ -203,7 +203,7 @@ endmodule", files, until: 0);
             StringAssert.EndsWith("cycle 1999 of the log\n", log);
             StringAssert.EndsWith("cycle 1999 kept open\n", kept);
             CollectionAssert.AreEqual(new[] { "5a" }, Printed(sim));
-            Assert.Less(made, 48L << 20, $"two thousand cycles of a log made {made:N0} bytes");
+            Assert.Less(made, 16L << 20, $"two thousand cycles of a log made {made:N0} bytes");
         }
 
         [Test]

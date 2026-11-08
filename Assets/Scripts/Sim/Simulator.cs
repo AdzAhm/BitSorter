@@ -594,8 +594,10 @@ namespace BitSorter.Sim
             if (_line.Length > 0 && (Stopped || Suspended || _heap.Count == 0))
                 EndLine(Severity.Info);
 
-            // What the design has written into its files is written out whenever a run hands back.
-            FlushFiles(-1);
+            // What the design has written into its files is written out whenever a run hands back -- but paused by its budget,
+            // when the next call goes on at once: copied out at every slice, a long log cost the square of its length.
+            if (result.Status != RunStatus.Paused)
+                FlushFiles(-1);
             return result;
         }
 
@@ -981,16 +983,35 @@ namespace BitSorter.Sim
         // Files (Part L6)
         // -----------------------------------------------------------------
 
-        /// <summary>A file a design has opened: its name, and everything written to it so far.</summary>
-        private sealed class OpenFile
+        /// <summary>
+        /// A file a design writes: its name as the design gave it, and everything written to it so far. Kept by path once
+        /// opened, closed or not, so an append goes on from it without reading the file back in, and written out to the run's
+        /// files only as the run hands back, at a <c>$fflush</c>, or before the design reads it (the 16d sweep, engine-6:
+        /// every <c>$fclose</c>, every slice of a run and every append copied the whole file, so a log cost the square of its
+        /// length).
+        /// </summary>
+        private sealed class FileText
         {
             public string Name;
             public readonly StringBuilder Text = new StringBuilder();
             public bool Dirty;
+
+            /// <summary>Whether it has reached <see cref="MaxFileCharacters"/>, and been said to.</summary>
+            public bool Full;
         }
 
+        /// <summary>
+        /// The most characters a file a design writes may hold: sixteen million, 32 MB as the run keeps it, as large as a
+        /// dump the workbench takes in. What is written past that is dropped, and the run says so once; the history's bound
+        /// does not count a file.
+        /// </summary>
+        public const int MaxFileCharacters = 16 * 1024 * 1024;
+
         /// <summary>The files open, by descriptor: the top bit set over 3 and up for a mode, a single bit above bit 0 for a channel.</summary>
-        private readonly Dictionary<int, OpenFile> _openFiles = new Dictionary<int, OpenFile>();
+        private readonly Dictionary<int, FileText> _openFiles = new Dictionary<int, FileText>();
+
+        /// <summary>Every file the run has opened, by its path: what it last opened there, open or closed.</summary>
+        private readonly Dictionary<string, FileText> _fileTexts = new Dictionary<string, FileText>(StringComparer.Ordinal);
 
         /// <summary>
         /// <c>$fopen(name, mode)</c> (IEEE 1800, 21.3.1): a descriptor with the top bit set, as Icarus numbers
@@ -1040,9 +1061,19 @@ namespace BitSorter.Sim
                 descriptor = int.MinValue | n;
             }
 
-            var file = new OpenFile { Name = path, Dirty = true };
-            if (append && _options.Files.TryRead(path, out string before))
-                file.Text.Append(before);
+            // An append goes on from what the run last wrote there, kept; only a file it has not opened is read in.
+            string key = SystemVerilog.Syntax.SourcePaths.Normalise(path);
+            if (!append || !_fileTexts.TryGetValue(key, out FileText file))
+            {
+                file = new FileText { Name = path, Dirty = true };
+                if (append && _options.Files.TryRead(path, out string before))
+                {
+                    file.Text.Append(before, 0, Math.Min(before.Length, MaxFileCharacters));
+                    file.Dirty = false;
+                }
+                _fileTexts[key] = file;
+            }
+
             _openFiles[descriptor] = file;
             return descriptor;
         }
@@ -1070,27 +1101,39 @@ namespace BitSorter.Sim
                 int n = descriptor & 0x7FFFFFFF;
                 if (n == 1 || n == 2)
                     Print(n == 2 ? Severity.Error : spec.Severity, text, endLine);
-                else if (_openFiles.TryGetValue(descriptor, out OpenFile file))
+                else if (_openFiles.TryGetValue(descriptor, out FileText file))
                     Append(file, text, endLine);
                 return;
             }
 
             if ((descriptor & 1) != 0)
                 Print(spec.Severity, text, endLine);
-            foreach (KeyValuePair<int, OpenFile> open in _openFiles)
+            foreach (KeyValuePair<int, FileText> open in _openFiles)
                 if (open.Key > 0 && (descriptor & open.Key) != 0)
                     Append(open.Value, text, endLine);
         }
 
-        private static void Append(OpenFile file, string text, bool endLine)
+        private void Append(FileText file, string text, bool endLine)
         {
+            int room = MaxFileCharacters - file.Text.Length;
+            int length = text.Length + (endLine ? 1 : 0);
+            if (length > room)
+            {
+                if (!file.Full)
+                    _history.Message(_now, Severity.Error,
+                        $"{file.Name} has reached {MaxFileCharacters.ToString("N0", CultureInfo.InvariantCulture)} characters, the most a file a run " +
+                        "writes may hold, so what is written to it after is left out.");
+                file.Full = true;
+                return;
+            }
+
             file.Text.Append(text);
             if (endLine)
                 file.Text.Append('\n');
             file.Dirty = true;
         }
 
-        /// <summary><c>$fclose</c>: the file written out, and its descriptor free.</summary>
+        /// <summary><c>$fclose</c>: the descriptor free. What was written is kept, and written out as the run hands back.</summary>
         private void Close(int descriptor)
         {
             if (descriptor == 0)
@@ -1102,28 +1145,44 @@ namespace BitSorter.Sim
                     closing.Add(open);
 
             foreach (int open in closing)
-            {
-                FlushFiles(open);
                 _openFiles.Remove(open);
-            }
         }
 
-        /// <summary>Writes out the file a descriptor names, or every open one for -1.</summary>
+        /// <summary>
+        /// <c>$fflush</c>: writes out the file a descriptor names -- one file, or a channel's bits -- or, for -1, every file
+        /// the run has written.
+        /// </summary>
         private void FlushFiles(int descriptor)
         {
-            if (_options.Files == null || _openFiles.Count == 0)
+            if (_options.Files == null || _fileTexts.Count == 0)
                 return;
 
-            foreach (KeyValuePair<int, OpenFile> open in _openFiles)
+            if (descriptor == -1)
             {
-                if (descriptor != -1 && open.Key != descriptor && !(descriptor > 0 && open.Key > 0 && (descriptor & open.Key) != 0))
-                    continue;
-                if (!open.Value.Dirty)
-                    continue;
-
-                _options.Files.Write(open.Value.Name, open.Value.Text.ToString());
-                open.Value.Dirty = false;
+                foreach (FileText file in _fileTexts.Values)
+                    WriteOut(file);
+                return;
             }
+
+            foreach (KeyValuePair<int, FileText> open in _openFiles)
+                if (open.Key == descriptor || descriptor > 0 && open.Key > 0 && (descriptor & open.Key) != 0)
+                    WriteOut(open.Value);
+        }
+
+        /// <summary>The file at <paramref name="path"/> written out if the run holds more of it than it has written: before it is read.</summary>
+        private void FlushPath(string path)
+        {
+            if (_fileTexts.Count > 0 && _fileTexts.TryGetValue(SystemVerilog.Syntax.SourcePaths.Normalise(path), out FileText file))
+                WriteOut(file);
+        }
+
+        private void WriteOut(FileText file)
+        {
+            if (!file.Dirty)
+                return;
+
+            _options.Files.Write(file.Name, file.Text.ToString());
+            file.Dirty = false;
         }
 
         /// <summary>Text for the transcript: each line it completes becomes a message.</summary>
@@ -1892,6 +1951,10 @@ namespace BitSorter.Sim
             MemoryInfo memory = task.Memory;
             string text = null;
 
+            // A file the run has written and not yet written out is written out first, so it reads what was written.
+            if (_options.Files != null)
+                FlushPath(task.File);
+
             if (_options.Files == null || !_options.Files.TryRead(task.File, out text))
             {
                 _history.Message(_now, Severity.Error,
@@ -2001,6 +2064,13 @@ namespace BitSorter.Sim
                 words.Add(_values[memory.First.Index + (int)(at - memory.Lowest)]);
                 if (at == end)
                     break;
+            }
+
+            // The image is the file now: what the run kept of it from a $fopen is not written over it later.
+            if (_fileTexts.Count > 0 && _fileTexts.TryGetValue(SystemVerilog.Syntax.SourcePaths.Normalise(task.File), out FileText kept))
+            {
+                kept.Dirty = false;
+                _fileTexts.Remove(SystemVerilog.Syntax.SourcePaths.Normalise(task.File));
             }
 
             _options.Files.Write(task.File, MemoryImage.Write(words, task.Hex));
