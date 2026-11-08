@@ -613,6 +613,48 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Text selected in a code field -- the code editor's and the CODE tab's, in every look -- is seen: its fill, as the
+        /// field draws it over the ground, stands 1.5:1 apart from it, as an editor's selection does, and the code on it reads
+        /// at 4.5:1 (Part 16d's sweep). It was the row band's colour at 45%, 1.06:1 to 1.15:1, and which lines Tab, Ctrl+/ or
+        /// Delete were about to change could not be told. Built here rather than in Edit Mode, whose tests reach no
+        /// TextMeshPro type.
+        /// </summary>
+        [Test]
+        public void InTheCodeFields_SelectedText_IsSeen_AndStillReads()
+        {
+            var host = new GameObject("code fields", typeof(RectTransform));
+            try
+            {
+                var parent = (RectTransform)host.transform;
+                foreach (Look look in Look.All)
+                {
+                    SchematicPalette c = look.Canvas;
+                    foreach ((string where, TMP_InputField field) in new[]
+                             {
+                                 ("the code editor", CodeEditorView.Build(parent, c).Field),
+                                 ("the CODE tab", CodeListingView.Build(parent, c).Field),
+                             })
+                    {
+                        Color seen = SeenOver(field.selectionColor, c.Ground);
+                        Assert.GreaterOrEqual(SchematicPalette.Contrast(seen, c.Ground), 1.5f, $"{look.Name}: {where}'s selection against the ground");
+                        Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Text, seen), 4.5f, $"{look.Name}: the code on {where}'s selection");
+                    }
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        /// <summary>A colour as it is seen over an opaque ground: blended in linear space by its alpha, as the project renders.</summary>
+        private static Color SeenOver(Color colour, Color ground)
+        {
+            Color mixed = Color.Lerp(ground.linear, colour.linear, colour.a);
+            return new Color(mixed.r, mixed.g, mixed.b, 1f).gamma;
+        }
+
+        /// <summary>
         /// Shift and a click on the waves moves the playhead there and pauses: onto an edge of the row under it within 8 px, or
         /// else onto a whole unit. A plain click there did until Part 15h, when Ahmad asked for the two cursors' clicks the
         /// other way round (2026-10-28).
