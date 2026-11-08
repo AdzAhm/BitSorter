@@ -25,7 +25,12 @@ Version 5.0.0.
 BitSorter began as a puzzle game in which bits fell through logic gates into bins.
 5.0 rebuilt it as a simulator for the course. The game's thirty levels live on as the
 first thirty Exercises, and 4.0.0 is still played where it was released. It is not
-part of 5.0, and 5.0 does not read its saves.
+part of 5.0. On Windows, and at the GitHub Pages address 4.0.0 was first released at,
+the two share one save, and 5.0 carries over what the names still mean -- the levels
+solved, as Exercises solved, and the hints seen -- but not 4.x's boards, free-play
+circuits or blocks: the first time 5.0 saves, they are left out of the file. To go back
+to 4.0.0 with them, keep a copy of `progress.json` first ("Your progress", below, says
+where it is).
 
 **Want to help?** Bug reports, exercise ideas and code are all welcome.
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the project
