@@ -138,7 +138,8 @@ namespace BitSorter.Sim
     /// (<c>vvp -n</c>), ends the run at a <c>$stop</c> instead, so the two agree up to it.
     ///
     /// **The transcript.** <c>$display</c> and its kind write lines into the history's messages, at the
-    /// time they run; <c>$write</c> leaves its line open for the next. <c>$monitor</c> and <c>$strobe</c>
+    /// time they run; <c>$write</c> leaves its line open for the next, which is shown as it stands once the
+    /// run hands back for good or suspends (<see cref="RunTo"/>). <c>$monitor</c> and <c>$strobe</c>
     /// print once the time step has settled, the monitor first, as Icarus orders them; the monitor only
     /// when one of its values other than the time changed.
     ///
@@ -586,6 +587,12 @@ namespace BitSorter.Sim
         public RunResult RunTo(long time, long maxEvents = long.MaxValue)
         {
             RunResult result = Run(time, maxEvents);
+
+            // A line $write began and nothing ended is shown once the run hands back for good or suspends -- stopped, at a
+            // $stop, or with nothing left to run -- as a simulator shows what was written (the 16d sweep, engine-11). Paused,
+            // or at a time with more to come, it stays open for the next call to go on with.
+            if (_line.Length > 0 && (Stopped || Suspended || _heap.Count == 0))
+                EndLine(Severity.Info);
 
             // What the design has written into its files is written out whenever a run hands back.
             FlushFiles(-1);
