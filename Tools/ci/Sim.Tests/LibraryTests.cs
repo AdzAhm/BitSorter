@@ -157,6 +157,55 @@ endmodule", files, until: 2);
             Assert.AreEqual("first\nsecond\n", text);
         }
 
+        /// <summary>
+        /// A log written over a long run costs as much as its text (the 16d sweep, engine-6): every $fclose and every slice
+        /// of the run copied the whole file out, and every $fopen to append read it all back in, so a log opened, written and
+        /// closed each cycle cost the square of its length. Two thousand cycles of it, and a run sliced into two thousand
+        /// chunks of a few events with a file kept open, each make less than the guard; the files say what was written,
+        /// and a $readmemh of a file the run wrote reads what it wrote.
+        /// </summary>
+        [Test]
+        public void ALogWrittenOverALongRun_CostsAsMuchAsItsText()
+        {
+            var files = new MemorySimFiles();
+            Simulator sim = Run(@"
+module t;
+    logic clk = 0;
+    integer fd, kept, n = 0;
+    logic [7:0] mem [0:0];
+    always #1 clk = ~clk;
+    initial kept = $fopen(""kept.txt"", ""w"");
+    always @(posedge clk) begin
+        fd = $fopen(""log.txt"", ""a"");
+        $fdisplay(fd, ""cycle %0d of the log"", n);
+        $fclose(fd);
+        $fdisplay(kept, ""cycle %0d kept open"", n);
+        n = n + 1;
+    end
+    initial begin
+        #4000 fd = $fopen(""word.hex"", ""w"");
+        $fdisplay(fd, ""5a"");
+        $fclose(fd);
+        $readmemh(""word.hex"", mem);
+        $display(""%h"", mem[0]);
+        $finish;
+    end
+endmodule", files, until: 0);
+
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            while (!sim.Stopped)
+                sim.RunTo(10_000, maxEvents: 3);
+            long made = System.GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.IsTrue(files.TryRead("log.txt", out string log));
+            Assert.IsTrue(files.TryRead("kept.txt", out string kept));
+            Assert.AreEqual(2000, log.Split('\n').Length - 1);
+            StringAssert.EndsWith("cycle 1999 of the log\n", log);
+            StringAssert.EndsWith("cycle 1999 kept open\n", kept);
+            CollectionAssert.AreEqual(new[] { "5a" }, Printed(sim));
+            Assert.Less(made, 48L << 20, $"two thousand cycles of a log made {made:N0} bytes");
+        }
+
         [Test]
         public void OpeningAFileToRead_GivesNothing_AndSaysWhy()
         {
