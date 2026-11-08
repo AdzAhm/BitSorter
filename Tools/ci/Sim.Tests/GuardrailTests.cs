@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using BitSorter.SystemVerilog;
+using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
 
 namespace BitSorter.Sim.Tests
@@ -55,6 +56,30 @@ namespace BitSorter.Sim.Tests
             StringAssert.Contains("more than the 1,000 a run may keep", sim.History.Messages.Last().Text);
             StringAssert.Contains("$finish", sim.History.Messages.Last().Text, "and says the way out");
             Assert.AreEqual(RunStatus.Stopped, sim.RunTo(2_000_000).Status, "a stopped run stays stopped");
+        }
+
+        /// <summary>
+        /// The bound is on what the history holds, not only on how many things it holds (the 16d sweep, engine-7): a change of
+        /// a 65,536-bit vector costs some 16 KB, two hundred times a small one's, so counting at 80 bytes each let wide values
+        /// fill a tab long before the count was reached. And it is asked after every delta, not only once a time step has
+        /// settled: a zero-delay loop of a wide value kept a delta's worth for every one of its ten thousand deltas first.
+        /// </summary>
+        [TestCase("logic [65535:0] w = '0; initial forever #1 w = ~w;", 1000)]
+        [TestCase("logic [65535:0] x = '0; wire [65535:0] y; assign y = ~x; always @(y) x = y;", 0)]
+        public void AHistoryOfWideValues_IsBoundByItsSize_AsItsCountIs(string design, long before)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText("module t; " + design + " endmodule", "test.sv");
+            Elaboration e = Elaborator.Elaborate(tree, null);
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+
+            // 10,000 things at about 80 bytes each: some 800 KB, or fifty of these changes.
+            var sim = new Simulator(e.Design, null, new SimOptions { MaxRecorded = 10_000, MaxDeltas = 2000 });
+            RunResult result = sim.RunTo(5000);
+
+            Assert.AreEqual(RunStatus.Stopped, result.Status);
+            Assert.LessOrEqual(result.Time, before, "it stops near where the history filled");
+            StringAssert.Contains("a run may keep", sim.History.Messages.Last().Text, "the history's bound, not a loop's: " + sim.History.Messages.Last().Text);
+            Assert.Less(sim.History.ChangeCount(sim.Design.Find(sim.Design.Signals.First(s => s.Width == 65536).Name)), 100);
         }
 
         [Test]
