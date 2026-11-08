@@ -376,6 +376,52 @@ endmodule
         }
 
         /// <summary>
+        /// The chain again, its first decoder on a 7-bit opcode, as a processor's is: <c>kind</c> is 1 at one opcode in 128,
+        /// and 0 at none.
+        /// </summary>
+        private const string ChainedOnAnOpcode = @"
+module chain (input logic [6:0] op, output logic [1:0] kind, output logic [3:0] y);
+    always_comb
+        case (op)
+            7'b0110011: kind = 2'd1;
+            7'b0010011: kind = 2'd2;
+            7'b0000011: kind = 2'd3;
+            default:    kind = 2'd0;
+        endcase
+    always_comb
+        case (kind)
+            2'd1: y = 4'd5;
+            2'd2: y = 4'd6;
+            2'd3: y = 4'd7;
+            default: y = 4'd9;
+        endcase
+endmodule
+";
+
+        /// <summary>
+        /// Every row of a decoder on a signal the module works out is held to the engine, however seldom the inputs bring its
+        /// subject there -- or never, as nothing here sets <c>kind</c> to 0: its case is tried at each label with the subject
+        /// held there, so a constant read wrong in any row is refused (the review of the 16d fixes: the check took whichever
+        /// row the random opcodes gave, all but always the default, and passed <c>kind = 2'd1</c>'s y read as 15).
+        /// </summary>
+        [Test]
+        public void EveryRowOfADecoderOnASignalTheModuleWorksOut_IsHeld_HoweverSeldomItsSubjectGetsThere()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(ChainedOnAnOpcode, "chain");
+            int second = reading.Tables.ToList().FindIndex(t => t.Subject == "kind");
+            Assert.GreaterOrEqual(second, 0, "sanity: the decoder on kind");
+            ControllerEngine.Hold(tree, "chain", reading);
+
+            for (int row = 0; row < reading.Tables[second].Rows.Count; row++)
+            {
+                string label = reading.Tables[second].Rows[row].Label;
+                string why = Why(tree, "chain", WithCell(reading, second, row, 0, LogicVec.FromUInt64(15, 4)));
+                Assert.IsNotNull(why, $"kind = {label}'s y read as 15");
+                StringAssert.Contains("kind = " + label + " gives y", why);
+            }
+        }
+
+        /// <summary>
         /// A table's default row is held to the engine as every other row is, at values of its subject no label takes, so a
         /// default read wrong is refused (the 16d sweep: the default row had no label to force, and its constants were shown
         /// unchecked). The chain's second default is no case the circuit ever comes to -- the first decoder never sets kind to
