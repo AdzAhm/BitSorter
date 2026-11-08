@@ -1743,13 +1743,22 @@ namespace BitSorter.Sim
         }
 
         /// <summary>A whole-number task argument, or <paramref name="fallback"/> when there is none or it is unknown.</summary>
+        /// <summary>
+        /// A memory task's address: signed only if the value is -- 8'd128 is 128, never -128 (the 16d sweep, engine-8) -- and
+        /// one past what a long holds as the largest, which is outside any memory. <paramref name="fallback"/> when it is
+        /// absent or unknown.
+        /// </summary>
         private long Number(Expr e, long fallback)
         {
             if (e == null)
                 return fallback;
 
             LogicVec value = e.Evaluate(_values);
-            return value.IsKnown && value.TryGetInt64(out long n) ? n : fallback;
+            if (!value.IsKnown)
+                return fallback;
+            if (value.IsSigned)
+                return value.TryGetInt64(out long n) ? n : fallback;
+            return value.TryGetUInt64(out ulong u) ? (long)Math.Min(u, long.MaxValue) : long.MaxValue;
         }
 
         private void ReadMemory(MemoryTask task)
