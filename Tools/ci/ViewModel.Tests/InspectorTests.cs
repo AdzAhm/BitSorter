@@ -236,7 +236,7 @@ namespace BitSorter.ViewModel.Tests
             foreach ((int part, string field, string typed, string words) in new[]
             {
                 (b.And, "inputs", "-1", "2 to 8"), (b.And, "inputs", "-2", "2 to 8"), (mux, "inputs", "-3", "2, 4 or 8"),
-                (split, "width", "-2", "2 to 64"), (join, "width", "500000000", "2 to 64"),
+                (split, "width", "-2", "2 to 64"), (join, "width", (1 << 28).ToString(), "2 to 64"),   // 268 million: a pin array that size
             })
             {
                 EditResult refused = default;
