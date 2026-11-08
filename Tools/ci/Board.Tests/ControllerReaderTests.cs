@@ -393,6 +393,40 @@ endmodule
             StringAssert.Contains("otherwise gives kind", why);
         }
 
+        /// <summary>A decoder whose default leaves its outputs free, as the textbook writes one: x for every bit.</summary>
+        private const string FreeDefault = @"
+module dec (input logic [2:0] op, output logic [1:0] a, output logic b);
+    always_comb
+        case (op)
+            3'd0: begin a = 2'd1; b = 1'b0; end
+            3'd1: begin a = 2'd2; b = 1'b1; end
+            3'd2: begin a = 2'd3; b = 1'b1; end
+            default: begin a = 2'bxx; b = 1'bx; end
+        endcase
+endmodule
+";
+
+        /// <summary>
+        /// A default row of x -- <c>default: a = 2'bxx;</c>, the textbook's way to leave a decoder's outputs free -- is borne out
+        /// by the circuit giving x there, bit for bit, and still refused where it gives otherwise (the review of the 16d fixes:
+        /// once the default row was tried, an x the table showed never matched, and such a table was refused saying "gives
+        /// a = 2'bxx, where the table says 2'bxx").
+        /// </summary>
+        [Test]
+        public void ADecodersDefaultOfX_IsBorneOut_XForX()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(FreeDefault, "dec");
+            Assert.AreEqual(1, reading.Tables.Count, "sanity: one decoder");
+            int otherwise = reading.Tables[0].Rows.ToList().FindIndex(r => r.Otherwise);
+            Assert.AreEqual(3, otherwise, "sanity: its default row");
+            ControllerEngine.Hold(tree, "dec", reading);
+
+            StringAssert.Contains("otherwise gives a", Why(tree, "dec", WithCell(reading, 0, otherwise, 0, LogicVec.FromUInt64(0, 2))),
+                "the default read as a = 0, where the circuit gives x");
+            StringAssert.Contains("3'd0 gives a", Why(tree, "dec", WithCell(reading, 0, 0, 0, LogicVec.AllX(2))),
+                "and a row read as x, where the circuit gives 1");
+        }
+
         /// <summary>A machine whose way out of IDLE is taken only at <c>COND</c>.</summary>
         private const string Waiting = @"
 module waiting (input logic clk, rst, valid, go, ready, input logic [7:0] data, input logic [15:0] count, output logic busy);
