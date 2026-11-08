@@ -106,14 +106,14 @@ namespace BitSorter.Board
         /// </summary>
         public IReadOnlyList<Check> Checks { get; init; } = Array.Empty<Check>();
 
-        /// <summary>When the run is meant to stop: the testbench stops here, or at its last step if that is later (<see cref="StopTime"/>).</summary>
+        /// <summary>When the run is meant to stop: the testbench stops here, or at its last step or check if that is later (<see cref="StopTime"/>).</summary>
         public long End { get; init; } = 100;
 
         /// <summary>
         /// When the testbench calls <c>$stop</c>: at <see cref="End"/>, or at the last step of any track
-        /// if one comes later -- <c>BoardRules</c> allows a step after the end, and the testbench plays
-        /// it rather than cutting it off. The workbench runs to here, so what it shows and what the
-        /// printed testbench does are the same run.
+        /// or the last of the <see cref="Checks"/> if one comes later -- <c>BoardRules</c> allows a step or
+        /// a check after the end, and the testbench plays it rather than cutting it off. The workbench runs
+        /// to here, so what it shows and what the printed testbench does are the same run.
         /// </summary>
         public long StopTime
         {
