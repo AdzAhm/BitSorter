@@ -493,6 +493,44 @@ namespace BitSorter.ViewModel.Tests
                 "and it is written back as the tenth it is");
         }
 
+        /// <summary>
+        /// The moment's words cost a frame of playback two strings as the moment moves to another tenth, and nothing while it
+        /// stands (Part 16d's sweep, its review): written for every tenth of the run up front, a frame of playback made none,
+        /// but a run of 100,000 units made some 150 MB in one frame. Held to a number here, as the readouts' only cost.
+        /// </summary>
+        [Test]
+        public void MomentWords_AreTwoStringsATenth_AndNothingWhileTheMomentStands()
+        {
+            var words = new MomentWords();
+            words.Write(125, "ns");
+            Assert.AreEqual("12.5 ns", words.Playhead);
+            Assert.AreEqual("t = 12.5 ns", words.Moment);
+            words.Write(125, "ps");
+            Assert.AreEqual("t = 12.5 ps", words.Moment, "another unit, other words");
+            words.Forget();
+            Assert.IsNull(words.Moment);
+            Assert.AreEqual(-1L, words.Step);
+
+            const int Frames = 1000;
+            const long From = 9_999_999_000L;
+            words.Write(From - 1, "ns");   // the buffer made, and the words standing, before anything is counted
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int frame = 0; frame < Frames; frame++)
+                words.Write(From - 1, "ns");
+            long standing = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            before = GC.GetAllocatedBytesForCurrentThread();
+            for (long step = From; step < From + Frames; step++)
+                words.Write(step, "ns");
+            long moving = (GC.GetAllocatedBytesForCurrentThread() - before) / Frames;
+
+            TestContext.WriteLine($"{Frames} frames the moment stands: {standing} bytes; a frame it moves a tenth: {moving} bytes");
+            Assert.AreEqual(From + Frames - 1, words.Step, "sanity: the last tenth written");
+            Assert.AreEqual("t = 999999999.9 ns", words.Moment);
+            Assert.AreEqual(0, standing, "a frame the moment stands writes nothing");
+            Assert.LessOrEqual(moving, 160, "a frame the moment moves makes its two strings, the longer of them 18 characters, and no more");
+        }
+
         [Test]
         public void Decimals_AreAsManyAsATickStepNeeds()
         {

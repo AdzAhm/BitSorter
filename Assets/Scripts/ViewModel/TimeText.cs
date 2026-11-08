@@ -21,7 +21,7 @@ namespace BitSorter.ViewModel
     /// which held only while the run was short: INPUTS lets a run's END go to 10,000,000, two hundred
     /// million strings in one frame (Part 16d). The readout over the slider, a UI Toolkit label that takes
     /// only a string, is now written from here as the moment shown moves to another tenth
-    /// (<see cref="Tenths"/>), and never ahead of it.
+    /// (<see cref="Tenths"/>, <see cref="MomentWords"/>), and never ahead of it.
     ///
     /// **Time is an integer** (invariant 7): the engine counts whole project units, and the unit's name
     /// is a label. A time on screen may still have a fraction -- the playhead moves smoothly between
@@ -420,5 +420,57 @@ namespace BitSorter.ViewModel
         }
 
         private static bool IsBlank(string text) => SkipSpace(text, 0) == text.Length;
+    }
+
+    /// <summary>
+    /// The moment's words for the readouts: <c>12.5 ns</c> at the playhead and <c>t = 12.5 ns</c> over the slider, for the
+    /// tenth of a unit shown (<see cref="TimeText.Tenths"/>), written as the moment moves to another tenth and kept while it
+    /// stands (Part 16d's sweep).
+    /// </summary>
+    /// <remarks>
+    /// **Two strings a tenth, none while it stands, none ahead.** The workbench wrote both for every tenth of the run up
+    /// front, whenever a run opened, was replayed or grew: a frame of playback then formatted nothing, but a run of 100,000
+    /// units made some 150 MB in one frame, and INPUTS lets END go to 10,000,000. Now a frame of playback that moves to
+    /// another tenth makes these two strings and no more (<c>TextTests</c> holds them to a number), and one that stands
+    /// makes nothing. The slider's readout is a UI Toolkit label, which takes only a string, so the two cannot be written
+    /// into a buffer as the axis's labels are.
+    /// </remarks>
+    public sealed class MomentWords
+    {
+        private char[] _chars = new char[0];
+        private string _unit;
+
+        /// <summary>The tenth of a unit the words are for; -1 before any is written, or once forgotten.</summary>
+        public long Step { get; private set; } = -1;
+
+        /// <summary>The moment at the playhead, <c>12.5 ns</c>; null before any is written.</summary>
+        public string Playhead { get; private set; }
+
+        /// <summary>The moment over the slider, <c>t = 12.5 ns</c>; null before any is written.</summary>
+        public string Moment { get; private set; }
+
+        /// <summary>The words for tenth <paramref name="step"/> in <paramref name="unit"/>, unless they are already its.</summary>
+        public void Write(long step, string unit)
+        {
+            if (step == Step && Moment != null && unit == _unit)
+                return;
+
+            int longest = TimeText.MaxLength(1, unit);
+            if (_chars.Length < longest)
+                _chars = new char[longest];
+
+            int length = TimeText.Write(step / 10.0, 1, unit, _chars);
+            Playhead = new string(_chars, 0, length);
+            Moment = "t = " + Playhead;
+            Step = step;
+            _unit = unit;
+        }
+
+        /// <summary>The words forgotten, for a run opened, replayed or grown: written again as the moment is next shown.</summary>
+        public void Forget()
+        {
+            Step = -1;
+            Playhead = Moment = null;
+        }
     }
 }
