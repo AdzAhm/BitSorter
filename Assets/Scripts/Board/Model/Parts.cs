@@ -49,6 +49,15 @@ namespace BitSorter.Board
         /// </summary>
         public abstract IReadOnlyList<Pin> Pins(Project project);
 
+        /// <summary>
+        /// How many of a part's counted pins -- a gate's or a MUX's inputs, a splitter's or a joiner's bits -- it has: as many as
+        /// its count, but none for a count no part can have, below none or past <see cref="BoardRules.MaxWidth"/>. The rules say
+        /// in words what is wrong with that count (<see cref="BoardRules"/>), and an edit making it is refused; its pins are never
+        /// what throws, nor a hundred million of them what is made first (the 16d sweep). Any count a part can have is counted
+        /// as it is, a MUX of sixteen of a drawing of code's case included.
+        /// </summary>
+        protected static int Counted(int count) => count < 0 || count > BoardRules.MaxWidth ? 0 : count;
+
         public bool TryPin(Project project, string name, out Pin pin)
         {
             foreach (Pin p in Pins(project))
@@ -118,10 +127,11 @@ namespace BitSorter.Board
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
-            var pins = new Pin[Inputs + 1];
-            for (int i = 0; i < Inputs; i++)
+            int inputs = Counted(Inputs);
+            var pins = new Pin[inputs + 1];
+            for (int i = 0; i < inputs; i++)
                 pins[i] = new Pin(InputPin(Kind, i), PinDirection.In, IsTriState ? 1 : Width);
-            pins[Inputs] = new Pin("y", PinDirection.Out, Width);
+            pins[inputs] = new Pin("y", PinDirection.Out, Width);
             return pins;
         }
     }
@@ -200,11 +210,12 @@ namespace BitSorter.Board
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
-            var pins = new Pin[Inputs + 2];
-            for (int i = 0; i < Inputs; i++)
+            int inputs = Counted(Inputs);
+            var pins = new Pin[inputs + 2];
+            for (int i = 0; i < inputs; i++)
                 pins[i] = new Pin("d" + i, PinDirection.In, Width);
-            pins[Inputs] = new Pin("s", PinDirection.In, SelectWidth);
-            pins[Inputs + 1] = new Pin("y", PinDirection.Out, Width);
+            pins[inputs] = new Pin("s", PinDirection.In, SelectWidth);
+            pins[inputs + 1] = new Pin("y", PinDirection.Out, Width);
             return pins;
         }
     }
@@ -285,9 +296,10 @@ namespace BitSorter.Board
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
-            var pins = new Pin[Width + 1];
+            int bits = Counted(Width);
+            var pins = new Pin[bits + 1];
             pins[0] = new Pin("in", PinDirection.In, Width);
-            for (int i = 0; i < Width; i++)
+            for (int i = 0; i < bits; i++)
                 pins[i + 1] = new Pin("o" + i, PinDirection.Out, 1);
             return pins;
         }
@@ -300,10 +312,11 @@ namespace BitSorter.Board
 
         public override IReadOnlyList<Pin> Pins(Project project)
         {
-            var pins = new Pin[Width + 1];
-            for (int i = 0; i < Width; i++)
+            int bits = Counted(Width);
+            var pins = new Pin[bits + 1];
+            for (int i = 0; i < bits; i++)
                 pins[i] = new Pin("i" + i, PinDirection.In, 1);
-            pins[Width] = new Pin("out", PinDirection.Out, Width);
+            pins[bits] = new Pin("out", PinDirection.Out, Width);
             return pins;
         }
     }
