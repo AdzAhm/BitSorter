@@ -332,6 +332,24 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreSame(before, b.Session.Project, "and nothing changed");
         }
 
+        /// <summary>
+        /// An input placed from the strip, given its steps, is made a bus by typing its WIDTH (the 16d sweep: it was refused every
+        /// time, its steps still a bit wide).
+        /// </summary>
+        [Test]
+        public void AnInputPlacedFromTheStrip_IsMadeABus_ByItsWidth()
+        {
+            var b = new Bench();
+            int c = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "input"), new Placement(1, -9)));
+            string name = b.Part<PortPart>(c).Name;
+            Assert.IsTrue(b.Session.Project.Stimulus.Tracks.Any(t => t.Port == name), "sanity: the strip gives it steps");
+
+            EditResult made = b.Apply(b.Of(c), ("width", "4"));
+            Assert.IsTrue(made.Done, made.Refusal);
+            Assert.AreEqual(4, b.Part<PortPart>(c).Width);
+            Assert.IsTrue(b.Session.Project.Stimulus.Tracks.Single(t => t.Port == name).Steps.All(s => s.Value.Width == 4), "its steps with it");
+        }
+
         /// <summary>A register's clock to Q and setup (Part 14b): at hand beside its values, set together as one step, never below 0.</summary>
         [Test]
         public void ARegistersClockToQAndSetup_AreAtHand_AndSetInOneStep()

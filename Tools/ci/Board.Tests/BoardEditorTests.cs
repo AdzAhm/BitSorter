@@ -362,6 +362,53 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("The clock clk is not an input of half_adder", result.Refusal);
         }
 
+        /// <summary>
+        /// An input of the top made wider or narrower takes its steps with it, each value widened with 0s or cut to its low bits,
+        /// in the same step -- as a rename takes its track's name (the 16d sweep: the steps kept their width, the rules said the
+        /// input was given the wrong one, and no input placed from the strip could ever be made a bus).
+        /// </summary>
+        [Test]
+        public void AnInputMadeWider_OrNarrower_TakesItsStepsWithIt_InOneStep()
+        {
+            Bench b = Bench.HalfAdder();
+            var a = (PortPart)b.Current.Parts.First(p => p.Name == "a");
+            Bench.Must(b.Editor.SetStimulus(new Stimulus
+            {
+                Tracks = new[]
+                {
+                    new Track { Port = "a", Start = LogicVec.FromUInt64(0, 1), Steps = new[] { new Step(0, LogicVec.FromUInt64(1, 1)), new Step(10, LogicVec.FromUInt64(0, 1)) } },
+                    new Track { Port = "b", Steps = new[] { new Step(0, LogicVec.FromUInt64(1, 1)) } },
+                },
+            }));
+            Bench.Must(b.Editor.RemoveParts(b.Module, b.Current.Parts.Where(p => p is GatePart).Select(p => p.Id).ToArray()));
+            Project before = b.Project;
+
+            EditResult wider = b.Editor.Change(b.Module, a with { Width = 4 });
+            Assert.IsTrue(wider.Done, wider.Refusal);
+            Track track = b.Project.Stimulus.Tracks.Single(t => t.Port == "a");
+            CollectionAssert.AreEqual(new[] { "0001", "0000" }, track.Steps.Select(s => s.Value.Format(Radix.Binary)), "each value widened with 0s");
+            CollectionAssert.AreEqual(new[] { 0L, 10L }, track.Steps.Select(s => s.Time), "at the times they were");
+            Assert.AreEqual("0000", track.Start.Value.Format(Radix.Binary), "and what it holds from the start");
+            Assert.AreEqual(1, b.Project.Stimulus.Tracks.Single(t => t.Port == "b").Steps[0].Value.Width, "another input's steps as they were");
+
+            Bench.Must(b.Editor.SetStimulus(b.Project.Stimulus with
+            {
+                Tracks = new[] { track with { Steps = new[] { new Step(0, LogicVec.FromUInt64(0b1101, 4)) } }, b.Project.Stimulus.Tracks[1] },
+            }));
+            EditResult narrower = b.Editor.Change(b.Module, (PortPart)b.Current.FindPart(a.Id) with { Width = 2 });
+            Assert.IsTrue(narrower.Done, narrower.Refusal);
+            Assert.AreEqual("01", b.Project.Stimulus.Tracks.Single(t => t.Port == "a").Steps[0].Value.Format(Radix.Binary), "cut to its low bits");
+
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(before, b.Project, "each width with its steps one step back");
+
+            EditResult none = b.Editor.Change(b.Module, a with { Width = 0 });
+            Assert.IsFalse(none.Done);
+            StringAssert.Contains("1 to 1024", none.Refusal, "a width no input can have is the width's refusal, its steps untouched");
+        }
+
         // -----------------------------------------------------------------
         // Undo
         // -----------------------------------------------------------------
