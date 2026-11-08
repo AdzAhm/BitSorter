@@ -247,8 +247,24 @@ namespace BitSorter.View
         /// </summary>
         private void OnApplicationFocus(bool focus)
         {
-            if (!focus)
-                KeepMyCircuit(now: true);
+            if (focus)
+                return;
+            // Not in the editor, whose focus comes and goes under a test run: a test typing inside the pause would find its
+            // code applied by a click on another window.
+            if (!Application.isEditor)
+                KeepTheTypedCode();
+            KeepMyCircuit(now: true);
+        }
+
+        /// <summary>
+        /// Code typed inside the editor's pause applied, so the keep that follows writes it (Part 16d's sweep): as BitSorter
+        /// closes, or is put behind another window, where no frame may come to end the pause. Code that cannot apply cannot
+        /// be kept, and nothing can be asked as a window closes; a sample keeps nothing.
+        /// </summary>
+        private void KeepTheTypedCode()
+        {
+            if (_session != null && _sample == 0)
+                ApplyTypedCode("kept");
         }
 
         // -----------------------------------------------------------------

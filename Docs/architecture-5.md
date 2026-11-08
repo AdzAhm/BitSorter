@@ -2093,6 +2093,14 @@ template is imported, then exported filled.
   wrong with it on the chip, never the last text that worked. The check is one private method,
   `WorkbenchPanel.ApplyTypedCode`, which EXPORT FOR SUBMISSION shares: the two differ only in the word for what then
   does not happen, "exported" or "handed in". The lock and, since Part 16d's sweep, CHECK share it too ("checked").
+- **Leaving a circuit keeps the code on screen** (Part 16d's sweep). Another circuit, exercise or sample opened replaced
+  the session, and the typed text in it, without a word. Now typed code is applied first, as the pause would apply it,
+  and kept with the circuit; code that cannot apply asks before anything is left (`WorkbenchPanel.MayLeave`), the chip
+  saying what is wrong with it, and LEAVE IT does the whole of what was asked for -- an import made, a program chosen, the
+  tutorial started -- once the circuit is left. A sample keeps nothing of its own and never asks; a circuit deleted takes
+  its code with it. As BitSorter closes, and in a build as it is put behind another window, typed code is applied before
+  the keep; code that cannot apply is lost then, since nothing can be asked as a window closes. Play Mode,
+  `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout`.
 - **Checked.** `ProjectExportTests` (14) under dotnet: every sample's zip read back by .NET's own `ZipArchive`, its
   files and their order, the script's lines, the bytes and the moment kept, the checksum against the standard's own
   example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected

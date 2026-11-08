@@ -142,6 +142,7 @@ namespace BitSorter.View
 
         private void OnApplicationQuit()
         {
+            KeepTheTypedCode();
             KeepMyCircuit(now: true);   // the last edit, not half a second later (the 16c pilot)
             if (_launchWatch > 0)
                 Preferences.SetInt(OpeningKey, 0);   // closed on purpose, not stopped
@@ -550,6 +551,8 @@ namespace BitSorter.View
         /// <summary>The processor sample <paramref name="chip"/> opened, running <paramref name="program"/>: one step of its document.</summary>
         public void OpenProcessor(int chip, string program)
         {
+            if (!MayLeave(() => OpenProcessor(chip, program)))
+                return;   // asked first, or the program would be chosen on the circuit still open (Part 16d's sweep)
             ShowSample(chip);
             if (_session != null && _session.Choices.Count > 0 && _session.Choices[0].Chosen != program)
                 Choose(_session.Choices[0].Name, program);   // the program it opens on -- the one last chosen, else SUM -- is no step

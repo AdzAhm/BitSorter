@@ -1874,7 +1874,11 @@ namespace BitSorter.View
         /// the stage is built again round its document and its run plays from the start. The title,
         /// the controls and the help line stay as they are.
         /// </summary>
-        public void ShowSample(int sample) => ShowSample(sample, underThePage: false);
+        public void ShowSample(int sample)
+        {
+            if (MayLeave(() => ShowSample(sample)))   // code on screen that cannot apply asks first (Part 16d's sweep)
+                ShowSample(sample, underThePage: false);
+        }
 
         /// <summary>
         /// <see cref="ShowSample(int)"/>, and with <paramref name="underThePage"/> under Settings or the credits, which stay
