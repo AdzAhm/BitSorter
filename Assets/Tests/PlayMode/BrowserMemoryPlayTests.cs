@@ -151,6 +151,50 @@ namespace BitSorter.PlayMode.Tests
                     // A scratch folder of the editor's own; left for the next to clear.
                 }
             }
+
+        /// <summary>What a frame replaying an edit of the reference may make, however long its run: an edit of a gate's worth.</summary>
+        private const long LongRunCap = 32L << 20;
+
+        /// <summary>
+        /// A run's length costs a frame nothing (Part 16d's sweep). The workbench wrote the moment's words for every tenth of a
+        /// unit of the run up front, two strings a step, whenever a run opened, was replayed or grew: INPUTS lets END go to
+        /// 10,000,000, which was 200 million strings in one frame, and an imported testbench with a free-running clock and no
+        /// <c>$stop</c> does as much. At 100,000 units, here, every edit's replay made some 150 MB.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ALongRun_IsReplayedWithoutWritingEveryMomentOfIt()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Object.FindFirstObjectByType<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            yield return null;
+
+            using (var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame"))
+            {
+                yield return null;
+                workbench.SetInputEnd("100000");
+
+                long worst = 0;
+                for (int f = 0; f < 10; f++)
+                {
+                    yield return null;
+                    worst = Math.Max(worst, recorder.LastValue);
+                }
+
+                Assert.IsTrue(recorder.Valid, "sanity: the editor counts what a frame allocates");
+                Assert.AreEqual(100_000L, workbench.Model.End, "sanity: the run is replayed as long as END says");
+                TestContext.WriteLine($"the worst frame replaying END = 100000 made {worst / 1_000_000} MB");
+                Assert.Less(worst, LongRunCap,
+                    $"the frames replaying the edit made up to {worst / 1_000_000} MB; a run's length should cost them nothing");
+            }
+
+            workbench.Pause();
+            workbench.Seek(12.5);
+            yield return null;
+            Assert.AreEqual("t = 12.5 " + workbench.Model.Unit, workbench.MomentText, "the moment shown is still written over the slider");
         }
     }
 }
