@@ -233,6 +233,41 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(9, code.OffsetOf(9, 1), "a line past the end is the end");
         }
 
+        /// <summary>
+        /// Text typed with an error never applies, and stays the editor's: stepping out of the block and in again shows it as
+        /// it was left, marked, never the last code that applied (the 16d sweep: it was dropped without a word, and so was text
+        /// typed within the pause, which applies once the code is shown again and the pause is over).
+        /// </summary>
+        [Test]
+        public void TextTyped_IsKept_AcrossAStepOutAndInAgain()
+        {
+            WorkbenchSession session = Inside();
+            int add = session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+            CodeDocument code = session.Code;
+            string applied = code.Applied;
+            string broken = Replace(code.Text, "= a + b;", "= a + ;");
+            code.Type(broken, 0);
+            code.Frame(CodeDocument.PauseMilliseconds + 1);
+            Assert.IsTrue(code.HasErrors, "sanity: an error, so it never applies");
+
+            Assert.IsTrue(session.StepOut());
+            Assert.IsNull(session.Code, "the top is drawn");
+            Assert.IsTrue(session.StepInto(add));
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE, as it was chosen for it");
+            Assert.AreEqual(broken, session.Code.Text, "the text typed is there again, never lost on stepping out");
+            Assert.IsTrue(session.Code.Pending && session.Code.HasErrors, "and marked as not applied");
+            Assert.AreEqual(applied, session.Project.Find(session.Module).Source, "the document keeps the last code that worked");
+
+            // Typed without one, and stepped out of within the pause: kept too, and applied once it is shown again.
+            string fixedUp = Replace(broken, "= a + ;", "= b + a;");
+            session.Code.Type(fixedUp, 2000);
+            Assert.IsTrue(session.StepToScope(session.Run.Model.Layout.DesignPath));
+            Assert.IsTrue(session.StepInto(add));
+            Assert.AreEqual(fixedUp, session.Code.Text, "within the pause: kept");
+            Assert.IsTrue(session.Code.Frame(2000 + CodeDocument.PauseMilliseconds + 1));
+            Assert.AreEqual(fixedUp, session.Project.Find(session.Module).Source, "and applied once the pause is over");
+        }
+
         [Test]
         public void ANewWrittenBlock_StartsFromTheTemplate_AndIsAPartToPlace()
         {

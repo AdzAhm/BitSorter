@@ -66,6 +66,34 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(Chooser, Code(session), "one Ctrl+Z, the code as it was, to the character");
         }
 
+        /// <summary>
+        /// The code looked at, then the drawing edited -- and the edit undone -- with the drawing up: nothing was typed, so
+        /// nothing is left for EXPORT, the hand-in or the lock to apply, and the code is the edit's. The editor's text was
+        /// kept from the look and never followed the document while the drawing was up, so each of them put the code from
+        /// before the edit back over it (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void TheCodeLookedAt_ThenTheDrawingEdited_LeavesNothingToApplyOverTheEdit()
+        {
+            WorkbenchSession session = Written(Chooser, "pick");
+            session.DrawCode(false);
+            Assert.IsNotNull(session.Code, "sanity: its code");
+            session.DrawCode(true);
+            Assert.IsNull(session.PendingCode, "sanity: nothing typed");
+
+            session.Remove(new[] { Mux(session) });
+            Assert.IsTrue(session.AnswerRewrite(true).Done);
+            string edited = Code(session);
+            Assert.AreNotEqual(Chooser, edited, "sanity: the edit is written into the code");
+            Assert.IsNull(session.PendingCode, "nothing typed: nothing to apply over the edit");
+
+            Assert.IsTrue(session.Undo());
+            Assert.AreEqual(Chooser, Code(session), "sanity: undone");
+            Assert.IsNull(session.PendingCode, "nor over its undo");
+            session.DrawCode(false);
+            Assert.AreEqual(Chooser, session.Code.Text, "and the code shown again is the document's");
+        }
+
         [Test]
         public void TheQuestion_IsAskedOnceForAModule()
         {
