@@ -176,16 +176,19 @@ namespace BitSorter.ViewModel
         /// <summary>Every middle on the selection's middle row.</summary>
         CentresDown,
 
-        /// <summary>Equal gaps between them, left to right, the first and the last where they are.</summary>
+        /// <summary>
+        /// Their middles evenly spaced left to right, the first and the last where they are: a gap between outlines is the
+        /// same only where the parts are as wide as each other.
+        /// </summary>
         SpreadAcross,
 
-        /// <summary>Equal gaps between them, top to bottom, the first and the last where they are.</summary>
+        /// <summary>Their middles evenly spaced top to bottom, the first and the last where they are, as <see cref="SpreadAcross"/>.</summary>
         SpreadDown,
     }
 
     /// <summary>
-    /// Align and spread (Part 10d), Unity-free: where each selected part goes so that their outlines line up, or stand
-    /// at even gaps -- every new place on the quarter grid. Layout only, as a move is.
+    /// Align and spread (Part 10d), Unity-free: where each selected part goes so that their outlines line up, or their
+    /// middles stand evenly spaced -- every new place on the quarter grid. Layout only, as a move is.
     /// </summary>
     public static class Arrange
     {

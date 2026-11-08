@@ -203,7 +203,7 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void Spread_LeavesEqualGaps_TheFirstAndTheLastWhereTheyAre()
+        public void Spread_SpacesTheMiddlesEvenly_TheFirstAndTheLastWhereTheyAre()
         {
             var b = new Bench();
             Must(b.Session.Move(new Dictionary<int, Placement> { [b.Not] = new Placement(3, 3) }));
@@ -213,7 +213,7 @@ namespace BitSorter.ViewModel.Tests
             b.Select(b.A, b.Not, b.Y);
             Assert.IsTrue(b.Editor.Arrange(ArrangeBy.SpreadAcross).Done);
             double m(int part) => (Outline(b, part).Left + Outline(b, part).Right) / 2;
-            Assert.AreEqual(m(b.Not) - m(b.A), m(b.Y) - m(b.Not), 0.25, "equal gaps, to the quarter grid");
+            Assert.AreEqual(m(b.Not) - m(b.A), m(b.Y) - m(b.Not), 0.25, "middles evenly spaced, to the quarter grid");
             Assert.AreEqual(new Placement(1, 0), b.Module.Layout.PlacementOf(b.A), "the first where it was");
             Assert.AreEqual(new Placement(10, 0), b.Module.Layout.PlacementOf(b.Y), "the last too");
         }

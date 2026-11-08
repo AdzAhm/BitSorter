@@ -1504,8 +1504,9 @@ gesture of the brief's D3 and D4 is on the canvas.
   module given 0 as one placed is -- one step, replayed, what it made selected. A net's name is not pasted: two nets
   of one name would be refused. Ctrl+X copies and takes away.
 - **Align and spread** (`Arrange`): the selected parts' outlines lined up by their left, right, top or bottom edge,
-  or their middles in a column or a row, or spread at equal gaps across or down with the first and last where they
-  are -- every new place on the quarter grid, layout only, one step. Two parts to line up, three to spread.
+  or their middles in a column or a row, or spread across or down, their middles evenly spaced with the first and last
+  where they are -- the gaps between outlines equal only where the parts are as wide (the 16d sweep: this said equal
+  gaps) -- every new place on the quarter grid, layout only, one step. Two parts to line up, three to spread.
 - **Route again**: the selected wires back on the automatic route, their bends forgotten and a tap's place along its
   wire kept (`WorkbenchSession.AutoRoute`), one step, layout only.
 - **The right-click menu** (`CanvasMenu`, built like the row menu): a right-click on something not selected selects
@@ -1544,7 +1545,7 @@ gesture of the brief's D3 and D4 is on the canvas.
   placed in.
 - **Checked.** `ArrangeTests` (8) under dotnet: what a copy takes and leaves; a paste a cell on with new ids and
   names, its wires, bends and tap, its input given 0, one step and a second paste further on; a cut and its paste;
-  align by edge and middle on the grid with nothing replayed, and too few refused; spread with equal gaps; a wire
+  align by edge and middle on the grid with nothing replayed, and too few refused; spread with middles evenly spaced; a wire
   routed again keeping its tap; the right-click's selection; the minimap up only off the whole drawing, the window
   on it, and a click on it centring the view. In Play Mode (`WorkbenchCanvasPlayTests`): Ctrl+C and Ctrl+V with the
   fixture's keyboard, one step back with Ctrl+Z; a right-click on two parts opening the menu, ALIGN TOP lining them
