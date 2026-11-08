@@ -45,10 +45,20 @@ for (const name of [...bundled].sort()) {
   }
   header += `//   ${name} ${entry.version} (${licence})${notice}\n`;
 }
-header += "// The MIT licence: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and\n";
-header += "// associated documentation files, to deal in the Software without restriction, subject to the copyright notice and this\n";
-header += "// permission notice being included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED\n";
-header += "// \"AS IS\", WITHOUT WARRANTY OF ANY KIND. The full text is in the README's credits.\n";
+header += "// The MIT licence, as each of the packages above is given under it, in full:\n";
+header += "//\n";
+header += "// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated\n";
+header += "// documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the\n";
+header += "// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit\n";
+header += "// persons to whom the Software is furnished to do so, subject to the following conditions:\n";
+header += "//\n";
+header += "// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the\n";
+header += "// Software.\n";
+header += "//\n";
+header += "// THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE\n";
+header += "// WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR\n";
+header += "// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR\n";
+header += "// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n";
 
 const code = new TextDecoder().decode(result.outputFiles[0].contents);
 writeFileSync(out, header + code);

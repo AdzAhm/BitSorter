@@ -544,4 +544,5 @@ The browser build's code editor is **[CodeMirror](https://codemirror.net)** 6,
 © Marijn Haverbeke and others, under the MIT licence: bundled into
 `Assets/Plugins/WebGL/codemirror.jspre` by `Tools/codemirror/build.ps1` from the
 versions `Tools/codemirror/package-lock.json` pins, and never fetched while BitSorter
-runs. The file's head names every package in it, its version and its copyright.
+runs. The file's head names every package in it, its version and its copyright, and
+gives the MIT licence in full.
