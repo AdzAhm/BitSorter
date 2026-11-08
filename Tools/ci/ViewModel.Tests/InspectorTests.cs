@@ -281,6 +281,26 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(b.Session.Replaying, "nothing to play again");
         }
 
+        /// <summary>
+        /// A clock's period or a reset's release typed again as the time it is, in other words -- 10 where it shows 10 ps --
+        /// changes nothing, as the same text does: no step to undo, nothing played again (the 16d sweep: the field's text was
+        /// compared, and the stimulus made again with the same time).
+        /// </summary>
+        [Test]
+        public void APeriodOrAReleaseTypedAgainInOtherWords_ChangesNothing()
+        {
+            var b = new Bench();
+            Project before = b.Session.Project;
+            Inspection clock = b.Of(b.Clock), reset = b.Of(b.Reset);
+            StringAssert.EndsWith(" ps", clock.Field("period").Text, "sanity: shown in its unit");
+
+            Assert.IsTrue(b.Apply(clock, ("period", clock.Field("period").Text.Split(' ')[0])).Done);
+            Assert.IsTrue(b.Apply(reset, ("release", reset.Field("release").Text.Split(' ')[0])).Done);
+            Assert.AreSame(before, b.Session.Project, "nothing made");
+            Assert.IsFalse(b.Session.Editor.CanUndo, "no step to undo");
+            Assert.IsFalse(b.Session.Replaying, "nothing to play again");
+        }
+
         [Test]
         public void AClockRenamed_AndItsPeriodChanged_GoTogether_AsOneStep()
         {
