@@ -313,6 +313,68 @@ endmodule
             Assert.DoesNotThrow(() => ControllerEngine.Hold(tree, "nested", reading));
         }
 
+        /// <summary>Two decoders, the second's case on what the first sets: a subject the module works out itself.</summary>
+        private const string Chained = @"
+module chain (input logic [1:0] op, output logic [1:0] kind, output logic [3:0] y);
+    always_comb begin
+        kind = 2'd0;
+        case (op)
+            2'd0: kind = 2'd1;
+            2'd1: kind = 2'd2;
+            default: kind = 2'd3;
+        endcase
+    end
+    always_comb begin
+        y = 4'd0;
+        case (kind)
+            2'd1: y = 4'd5;
+            2'd2: y = 4'd6;
+            2'd3: y = 4'd7;
+            default: y = 4'd9;
+        endcase
+    end
+endmodule
+";
+
+        /// <summary>The same reading with one of its table's constants made otherwise: what the check must refuse.</summary>
+        private static ControllerReading WithCell(ControllerReading reading, int table, int row, int column, LogicVec constant)
+        {
+            var tables = reading.Tables.ToList();
+            TableReading t = tables[table];
+            var rows = t.Rows.ToList();
+            var cells = rows[row].Cells.ToList();
+            cells[column] = new TableCell(constant.ToString(), constant, false);
+            rows[row] = new TableRow(rows[row].Label, rows[row].Matches, rows[row].Otherwise, cells);
+            tables[table] = new TableReading(t.Subject, t.Columns, rows);
+            return new ControllerReading(reading.Module, reading.Machine, tables, reading.Whole);
+        }
+
+        private static string Why(SyntaxTree tree, string module, ControllerReading reading)
+        {
+            Design design = Elaborator.Elaborate(tree, module).Design;
+            string top = design.Scopes.Single(s => s.Kind == ScopeKind.Top).Path;
+            return ControllerCheck.Why(reading, design, RtlExtractor.Of(design, top), top);
+        }
+
+        /// <summary>
+        /// A decoder whose case is on a signal the module works out itself -- the second of two chained decoders -- is held to the
+        /// row the circuit's own subject picks, which the netlist works out again from the inputs, not to one forced on it; and a
+        /// constant read wrong in it is still refused (the 16d sweep: the subject was forced, the netlist worked it out again
+        /// regardless, and the rows seldom matched, so such a table was never shown).
+        /// </summary>
+        [Test]
+        public void ADecoderOnASignalTheModuleWorksOut_IsHeldToTheRowItsSubjectPicks()
+        {
+            (SyntaxTree tree, ControllerReading reading) = ReadText(Chained, "chain");
+            Assert.AreEqual(2, reading.Tables.Count, "sanity: both decoders");
+            Assert.AreEqual("kind", reading.Tables[1].Subject);
+            Assert.IsTrue(reading.Whole);
+            ControllerEngine.Hold(tree, "chain", reading);
+
+            StringAssert.Contains("where the table says", Why(tree, "chain", WithCell(reading, 1, 1, 0, LogicVec.FromUInt64(15, 4))),
+                "kind = 2'd2's y read as 15, where the circuit gives 6");
+        }
+
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
         [Test]
         public void ADecodersEnumLabels_PickTheirRows()
