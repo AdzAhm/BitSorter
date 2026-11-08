@@ -134,6 +134,44 @@ endmodule", 1);
         }
 
         /// <summary>
+        /// <c>?:</c> works out only the choice its condition makes, and <c>&amp;&amp;</c> and <c>||</c> stop once the
+        /// first operand decides (IEEE 1800, 11.4.11 and 11.3.5; the 16d sweep, engine-2): a recursion whose base case is a
+        /// <c>?:</c> ends there, and a function in the arm not chosen does not run -- its static count stays where it was.
+        /// Every operand was worked out, so fact's last call went on calling down to the nesting guard, and fib's branched
+        /// twice at every level. Icarus and ModelSim print these lines.
+        /// </summary>
+        [Test]
+        public void ConditionalAndLogicalOperators_WorkOutOnlyWhatTheyNeed()
+        {
+            Simulator sim = Run(@"
+module t;
+    function automatic int fact(input int n);
+        return (n <= 1) ? 1 : n * fact(n - 1);
+    endfunction
+    function automatic int fib(input int n);
+        return n < 2 ? n : fib(n - 1) + fib(n - 2);
+    endfunction
+    function int bump(input int by);
+        int count;
+        count = count + by;
+        return count;
+    endfunction
+    int a, b, c, d;
+    initial begin
+        $display(""%0d %0d"", fact(5), fib(10));
+        a = 0 ? bump(1) : 7;
+        b = (1 == 0) && bump(10);
+        c = (1 == 1) || bump(100);
+        d = bump(0);
+        $display(""%0d %0d %0d %0d"", a, b, c, d);
+    end
+endmodule", 1);
+
+            CollectionAssert.AreEqual(new[] { "120 55", "7 0 1 0" }, Printed(sim));
+            CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Severity == Severity.Error).Select(m => m.Text));
+        }
+
+        /// <summary>
         /// A call whose later argument comes back into the same call gives each call its own arguments (the 16d sweep,
         /// engine-1): Ackermann's <c>ack(m - 1, ack(m, n - 1))</c> works out its second argument through the same call, and
         /// one array of arguments for the call let the inner call put its m where the outer one's was -- ack(0, 3) ran for
