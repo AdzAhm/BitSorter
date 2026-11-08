@@ -84,6 +84,8 @@ namespace BitSorter.EditMode.Tests
             lines.Add(new Line("WorkbenchPanel.SaveFromANewerBitSorter", WorkbenchPanel.SaveFromANewerBitSorter));
             lines.Add(new Line("WorkbenchPanel.ReloadQuestion", WorkbenchPanel.ReloadQuestion));
             lines.Add(new Line("WorkbenchPanel.ReadAgainQuestion", WorkbenchPanel.ReadAgainQuestion));
+            lines.Add(new Line("WorkbenchPanel.CouldNotOpen", WorkbenchPanel.CouldNotOpen("MY CIRCUIT", "g1 has 1 inputs; and takes 2 to 8.")));
+            lines.Add(new Line("WorkbenchPanel.StartAgainQuestion", WorkbenchPanel.StartAgainQuestion("MY CIRCUIT")));
 
             // The credits. Gaps are the roll's own spacing and carry no text on purpose.
             foreach (Credits.Line line in Credits.Roll(Credits.Tagline, "v0.0.0"))
