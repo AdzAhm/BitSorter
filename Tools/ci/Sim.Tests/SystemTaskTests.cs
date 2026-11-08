@@ -533,6 +533,24 @@ endmodule"));
                 string.Join("\n", sim.History.Messages.Select(m => m.Text)));
         }
 
+        /// <summary>
+        /// A line built by many <c>$write</c>s costs as much as its characters (the 16d sweep, engine-12): every one copied the
+        /// whole line out, scanned it for an end and copied it back, so twenty thousand stars made some 400 MB of strings,
+        /// and two hundred thousand tens of seconds with no frame drawn.
+        /// </summary>
+        [Test]
+        public void ALineBuiltByManyWrites_CostsAsMuchAsItsCharacters()
+        {
+            var sim = new Simulator(Clean("module t; initial begin for (int i = 0; i < 20000; i++) $write(\"*\"); $display(\"|\"); end endmodule"), null, null);
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            sim.RunTo(1);
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(new string('*', 20000) + "|", Printed(sim).Single());
+            Assert.Less(made, 8L << 20, $"twenty thousand $writes made {made:N0} bytes");
+        }
+
         [Test]
         public void AVcd_LeavesAMemorysWordsOut_AsIcarusDoes()
         {
