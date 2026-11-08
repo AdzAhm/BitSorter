@@ -118,6 +118,25 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains($"has {inputs} inputs", string.Join("\n", editor.Diagnostics.Select(d => d.Message)));
         }
 
+        /// <summary>
+        /// Two wires saved under one id -- a hand-edited or damaged save -- read, and are checked and netted, the id said wrong in
+        /// the rules' words, never thrown (the 16d sweep: the netlist numbered its wires by how many ids it had, one short, and
+        /// threw before the rule that says so was reached, on every launch).
+        /// </summary>
+        [Test]
+        public void TwoWiresSavedUnderOneId_AreReadAndChecked_SayingSo()
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            WireRecord[] wires = file.modules[0].wires;
+            wires[wires.Length - 1].id = wires[0].id;
+            Project read = file.ToProject(new List<string>());
+
+            BoardEditor editor = null;
+            Assert.DoesNotThrow(() => editor = new BoardEditor(read));
+            Assert.DoesNotThrow(() => Netlist.Of(read, read.Modules[0]));
+            StringAssert.Contains($"Wire {wires[0].id} has the same id as something else", string.Join("\n", editor.Diagnostics.Select(d => d.Message)));
+        }
+
         [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {
