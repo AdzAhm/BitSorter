@@ -233,6 +233,12 @@ namespace BitSorter.View
         private string _stamp;
 
         /// <summary>
+        /// The stamp of this store's last write that did not land: a write that died after the old file went and before the new
+        /// one was moved in leaves it as the temporary file, which is this store's own, never another window's.
+        /// </summary>
+        private string _tried;
+
+        /// <summary>
         /// Why the save read is a newer BitSorter's, in words -- its format past this one's, or a key this one does not know --
         /// or null (Ahmad's decision, 2026-11-03). What this one does not know it drops as it writes, so the file as it was is
         /// copied beside it first (<see cref="NewerCopy"/>).
@@ -316,6 +322,7 @@ namespace BitSorter.View
             Held = SaveHold.None;
             _keepAsideFrom = null;
             _stamp = null;
+            _tried = null;
             FromANewerVersion = null;
             NewerCopy = null;
             _newerFrom = null;
@@ -561,6 +568,7 @@ namespace BitSorter.View
                     _newerFrom = null;
                 }
 
+                _tried = stamp;
                 File.WriteAllText(TempPath, JsonUtility.ToJson(file, true));
 
                 if (File.Exists(_path))
@@ -568,6 +576,7 @@ namespace BitSorter.View
 
                 File.Move(TempPath, _path);
                 _stamp = stamp;
+                _tried = null;
                 BrowserSave.Written(stamp);
             }
             catch (Exception exception)
@@ -597,7 +606,8 @@ namespace BitSorter.View
                 return false;
             try
             {
-                return !string.Equals(StampOf(path), _stamp, StringComparison.Ordinal);
+                string now = StampOf(path);
+                return !string.Equals(now, _stamp, StringComparison.Ordinal) && !(now != null && string.Equals(now, _tried, StringComparison.Ordinal));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
