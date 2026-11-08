@@ -102,6 +102,48 @@ namespace BitSorter.PlayMode.Tests
             store.Save();
         }
 
+        /// <summary>A document the rules refuse, as a save edited by hand may hold one: an AND gate of one input.</summary>
+        private static Project Refused() => Project.New("broken") with
+        {
+            Modules = new[]
+            {
+                new Module
+                {
+                    Name = "broken", NextId = 2,
+                    Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = BitSorter.Sim.GateKind.And, Inputs = 1 } },
+                },
+            },
+        };
+
+        /// <summary>
+        /// A circuit the save keeps that the rules refuse -- edited by hand, or written by a newer BitSorter -- leaves the
+        /// workbench open on the reference circuit, under the start page, saying why in the rules' own words, and the circuit
+        /// kept in the save as it was: it threw from the workbench's Start, which never built, on every launch until the save
+        /// was deleted (save-1).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ACircuitTheSaveKeepsThatCannotOpen_LeavesTheWorkbenchOpen_SayingWhy()
+        {
+            Plant(store =>
+            {
+                store.SetProject(WorkbenchSamples.MyCircuitKey, Refused());
+                store.LastOpen = WorkbenchSamples.MyCircuitKey;
+            });
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            Assert.IsTrue(workbench.IsOpen, "the workbench, built");
+            Assert.AreEqual(1, workbench.Sample, "on the reference circuit");
+            Assert.IsTrue(workbench.StartPageShowing, "under the start page");
+            StringAssert.Contains("could not be opened", workbench.StartPageNotice);
+            StringAssert.Contains("2 to 8", workbench.StartPageNotice, "in the rules' own words");
+
+            var saved = new ProgressStore(ProgressStore.DefaultPath);
+            saved.Load();
+            Assert.IsTrue(saved.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()));
+            Assert.AreEqual(1, ((GatePart)kept.TopModule.Parts.Single()).Inputs, "kept in the save as it was");
+        }
+
         [UnityTest]
         public IEnumerator AFreshSave_OpensTheSimulatorOnItsStartPage()
         {
