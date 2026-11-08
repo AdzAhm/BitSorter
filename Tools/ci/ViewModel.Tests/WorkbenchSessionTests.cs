@@ -309,5 +309,45 @@ namespace BitSorter.ViewModel.Tests
         }
 
         private static void Bench(EditResult result) => Assert.IsTrue(result.Done, "refused: " + result.Refusal);
+
+        // -----------------------------------------------------------------
+        // An edit the run cannot be made of
+        // -----------------------------------------------------------------
+
+        /// <summary>A written module whose memory holds 33.8 million bits: one fits in a design BitSorter simulates, two do not.</summary>
+        private const string Big =
+            "module big (input logic a, output logic y);\n" +
+            "    logic [1023:0] mem [0:32999];\n" +
+            "    assign y = a;\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// An edit the document's rules let through -- each module checked alone -- whose whole design is past what BitSorter
+        /// simulates is refused in the elaborator's words and taken back, with nothing to redo into it. It was kept, and the
+        /// replay threw out of the edit; the circuit was saved half a second later, and threw again on every launch (the 16d
+        /// sweep).
+        /// </summary>
+        [Test]
+        public void AnEditWhoseDesignIsTooBigToSimulate_IsRefused_AndTakenBack()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Bench(editor.AddWrittenModule("big", Big));
+            Bench(editor.Add("top", new BlockPart { Name = "b1", Module = "big" }, new Placement(5, 0)));
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            Project before = session.Project;
+            CatalogEntry big = PartsCatalog.For(session.Project, session.Module).Single(e => e.Module == "big");
+
+            EditResult placed = default;
+            Assert.DoesNotThrow(() => placed = session.Place(big, new Placement(5, 6)), "an edit the run cannot be made of throws nothing");
+            Assert.IsFalse(placed.Done, "refused");
+            StringAssert.Contains("million bits", placed.Refusal, "in the elaborator's words");
+            Assert.AreSame(before, session.Project, "taken back: the document as it was");
+            Assert.IsFalse(session.Editor.CanRedo, "with nothing to redo into it");
+            Assert.IsFalse(session.Replaying, "and no replay of it");
+            Assert.DoesNotThrow(() => session.Finish());
+            Assert.AreEqual(1, session.Run.Model.Session.Design.Scopes.Count(s => s.Kind == ScopeKind.Instance && s.Module == "big"),
+                "the run the one block's");
+        }
     }
 }
