@@ -203,6 +203,31 @@ namespace BitSorter.Board.Tests
             Assert.Less(made, 16L << 20, $"the rules made {made:N0} bytes for a part they refuse");
         }
 
+        /// <summary>
+        /// A run saved to end, or a step or a check saved, past the latest moment an edit puts one at -- a hand-edited or
+        /// hostile save -- is refused by the rules in words: they let any time through, a run to long's end threw as it was
+        /// made, from the workbench's Start, and one to 4e18 would never be made (save-8).
+        /// </summary>
+        [TestCase("end")]
+        [TestCase("step")]
+        [TestCase("check")]
+        public void ATimeSavedPastTheLatestAnEditPuts_IsRefusedInWords(string what)
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            Assert.IsTrue(file.hasStimulus, "sanity: a stimulus to change");
+            StimulusRecord stimulus = file.stimulus;
+            if (what == "end")
+                stimulus.end = long.MaxValue;
+            else if (what == "step")
+                stimulus.tracks[0].steps[stimulus.tracks[0].steps.Length - 1].time = 4_000_000_000_000_000_000;
+            else
+                stimulus.checks = new[] { new CheckRecord { port = "s", time = long.MaxValue, value = "1'b0" } };
+            Project read = file.ToProject(new List<string>());
+
+            List<BoardDiagnostic> found = BoardRules.Check(read);
+            Assert.IsTrue(found.Any(d => d.IsError && d.Message.Contains(StimulusEdits.MaxTime.ToString())), string.Join("\n", found));
+        }
+
         [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {
