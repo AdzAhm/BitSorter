@@ -43,7 +43,7 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// The first hint the run earns that <paramref name="seen"/> has not been shown, or null: a clock in its stimulus; a
         /// gate whose output changed after the run began; a z on a port of the design at <paramref name="designPath"/>, drawn
-        /// or in a written top's header; a glitch on one of its outputs -- see <see cref="IsGlitch"/> -- where
+        /// or in a written top's header; a glitch on one of its outputs -- see <see cref="AnyGlitch"/> -- where
         /// <paramref name="slowest"/>, the longest an input or a clock edge takes to reach an output, is known.
         /// </summary>
         public static string Due(Project project, Design design, History history, string designPath, long? slowest, Func<string, bool> seen) =>
