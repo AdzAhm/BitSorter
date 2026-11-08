@@ -1097,11 +1097,21 @@ namespace BitSorter.Sim
 
             DriverInfo driver = _drivers[d];
             long delay = driver.Delay.For(_output[d], value);
-            long due = now + delay;
             long token = ++_tokens;
 
             _pendingToken[d] = token;
             _pendingValue[d] = value;
+
+            // A delay past what a run can count never comes due, as a process's does (DelayOf): the change is on its way,
+            // so a later one still takes its place, but no event is made for it and no transition is drawn. Added to the
+            // time unchecked it came due at once, at a negative time (the 16d sweep, engine-4).
+            if (delay > long.MaxValue - now)
+            {
+                _pendingTransition[d] = -1;
+                return;
+            }
+
+            long due = now + delay;
             _pendingTransition[d] = _options.RecordTransitions
                 ? _history.BeginTransition(d, driver.Target, now, due, value)
                 : -1;

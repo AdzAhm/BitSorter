@@ -149,6 +149,12 @@ neither lets come due before the `$finish`; `ProcessTests.ADelayThatWorksOutNega
 | `#r`, `real r = -2.5`, in a `` `timescale 1ns/1ps `` module | waits about 2^64 ticks | 0, with a suppressible error at run time (vsim-3465) | rounded to the precision, -2500 ticks, then 2^64 - 2500: never due |
 | `#(1'bx)` | no delay | no delay | no delay (9.4.1) |
 
+A gate's or a continuous assignment's delay is a constant, so one cannot work out negative -- the elaborator refuses a
+negative one -- but it can be past what a run can count: `assign #1e19 y = a;`, `#(64'hFFFFFFFFFFFFFFFF)`, or `#10000`
+under a `` `timescale 1s/1fs ``. It too never comes due, and the elaborator says so with a warning (SV0311). Until the
+16d sweep (elaborator-7, engine-4) it was held at the largest count and added to the time unchecked, so a change after
+t = 0 came due at once, at a negative time; `ProcessTests.AGateOrAssignDelayPastWhatARunCanCount_...` holds it.
+
 ### The last time step of a `$stop`
 
 With `vvp -n`, as the oracle runs it, `$stop` ends the run like `$finish` does, **but Icarus's VCD

@@ -2094,6 +2094,12 @@ namespace BitSorter.Sim
 
             Expr.Ticks(value, t.Real, t.Signed, scope.UnitTicks, scope.PrecisionTicks).Evaluate(Array.Empty<LogicVec>()).TryGetUInt64(out ulong whole);
             ticks = (long)whole;
+
+            // Held at the largest a run counts, it never comes due, as a process's delay past that never does (the 16d
+            // sweep, elaborator-7): worth saying, since a change it delays is never seen.
+            if (ticks == long.MaxValue)
+                diagnostics.Warning(e.Location, ElaborationCodes.BadDelay,
+                    $"A delay of {Printer.Print(e)} is more than a run can count, so a change it delays never comes due.");
             return true;
         }
 
