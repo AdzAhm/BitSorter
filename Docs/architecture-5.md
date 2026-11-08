@@ -2118,6 +2118,12 @@ template is imported, then exported filled.
   its code with it. As BitSorter closes, and in a build as it is put behind another window, typed code is applied before
   the keep; code that cannot apply is lost then, since nothing can be asked as a window closes. Play Mode,
   `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout`.
+- **Only typed code is pending** (the review of Part 16d's sweep). The session keeps the editor's text while the drawing
+  of code is up, and nothing brings it in line with the document until the code shows again: an undo there, or an edit
+  of the drawing written into the code, left the old text reading as typed and not applied, and every caller of
+  `ApplyTypedCode` -- leaving, CHECK, EXPORT, the lock -- wrote it back over the change. An editor whose document has
+  moved under it since it last took or gave the text is `CodeDocument.Behind`: nothing of it is `Pending`, and `Apply`
+  follows the document as the editor's next frame would. `DrawingOfCodeTests` and `DrawingEditTests` under dotnet.
 - **Checked.** `ProjectExportTests` (14) under dotnet: every sample's zip read back by .NET's own `ZipArchive`, its
   files and their order, the script's lines, the bytes and the moment kept, the checksum against the standard's own
   example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected

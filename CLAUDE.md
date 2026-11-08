@@ -758,7 +758,8 @@ stretch that way.
   applied is still what EXPORT applies or refuses with the drawing up
   (`WorkbenchSession.PendingCode`) -- and, since Part 16d's sweep, what CHECK grades,
   and what leaving the circuit applies, or asks about where it cannot apply
-  (`WorkbenchPanel.MayLeave`). **A circuit can be locked** (Part 15h-4d, asked
+  (`WorkbenchPanel.MayLeave`); never the text of an editor the document has moved under,
+  by an undo or an edit of the drawing, which it sets aside (`CodeDocument.Behind`). **A circuit can be locked** (Part 15h-4d, asked
   2026-10-29; `WorkbenchSession.Locked`): the padlock in the circuit window's top strip,
   left of FIT's place and of FIT's key, F, which it stood over until a reference shot
   showed FIT without its key -- not the lower corner Ahmad first asked for, which a

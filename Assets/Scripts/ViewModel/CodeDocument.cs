@@ -106,8 +106,20 @@ namespace BitSorter.ViewModel
         /// <summary>The module's text in the document: the last text that applied.</summary>
         public string Applied => _session.Project.Find(Module)?.Source;
 
-        /// <summary>Whether the editor's text is not the document's: typed and not yet applied, or refused.</summary>
-        public bool Pending => Text != (Applied ?? string.Empty);
+        /// <summary>
+        /// Whether the editor's text is not the document's: typed and not yet applied, or refused. Never while the editor is
+        /// <see cref="Behind"/> the document, whose text it then sets aside rather than applies.
+        /// </summary>
+        public bool Pending => !Behind && Text != (Applied ?? string.Empty);
+
+        /// <summary>
+        /// Whether the document's text has moved under the editor since the editor last took it or gave it: an undo or a redo,
+        /// or an edit of the drawing of code written into the code (Part 15h-4g) while the drawing was up and the editor kept
+        /// its text. The editor follows the document on its next frame, setting aside what it had. Until then its text is
+        /// the code before that change, not code typed: applying it, as leaving a circuit, CHECK, EXPORT and the lock apply
+        /// what is pending, wrote the old code back over the undo or the edit (the review of Part 16d's sweep).
+        /// </summary>
+        public bool Behind => (Applied ?? string.Empty) != _base;
 
         /// <summary>The faults in the text, by line: errors, which keep it from applying, and warnings, which do not.</summary>
         public IReadOnlyList<CodeMark> Marks => _marks;
@@ -258,9 +270,18 @@ namespace BitSorter.ViewModel
             return true;
         }
 
-        /// <summary>The text checked now and, with no error, applied (Ctrl+Enter): one undo step, and the run made again.</summary>
+        /// <summary>
+        /// The text checked now and, with no error, applied (Ctrl+Enter): one undo step, and the run made again. An editor
+        /// <see cref="Behind"/> the document follows it instead, as its next frame would, and nothing is applied.
+        /// </summary>
         public EditResult Apply()
         {
+            if (Behind)
+            {
+                Follow();
+                return EditResult.Ok();
+            }
+
             _typedAt = double.NaN;
             bool clean = Check();
             if (!Pending)
