@@ -410,7 +410,9 @@ namespace BitSorter.View
         /// </summary>
         private bool MayLeave(System.Action leave)
         {
-            if (_session == null || _sample != 0 || ReferenceEquals(_leavingTheTypedCode, _session))
+            // An exercise RESET PROGRESS let go while the workbench was out of sight is not the circuit under the key the
+            // stage keeps under, and is left as it is (the review of Part 16d's sweep).
+            if (_session == null || _sample != 0 || _forgotten || ReferenceEquals(_leavingTheTypedCode, _session))
                 return true;
             if (ApplyTypedCode("kept"))
                 return true;

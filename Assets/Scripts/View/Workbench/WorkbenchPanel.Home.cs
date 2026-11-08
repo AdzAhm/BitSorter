@@ -290,10 +290,14 @@ namespace BitSorter.View
             }
         }
 
-        /// <summary>After RESET PROGRESS, as on a first launch: MY CIRCUIT, blank, with the start page over it.</summary>
+        /// <summary>
+        /// After RESET PROGRESS, as on a first launch: MY CIRCUIT, blank, with the start page over it. The exercise let go is
+        /// left as it is, never through <see cref="MayLeave"/>: the reset has made MY CIRCUIT the key the stage keeps under, so
+        /// code typed in the exercise and applied on the way would be written over MY CIRCUIT (the review of Part 16d's sweep).
+        /// </summary>
         private void OpenAsNew()
         {
-            ShowSample(0);
+            ShowSample(0, underThePage: false);
             ShowHome();
         }
 
@@ -553,7 +557,7 @@ namespace BitSorter.View
         {
             if (!MayLeave(() => OpenProcessor(chip, program)))
                 return;   // asked first, or the program would be chosen on the circuit still open (Part 16d's sweep)
-            ShowSample(chip);
+            ShowSample(chip, underThePage: false);   // asked already
             if (_session != null && _session.Choices.Count > 0 && _session.Choices[0].Chosen != program)
                 Choose(_session.Choices[0].Name, program);   // the program it opens on -- the one last chosen, else SUM -- is no step
         }

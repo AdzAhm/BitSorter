@@ -263,7 +263,9 @@ namespace BitSorter.View
         /// </summary>
         private void KeepTheTypedCode()
         {
-            if (_session != null && _sample == 0)
+            // Not an exercise RESET PROGRESS let go out of sight: its code would be kept under MY CIRCUIT's key (the review of
+            // Part 16d's sweep).
+            if (_session != null && _sample == 0 && !_forgotten)
                 ApplyTypedCode("kept");
         }
 

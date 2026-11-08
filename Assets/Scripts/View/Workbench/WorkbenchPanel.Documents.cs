@@ -111,7 +111,7 @@ namespace BitSorter.View
                 store.Save();
             }
 
-            ShowSample(0);
+            ShowSample(0, underThePage: false);   // asked already, before the key changed: never asked under the new one
         }
 
         /// <summary>FILE, OPEN: the circuits, the most recent first, under the FILE chip.</summary>

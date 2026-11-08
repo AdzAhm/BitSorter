@@ -2118,8 +2118,12 @@ template is imported, then exported filled.
   saying what is wrong with it, and LEAVE IT does the whole of what was asked for -- an import made, a program chosen, the
   tutorial started -- once the circuit is left. A sample keeps nothing of its own and never asks; a circuit deleted takes
   its code with it. As BitSorter closes, and in a build as it is put behind another window, typed code is applied before
-  the keep; code that cannot apply is lost then, since nothing can be asked as a window closes. Play Mode,
-  `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout`.
+  the keep; code that cannot apply is lost then, since nothing can be asked as a window closes. The leave is asked once,
+  by what was asked for, before the key the stage keeps under changes, and the circuit is then opened past it. RESET
+  PROGRESS never asks: it lets an exercise go as it is, having made MY CIRCUIT that key already, and the exercise's code
+  applied on the way was written over MY CIRCUIT (the review of the sweep). Play Mode,
+  `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout` and
+  `ResetProgress_WithCodeTypedInAnExercise_WritesNothingOfItUnderMyCircuit`.
 - **Only typed code is pending** (the review of Part 16d's sweep). The session keeps the editor's text while the drawing
   of code is up, and nothing brings it in line with the document until the code shows again: an undo there, or an edit
   of the drawing written into the code, left the old text reading as typed and not applied, and every caller of

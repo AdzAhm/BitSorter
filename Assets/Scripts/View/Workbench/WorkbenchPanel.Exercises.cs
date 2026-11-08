@@ -125,7 +125,7 @@ namespace BitSorter.View
             _exerciseNote = null;
 
             HideExercises();
-            ShowSample(0);
+            ShowSample(0, underThePage: false);   // asked already, before the key changed: never asked under the new one
             if (_session != null && _session.Project.TopModule?.IsWritten == true)
                 _session.ShowCodeOf(_session.Project.Top);   // an answer written in code reopens on its code (the review of #111)
             ReportStarted(exercise);
