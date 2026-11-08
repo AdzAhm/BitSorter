@@ -13,8 +13,9 @@ namespace BitSorter.View
     }
 
     /// <summary>
-    /// HELP, in the toolbar (Part 15a): the keyboard map, as ? opens it; the start page, as HOME does; and ABOUT, the credits
-    /// roll, which comes back to the workbench. A shell menu like FILE. And the guided tutorial (Part 15f).
+    /// HELP, in the toolbar (Part 15a): the keyboard map, as ? opens it; the start page, as HOME does; the guided tutorial
+    /// (Part 15f); and ABOUT BITSORTER, a page saying what the simulator is and does, with the credits at its foot (Part 15h:
+    /// it opened the credits roll until then). A shell menu like FILE.
     /// </summary>
     public sealed class HelpMenu : WaveMenu
     {

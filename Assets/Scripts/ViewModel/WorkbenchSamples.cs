@@ -12,9 +12,11 @@ using EngineGate = BitSorter.Sim.GateKind;
 namespace BitSorter.ViewModel
 {
     /// <summary>
-    /// The circuits the workbench opens, switched from its SAMPLE chip (Ahmad's choice, 2026-10-16):
-    /// the reference circuit, a full adder of two half-adder blocks for hierarchy, and a clocked
-    /// counter for a register, a clock and a reset.
+    /// The circuits the workbench opens, switched from its SAMPLE chip and S (Ahmad's choice, 2026-10-16): the
+    /// reference circuit, a full adder of two half-adder blocks for hierarchy and a clocked counter for a register, a
+    /// clock and a reset, as it began; since then four half adders as an array, the samples written as code -- the adder,
+    /// the traffic light, the ALU, Is it prime?, the sequence detector and the seven segments -- and the three RISC-V
+    /// processors (Part 15h-6), which the start page gives a section of their own and the chip still steps through.
     /// </summary>
     /// <remarks>
     /// Each is drawn through <see cref="BoardEditor"/>, as <see cref="ReferenceCircuit"/> is and as a
@@ -38,8 +40,8 @@ namespace BitSorter.ViewModel
     public static class WorkbenchSamples
     {
         /// <summary>
-        /// What the chip offers, in its order: the reference, the full adder, the counter -- each with
-        /// its name, the line the workbench says it with under its title, and its document.
+        /// What the chip offers after the circuit open (<see cref="Chip"/>), in its order -- the reference first and the
+        /// processors last -- each with its name, the line the workbench says it with under its title, and its document.
         /// </summary>
         public static readonly IReadOnlyList<(string Name, string Says, Func<Project> Build)> All =
             Array.AsReadOnly(new (string Name, string Says, Func<Project> Build)[]
