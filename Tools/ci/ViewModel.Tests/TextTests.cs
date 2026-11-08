@@ -469,6 +469,30 @@ namespace BitSorter.ViewModel.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => TimeText.Write(1, TimeText.MaxDecimals + 1, "ns", new char[64]));
         }
 
+        /// <summary>
+        /// The tenth of a unit a readout writes (Part 16d): rounded half to even as the readouts always were, held to the
+        /// run, and a long however long the run -- ten billion tenths, RUN TO 1 ms in a ps project, wrapped an int.
+        /// </summary>
+        [Test]
+        public void Tenths_AreTheMomentsTenth_HeldToTheRun_AndALongPastAnInt()
+        {
+            Assert.AreEqual(125L, TimeText.Tenths(12.5, 100));
+            Assert.AreEqual(122L, TimeText.Tenths(12.25, 100), "half to even, as Mathf.RoundToInt did");
+            Assert.AreEqual(124L, TimeText.Tenths(12.35, 100), "and 123.5 tenths to the even 124");
+            Assert.AreEqual(0L, TimeText.Tenths(-3, 100), "nothing before the start");
+            Assert.AreEqual(0L, TimeText.Tenths(double.NaN, 100));
+            Assert.AreEqual(1000L, TimeText.Tenths(250, 100), "nothing past the end");
+            Assert.AreEqual(0L, TimeText.Tenths(5, 0));
+
+            Assert.AreEqual(10_000_000_000L, TimeText.Tenths(1e9, 1_000_000_000L), "RUN TO 1 ms in a ps project");
+            Assert.AreEqual(99_999_999L, TimeText.Tenths(9_999_999.9, 10_000_000L), "a float would have rounded the tenth away");
+            Assert.AreEqual(long.MaxValue / 10 * 10, TimeText.Tenths(double.MaxValue, long.MaxValue), "and the longest run is no overflow");
+
+            var into = new char[TimeText.MaxLength(1, "ns")];
+            Assert.AreEqual("9999999.9 ns", new string(into, 0, TimeText.Write(TimeText.Tenths(9_999_999.9, 10_000_000L) / 10.0, 1, "ns", into)),
+                "and it is written back as the tenth it is");
+        }
+
         [Test]
         public void Decimals_AreAsManyAsATickStepNeeds()
         {

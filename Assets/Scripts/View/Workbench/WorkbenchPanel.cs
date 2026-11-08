@@ -301,9 +301,19 @@ namespace BitSorter.View
         private readonly List<TextMeshProUGUI> _digits = new List<TextMeshProUGUI>();
         private readonly List<TextMeshProUGUI> _swallowedLabels = new List<TextMeshProUGUI>();
 
-        // Text, made once: a frame of playback formats nothing.
-        private string[] _timeTexts, _playheadTexts, _inFlightTexts;
+        // Text, made once: a still frame formats nothing, and a frame of playback only the moment it moved to.
+        private string[] _inFlightTexts;
         private string _settledText;
+
+        /// <summary>
+        /// The moment's words -- <c>t = 12.5 ns</c> over the slider and <c>12.5 ns</c> at the playhead -- for the tenth of a unit
+        /// in <see cref="_momentStep"/>, written again only as the moment shown moves to another (<see cref="WriteMoment"/>).
+        /// They were written for every tenth of the run up front, two strings a step in one frame: INPUTS lets END go to
+        /// 10,000,000, which was 200 million strings, and a run of 100,000 units made some 150 MB on every edit (Part 16d).
+        /// </summary>
+        private string _momentText, _playheadText;
+        private long _momentStep = -1;
+        private char[] _momentChars = new char[0];
 
         // -----------------------------------------------------------------
         // What the tests and the reference shots ask
@@ -1117,8 +1127,8 @@ namespace BitSorter.View
                 return null;
 
             string name = WaveExport.FileName(ExportName(), "png");
-            int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _playheadTexts.Length - 1);
-            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _playheadTexts[step],
+            WriteMoment(TimeText.Tenths(_model.Time, _model.End));
+            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _playheadText,
                 _cursors, _playback.Breakpoints);
             Notice("saved " + name + " " + FileSaver.Save(name, bytes, "image/png"));
             return name;
@@ -2249,26 +2259,45 @@ namespace BitSorter.View
             return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
         }
 
+        /// <summary>
+        /// The texts a run is shown with, for a run opened, replayed or grown: the moment's words are written again as it is
+        /// next shown, since its unit may be another, and none is written ahead -- however long the run, this costs the same.
+        /// </summary>
         private void MakeTexts()
         {
-            int steps = (int)(_model.End * 10) + 1;
-            _timeTexts = new string[steps];
-            _playheadTexts = new string[steps];
+            _momentText = _playheadText = null;
+            _momentStep = -1;
 
-            for (int i = 0; i < steps; i++)
+            if (_inFlightTexts == null)
             {
-                string moment = (i / 10.0).ToString("0.0", CultureInfo.InvariantCulture);
-                _timeTexts[i] = "t = " + moment + " " + _model.Unit;
-                _playheadTexts[i] = moment + " " + _model.Unit;
+                _inFlightTexts = new string[33];
+                _inFlightTexts[0] = "waiting";
+                _inFlightTexts[1] = "1 change in flight";
+                for (int i = 2; i < _inFlightTexts.Length; i++)
+                    _inFlightTexts[i] = i.ToString(CultureInfo.InvariantCulture) + " changes in flight";
             }
 
-            _inFlightTexts = new string[33];
-            _inFlightTexts[0] = "waiting";
-            _inFlightTexts[1] = "1 change in flight";
-            for (int i = 2; i < _inFlightTexts.Length; i++)
-                _inFlightTexts[i] = i.ToString(CultureInfo.InvariantCulture) + " changes in flight";
-
             _settledText = SettledText();
+        }
+
+        /// <summary>
+        /// Writes the moment's words for the tenth of a unit <paramref name="step"/>, unless they are already its: two strings
+        /// as the moment moves, none while it stands.
+        /// </summary>
+        private void WriteMoment(long step)
+        {
+            if (step == _momentStep && _momentText != null)
+                return;
+
+            string unit = _model.Unit;
+            int longest = TimeText.MaxLength(1, unit);
+            if (_momentChars.Length < longest)
+                _momentChars = new char[longest];
+
+            int length = TimeText.Write(step / 10.0, 1, unit, _momentChars);
+            _playheadText = new string(_momentChars, 0, length);
+            _momentText = "t = " + _playheadText;
+            _momentStep = step;
         }
 
         /// <summary>What the chip says once nothing more happens: known once the run is made.</summary>
@@ -2291,14 +2320,14 @@ namespace BitSorter.View
             if (_slider != null)
                 _slider.SetValueWithoutNotify((float)_model.Time);
 
-            int step = Mathf.Clamp(Mathf.RoundToInt((float)(_model.Time * 10.0)), 0, _timeTexts.Length - 1);
-            SetText(_timeLabel, _timeTexts[step]);
+            WriteMoment(TimeText.Tenths(_model.Time, _model.End));
+            SetText(_timeLabel, _momentText);
 
             SetText(_chipLabel, ChipLine());
 
             RefreshPlayLabel();
             PlaceDigits();
-            _wave.Place(_playheadTexts[step], _cursors);
+            _wave.Place(_playheadText, _cursors);
         }
 
         private void RefreshPlayLabel()

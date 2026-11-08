@@ -17,9 +17,11 @@ namespace BitSorter.ViewModel
     /// **Writing allocates nothing.** The axis relabels on every frame of a zoom or a pan, and the
     /// playhead's readout on every frame of playback, so <see cref="Write"/> fills a <c>char[]</c> the
     /// view keeps and hands TextMeshPro the characters (<c>SetCharArray</c>), as the frame-rate counter
-    /// does. The workbench's first waveform makes a string for every tenth of a unit of the run up front
-    /// (<c>WorkbenchPanel.MakeTexts</c>), which holds only while the run is short and the zoom fixed;
-    /// this is what takes its place.
+    /// does. The workbench's first waveform made a string for every tenth of a unit of the run up front,
+    /// which held only while the run was short: INPUTS lets a run's END go to 10,000,000, two hundred
+    /// million strings in one frame (Part 16d). The readout over the slider, a UI Toolkit label that takes
+    /// only a string, is now written from here as the moment shown moves to another tenth
+    /// (<see cref="Tenths"/>), and never ahead of it.
     ///
     /// **Time is an integer** (invariant 7): the engine counts whole project units, and the unit's name
     /// is a label. A time on screen may still have a fraction -- the playhead moves smoothly between
@@ -129,6 +131,24 @@ namespace BitSorter.ViewModel
             }
 
             return at;
+        }
+
+        /// <summary>
+        /// The tenth of a unit <paramref name="time"/> is shown at, rounded half to even, from 0 to the run's
+        /// <paramref name="end"/>: what the readouts write, <c>Tenths(12.5, 100) / 10.0</c> being 12.5.
+        /// </summary>
+        /// <remarks>
+        /// A <c>long</c>, worked out in doubles: a run may be longer than an <c>int</c> counts in tenths -- RUN TO
+        /// <c>1 ms</c> in a ps project is ten billion of them, which an <c>int</c> wrapped -- and a <c>float</c>
+        /// rounds away the tenths of any time past about 1.6 million units. A time before the start, or none, is 0.
+        /// </remarks>
+        public static long Tenths(double time, long end)
+        {
+            long last = end <= 0 ? 0 : end > long.MaxValue / 10 ? long.MaxValue / 10 * 10 : end * 10;
+            double scaled = Math.Round(time * 10.0);
+            if (!(scaled > 0))
+                return 0;
+            return scaled >= last ? last : (long)scaled;
         }
 
         /// <summary>
