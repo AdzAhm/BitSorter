@@ -209,6 +209,34 @@ endmodule"), new MemorySimFiles().Add("bits.bin", "0001 0010 0011"));
             Assert.AreEqual("xxxx", sim.Value(mem.Word(6)).Format(Radix.Binary));
         }
 
+        /// <summary>
+        /// A range given as sized unsigned numbers is read as unsigned (the 16d sweep, engine-8): 8'd128 and 8'hFF were read
+        /// as -128 and -1, every bound with its top bit set as a negative one, so a valid range was refused as outside the
+        /// memory and nothing was loaded -- and $writememh wrote nothing either.
+        /// </summary>
+        [Test]
+        public void ARangeOfSizedUnsignedNumbers_WithTheirTopBitSet_IsReadUnsigned()
+        {
+            var files = new MemorySimFiles().Add("rom.hex", "aa bb");
+            Simulator sim = Run(Clean(@"
+module t;
+    logic [7:0] rom [0:255];
+    logic [3:0] last = 4'd9;
+    initial begin
+        $readmemh(""rom.hex"", rom, 8'd128, 8'hFF);
+        $writememh(""out.hex"", rom, 8'd128, 8'd129);
+        $readmemh(""rom.hex"", rom, 4'd8, last);
+    end
+endmodule"), files);
+
+            MemoryInfo rom = sim.Design.Memories[0];
+            Assert.AreEqual("aa bb", sim.Value(rom.Word(128)).Format(Radix.Hex) + " " + sim.Value(rom.Word(129)).Format(Radix.Hex));
+            Assert.AreEqual("aa bb", sim.Value(rom.Word(8)).Format(Radix.Hex) + " " + sim.Value(rom.Word(9)).Format(Radix.Hex));
+            Assert.IsEmpty(Printed(sim, Severity.Error));
+            Assert.IsTrue(files.TryRead("out.hex", out string written), "written out");
+            Assert.AreEqual("aa\nbb\n", written);
+        }
+
         [Test]
         public void AnImage_FitsEachWordToTheMemory_AndAnAddressMayGoBack()
         {
