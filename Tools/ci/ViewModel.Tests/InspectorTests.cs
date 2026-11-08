@@ -308,6 +308,30 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.StartsWith("The value:", b.Apply(b.Of(constant), ("value", "8'hZQ")).Refusal);
         }
 
+        /// <summary>
+        /// A register given a reset value or a start, and then a WIDTH no register can have -- 0, -3, a hundred million -- is
+        /// refused with the width's own words, as 2000 is (the 16d sweep: its values were read again at the new width, which
+        /// threw for a width below a bit, and for one past the widest value).
+        /// </summary>
+        [Test]
+        public void ARegistersWidth_ThatNoRegisterCanHave_IsRefusedInWords_WithItsValuesSet()
+        {
+            var b = new Bench();
+            int register = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "register"), new Placement(9, -4)));
+            Assert.IsTrue(b.Apply(b.Of(register), ("width", "4"), ("reset", "yes"), ("resetvalue", "4'b0101"), ("start", "4'b0011")).Done);
+            Project before = b.Session.Project;
+
+            foreach (string width in new[] { "0", "-3", "100000000", "2000" })
+            {
+                EditResult result = default;
+                Assert.DoesNotThrow(() => result = b.Apply(b.Of(register), ("width", width)), width);
+                Assert.IsFalse(result.Done, width);
+                StringAssert.Contains("1 to 1024", result.Refusal, $"{width}: the width's own words");
+            }
+
+            Assert.AreSame(before, b.Session.Project, "and nothing changed");
+        }
+
         /// <summary>A register's clock to Q and setup (Part 14b): at hand beside its values, set together as one step, never below 0.</summary>
         [Test]
         public void ARegistersClockToQAndSetup_AreAtHand_AndSetInOneStep()
