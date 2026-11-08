@@ -32,6 +32,9 @@ namespace BitSorter.View
         /// <summary>How long after its last edit MY CIRCUIT is written, in seconds of real time.</summary>
         private const double KeepDelay = 0.5;
 
+        /// <summary>How long after a keep that failed it is tried again, in seconds of real time, unless the focus goes first.</summary>
+        private const double KeepAgainDelay = 5.0;
+
         private CanvasEditor _editor;
         private readonly CanvasPointer _canvasPointer = new CanvasPointer();
         private readonly List<CanvasCommand> _canvasCommands = new List<CanvasCommand>(4);
@@ -178,6 +181,14 @@ namespace BitSorter.View
                 // Said until a keep succeeds, over whatever is opened next: it failed in silence for a whole session (the
                 // 16c pilot), and a notice alone went with the next circuit opened. A save held says why itself.
                 _saveTrouble = store.LastError != null && store.Held == SaveHold.None ? CouldNotSave + store.LastError : null;
+
+                // Not kept, so tried again -- a while on, and at once as the focus goes or BitSorter quits: it counted as kept,
+                // and a failure that passed left every edit since in the window alone (save-5).
+                if (store.LastError != null)
+                {
+                    _keepAt = time + KeepAgainDelay;
+                    return;
+                }
             }
 
             _keptProject = _session.Project;
