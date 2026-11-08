@@ -389,8 +389,10 @@ namespace BitSorter.View
             if (applied.Done)
                 return true;
 
-            Notice(module + "'s code " + (module == _session.Module && _session.ShowsCode ? "on screen" : "typed and not applied")
-                + " does not apply, so it is not " + outcome + ": " + applied.Refusal);
+            Notice(module == _session.Module && _session.ShowsCode
+                ? module + "'s code on screen does not apply, so it is not " + outcome + ": " + applied.Refusal
+                : module + "'s code, typed and not applied, does not apply, so it is not " + outcome + " -- open its code to mend it or REVERT it: "
+                  + applied.Refusal);
             return false;
         }
 
