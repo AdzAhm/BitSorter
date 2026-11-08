@@ -120,6 +120,19 @@ namespace BitSorter.View
         public ProjectRecord project;
     }
 
+    /// <summary>Why a store writes nothing over the save until it is read again (<see cref="ProgressStore.Held"/>).</summary>
+    public enum SaveHold
+    {
+        /// <summary>It writes.</summary>
+        None,
+
+        /// <summary>
+        /// The save was there and could not be read -- another program held it as BitSorter opened -- which is no damaged file:
+        /// the store knows nothing of what is in it (save-7).
+        /// </summary>
+        CouldNotRead,
+    }
+
     /// <summary>
     /// What is kept between sessions: the documents, which exercises have been solved, the first-time hints seen, and what
     /// was open last.
@@ -193,6 +206,15 @@ namespace BitSorter.View
         /// <summary>Why the last load failed, or null. For diagnostics, never for control flow.</summary>
         public string LastError { get; private set; }
 
+        /// <summary>
+        /// Why nothing is written over the save, or <see cref="SaveHold.None"/> while it is: until the save is read again -- a
+        /// new store, as RELOAD makes -- every <see cref="Save"/> leaves it as it is, and says so in <see cref="LastError"/>.
+        /// </summary>
+        public SaveHold Held { get; private set; }
+
+        /// <summary>A save that could not be read and whose copy could not be kept either: copied before anything is written over it.</summary>
+        private string _keepAsideFrom;
+
         public bool IsComplete(string levelName) =>
             !string.IsNullOrEmpty(levelName) && _completed.Contains(levelName);
 
@@ -248,14 +270,21 @@ namespace BitSorter.View
         /// Reads the file, or starts empty if there is nothing readable there.
         /// </summary>
         /// <remarks>
-        /// Never throws, and the catch is deliberately broad. Every distinct failure here -- no file,
-        /// no permission, half a file, a file someone edited by hand -- has exactly the same correct
-        /// response, which is to carry on with no progress recorded. Enumerating them would add
-        /// branches without adding behaviour, and any one missed would crash the game on startup.
+        /// Never throws, and the catch is deliberately broad. Every distinct failure of what was read -- half a
+        /// file, a file someone edited by hand -- has exactly the same correct response, which is to carry on
+        /// with no progress recorded, a copy of the file kept. Enumerating them would add branches without
+        /// adding behaviour, and any one missed would crash the game on startup.
+        ///
+        /// A file that is there and cannot be read at all -- held by another program, or not the player's to
+        /// read -- is the one failure kept apart (save-7): nothing of it is known, so it is <see cref="Held"/>,
+        /// never written over, until it is read again. Treated as damaged, the first save after replaced it with
+        /// nothing, the copy of it having failed on the same lock.
         /// </remarks>
         public void Load()
         {
             LastError = null;
+            Held = SaveHold.None;
+            _keepAsideFrom = null;
             _completed.Clear();
             _hintsSeen.Clear();
             _milestones.Clear();
@@ -268,17 +297,28 @@ namespace BitSorter.View
             _exerciseBests.Clear();
             LoadedFormat = 0;
 
-            string source = null;
+            string source = ReadablePath();
+
+            if (source == null)
+                return;   // a first run is not a failure
+
+            string json;
+            try
+            {
+                json = File.ReadAllText(source);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                // There, and not read just now -- another program holds it -- which is no damaged file: this store knows
+                // nothing of what is in it, so it writes nothing over it until it is read again (save-7: the first save
+                // replaced every circuit and solve with nothing, and the copy below failed on the same lock).
+                LastError = exception.Message;
+                Held = SaveHold.CouldNotRead;
+                return;
+            }
 
             try
             {
-                source = ReadablePath();
-
-                if (source == null)
-                    return;   // a first run is not a failure
-
-                string json = File.ReadAllText(source);
-
                 if (string.IsNullOrWhiteSpace(json))
                     return;
 
@@ -387,20 +427,25 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Copies a save that could not be read to where the next save will not replace it.
+        /// Copies a save that could not be read to where the next save will not replace it; one whose copy fails is copied
+        /// again before anything is written over it (<see cref="Save"/>).
         /// </summary>
-        private void KeepAside(string source)
+        private bool KeepAside(string source)
         {
             if (source == null)
-                return;
+                return true;
 
             try
             {
                 File.Copy(source, UnreadablePath, true);
+                _keepAsideFrom = null;
+                return true;
             }
             catch (Exception)
             {
-                // The load's own error is already recorded, and there is nothing more to try.
+                // The load's own error is already recorded; the save is not written over until the copy is made.
+                _keepAsideFrom = source;
+                return false;
             }
         }
 
@@ -417,6 +462,17 @@ namespace BitSorter.View
         public void Save()
         {
             LastError = null;   // what this save says, not what an earlier one did
+            if (Held == SaveHold.CouldNotRead)
+            {
+                LastError = "the save could not be read, so nothing is written over it until it is read again";
+                return;
+            }
+            if (_keepAsideFrom != null && File.Exists(_keepAsideFrom) && !KeepAside(_keepAsideFrom))
+            {
+                LastError = "the save could not be read, nor a copy of it kept, so nothing is written over it";
+                return;
+            }
+
             try
             {
                 var file = new ProgressFile
