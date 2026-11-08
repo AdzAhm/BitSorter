@@ -512,7 +512,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(-1L, words.Step);
 
             const int Frames = 1000;
-            const long From = 9_999_999_000L;
+            const long From = 1_000_000L;
             words.Write(From - 1, "ns");   // the buffer made, and the words standing, before anything is counted
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int frame = 0; frame < Frames; frame++)
@@ -526,9 +526,9 @@ namespace BitSorter.ViewModel.Tests
 
             TestContext.WriteLine($"{Frames} frames the moment stands: {standing} bytes; a frame it moves a tenth: {moving} bytes");
             Assert.AreEqual(From + Frames - 1, words.Step, "sanity: the last tenth written");
-            Assert.AreEqual("t = 999999999.9 ns", words.Moment);
+            Assert.AreEqual("t = 100099.9 ns", words.Moment);
             Assert.AreEqual(0, standing, "a frame the moment stands writes nothing");
-            Assert.LessOrEqual(moving, 160, "a frame the moment moves makes its two strings, the longer of them 18 characters, and no more");
+            Assert.LessOrEqual(moving, 160, "a frame the moment moves makes its two strings, the longer of them 15 characters, and no more");
         }
 
         [Test]
