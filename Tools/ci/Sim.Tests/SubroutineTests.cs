@@ -254,6 +254,34 @@ endmodule", 1);
         }
 
         /// <summary>
+        /// A function that never ends stops the run, as a process that never waits does (the 16d sweep, engine-3): the step
+        /// budget began again at every call and the run went on, so each change of its argument cost another ten million
+        /// steps -- seconds in a browser, with no frame drawn -- and a testbench changing it a hundred times froze the page
+        /// for minutes. Here the first call stops it, at t = 0, and the changes after never run it again.
+        /// </summary>
+        [Test]
+        public void AFunctionThatNeverEnds_StopsTheRun_AsAProcessThatNeverWaitsDoes()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    integer a, y;
+    function automatic integer spin(input integer n);
+        while (1) n = n + 1;
+        return n;
+    endfunction
+    assign y = spin(a);
+    initial begin a = 1; #5 a = 2; #5 a = 3; end
+endmodule");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            RunResult result = sim.RunTo(20);
+
+            Assert.AreEqual(RunStatus.Stopped, result.Status, "the run stops: " + string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+            Assert.AreEqual(0, result.Time, "at the first call");
+            Assert.AreEqual(1, sim.History.Messages.Count(m => m.Severity == Severity.Error && m.Text.Contains("steps in one call")));
+        }
+
+        /// <summary>
         /// Calls are held to a stack's worth of frames, not a count of calls (Part 13f review): each operator a call nests is
         /// an evaluation a frame deeper, so a recursion whose body nests 190 of them overflowed a megabyte's stack within a
         /// hundred calls -- the process ending, which nothing can catch. Run on a thread of a megabyte, the smallest a host
