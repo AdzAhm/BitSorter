@@ -1378,10 +1378,10 @@ namespace BitSorter.ViewModel
                         overlay.Ghosts.Add(Stage(frame, outline, SelectedRoom, _dx, _dy));
                 }
 
-                Layout moved = module.Layout;
+                var placed = new Dictionary<int, Placement>(_start.Count);
                 foreach (KeyValuePair<int, Placement> part in _start)
-                    moved = moved.WithPart(part.Key, part.Value.Moved(_dx, _dy));
-                GhostWires(overlay, frame, module, moved, _start.Keys);
+                    placed[part.Key] = part.Value.Moved(_dx, _dy);
+                GhostWires(overlay, frame, module, module.Layout.WithParts(placed), _start.Keys);
 
                 foreach (Guide guide in _guides)
                 {

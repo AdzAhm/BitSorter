@@ -174,9 +174,7 @@ namespace BitSorter.Board
                         gone.Add(wire.Id);
 
             Module unwired = WithoutWires(m, gone);
-            Layout layout = unwired.Layout;
-            foreach (int part in partsGone)
-                layout = layout.WithoutPart(part);
+            Layout layout = unwired.Layout.WithoutParts(partsGone);
 
             Project next = Project.WithModule(unwired with { Parts = Without(unwired.Parts, p => partsGone.Contains(p.Id)), Layout = layout });
             return Commit(WithoutStimulusOf(next, m, partsGone));
@@ -388,13 +386,10 @@ namespace BitSorter.Board
 
             var ids = new List<int>(to.Keys);
             ids.Sort();
-            Layout layout = m.Layout;
             foreach (int part in ids)
-            {
                 if (m.FindPart(part) == null)
                     return EditResult.Refused($"There is no part {part} in {module}.");
-                layout = layout.WithPart(part, to[part]);
-            }
+            Layout layout = m.Layout.WithParts(to);
 
             string key = continuing ? $"move {module} {string.Join(",", ids)}" : null;
             return Commit(Project.WithModule(m with { Layout = layout }), ids[0], key, check: false);

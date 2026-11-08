@@ -99,6 +99,35 @@ namespace BitSorter.Board
 
         public Layout WithPart(int part, Placement placement) => this with { Parts = With(Parts, part, placement) };
         public Layout WithoutPart(int part) => this with { Parts = Without(Parts, part) };
+
+        /// <summary>
+        /// Every part of <paramref name="placed"/> where it says, in one copy of the placements: a selection moved, where a
+        /// <see cref="WithPart"/> a part copied them all once for each (the 16d sweep: a drag of a select-all copied a thousand
+        /// placements a thousand times every time the pointer moved).
+        /// </summary>
+        public Layout WithParts(IReadOnlyDictionary<int, Placement> placed)
+        {
+            if (placed == null || placed.Count == 0)
+                return this;
+            var copy = new Dictionary<int, Placement>(Parts.Count + placed.Count);
+            foreach (KeyValuePair<int, Placement> entry in Parts)
+                copy[entry.Key] = entry.Value;
+            foreach (KeyValuePair<int, Placement> entry in placed)
+                copy[entry.Key] = entry.Value;
+            return this with { Parts = copy };
+        }
+
+        /// <summary>The layout without <paramref name="parts"/>, in one copy of the placements, as <see cref="WithParts"/> is.</summary>
+        public Layout WithoutParts(ICollection<int> parts)
+        {
+            if (parts == null || parts.Count == 0)
+                return this;
+            var copy = new Dictionary<int, Placement>(Parts.Count);
+            foreach (KeyValuePair<int, Placement> entry in Parts)
+                if (!parts.Contains(entry.Key))
+                    copy[entry.Key] = entry.Value;
+            return copy.Count == Parts.Count ? this : this with { Parts = copy };
+        }
         public Layout WithRoute(int wire, Route route) => this with { Routes = With(Routes, wire, route) };
         public Layout WithoutRoute(int wire) => this with { Routes = Without(Routes, wire) };
 
