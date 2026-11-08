@@ -1,10 +1,12 @@
 # BitSorter 5.0 — architecture and data model
 
-**Status:** proposed for review in Part 0, before any 5.0 code is written. The plan it comes from was
-approved on 2026-10-12.
+**Status:** the architecture 5.0 is built to, and the record of how it was built. Proposed for review in
+Part 0, before any 5.0 code was written, from the plan approved on 2026-10-12; every part since, through
+Part 16, is built, and each section's "As built" notes say what the code does where it differs from the
+proposal above them. Read a section's proposal with its notes: a note that corrects it is the current word.
 **Decided by:** Ahmad Zoabi, from the 5.0 brief (2026-10-11); this document turns those decisions into
 an architecture.
-**Scope:** what 5.0 is built from and why. It is written before the code on purpose, and it changes
+**Scope:** what 5.0 is built from and why. It was written before the code on purpose, and it changes
 when a part proves it wrong — in the same change, never quietly.
 
 ---
@@ -759,8 +761,10 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
 
 ## 8. Saves and migration
 
-- The save file gains `format: 5` — 4.x's had no version field. 5.0 reads every 4.x key and writes the
-  new ones; `WholeSaveMigrationTests` is extended to start from a 4.0.0 file.
+- The save file gains `format: 5` — 4.x's had no version field. As proposed, 5.0 was to read every 4.x
+  key and write the new ones, `WholeSaveMigrationTests` extended to start from a 4.0.0 file. **Since Part
+  16a it reads only a 4.x file's solves, hints and milestones**, which are the same names, and migrates
+  nothing (the last note of this section).
 - **Geometry moves one to one.** A cell becomes a position in cell units; a source becomes an input pin
   with a stimulus track; a bin becomes an output pin.
 - **Delay moves by rule.** In 4.x delay lived on wires and gates took no time; in 5.0 it lives on gates
