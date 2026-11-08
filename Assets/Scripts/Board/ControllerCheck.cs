@@ -44,18 +44,25 @@ namespace BitSorter.Board
                 return -1;
             }
 
-            // Only what the netlist reads is given a value, in one array used for every trial.
+            // Only what the netlist reads is given a value, in one array used for every trial: its nets' signals, what its
+            // registers hold, and a memory's words, which a word cell reads straight off the signals -- as DrawnValues reads
+            // them (the 16d sweep: left with none, the first word read threw).
             var read = new HashSet<int>();
             foreach (RtlNet net in netlist.Nets)
                 if (net.Signal >= 0)
                     read.Add(net.Signal);
             var held = new HashSet<int>();
             foreach (RtlCell cell in netlist.Cells)
+            {
                 if (cell.Kind == RtlKind.Register && cell.Signal >= 0)
                 {
                     read.Add(cell.Signal);
                     held.Add(cell.Signal);
                 }
+                if (cell.Kind == RtlKind.Word && cell.Memory != null)
+                    for (int word = 0; word < cell.Memory.Depth; word++)
+                        read.Add(cell.Memory.First.Index + word);
+            }
             var values = new LogicVec[design.Signals.Count];
             var random = new Random(7919);
             void Randomise()

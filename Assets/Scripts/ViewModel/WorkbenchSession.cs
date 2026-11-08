@@ -620,14 +620,17 @@ namespace BitSorter.ViewModel
                 {
                     _controllerTree = _drawnTree;
                     _controllerModule = Module;
+                    _controller = null;
                     ModuleDeclaration declaration = _drawnTree.Modules.Find(m => m.Name == Module);
-                    _controller = declaration != null ? ControllerReader.Read(_drawnTree, declaration, out _) : null;
+                    ControllerReading reading = declaration != null ? ControllerReader.Read(_drawnTree, declaration, out _) : null;
 
                     // Held to the run's own netlist of the instance before it is shown: a reading the engine does not bear out
-                    // is never drawn, and the module is shown as its code builds instead (the review of 15h-6e).
-                    if (_controller != null && _drawnDesign != null && _drawnNetlist != null
-                        && ControllerCheck.Why(_controller, _drawnDesign, _drawnNetlist, _drawnPath) != null)
-                        _controller = null;
+                    // is never drawn, and the module is shown as its code builds instead (the review of 15h-6e). Kept only once
+                    // it is borne out, so a check that throws leaves none to be shown unchecked on the next ask (the 16d sweep).
+                    if (reading != null && _drawnDesign != null && _drawnNetlist != null
+                        && ControllerCheck.Why(reading, _drawnDesign, _drawnNetlist, _drawnPath) != null)
+                        reading = null;
+                    _controller = reading;
                 }
                 return _controller;
             }
