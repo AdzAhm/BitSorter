@@ -422,6 +422,81 @@ endmodule", 1);
             CollectionAssert.AreEqual(new[] { "v=5", "v=6" }, Printed(sim));
         }
 
+        /// <summary>
+        /// An automatic task gives each call variables of its own (IEEE 1800, 13.3.1; Ahmad's decision, 2026-11-03): two
+        /// branches of a fork running it at once each keep theirs across their waits, where a static one's are shared -- the
+        /// first call printed the second's id and wait. Icarus 12 and ModelSim print these lines; which branch's values the
+        /// static task's two lines show is the start order of a fork's branches, ModelSim's here (Docs/oracle-notes.md).
+        /// </summary>
+        [Test]
+        public void AnAutomaticTask_GivesEachCallItsOwnVariables_WhenAForkRunsItTwiceAtOnce()
+        {
+            Simulator sim = Run(@"
+module t;
+    task automatic hold(input int id, input int wait_for);
+        int seen;
+        seen = id * 10;
+        #(wait_for);
+        $display(""%0t id=%0d seen=%0d wait_for=%0d"", $time, id, seen, wait_for);
+    endtask
+    task static shared(input int id, input int wait_for);
+        int seen;
+        seen = id * 10;
+        #(wait_for);
+        $display(""%0t static id=%0d seen=%0d"", $time, id, seen);
+    endtask
+    initial begin
+        fork
+            hold(1, 5);
+            hold(2, 3);
+        join
+        fork
+            shared(1, 5);
+            shared(2, 3);
+        join
+    end
+endmodule", 100);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "3 id=2 seen=20 wait_for=3",
+                "5 id=1 seen=10 wait_for=5",
+                "8 static id=2 seen=20",
+                "10 static id=2 seen=20",
+            }, Printed(sim));
+        }
+
+        /// <summary>
+        /// An automatic task may call itself, each call with variables of its own, waiting as it goes (IEEE 1800, 13.3.1;
+        /// Ahmad's decision, 2026-11-03): it was refused, since a task is written into its caller and written in place it
+        /// would never end. Icarus 12 and ModelSim print 4 total=10. A static task calling itself is still refused.
+        /// </summary>
+        [Test]
+        public void AnAutomaticTask_CallsItself_EachCallWithItsOwnVariables()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    task automatic count_down(input int n, output int total);
+        int below;
+        if (n == 0) total = 0;
+        else begin
+            #1 count_down(n - 1, below);
+            total = below + n;
+        end
+    endtask
+    int t;
+    initial begin
+        count_down(4, t);
+        $display(""%0t total=%0d"", $time, t);
+    end
+endmodule");
+            Assert.IsFalse(e.HasErrors, "the elaboration reported:\n" + string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            sim.RunTo(100);
+
+            CollectionAssert.AreEqual(new[] { "4 total=10" }, Printed(sim));
+        }
+
         [Test]
         public void ATaskWithANamedBlock_IsCalledAgain_AndFromAnotherProcess_SharingTheBlocksStatics()
         {
