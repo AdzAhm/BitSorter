@@ -372,6 +372,38 @@ namespace BitSorter.View
             return seen;
         }
 
+        /// <summary>What text selected in a code field stands apart from the ground by: about what an editor's selection does.</summary>
+        public const float CodeSelectionContrast = 1.5f;
+
+        /// <summary>How finely <see cref="CodeSelection"/> steps the accent over the ground.</summary>
+        private const int CodeSelectionSteps = 64;
+
+        /// <summary>
+        /// The fill behind text selected in a code field -- the code editor's, the CODE tab's and the browser's CodeMirror --
+        /// opaque: the least step of the accent over the ground that stands <see cref="CodeSelectionContrast"/> apart from it.
+        /// </summary>
+        /// <remarks>
+        /// Part 16d's sweep: the fields took the row band's colour at 45% (<see cref="Selection"/> through <see cref="Over"/>),
+        /// 1.06:1 to 1.15:1 over the ground, and the lines Tab, Ctrl+/ or Delete were about to change could not be seen; the
+        /// browser, handed the colour without its alpha, drew the band itself. Opaque, so both builds draw the same; the least
+        /// that is seen, so the code on it reads -- the text at 9.7:1 or better in every look, and CodeMirror's keywords,
+        /// numbers, comments and directives at 3:1 or better. Derived from the palette, never a colour of its own.
+        /// </remarks>
+        public Color CodeSelection
+        {
+            get
+            {
+                for (int step = 1; step < CodeSelectionSteps; step++)
+                {
+                    Color fill = Color.Lerp(Ground, Accent, step / (float)CodeSelectionSteps);
+                    if (Contrast(fill, Ground) >= CodeSelectionContrast)
+                        return Opaque(fill);
+                }
+
+                return Opaque(Accent);
+            }
+        }
+
         /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>
         public const float WordContrast = 4.5f;
 

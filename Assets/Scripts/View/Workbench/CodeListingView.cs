@@ -110,7 +110,7 @@ namespace BitSorter.View
             _field.scrollSensitivity = 3f;
             _field.caretColor = palette.Text;
             _field.customCaretColor = true;
-            _field.selectionColor = palette.Over(palette.Selection, 0.45f);
+            _field.selectionColor = palette.CodeSelection;   // seen, opaque (Part 16d)
             _field.onEndEdit.AddListener(_ =>
             {
                 // As the code editor's: Escape holds this frame's press, and a finished field lets go of itself alone.

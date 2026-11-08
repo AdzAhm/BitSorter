@@ -561,7 +561,9 @@ stretch that way.
   `WordOf` for a digit) -- a bus's x over its hatched box too, its bars as they
   are drawn (`XBoxWord`, `HatchBar`): the value colours are held to a wire's
   3:1 and no more, since Schematic Light's z darkened to read came out its
-  outline's grey. A 0 and a 1 apart by weight
+  outline's grey. Text selected in a code field seen, its fill opaque and 1.5:1
+  off the ground with the code on it at 4.5:1 (`SchematicPalette.CodeSelection`,
+  Part 16d's sweep: it was 1.06 to 1.15:1). A 0 and a 1 apart by weight
   as well as colour, an undriven wire apart from both and from an outline and a
   bus, and reduced motion leaving
   out the glow and the flashes -- and the looks but Classic to the interface's,

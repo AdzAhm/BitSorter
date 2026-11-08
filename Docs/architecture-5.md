@@ -1007,7 +1007,11 @@ Precise, and no casing under the wires.
   5: every value and outline 3:1 on its ground, every word 4.5:1 -- the second cursor's colour among
   them, as its time is a word, and a row's readout and a ring's digit lifted toward the text until they
   read on the ground or a row's band (`SchematicPalette.Legible`, `WordOf`) -- a 0 and a 1 apart by weight as well as colour, z apart from
-  both and from an outline and a bus, and reduced motion leaving out glow and flash. `LookTests` holds the
+  both and from an outline and a bus, and reduced motion leaving out glow and flash. Since Part 16d's sweep, text selected in
+  a code field too: `SchematicPalette.CodeSelection`, opaque, the least of the accent over the ground 1.5:1 apart from it,
+  the code on it at 4.5:1 and CodeMirror's keywords, numbers, comments and directives at 3:1. The fields drew the row band's
+  colour at 45%, 1.06 to 1.15:1, and the browser the band itself, its alpha dropped; a Play Mode test builds both fields in
+  every look and holds what they draw. `LookTests` holds the
   stored numbers, the chosen look and the default; `SettingsPlayTests` chooses Schematic Light through
   the real reload and finds Settings back up and the workbench drawn in it; `WorkbenchPlayTests` points
   the fixture's mouse at a wire. Reference shot 29 is a wire pointed at, and every shot is captured in

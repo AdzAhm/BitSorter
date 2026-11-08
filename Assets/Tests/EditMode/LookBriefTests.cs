@@ -279,6 +279,28 @@ namespace BitSorter.EditMode.Tests
         /// <summary>A colour drawn at its alpha over <paramref name="ground"/>, composited in linear as the renderer does.</summary>
         private static Color Seen(Color colour, Color ground) => Color.Lerp(ground.linear, colour.linear, colour.a).gamma;
 
+        /// <summary>
+        /// Text selected in a code field is seen (Part 16d's sweep): its fill opaque, 1.5:1 apart from the ground, the code on
+        /// it at 4.5:1, and every colour CodeMirror writes code in -- a keyword's accent, a number's 1, a comment's grey, a
+        /// directive's cursor colour -- at 3:1, as it is the least that is seen.
+        /// </summary>
+        [Test]
+        public void OnTheCanvas_SelectedCode_IsSeen_AndWhatIsWrittenOnItReads()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Color fill = c.CodeSelection;
+                Assert.AreEqual(1f, fill.a, $"{look.Name}: the selection is opaque, the same in a browser as on the desktop");
+                Assert.GreaterOrEqual(SchematicPalette.Contrast(fill, c.Ground), SchematicPalette.CodeSelectionContrast,
+                    $"{look.Name}: the selection against the ground");
+                Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Text, fill), 4.5f, $"{look.Name}: code on the selection");
+
+                foreach ((string what, Color colour) in new[] { ("a keyword", c.Accent), ("a number", c.One), ("a comment", c.Muted), ("a directive", c.Cursor) })
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, fill), 3f, $"{look.Name}: {what} on the selection");
+            }
+        }
+
         /// <summary>A selected row's band leaves its name readable at 4.5:1 and its wave at 3:1, is not the ground, and its mark stands 3:1 off both.</summary>
         [Test]
         public void OnTheCanvas_ASelectedRow_StaysReadable()

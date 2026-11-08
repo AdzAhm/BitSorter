@@ -224,7 +224,7 @@ namespace BitSorter.View
             _field.caretColor = palette.Text;
             _field.customCaretColor = true;
             _field.caretWidth = 2;
-            _field.selectionColor = palette.Over(palette.Selection, 0.45f);
+            _field.selectionColor = palette.CodeSelection;   // seen, opaque, as the browser's (Part 16d)
             _field.onValueChanged.AddListener(typed => _code?.Type(typed, Now));
             _field.onValidateInput = Validate;
             _field.onEndEdit.AddListener(_ =>
@@ -424,7 +424,7 @@ namespace BitSorter.View
         private static string ColoursOf(SchematicPalette palette)
         {
             string Css(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);
-            Color selection = palette.Over(palette.Selection, 0.45f);
+            Color selection = palette.CodeSelection;
             bool dark = palette.Ground.r * 0.2126f + palette.Ground.g * 0.7152f + palette.Ground.b * 0.0722f < 0.5f;
             return "{\"ground\":\"" + Css(palette.Ground) + "\",\"text\":\"" + Css(palette.Text) + "\",\"muted\":\"" + Css(palette.Muted)
                 + "\",\"accent\":\"" + Css(palette.Accent) + "\",\"one\":\"" + Css(palette.One) + "\",\"selection\":\"" + Css(selection)
