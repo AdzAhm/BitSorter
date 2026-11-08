@@ -349,9 +349,15 @@ namespace BitSorter.Sim
                             if (!split.TryGetValue(name, out SplitVector vector))
                                 split[name] = vector = new SplitVector(name);
                             vector.Indices.Add(index);
-                            if (!bitsById.TryGetValue(id, out List<(SplitVector, int)> bits))
-                                bitsById[id] = bits = new List<(SplitVector, int)>();
-                            bits.Add((vector, index));
+
+                            // A vector past the widest read is left out, and its bits cost its id's changes nothing: they are
+                            // not listed past it, and the ones listed before go at the definitions' end (the 16d sweep, engine-13).
+                            if (vector.Indices.Count <= MostBits)
+                            {
+                                if (!bitsById.TryGetValue(id, out List<(SplitVector, int)> bits))
+                                    bitsById[id] = bits = new List<(SplitVector, int)>();
+                                bits.Add((vector, index));
+                            }
                             i = SkipToEnd(tokens, i);
                             continue;
                         }
@@ -370,6 +376,8 @@ namespace BitSorter.Sim
                         foreach (SplitVector vector in split.Values)
                             if (vector.Indices.Count <= MostBits)
                                 traces[vector.Name] = vector.Made();
+                        foreach (List<(SplitVector Vector, int Index)> bits in bitsById.Values)
+                            bits.RemoveAll(bit => bit.Vector.Indices.Count > MostBits);
                         i = SkipToEnd(tokens, i);
                         continue;
 
