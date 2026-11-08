@@ -20,7 +20,8 @@ namespace BitSorter.Board
     /// again unedited and run against the code it came from on random values, which the workbench asks before the first
     /// edit of a module's code, and a test of every exercise and corpus design.
     ///
-    /// **What it keeps**: the ports in their order, every signal's name, every gate's delay, the comments over the module.
+    /// **What it keeps**: the ports in their order, every signal's name, every gate's delay, the comments over the module --
+    /// line comments and block comments alike.
     /// What it does not: the rest of the comments, and the shape of the code -- a case is the mux it is, a loop the
     /// instances it made, an expression its operators -- which the workbench says before the first edit.
     /// </remarks>
@@ -125,18 +126,54 @@ namespace BitSorter.Board
             return null;
         }
 
-        /// <summary>The comments and blank lines a module's code opens with, kept over the code written again.</summary>
+        /// <summary>
+        /// The comments and blank lines a module's code opens with, kept over the code written again: line comments, and block
+        /// comments of as many lines as they run to (the 16d sweep: a /* */ header was dropped); the first line with code on it
+        /// ends them.
+        /// </summary>
         private static string Head(string source)
         {
             var head = new StringBuilder();
+            bool inBlock = false;
             foreach (string line in (source ?? "").Replace("\r\n", "\n").Split('\n'))
             {
-                string trimmed = line.Trim();
-                if (trimmed.Length > 0 && !trimmed.StartsWith("//", StringComparison.Ordinal))
+                if (!OnlyComments(line, ref inBlock))
                     break;
                 head.Append(line).Append('\n');
             }
             return head.ToString();
+        }
+
+        /// <summary>
+        /// Whether <paramref name="line"/> holds nothing but blanks and comments, with <paramref name="inBlock"/> saying whether a
+        /// block comment is open as it starts, and as it ends.
+        /// </summary>
+        private static bool OnlyComments(string line, ref bool inBlock)
+        {
+            int i = 0;
+            while (i < line.Length)
+            {
+                if (inBlock)
+                {
+                    int end = line.IndexOf("*/", i, StringComparison.Ordinal);
+                    if (end < 0)
+                        return true;
+                    inBlock = false;
+                    i = end + 2;
+                }
+                else if (char.IsWhiteSpace(line[i]))
+                    i++;
+                else if (string.CompareOrdinal(line, i, "//", 0, 2) == 0)
+                    return true;
+                else if (string.CompareOrdinal(line, i, "/*", 0, 2) == 0)
+                {
+                    inBlock = true;
+                    i += 2;
+                }
+                else
+                    return false;
+            }
+            return true;
         }
 
         private static List<string> PortOrder(ModuleDeclaration declaration)
