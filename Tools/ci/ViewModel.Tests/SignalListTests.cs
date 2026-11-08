@@ -443,7 +443,9 @@ endmodule
             WaveList list = WaveList.OfPorts(model);
 
             Assert.LessOrEqual(list.Lines.Count, 256, "rows made as the circuit opens");
-            Assert.AreEqual(model.Layout.Rows[0].Signal, model.Signals.FullName(list.Lines[0].Signal.Signal), "the first port first");
+            Assert.AreEqual(WaveList.MostRowsOpened, list.Lines.Count, "as many as there is room for");
+            Assert.IsTrue(model.Session.Design.TryFind(model.Layout.Rows[0].Signal, out SignalId first));
+            Assert.AreEqual(model.Signals.KeyOf(first.Index), list.Lines[0].Signal.Key, "the first port first");
         }
     }
 }

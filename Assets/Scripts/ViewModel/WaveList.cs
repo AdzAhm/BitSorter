@@ -98,13 +98,28 @@ namespace BitSorter.ViewModel
         private object _anchor;
         private bool _dirty = true;
 
-        /// <summary>A model's rows as a circuit opens: its layout's ports, by their keys.</summary>
+        /// <summary>
+        /// The most rows a circuit opens on: far more than any dock shows at once, or any design of the course has ports, and
+        /// few enough to build in a frame (browser-5).
+        /// </summary>
+        public const int MostRowsOpened = 256;
+
+        /// <summary>
+        /// A model's rows as a circuit opens: its layout's ports, by their keys, the first <see cref="MostRowsOpened"/> of them.
+        /// Every port was a row, and each row is a band and two labels the waves build at once, so a top of a hundred thousand
+        /// ports -- 1.5 MB, inside every import limit -- built some 300,000 of them in one frame (browser-5); + SIGNAL adds any
+        /// of the rest.
+        /// </summary>
         public static WaveList OfPorts(WorkbenchModel model)
         {
             var keys = new List<string>();
             foreach (WaveRow row in model.Layout.Rows)
+            {
+                if (keys.Count == MostRowsOpened)
+                    break;
                 if (model.Session.Design.TryFind(row.Signal, out BitSorter.Sim.SignalId id))
                     keys.Add(model.Signals.KeyOf(id.Index));
+            }
             return new WaveList(model.Signals, keys);
         }
 
