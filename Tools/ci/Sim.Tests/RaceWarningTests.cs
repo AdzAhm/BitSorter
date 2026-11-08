@@ -172,6 +172,27 @@ namespace BitSorter.Sim.Tests
             StringAssert.Contains("changes tb.a", said[0]);
         }
 
+        /// <summary>
+        /// A branch that writes what the process that forked it reads on the same wake is no race: one forked the other, and
+        /// the branch runs once its parent waits (the 16d sweep, engine-18). The test above reads only after its join, past a
+        /// wait, so Caused()'s fork clause was never asked, and taking it out left every test green; this one fails without it.
+        /// </summary>
+        [Test]
+        public void ABranchWritingWhatItsParentReadsOnTheSameWake_IsNoRace()
+        {
+            CollectionAssert.IsEmpty(Warnings(
+                "module tb;\n" +
+                "    logic clk = 1'b0, a = 1'b0, r;\n" +
+                "    always #5 clk = ~clk;\n" +
+                "    initial forever begin\n" +
+                "        @(posedge clk);\n" +
+                "        fork a = ~a; join_none\n" +
+                "        r = a;\n" +
+                "    end\n" +
+                "    initial #40 $finish;\n" +
+                "endmodule\n"));
+        }
+
         [Test]
         public void AWriterThatMadeTheEdge_OrAReaderThatSetTheWriterGoing_IsNoRace()
         {
