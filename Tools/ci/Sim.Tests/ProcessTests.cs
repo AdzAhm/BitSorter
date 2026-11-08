@@ -744,7 +744,10 @@ endmodule");
 
             var vcd = new StringWriter();
             VcdWriter.Write(vcd, design, sim.History, 10);
-            StringAssert.DoesNotContain(" i ", vcd.ToString());
+
+            // y alone: the local is named t.i#1, so refusing " i " held nothing (the 16d sweep, engine-16).
+            Assert.AreEqual(1, vcd.ToString().Split("$var ").Length - 1, "the one variable of the design's own, y: " + vcd);
+            StringAssert.Contains(" y ", vcd.ToString());
             StringAssert.Contains("$scope module t $end", vcd.ToString());
             Assert.AreEqual(1, vcd.ToString().Split("$scope module t ").Length - 1, "the top's scope once, not twice");
         }
