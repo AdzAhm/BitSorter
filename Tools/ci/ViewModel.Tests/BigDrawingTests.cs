@@ -236,6 +236,43 @@ namespace BitSorter.ViewModel.Tests
             Assert.Less(dragged, 50, "a step of a drag");
         }
 
+        /// <summary>
+        /// A drawn import, a paste and a MAKE BLOCK of a big circuit ask the rules once, of the document each ends on, and wire
+        /// without working the whole netlist out again for every wire (the 16d sweep). Measured under dotnet on 2026-11-09 for the
+        /// 64-bit adder, 516 parts and 707 wires: its import made 2,527 MB, a paste of its 322 gates and 385 wires 2,363 MB and
+        /// MAKE BLOCK of them 3,971 MB -- in a browser, which frees memory only between frames, a page's death -- and after, 40,
+        /// 44 and 92 MB. Each grew four times with the circuit's size doubled. The budget is a quarter of a gigabyte each.
+        /// </summary>
+        [Test]
+        public void ABigCircuit_IsImportedPastedAndMadeABlock_AskingTheRulesOnceEach()
+        {
+            const long Budget = 250_000_000;
+            long made = System.GC.GetAllocatedBytesForCurrentThread();
+            Project project = Adder(64);
+            long imported = System.GC.GetAllocatedBytesForCurrentThread() - made;
+
+            var editor = new BoardEditor(project);
+            Module module = project.TopModule;
+            List<int> gates = module.Parts.Where(p => !(p is PortPart)).Select(p => p.Id).ToList();
+            Clip clip = Clipboard.Copy(project, module.Name, gates);
+            made = System.GC.GetAllocatedBytesForCurrentThread();
+            EditResult pasted = Clipboard.Paste(editor, module.Name, clip, new List<int>(), new List<int>());
+            long paste = System.GC.GetAllocatedBytesForCurrentThread() - made;
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+            Assert.AreEqual(module.Parts.Count + gates.Count, editor.Project.TopModule.Parts.Count, "sanity: every gate pasted");
+
+            Assert.IsTrue(editor.Undo());
+            made = System.GC.GetAllocatedBytesForCurrentThread();
+            EditResult block = BlockMaker.Make(editor, module.Name, gates, "adder_inside");
+            long blocked = System.GC.GetAllocatedBytesForCurrentThread() - made;
+            Assert.IsTrue(block.Done, block.Refusal);
+
+            TestContext.WriteLine($"import {imported / 1e6:F0} MB, paste {paste / 1e6:F0} MB, make block {blocked / 1e6:F0} MB");
+            Assert.Less(imported, Budget, "the import");
+            Assert.Less(paste, Budget, "the paste");
+            Assert.Less(blocked, Budget, "MAKE BLOCK");
+        }
+
         /// <summary>The fastest of three runs: what the work costs, without whatever else the machine was doing in one of them.</summary>
         private static double Fastest(System.Action work)
         {
