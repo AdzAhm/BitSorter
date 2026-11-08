@@ -2552,6 +2552,21 @@ namespace BitSorter.Sim
                 shown++;
             }
 
+            // And what is to be worked out again, a driver a process's write set going (the 16d sweep, engine-17: a loop through
+            // a process and an assign was named by nothing), and the processes woken.
+            foreach (int d in _toEvaluate)
+            {
+                if (shown == 8)
+                    break;
+
+                string name = _design[_drivers[d].Target].Name;
+                if (names.ToString().Contains(name))
+                    continue;
+                if (names.Length > 0) names.Append(", ");
+                names.Append(name);
+                shown++;
+            }
+
             foreach (int p in _runnable)
             {
                 if (shown == 8)
