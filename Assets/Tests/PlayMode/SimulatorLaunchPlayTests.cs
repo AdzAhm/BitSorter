@@ -303,6 +303,55 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Code typed with an error is kept as a draft (Ahmad, 2026-11-03): the last session's opens back in its module's code,
+        /// marked not applied, the document keeping the last code that worked; and what is typed is written as another
+        /// circuit opens -- as quitting writes it -- and shown again back on the circuit, a sample opened between.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator CodeTypedWithAnError_IsKept_ThroughAnotherCircuitASampleAndTheNextLaunch()
+        {
+            string key = Documents.KeyOf("adder");
+            string broken = WorkbenchSamples.AdderSource.Replace("= a + b;", "= a + ;");
+            Plant(store =>
+            {
+                store.SetProject(key, WorkbenchSamples.WrittenAdder());
+                store.SetDrafts(key, new System.Collections.Generic.Dictionary<string, string> { ["add4"] = broken });
+                store.LastOpen = key;
+            });
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.AreEqual(key, workbench.DocumentKey, "sanity: the circuit open last");
+            int add = workbench.Session.Project.TopModule.Parts.OfType<BlockPart>().Single().Id;
+
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return null;
+            Assert.IsTrue(workbench.Session.ShowsCode, "a module with code typed and not applied opens on its code");
+            CodeDocument code = workbench.Session.Code;
+            Assert.AreEqual(broken, code.Text, "the draft, as the last session left it");
+            Assert.IsTrue(code.HasErrors);
+            StringAssert.StartsWith("NOT APPLIED", workbench.CodeView.Status, "marked not applied");
+            Assert.AreEqual(WorkbenchSamples.AdderSource, workbench.Session.Project.Find("add4").Source, "the document keeps the last code that worked");
+
+            // Typed on -- a minute ahead of the game's clock, so its pause never runs out -- then another circuit, a sample, and back.
+            string further = broken.Replace("// the first operand", "// a");
+            Assert.AreNotEqual(broken, further, "sanity: typed on");
+            code.Type(further, Time.timeAsDouble * 1000.0 + 60000.0);
+            workbench.OpenDocument(WorkbenchSamples.MyCircuitKey);
+            yield return null;
+            var onDisk = new ProgressStore(ProgressStore.DefaultPath);
+            onDisk.Load();
+            Assert.AreEqual(further, onDisk.Drafts(key)["add4"], "written as another circuit opens, as quitting writes it");
+
+            workbench.ShowSample(1);
+            yield return null;
+            workbench.OpenDocument(key);
+            yield return null;
+            Assert.IsTrue(workbench.StepInto(add));
+            yield return null;
+            Assert.AreEqual(further, workbench.Session.Code.Text, "and shown again, back on the circuit");
+        }
+
+        /// <summary>
         /// A launch that stopped while opening what was open last opens the start page instead, and says so (Part 16b): a
         /// browser that ran out of memory opening a big design would stop on every launch after. One that opens it marks
         /// that it is opening, and takes the mark off once it has stayed up.

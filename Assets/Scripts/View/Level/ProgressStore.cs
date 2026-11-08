@@ -97,6 +97,23 @@ namespace BitSorter.View
         /// from before it.
         /// </summary>
         public SampleProgramRecord[] samplePrograms;
+
+        /// <summary>
+        /// The code typed into each written module and not applied -- text with an error, which never applies, or text typed
+        /// in the moment before -- under the key of the document it was typed into (Ahmad, 2026-11-03: kept as a draft, shown
+        /// back in the editor marked not applied, never lost on opening another circuit or a sample, or quitting). A new key,
+        /// absent -- nothing typed -- in every file from before it.
+        /// </summary>
+        public DraftRecord[] drafts;
+    }
+
+    /// <summary>Code typed and not applied, as the save holds it: the document's key, the written module's name, the text.</summary>
+    [Serializable]
+    public sealed class DraftRecord
+    {
+        public string key;
+        public string module;
+        public string text;
     }
 
     /// <summary>A program chosen on a sample, as the save holds it: the sample's name, the parameter, the member chosen.</summary>
@@ -181,6 +198,7 @@ namespace BitSorter.View
         private readonly List<SavedProject> _imported = new List<SavedProject>();
         private string _lastOpen = "";
         private readonly List<SampleProgramRecord> _samplePrograms = new List<SampleProgramRecord>();
+        private readonly List<DraftRecord> _drafts = new List<DraftRecord>();
         private readonly Dictionary<string, (int Gates, long? Settle)> _exerciseBests = new Dictionary<string, (int Gates, long? Settle)>(StringComparer.Ordinal);
 
         public ProgressStore(string path)
@@ -328,6 +346,7 @@ namespace BitSorter.View
             _imported.Clear();
             _lastOpen = "";
             _samplePrograms.Clear();
+            _drafts.Clear();
             _exerciseBests.Clear();
             LoadedFormat = 0;
 
@@ -433,6 +452,10 @@ namespace BitSorter.View
                     foreach (SampleProgramRecord chosen in file.samplePrograms)
                         if (chosen != null)
                             SetSampleProgram(chosen.sample, chosen.parameter, chosen.member);
+                if (file.drafts != null)
+                    foreach (DraftRecord draft in file.drafts)
+                        if (draft != null && !string.IsNullOrEmpty(draft.key) && !string.IsNullOrEmpty(draft.module) && draft.text != null)
+                            _drafts.Add(draft);
             }
             catch (Exception exception)
             {
@@ -538,6 +561,7 @@ namespace BitSorter.View
                     lastOpen = _lastOpen,
                     exerciseBests = ExerciseBestRecords(),
                     samplePrograms = _samplePrograms.ToArray(),
+                    drafts = _drafts.ToArray(),
                 };
 
                 _completed.CopyTo(file.completed);
@@ -631,15 +655,16 @@ namespace BitSorter.View
             _imported.Clear();
             _lastOpen = "";
             _samplePrograms.Clear();
+            _drafts.Clear();
             _exerciseBests.Clear();
             Save();
         }
 
         /// <summary>
         /// Forgets the exercises and nothing the student made outside them (Part 15g, RESET PROGRESS): every solved mark,
-        /// every answer kept under one of <paramref name="exercises"/>' ids; the bests; the milestones and every first-time
-        /// hint seen; and an exercise in the recent list or as the last thing open. MY CIRCUIT
-        /// and every named circuit are kept.
+        /// every answer kept under one of <paramref name="exercises"/>' ids, and the code typed into it and not applied; the
+        /// bests; the milestones and every first-time hint seen; and an exercise in the recent list or as the last thing open.
+        /// MY CIRCUIT and every named circuit are kept.
         /// </summary>
         public void ForgetTheExercises(ICollection<string> exercises)
         {
@@ -648,6 +673,7 @@ namespace BitSorter.View
             _milestones.Clear();
             _exerciseBests.Clear();
             _projects.RemoveAll(p => p != null && exercises.Contains(p.key));
+            _drafts.RemoveAll(d => exercises.Contains(d.key));
             _recent.RemoveAll(IsAnExercise);
             if (IsAnExercise(_lastOpen))
                 _lastOpen = "";
@@ -762,6 +788,33 @@ namespace BitSorter.View
             int imported = IndexOfImported(key);
             if (imported >= 0)
                 _imported.RemoveAt(imported);
+            _drafts.RemoveAll(d => string.Equals(d.key, key, StringComparison.Ordinal));
+        }
+
+        /// <summary>The code typed into the document under <paramref name="key"/> and not applied, by written module; empty for none.</summary>
+        public IReadOnlyDictionary<string, string> Drafts(string key)
+        {
+            var drafts = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (DraftRecord draft in _drafts)
+                if (string.Equals(draft.key, key, StringComparison.Ordinal))
+                    drafts[draft.module] = draft.text;
+            return drafts;
+        }
+
+        /// <summary>
+        /// Keeps <paramref name="drafts"/>, by written module, as the code typed into the document under <paramref name="key"/>
+        /// and not applied, in place of what was kept for it. Not written until <see cref="Save"/>.
+        /// </summary>
+        public void SetDrafts(string key, IReadOnlyDictionary<string, string> drafts)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+            _drafts.RemoveAll(d => string.Equals(d.key, key, StringComparison.Ordinal));
+            if (drafts == null)
+                return;
+            foreach (KeyValuePair<string, string> draft in drafts)
+                if (!string.IsNullOrEmpty(draft.Key) && draft.Value != null)
+                    _drafts.Add(new DraftRecord { key = key, module = draft.Key, text = draft.Value });
         }
 
         /// <summary>Keeps <paramref name="project"/> as the circuit under <paramref name="key"/> came in (Part 15h-4d). Not written until <see cref="Save"/>.</summary>
@@ -861,6 +914,9 @@ namespace BitSorter.View
             int imported = IndexOfImported(from);
             if (imported >= 0)
                 _imported[imported] = new SavedProject { key = to, project = _imported[imported].project };
+            foreach (DraftRecord draft in _drafts)
+                if (string.Equals(draft.key, from, StringComparison.Ordinal))
+                    draft.key = to;
             if (_lastOpen == from)
                 _lastOpen = to;
             return true;

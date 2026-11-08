@@ -498,9 +498,7 @@ namespace BitSorter.View
         {
             if (_exercise == null)
                 return;
-            if (_session != null)
-                _keptProject = _session.Project;
-            _keepAt = -1;
+            MarkKept();   // its answer, and what was typed into it, are not written back into the save just cleared of them
             _documentKey = WorkbenchSamples.MyCircuitKey;
             _exercise = null;   // its solve and its answer went with the reset
             if (Root == null)

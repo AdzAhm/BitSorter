@@ -106,7 +106,9 @@ namespace BitSorter.View
             if (_sample != 0)
                 return new WorkbenchSession(SampleOnItsProgram(_sample), clock);
 
-            WorkbenchSession opened = WorkbenchSession.TryOpen(MyCircuit(), clock, out string why);
+            // A circuit opens with the code typed into it and not applied, as the save kept it (Ahmad, 2026-11-03); a sample is
+            // never written, and opens as it is made.
+            WorkbenchSession opened = WorkbenchSession.TryOpen(MyCircuit(), clock, out string why, DraftsOf(_documentKey));
             if (opened != null)
                 return opened;
 

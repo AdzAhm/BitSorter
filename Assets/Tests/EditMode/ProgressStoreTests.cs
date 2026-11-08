@@ -194,6 +194,46 @@ namespace BitSorter.EditMode.Tests
             Assert.IsFalse(older.HasImported("doc/half adder"), "and keeps nothing to go back to");
         }
 
+        /// <summary>
+        /// Code typed and not applied (Ahmad, 2026-11-03: kept as a draft) is kept by document and module over a restart, in
+        /// place of what was kept before; it follows a rename, goes with a delete, and with RESET PROGRESS for an answer's; a
+        /// file from before it reads as nothing typed.
+        /// </summary>
+        [Test]
+        public void CodeTypedAndNotApplied_IsKeptOverARestart_FollowsARename_AndGoesWithADelete()
+        {
+            var store = new ProgressStore(_path);
+            store.Load();
+            store.SetProject("doc/adder", BitSorter.Board.Project.New("adder"));
+            store.SetProject("half-adder", BitSorter.Board.Project.New("half_adder"));
+            CollectionAssert.IsEmpty(store.Drafts("doc/adder"), "nothing typed to begin with");
+            string typed = "module add4 (\n    input \"a\", // a quote and a line\n";
+            store.SetDrafts("doc/adder", new System.Collections.Generic.Dictionary<string, string> { ["add4"] = "old", ["mux"] = "x" });
+            store.SetDrafts("doc/adder", new System.Collections.Generic.Dictionary<string, string> { ["add4"] = typed });
+            store.SetDrafts("half-adder", new System.Collections.Generic.Dictionary<string, string> { ["half_adder"] = "module half_adder (" });
+            Assert.IsTrue(store.RenameProject("doc/adder", "doc/sum"));
+            store.Save();
+
+            var reloaded = new ProgressStore(_path);
+            reloaded.Load();
+            CollectionAssert.AreEquivalent(new System.Collections.Generic.Dictionary<string, string> { ["add4"] = typed }, reloaded.Drafts("doc/sum"),
+                "over a restart, under its new name, in place of what was kept before");
+            CollectionAssert.IsEmpty(reloaded.Drafts("doc/adder"));
+            reloaded.ForgetTheExercises(new[] { "half-adder" });
+            CollectionAssert.IsEmpty(reloaded.Drafts("half-adder"), "RESET PROGRESS forgets what was typed into an answer");
+            CollectionAssert.IsNotEmpty(reloaded.Drafts("doc/sum"), "and keeps what was typed into a circuit");
+            reloaded.RemoveProject("doc/sum");
+            CollectionAssert.IsEmpty(reloaded.Drafts("doc/sum"), "a circuit deleted takes it with it");
+            reloaded.SetDrafts("doc/x", new System.Collections.Generic.Dictionary<string, string> { ["m"] = "t" });
+            reloaded.SetDrafts("doc/x", null);
+            CollectionAssert.IsEmpty(reloaded.Drafts("doc/x"), "and none kept is none");
+
+            File.WriteAllText(_path, "{\"format\":5,\"projects\":[]}");
+            var older = new ProgressStore(_path);
+            older.Load();
+            CollectionAssert.IsEmpty(older.Drafts("doc/sum"), "a file from before the drafts holds nothing typed");
+        }
+
         [Test]
         public void OnlyTheLevelsActuallySolvedAreRemembered()
         {

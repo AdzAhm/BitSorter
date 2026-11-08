@@ -848,6 +848,10 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   past it), a wire id given twice, and a time past the latest a run is ever shown to (`ProjectImporter.LatestEnd`: `MaxRun`
   and a tenth more, where an import shows a testbench that runs out of things to do just before `MaxRun` -- its last
   change and a tenth more; an edit of the inputs stops at `MaxRun` itself, `StimulusEdits.MaxTime`).
+- **Part 16d adds `drafts`** (Ahmad, 2026-11-03: code typed with an error is kept as a draft): the code typed into a
+  document's written modules and not applied, each a record of the document's key, the module and the text
+  (`DraftRecord`). Written with the document as it is kept, given back to the session that opens it, renamed with it, gone
+  with a delete, and forgotten with an answer by RESET PROGRESS. Absent, so nothing typed, in every older file.
 
 ---
 
@@ -5041,6 +5045,22 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
 
 **As built in Part 16d: the session and the exercises**, what the sweep confirmed in the workbench's session and the
 exercises, each fixed with a test that failed first.
+
+- **Code typed and not applied is a draft, kept for its module** (Ahmad, 2026-11-03: "code typed with an error is kept as a
+  draft -- per module, in the save, shown back in the editor marked not applied, never lost on stepping out, opening another
+  circuit, a sample or quitting"). The session kept one `CodeDocument`, the module shown's, and dropped it as the canvas
+  stepped anywhere else -- text with an error, which never applies, and text typed within the pause went without a word --
+  and the one it kept while the drawing was up was never ticked, so it never followed an edit of the drawing or an undo:
+  EXPORT, the hand-in and the lock applied the code from before the edit back over it. Now the session keeps an editor
+  document for each written module it has shown (`WorkbenchSession._codes`): shown again, it is as it was left, marked, and
+  one with no error applies once its pause is over; one not shown follows the document before anything reads it
+  (`CodeDocument.Follow`), an edit of the drawing or an undo setting aside what was typed against the code before, as the
+  editor shown always did. `Drafts` lists what is typed, by module, and `DraftsVersion` says when it changed; the workbench
+  writes it with the circuit (`KeepMyCircuit`, two seconds after typing alone, at once as another circuit, an exercise or a
+  sample opens and as BitSorter quits) and gives it back to the next session (`drafts`, section 8), each module with one
+  opening on its code. `ApplyTyping` applies everything typed, on screen or not, or refuses at the first text that does not
+  apply, naming its module: what EXPORT, the hand-in, the lock and CHECK do first. A sample is never written, so what is
+  typed into one goes with it, as its edits do.
 
 - **An edit no run can be made of is refused and taken back** (`WorkbenchSession.Edited`, `BoardEditor.TakeBack`). The rules
   check each module alone, so two blocks of a written module with a big memory, or arrays of arrays, passed them with a whole

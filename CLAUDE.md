@@ -182,9 +182,12 @@ stretch that way.
 
 - **The save is `progress.json`, `format: 5`** (`ProgressStore`): the documents
   under `projects`, what is open and recent, the solves and first-time hints by
-  name, the bests, the locked and the imported, and each sample's program
-  (`Docs/architecture-5.md`, section 8). Every key added later is read as absent
-  by an older file. 4.x had no version field, and its boards, free play and
+  name, the bests, the locked and the imported, each sample's program, and the
+  code typed into a document's written modules and not applied, by module
+  (`drafts`; Ahmad, 2026-11-03: code typed with an error is kept as a draft,
+  shown back marked not applied, never lost on stepping out, another circuit,
+  a sample or quitting) -- `Docs/architecture-5.md`, section 8. Every key added
+  later is read as absent by an older file. 4.x had no version field, and its boards, free play and
   blocks are no longer read -- its solves and hints still are, being the same
   names. **Nothing is written over a save this window did not read** (Ahmad's
   decisions, 2026-11-03): every save carries a fresh `stamp`, first in the file,

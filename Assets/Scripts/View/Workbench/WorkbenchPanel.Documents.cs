@@ -98,9 +98,7 @@ namespace BitSorter.View
             }
 
             KeepMyCircuit(now: true);
-            if (_session != null)
-                _keptProject = _session.Project;   // kept: nothing of it is written under the next key
-            _keepAt = -1;
+            MarkKept();   // kept: nothing of it, nor what is typed into it, is written under the next key
             LeaveTheExercise();
             _documentKey = key;
 
@@ -272,9 +270,7 @@ namespace BitSorter.View
                 store.Save();
             }
 
-            if (_session != null)
-                _keptProject = _session.Project;   // gone with its key: nothing of it is written under MY CIRCUIT's
-            _keepAt = -1;
+            MarkKept();   // gone with its key: nothing of it is written under MY CIRCUIT's
             OpenDocument(WorkbenchSamples.MyCircuitKey);
             Notice("deleted the circuit " + name);
         }

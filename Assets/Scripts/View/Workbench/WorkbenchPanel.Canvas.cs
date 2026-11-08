@@ -29,11 +29,17 @@ namespace BitSorter.View
         /// <summary>A parts panel button's name, for the entry of this key (<see cref="CatalogEntry.Key"/>).</summary>
         public static string PartButtonName(string key) => "Workbench part " + key;
 
-        /// <summary>How long after its last edit MY CIRCUIT is written, in seconds of real time.</summary>
+        /// <summary>How long after its first edit not yet written the circuit open is written, in seconds of real time.</summary>
         private const double KeepDelay = 0.5;
 
         /// <summary>How long after a keep that failed it is tried again, in seconds of real time, unless the focus goes first.</summary>
         private const double KeepAgainDelay = 5.0;
+
+        /// <summary>
+        /// How long after code is typed into it, and nothing else changed, the circuit open is written with what was typed
+        /// (Ahmad, 2026-11-03: kept as a draft): every keystroke changes it, and the whole save is written each time.
+        /// </summary>
+        private const double DraftDelay = 2.0;
 
         private CanvasEditor _editor;
         private readonly CanvasPointer _canvasPointer = new CanvasPointer();
@@ -54,9 +60,29 @@ namespace BitSorter.View
         /// <summary>The ports' keys the waveform's rows were last made to follow.</summary>
         private List<string> _portKeys = new List<string>();
 
-        /// <summary>The circuit open as last written, and when it is next to be; -1 for nothing waiting.</summary>
+        /// <summary>
+        /// The circuit open as last written, the session and the version of what was typed into it then
+        /// (<see cref="WorkbenchSession.DraftsVersion"/>), and when it is next to be written; -1 for nothing waiting.
+        /// </summary>
         private Project _keptProject;
+        private WorkbenchSession _keptDraftsOf;
+        private int _keptDrafts = -1;
         private double _keepAt = -1;
+
+        /// <summary>What is open now counted as written -- its document and what is typed into it -- and nothing waiting.</summary>
+        private void MarkKept()
+        {
+            if (_session != null)
+            {
+                _keptProject = _session.Project;
+                _keptDraftsOf = _session;
+                _keptDrafts = _session.DraftsVersion;
+            }
+            _keepAt = -1;
+        }
+
+        /// <summary>Whether what is typed into the circuit open has changed since it was last written.</summary>
+        private bool DraftsChanged => !ReferenceEquals(_session, _keptDraftsOf) || _session.DraftsVersion != _keptDrafts;
 
         /// <summary>The canvas's right-click menu, what Ctrl+C took, and the minimap with whether a press on it is held (Part 10d).</summary>
         private CanvasMenu _canvasMenu;
@@ -126,8 +152,7 @@ namespace BitSorter.View
             ShowBreadcrumb();
             _overlayVersion = -1;
             _portKeys = PortKeys(_model);
-            _keptProject = _session.Project;
-            _keepAt = -1;
+            MarkKept();
         }
 
         /// <summary>Whether a drawing has nothing in it yet: it then starts at the window's top-left corner (<see cref="SchematicView.Blank"/>).</summary>
@@ -152,20 +177,24 @@ namespace BitSorter.View
 
         /// <summary>
         /// Writes the circuit open, under its own key (Part 15a), when it has changed: <paramref name="now"/>, or half a
-        /// second after its last edit. The samples are never written.
+        /// second after an edit. **With it, the code typed into its written modules and not applied** (Ahmad, 2026-11-03:
+        /// kept as a draft, <see cref="WorkbenchSession.Drafts"/>), which the next session opened on it is given back, so
+        /// opening another circuit or a sample, and quitting -- each of which keeps the circuit open at once -- never lose
+        /// it; typing alone is written <see cref="DraftDelay"/> after it changed. The samples are never written.
         /// </summary>
         private void KeepMyCircuit(bool now)
         {
-            if (_session == null || _sample != 0 || ReferenceEquals(_session.Project, _keptProject))
+            bool edited = _session != null && !ReferenceEquals(_session.Project, _keptProject);
+            if (_session == null || _sample != 0 || !edited && !DraftsChanged)
             {
                 _keepAt = -1;
                 return;
             }
 
             double time = UnityEngine.Time.unscaledTimeAsDouble;
-            if (!now && _keepAt < 0)
+            if (!now && (_keepAt < 0 || edited && _keepAt > time + KeepDelay))   // an edit after typing is not kept waiting for the typing's delay
             {
-                _keepAt = time + KeepDelay;
+                _keepAt = time + (edited ? KeepDelay : DraftDelay);
                 return;
             }
 
@@ -175,7 +204,9 @@ namespace BitSorter.View
             ProgressStore store = Store();
             if (store != null)
             {
-                store.SetProject(_documentKey, _session.Project);
+                if (edited)
+                    store.SetProject(_documentKey, _session.Project);
+                store.SetDrafts(_documentKey, _session.Drafts);
                 store.Save();
 
                 // Said until a keep succeeds, over whatever is opened next: it failed in silence for a whole session (the
@@ -191,9 +222,11 @@ namespace BitSorter.View
                 }
             }
 
-            _keptProject = _session.Project;
-            _keepAt = -1;
+            MarkKept();
         }
+
+        /// <summary>The code typed into the circuit under <paramref name="key"/> and not applied, as the save keeps it; null with no save.</summary>
+        private static IReadOnlyDictionary<string, string> DraftsOf(string key) => Store() is ProgressStore store ? store.Drafts(key) : null;
 
         /// <summary>Why the last keep failed, for the chip, until one succeeds; null while the save is written.</summary>
         private string _saveTrouble;

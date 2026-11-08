@@ -95,12 +95,13 @@ namespace BitSorter.ViewModel
         /// elaborate. The workbench opens only a document that compiles, and the constructor throws for any other, from the
         /// workbench's Start on every launch that opened it; this says why instead, in the rules' own words where they have any.
         /// </summary>
-        public static WorkbenchSession TryOpen(Project project, Func<double> nowMilliseconds, out string why)
+        public static WorkbenchSession TryOpen(Project project, Func<double> nowMilliseconds, out string why,
+            IReadOnlyDictionary<string, string> drafts = null)
         {
             why = null;
             try
             {
-                return new WorkbenchSession(project, nowMilliseconds);
+                return new WorkbenchSession(project, nowMilliseconds, drafts: drafts);
             }
             catch (Exception e) when (!(e is OutOfMemoryException))
             {
