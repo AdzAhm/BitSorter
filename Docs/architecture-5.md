@@ -588,7 +588,7 @@ The contract the engine is tested against, by hand-computed waveforms first and 
 | Rule | Behaviour |
 | --- | --- |
 | `#(rise, fall)` on a gate | Chosen by the output's **new** value: to 1 takes rise, to 0 takes fall, to `x` the smallest, to `z` the turn-off delay (the smaller of rise and fall when none is given). A single `#d` applies to every transition; none means 0. |
-| A vector's delay | By the whole value (IEEE 1800, 28.16): from nonzero to all zeros takes fall, to all z turn-off, anything else rise. Icarus decides by something like the lowest bit instead; the standard wins (`Docs/oracle-notes.md`). The course never delays a vector. |
+| A vector's delay | By the whole value (IEEE 1800, 28.16): from nonzero to all zeros takes fall, to all z turn-off, anything else rise. Icarus takes the longest delay of the bits that change instead -- `0101` → `0100` under `#(2, 5, 7)` is 2 here and 5 there; the standard wins (`Docs/oracle-notes.md`). The course never delays a vector. |
 | Inertial | A new evaluation cancels the gate's pending output event, and schedules a new one only if the new value differs from the output's current value. A pulse shorter than the delay is swallowed, and the history records it as swallowed. |
 | `assign #d` | The same rule as a gate. With no delay, the update is in the Active region. |
 | `#d` in procedural code | A plain wait. |

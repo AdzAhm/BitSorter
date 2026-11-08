@@ -15,8 +15,8 @@ namespace BitSorter.Sim
     /// - a vector going from nonzero to all zeros takes the fall delay, to all z the turn-off delay,
     ///   and anything else the rise delay.
     /// Without a turn-off delay, going to z takes the smaller of rise and fall. Icarus chooses a
-    /// vector's delay differently, by something like its lowest bit (Docs/oracle-notes.md); the
-    /// standard wins, and the course never delays a vector.
+    /// vector's delay differently, the longest delay of the bits that change (Docs/oracle-notes.md);
+    /// the standard wins, and the course never delays a vector.
     /// </remarks>
     public readonly struct Delay : IEquatable<Delay>
     {
