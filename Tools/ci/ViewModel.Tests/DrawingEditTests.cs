@@ -176,6 +176,37 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// A paste on the drawing of code is written into the code and the drawing made again, every part numbered afresh: what
+        /// it hands back to be selected is never the ids of the drawing it was made on, which name other parts in the new one
+        /// -- a Delete or a turn straight after acted on them (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void APasteOnTheDrawingOfCode_HandsBackNoIdOfTheDrawingBefore()
+        {
+            WorkbenchSession session = Written(
+                "module both (input logic a, b, output logic y);\n    assign y = a | b;\nendmodule\n", "both");
+            session.Remove(new int[0], new int[0]);
+            session.AnswerRewrite(true);   // the question out of the way
+
+            var other = new BoardEditor(Project.New("other"));
+            EditResult and = other.Add("other", new GatePart { Kind = Sim.GateKind.And, Rise = 1, Fall = 1 }, new Placement(0, 0));
+            Assert.IsTrue(and.Done, and.Refusal);
+            Clip clip = Clipboard.Copy(other.Project, "other", new[] { and.Id });
+            var parts = new List<int>();
+            var wires = new List<int>();
+            EditResult pasted = session.Paste(clip, parts, wires);
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+            StringAssert.Contains("g1 (", Code(session), "sanity: the AND written into the code");
+
+            Module drawn = session.DrawnModule;
+            foreach (int id in parts)
+                Assert.IsTrue(drawn.FindPart(id) is GatePart gate && gate.Kind == Sim.GateKind.And,
+                    $"{id} handed back to be selected is the AND pasted, not another part of the drawing made again");
+            Assert.IsNotEmpty(parts, "the AND, found again in the drawing made again");
+            Assert.IsEmpty(wires, "and no wire, for none was pasted");
+        }
+
+        /// <summary>
         /// A clock's period set in the inspector on the drawing changes the stimulus, which code written from the drawing does
         /// not carry: refused, saying where it is set, rather than reported done and lost (the review of #117).
         /// </summary>
