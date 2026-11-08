@@ -1833,7 +1833,8 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   WARNINGS, MESSAGES), a search ignoring case, and counts of everything whatever is shown. It reads the document's and
   the run's lists each frame and makes itself again only when either has changed.
 - **The dock's TRANSCRIPT tab**, beside WAVES, with its filters and search in the header where the waveform's buttons
-  were. **Each line says its severity in a word as well as a colour** -- ERROR in x's colour, WARNING in the second
+  were, the filter in use marked by a bar under its caption as well as the accent (`ShellTheme.MarkChosen`, Part 16d's
+  sweep: the colour alone was 1.06:1 in Classic), as the part in hand in PARTS is. **Each line says its severity in a word as well as a colour** -- ERROR in x's colour, WARNING in the second
   cursor's, INFO quiet -- and a message its moment in the run's unit. **A click on a message seeks to its moment, paused;
   a click on a diagnostic about a part or a wire of the circuit shown selects it alone** (Ahmad's choices), and the
   inspector follows. The tab counts the errors. Only the rows the dock has room for are made, and the wheel moves

@@ -411,7 +411,7 @@ namespace BitSorter.View
             return result;
         }
 
-        /// <summary>The panel's button for the part in hand in the accent, the rest as they were.</summary>
+        /// <summary>The panel's button for the part in hand marked chosen, by a bar as well as the accent (<see cref="ShellTheme.MarkChosen"/>).</summary>
         private void ShowInHand()
         {
             if (_editor.InHand == _shownInHand)
@@ -420,7 +420,7 @@ namespace BitSorter.View
 
             SchematicPalette palette = SchematicPalette.Current;
             foreach ((CatalogEntry entry, ShellButton button) in _partButtons)
-                button.style.color = entry == _shownInHand ? palette.Accent : palette.Text;
+                ShellTheme.MarkChosen(button, entry == _shownInHand, palette);
         }
 
         // -----------------------------------------------------------------

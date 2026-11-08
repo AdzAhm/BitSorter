@@ -227,12 +227,12 @@ namespace BitSorter.View
             ShowFilter();
         }
 
-        /// <summary>The filter's button for the one in use in the accent, the rest as they were.</summary>
+        /// <summary>The filter's button for the one in use marked chosen, by a bar as well as the accent (<see cref="ShellTheme.MarkChosen"/>).</summary>
         private void ShowFilter()
         {
             SchematicPalette palette = SchematicPalette.Current;
             foreach (KeyValuePair<TranscriptFilter, ShellButton> pair in _filterButtons)
-                pair.Value.style.color = pair.Key == _transcript.Filter ? palette.Accent : palette.Text;
+                ShellTheme.MarkChosen(pair.Value, pair.Key == _transcript.Filter, palette);
         }
 
         /// <summary>The transcript's list, in the dock under its header, shut until its tab is chosen.</summary>

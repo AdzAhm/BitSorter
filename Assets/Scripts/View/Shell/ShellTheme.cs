@@ -113,6 +113,35 @@ namespace BitSorter.View
             return button;
         }
 
+        /// <summary>The name of the bar under a control chosen of several (<see cref="MarkChosen"/>).</summary>
+        public const string ChosenMarkName = "chosen";
+
+        /// <summary>
+        /// A control chosen of several -- a transcript filter, the part in hand -- shown so: its caption in the accent, the rest
+        /// in the text colour, and a bar of the accent under its caption, as the dock's tab has its underline. Never by colour
+        /// alone (WCAG 1.4.1, Part 16d's sweep): the accent against the text was the only mark, 1.06:1 in Classic. The bar is a
+        /// child of the control's own, so a light put on its edge (the tutorial's) and taken off again leaves it be.
+        /// </summary>
+        public static void MarkChosen(VisualElement control, bool chosen, SchematicPalette palette)
+        {
+            control.style.color = chosen ? palette.Accent : palette.Text;
+            VisualElement bar = UQueryExtensions.Q(control, ChosenMarkName);
+            if (bar == null)
+            {
+                if (!chosen)
+                    return;
+                bar = new VisualElement { name = ChosenMarkName, pickingMode = PickingMode.Ignore };
+                bar.style.position = Position.Absolute;
+                bar.style.left = bar.style.right = 10f;
+                bar.style.bottom = 4f;
+                bar.style.height = 2f;
+                control.Add(bar);
+            }
+
+            bar.style.backgroundColor = palette.Accent;
+            bar.style.display = chosen ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
         /// <summary>A small chip in the canvas's colours: its edge, and its fill inside.</summary>
         public static VisualElement Chip(string name, SchematicPalette palette)
         {
