@@ -2092,7 +2092,7 @@ template is imported, then exported filled.
   SUBMISSION. The export now applies pending code first and, when it does not apply, saves nothing and puts what is
   wrong with it on the chip, never the last text that worked. The check is one private method,
   `WorkbenchPanel.ApplyTypedCode`, which EXPORT FOR SUBMISSION shares: the two differ only in the word for what then
-  does not happen, "exported" or "handed in".
+  does not happen, "exported" or "handed in". The lock and, since Part 16d's sweep, CHECK share it too ("checked").
 - **Checked.** `ProjectExportTests` (14) under dotnet: every sample's zip read back by .NET's own `ZipArchive`, its
   files and their order, the script's lines, the bytes and the moment kept, the checksum against the standard's own
   example, and a written module as its own text. In Play Mode: FILE, EXPORT PROJECT, and the zip in the redirected
@@ -3062,6 +3062,11 @@ the board's own editor and printed.
 - **A written register starts at x** unless the code gives it a start, as in ModelSim: the header of an exercise whose
   registers start at 0 says `logic q = 1'b0;`. Nothing starts it for the student, so what runs here is what an export
   runs anywhere.
+- **CHECK grades the code on screen** (Part 16d's sweep): code typed and not yet applied is applied first, through the
+  method EXPORT shares (`WorkbenchPanel.ApplyTypedCode`), and code that cannot apply is refused saying what is wrong
+  with it, "not checked". CHECK graded the document alone, a step behind the screen: inside the editor's pause it graded
+  the text before, and over text with an error it could solve -- mark complete, keep a best -- the last text that did.
+  Play Mode, `Check_GradesTheCodeOnScreen_NeverTheLastTextThatApplied`.
 - **Checked.** dotnet, `ExerciseCodeTests`: a written answer graded as a drawing, its gates counted; an operator
   refused by the editor saying why, and graded at its line; one gate too many a fault; a register solving with its
   start and failing without; four stocked full adders in code counted four; every one of the 35 solutions, written as
