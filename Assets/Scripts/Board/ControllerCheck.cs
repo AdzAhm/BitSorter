@@ -16,6 +16,11 @@ namespace BitSorter.Board
     /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
     /// (<see cref="MachineReading.LetGo"/>), and what its arms set held to what each register is about to take, its D.
     ///
+    /// A table's rows are tried at their labels' values, and its default at values no label takes; each trial holds the
+    /// constants of the row the circuit's own subject picks, which for a subject the module works out itself is whichever
+    /// the inputs make it. Not tried: a case on an expression (<c>case (instr[6:0])</c>), a row whose labels are worked out
+    /// rather than written, and a row the circuit never comes to -- nothing the circuit does bears those out or not.
+    ///
     /// What it does not hold is the words: an arrow's condition and a cell's expression are the code's own, printed as written.
     /// The tests hold every corpus, exercise and sample controller to it (<c>ControllerEngine</c>).
     /// </remarks>
@@ -145,10 +150,8 @@ namespace BitSorter.Board
                     continue;   // a case on an expression: its rows are not tried
                 int subjectNet = NetOf(netlist, subject);
                 for (int r = 0; r < table.Rows.Count; r++)
-                    foreach (LogicVec match in table.Rows[r].Matches)
+                    foreach (LogicVec match in Tried(table, r, design.Signals[subject].Width, random))
                     {
-                        if (table.RowOf(match) != r)
-                            continue;   // a label an earlier row takes
                         for (int trial = 0; trial < RowTrials; trial++)
                         {
                             Randomise();
@@ -169,6 +172,44 @@ namespace BitSorter.Board
                     }
             }
             return null;
+        }
+
+        /// <summary>
+        /// The values of a table's subject row <paramref name="r"/> is tried at: its labels' that no earlier row takes; for the
+        /// default row, which has none, values no label takes -- every one of a subject of eight bits or fewer, spread to
+        /// <see cref="WideTrials"/> of them, or as many random ones that fall to it (the 16d sweep: the default was never tried).
+        /// A row whose labels are worked out, not written, is not tried.
+        /// </summary>
+        private static List<LogicVec> Tried(TableReading table, int r, int width, Random random)
+        {
+            var tried = new List<LogicVec>();
+            TableRow row = table.Rows[r];
+            foreach (LogicVec match in row.Matches)
+                if (table.RowOf(match) == r)
+                    tried.Add(match);
+            if (!row.Otherwise)
+                return tried;
+
+            var falling = new List<LogicVec>();
+            if (width <= 8)
+            {
+                for (int v = 0; v < 1 << width; v++)
+                {
+                    LogicVec value = LogicVec.FromUInt64((ulong)v, width);
+                    if (table.RowOf(value) == r)
+                        falling.Add(value);
+                }
+                for (int i = 0; i < Math.Min(WideTrials, falling.Count); i++)
+                    tried.Add(falling[i * falling.Count / Math.Min(WideTrials, falling.Count)]);
+            }
+            else
+                for (int attempt = 0; attempt < 4 * WideTrials && tried.Count < WideTrials; attempt++)
+                {
+                    LogicVec value = Random(random, width);
+                    if (table.RowOf(value) == r)
+                        tried.Add(value);
+                }
+            return tried;
         }
 
         /// <summary>Why <paramref name="set"/>'s constant is not what the net <paramref name="netOf"/> gives its signal holds; null where it is, or is no constant.</summary>

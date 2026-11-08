@@ -819,8 +819,11 @@ stretch that way.
   is held to the engine before it is shown** (`ControllerCheck`): for every state and
   every value of each input of eight bits or fewer, the others random, the next state
   the instance's netlist works out must be one the diagram has an arrow to, every
-  arrow must be taken and every constant shown must be the circuit's -- a reading it
-  does not bear out is not shown. The words are the code's own, an else's and a
+  arrow must be taken and every constant shown must be the circuit's -- a table's row
+  at its labels or, for its default, at values no label takes, and as the circuit's own
+  subject picks it; a case on an expression, a row of worked-out labels and one the
+  circuit never comes to are not tried -- and a reading it does not bear out is not
+  shown. The words are the code's own, an else's and a
   default's failed test included ("done and !err"), and not themselves checked. **A big
   drawing stays smooth** (Part 15g): the session routes a document once for the
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
