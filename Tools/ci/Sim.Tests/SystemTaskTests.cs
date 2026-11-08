@@ -517,6 +517,22 @@ endmodule"));
             Assert.IsTrue(e.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "said, as a conversion it does not know: " + string.Join("\n", e.Diagnostics));
         }
 
+        /// <summary>
+        /// A line <c>$write</c> began and nothing ended is shown when the run hands back for good or suspends -- stopped on an
+        /// error, at a <c>$stop</c>, or with nothing left to run -- as Icarus and ModelSim show what was written (the 16d
+        /// sweep, engine-11). Only <c>$finish</c> ended it, so the rest of the time the text was never seen.
+        /// </summary>
+        [TestCase("initial begin $write(\"waiting for reset... \"); #5 $write(\"done\"); end", "waiting for reset... done", RunStatus.ReachedTime)]
+        [TestCase("initial begin $write(\"paused \"); $stop; end", "paused ", RunStatus.Suspended)]
+        [TestCase("initial begin $write(\"spinning \"); forever begin end end", "spinning ", RunStatus.Stopped)]
+        public void ALineWrittenAndNotEnded_IsShown_WhenTheRunHandsBackForGood(string process, string shown, RunStatus status)
+        {
+            var sim = new Simulator(Clean("module t; " + process + " endmodule"), null, null);
+            Assert.AreEqual(status, sim.RunTo(20).Status);
+            CollectionAssert.Contains(sim.History.Messages.Where(m => m.Severity == Severity.Info).Select(m => m.Text).ToArray(), shown,
+                string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+        }
+
         [Test]
         public void AVcd_LeavesAMemorysWordsOut_AsIcarusDoes()
         {
