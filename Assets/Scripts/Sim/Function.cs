@@ -316,13 +316,29 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
 
+            /// <summary>Whether <see cref="_given"/> is in use: a call evaluated again while its arguments are worked out -- ack(m - 1, ack(m, n - 1)) -- takes an array of its own.</summary>
+            private bool _busy;
+
             public override LogicVec Evaluate(LogicVec[] values)
             {
-                // Every argument first, in the caller's own values, before the function starts on its own.
-                for (int i = 0; i < _arguments.Length; i++)
-                    _given[i] = _arguments[i].Evaluate(values);
+                // Every argument first, in the caller's own values, before the function starts on its own. One array serves
+                // every call but one that comes back in while it is filled, which would put its arguments over the outer
+                // call's (the 16d sweep, engine-1); only that one allocates.
+                bool mine = !_busy;
+                LogicVec[] given = mine ? _given : new LogicVec[_arguments.Length];
+                _busy = true;
+                try
+                {
+                    for (int i = 0; i < _arguments.Length; i++)
+                        given[i] = _arguments[i].Evaluate(values);
 
-                return FunctionRunner.Call(_function, _given, values, _width, _signed);
+                    return FunctionRunner.Call(_function, given, values, _width, _signed);
+                }
+                finally
+                {
+                    if (mine)
+                        _busy = false;
+                }
             }
 
             /// <summary>The arguments' reads only: what the function's statements read is not an operand of the call (IEEE 1800, 9.2.2.2.1).</summary>
