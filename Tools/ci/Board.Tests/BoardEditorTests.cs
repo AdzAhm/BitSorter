@@ -76,6 +76,41 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("bufif1 gate, which is one bit wide", wide.Refusal);
         }
 
+        /// <summary>
+        /// A count no part can have -- inputs or bits below none, or a million -- is refused in the document's own words, as nine
+        /// inputs are, and makes no pin for each of it (the 16d sweep: -1 threw out of the gate's pins before the rule could say
+        /// so, and a splitter of 100,000,000 bits made that many pins first).
+        /// </summary>
+        [Test]
+        public void ACountNoPartCanHave_IsRefusedInWords_WithoutAPinMadeForEachOfIt()
+        {
+            var b = new Bench();
+            int g = b.Gate(GateKind.And), mux = b.Add(new MuxPart()), split = b.Add(new SplitterPart()), join = b.Add(new JoinerPart());
+            Project before = b.Project;
+
+            void Refused(Part changed, string said)
+            {
+                EditResult result = default;
+                long made = System.GC.GetAllocatedBytesForCurrentThread();
+                Assert.DoesNotThrow(() => result = b.Editor.Change(b.Module, changed), changed.ToString());
+                made = System.GC.GetAllocatedBytesForCurrentThread() - made;
+
+                Assert.IsFalse(result.Done, changed.ToString());
+                StringAssert.Contains(said, result.Refusal, changed.ToString());
+                Assert.Less(made, 4_000_000, $"{changed}: no pin made for each of the count");
+            }
+
+            foreach (int n in new[] { -1, -2, 1_000_000 })
+            {
+                Refused((GatePart)b.Current.FindPart(g) with { Inputs = n }, "takes 2 to 8");
+                Refused((MuxPart)b.Current.FindPart(mux) with { Inputs = n }, "has 2, 4 or 8");
+                Refused((SplitterPart)b.Current.FindPart(split) with { Width = n }, "takes 2 to 64");
+                Refused((JoinerPart)b.Current.FindPart(join) with { Width = n }, "takes 2 to 64");
+            }
+
+            Assert.AreSame(before, b.Project, "nothing changed");
+        }
+
         // -----------------------------------------------------------------
         // Wiring
         // -----------------------------------------------------------------

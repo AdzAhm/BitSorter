@@ -97,6 +97,27 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("wide", string.Join("\n", problems));
         }
 
+        /// <summary>
+        /// A gate saved with a count of inputs no gate has -- a hand-edited or damaged save -- reads, and is checked and netted,
+        /// with the count said wrong in words, never throwing (the 16d sweep: its pins threw on every launch, since the circuit is
+        /// what BitSorter opens on).
+        /// </summary>
+        [TestCase(-1)]
+        [TestCase(-2)]
+        [TestCase(1_000_000)]
+        public void AGateSavedWithACountNoGateHas_IsReadAndChecked_SayingSo(int inputs)
+        {
+            ProjectRecord file = ProjectRecord.From(SampleBoards.Build("half_adder"));
+            Assert.AreEqual("gate", file.modules[0].parts[4].kind);
+            file.modules[0].parts[4].inputs = inputs;
+            Project read = file.ToProject(new List<string>());
+
+            BoardEditor editor = null;
+            Assert.DoesNotThrow(() => editor = new BoardEditor(read));
+            Assert.DoesNotThrow(() => Netlist.Of(read, read.Modules[0]));
+            StringAssert.Contains($"has {inputs} inputs", string.Join("\n", editor.Diagnostics.Select(d => d.Message)));
+        }
+
         [Test]
         public void AFileFromANewerBitSorter_Reads_WithAWarning()
         {

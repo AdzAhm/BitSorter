@@ -185,6 +185,43 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(b.Session.Replaying);
         }
 
+        /// <summary>
+        /// A count typed that no part can have -- INPUTS or WIDTH below none, or a million -- is refused in the document's words,
+        /// never thrown, and makes no pin for each of it (the 16d sweep: -1 in an AND's INPUTS threw out of its pins, and a
+        /// splitter's WIDTH of 100,000,000 made that many before the rule was reached).
+        /// </summary>
+        [Test]
+        public void ACountTypedThatNoPartCanHave_IsRefusedInWords_NeverThrown()
+        {
+            var b = new Bench();
+            int mux = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "mux"), new Placement(9, -4)));
+            int split = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "splitter"), new Placement(9, -8)));
+            int join = Must(b.Session.Place(PartsCatalog.Find(b.Session.Project, b.Session.Module, "joiner"), new Placement(9, -12)));
+            Project before = b.Session.Project;
+
+            void Refused(int part, string key, string typed, string said)
+            {
+                EditResult result = default;
+                long made = GC.GetAllocatedBytesForCurrentThread();
+                Assert.DoesNotThrow(() => result = b.Apply(b.Of(part), (key, typed)), $"{key} {typed}");
+                made = GC.GetAllocatedBytesForCurrentThread() - made;
+
+                Assert.IsFalse(result.Done, $"{key} {typed}");
+                StringAssert.Contains(said, result.Refusal, $"{key} {typed}: in the document's words");
+                Assert.Less(made, 16_000_000, $"{key} {typed}: no pin made for each of the count");
+            }
+
+            foreach (string n in new[] { "-1", "-2", "1000000" })
+            {
+                Refused(b.And, "inputs", n, "takes 2 to 8");
+                Refused(mux, "inputs", n, "has 2, 4 or 8");
+                Refused(split, "width", n, "takes 2 to 64");
+                Refused(join, "width", n, "takes 2 to 64");
+            }
+
+            Assert.AreSame(before, b.Session.Project, "and nothing changed");
+        }
+
         [Test]
         public void NothingChanged_IsDone_WithNothingMade()
         {
