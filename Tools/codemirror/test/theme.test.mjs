@@ -3,7 +3,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { themeOf } from "../src/theme.js";
+import { Compartment, EditorState } from "@codemirror/state";
+import { lookIn, restyled, themeOf } from "../src/theme.js";
 
 const colours = {
   text: "#e0e0e0", ground: "#101418", muted: "#808890", selection: "#334455",
@@ -35,4 +36,17 @@ test("find's checkboxes are drawn in the game's colours, not the browser's white
   const ticked = rule(rules, ".cm-panel.cm-search input[type=checkbox]:checked");
   assert.ok(ticked, "a rule for a ticked one");
   assert.match(ticked, new RegExp("background-color: " + colours.accent), "filled with the accent when ticked");
+});
+
+test("the editor made again takes the new look's colours, never the first look's (browser-3)", () => {
+  // STYLE loads the game again, never the page: the editor outlived it, in the colours of the look the page loaded with.
+  const light = { ...colours, text: "#202428", ground: "#fbfaf6", muted: "#5c6470", dark: false };
+  const compartment = new Compartment();
+  let state = EditorState.create({ extensions: [lookIn(compartment, colours)] });
+  assert.ok(rulesOf(compartment.get(state)).some((r) => r.includes("background-color: " + colours.ground)), "sanity: the first look's ground");
+
+  state = state.update(restyled(compartment, light)).state;
+  const rules = rulesOf(compartment.get(state));
+  assert.ok(rules.some((r) => r.includes("background-color: " + light.ground)), "the new look's ground");
+  assert.ok(!rules.some((r) => r.includes(colours.ground)), "and nothing left of the first look's");
 });

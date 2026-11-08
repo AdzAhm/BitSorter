@@ -10,13 +10,14 @@ import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { setDiagnostics, lintGutter } from "@codemirror/lint";
 import { search, searchKeymap, searchPanelOpen, closeSearchPanel } from "@codemirror/search";
 import { blockState, gameText } from "./game-text.js";
-import { themeOf } from "./theme.js";
+import { lookIn, restyled } from "./theme.js";
 
 const state = {
   host: null,         // the box over the canvas
   view: null,         // the editor
   extensions: null,   // what it is made of, for each block's code shown afresh
   theme: new Compartment(),
+  lookAt: -1,         // where the look is among the extensions, put in again with each look's colours
   locked: new Compartment(),   // read only while the document is locked (Part 15h-4d)
   lockedNow: false,
   changed: false,     // typed since the game last asked
@@ -45,8 +46,15 @@ function layOut() {
 const api = {
   /** Makes the editor, hidden, its colours the game's: a JSON object of CSS colours, and whether the ground is dark. */
   create(coloursJson) {
-    if (state.view)
+    // Made again, as every scene that shows code makes it: STYLE loads the game again, never the page, so the editor is
+    // already made, and takes the new look's colours -- in the code shown, and in every block's code shown afresh. It kept
+    // the colours of the look the page first loaded with until the tab was loaded again (browser-3).
+    if (state.view) {
+      state.colours = JSON.parse(coloursJson);
+      state.extensions[state.lookAt] = lookIn(state.theme, state.colours);
+      state.view.dispatch(restyled(state.theme, state.colours));
       return;
+    }
     state.colours = JSON.parse(coloursJson);
 
     const host = document.createElement("div");
@@ -85,6 +93,7 @@ const api = {
       },
     ]);
 
+    const look = lookIn(state.theme, state.colours);
     state.extensions = [
       ours,
       lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
@@ -93,13 +102,14 @@ const api = {
       search({ top: true }),
       keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       StreamLanguage.define(verilog),
-      state.theme.of(themeOf(state.colours)),
+      look,
       state.locked.of(EditorState.readOnly.of(false)),
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !state.setting)
           state.changed = true;
       }),
     ];
+    state.lookAt = state.extensions.indexOf(look);
     state.view = new EditorView({ parent: host, state: blockState("", state.extensions) });
   },
 

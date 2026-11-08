@@ -157,8 +157,10 @@ namespace BitSorter.View
             if (CodeMirrorBridge.Available)
             {
                 view._browser = true;
+                // The page's editor outlives a change of style, which loads the scene again: made again, it takes this look's
+                // colours (browser-3), and is no longer read only (the review of the lock).
                 CodeMirrorBridge.Create(ColoursOf(palette));
-                CodeMirrorBridge.SetReadOnly(false);   // the page's editor outlives a change of style, read only or not (the review of the lock)
+                CodeMirrorBridge.SetReadOnly(false);
                 view._gutterView.gameObject.SetActive(false);
                 view._field.gameObject.SetActive(false);
             }

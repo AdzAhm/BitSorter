@@ -50,3 +50,16 @@ export function themeOf(c) {
 
   return [look, syntaxHighlighting(words)];
 }
+
+/** The editor's look in <compartment>, from the game's palette <c>, so another look's can be put in its place. */
+export function lookIn(compartment, c) {
+  return compartment.of(themeOf(c));
+}
+
+/**
+ * The change that puts the look of the palette <c> in <compartment>, in place of the last: STYLE loads the game again,
+ * never the page, so the page's editor outlives a change of style and takes the new look's colours (browser-3).
+ */
+export function restyled(compartment, c) {
+  return { effects: compartment.reconfigure(themeOf(c)) };
+}
