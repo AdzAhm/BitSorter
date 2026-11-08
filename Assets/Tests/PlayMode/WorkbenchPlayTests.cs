@@ -1551,6 +1551,41 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// An export that cannot be written says so on the chip (Part 16d's sweep): the file held by another program, or the
+        /// folder read only or full -- here a folder stands where the file goes. The write threw out of the click, Unity logged
+        /// it, and the chip went on saying what it said before, as if it had been saved.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnExportThatCannotBeWritten_SaysSoOnTheChip_AndThrowsNothing()
+        {
+            yield return TestScene.Load();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();
+            string file = System.IO.Path.Combine(FileSaver.Folder, "reference.vcd");
+            if (System.IO.File.Exists(file))
+                System.IO.File.Delete(file);   // an earlier run's, in the scratch folder
+            System.IO.Directory.CreateDirectory(file);
+            try
+            {
+                string saved = "not asked";
+                Assert.DoesNotThrow(() => saved = workbench.ExportVcd(), "a write that fails is said on the chip, not thrown out of the click");
+                Assert.IsNull(saved, "no file's name handed back for a file not saved");
+                workbench.Seek(workbench.Model.Time);   // the chip written again
+                StringAssert.StartsWith("reference.vcd could not be saved", workbench.ChipText, "and the chip says so");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(file, true);
+            }
+
+            yield return null;
+            Assert.AreEqual("reference.vcd", workbench.ExportVcd(), "saved once the way is clear");
+            Assert.IsTrue(System.IO.File.Exists(file));
+        }
+
+        /// <summary>
         /// The PNG is the waveform drawn again in Schematic Light, whatever the look on screen: as wide as
         /// a picture always is, as tall as its rows, its ground the paper's and its rows' 1s in the paper's
         /// own colour -- and the screen's look is untouched after it.
