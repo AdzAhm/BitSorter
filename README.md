@@ -90,8 +90,9 @@ closes whatever is on top, one thing a press, and never leaves the workbench. `?
 every key and gesture.
 
 The samples are a reference circuit, a full adder, a counter, four half adders, an
-adder written as code, a traffic light, a two-bit ALU, a sequence detector and a seven
-segment decoder. `S` steps through them.
+adder written as code, a traffic light, a two-bit ALU, a test for a prime, a sequence
+detector and a seven segment decoder. `S` steps through them, and on through the three
+RISC-V processors.
 
 ### Drawing a circuit
 
@@ -110,7 +111,7 @@ selected, to edit it in the inspector: its delays, its width, its name.
 | `Q`, `Shift`+`Q`, `V` | Turn a quarter, turn back, mirror |
 | `Ctrl`+`C`, `X`, `V` | Copy, cut, paste |
 | `Ctrl`+`Z`, `Ctrl`+`Y` | Undo, redo; a drag is one step |
-| Right-click | The canvas's menu: align, spread, turn, mirror, route again, tidy, copy, cut, paste, make block, delete |
+| Right-click | The canvas's menu: align, spread, turn, mirror, route again, reset size, tidy, copy, cut, paste, make block, delete |
 | Drag the handles on a selected block | Resize it |
 | Double-click a block, `Alt`+`Up` | Step inside it, step back out |
 
