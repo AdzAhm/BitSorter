@@ -37,6 +37,42 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(0, made, $"{made / 20.0:F0} bytes an ask");
         }
 
+        /// <summary>
+        /// While the z and glitch hints are unseen -- most students, most of the time -- what is due is worked out again only
+        /// once the run has more history to show, the document has changed or a hint has been seen (the 16d sweep): every half
+        /// second it sorted every input change, copied every output's settled history and walked every port's changes, with
+        /// the same answer each time.
+        /// </summary>
+        [TestCase("Pipelined RISC-V", 0)]
+        [TestCase("Reference", 0)]
+        [TestCase("Counter", 200_000)]
+        public void WhatIsDue_IsWorkedOutAgain_OnlyOnceTheRunHasChanged(string sample, long runOnTo)
+        {
+            var session = new WorkbenchSession(WorkbenchSamples.All.Single(s => s.Name == sample).Build(), () => 0.0);
+            session.Finish();
+            WorkbenchModel model = session.Run.Model;
+            if (runOnTo > 0)
+                model.Session.RunTo(runOnTo);   // a long run, as an INPUTS END far out or an imported bench makes one
+            Func<long?> slowest = () => 5L;
+            var seen = new HashSet<string> { SimulatorHints.Clock, SimulatorHints.GateDelay };
+            Func<string, bool> hasSeen = seen.Contains;
+            var watch = new SimulatorHints.Watch();
+            string Asked() => SimulatorHints.Due(session.Project, model.Session.Design, model.Session.History, model.Layout.DesignPath, slowest, hasSeen);
+            string Watched() => watch.Due(session.Project, model.Session.Design, model.Session.History, model.Layout.DesignPath, slowest, hasSeen);
+
+            string due = Watched();
+            Assert.AreEqual(Asked(), due, "the same answer as asking afresh");
+            long asked = FrameAllocationTests.BytesEach(() => Asked(), 20);
+            long watched = FrameAllocationTests.BytesEach(() => Watched(), 20);
+            TestContext.Progress.WriteLine($"{sample} to {runOnTo}: {asked} bytes an ask afresh, {watched} watched");
+            Assert.AreEqual(0, watched, "nothing made while nothing changed");
+
+            seen.Add(due ?? SimulatorHints.HighZ);
+            Assert.AreEqual(Asked(), Watched(), "a hint seen: worked out again");
+            model.Session.RunTo(model.End + 50);
+            Assert.AreEqual(Asked(), Watched(), "the run made further: worked out again");
+        }
+
         [Test]
         public void TheTutorialsStep_IsReadWithoutMakingAnything()
         {

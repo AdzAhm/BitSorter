@@ -210,13 +210,15 @@ namespace BitSorter.View
                 _hintsSeenOf = store;
                 _hintSeen = store.HasSeenHint;
             }
-            string due = SimulatorHints.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath,
+            string due = _hintsDue.Due(_session.Project, _model.Session.Design, _model.Session.History, _model.Layout.DesignPath,
                 _slowestPath ??= SlowestPath, _hintSeen);
             if (due != null)
                 ShowHint(due);
         }
 
         // TickLessons' questions, as delegates made once: whether a hint was seen, of the save they were made for; the slowest path.
+        // And what is due, worked out again only once the run, the document or the hints seen have changed (the 16d sweep).
+        private readonly SimulatorHints.Watch _hintsDue = new SimulatorHints.Watch();
         private ProgressStore _hintsSeenOf;
         private System.Func<string, bool> _hintSeen;
         private System.Func<long?> _slowestPath;

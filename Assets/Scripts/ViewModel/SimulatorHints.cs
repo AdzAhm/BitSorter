@@ -84,6 +84,45 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// <see cref="Due"/> asked again and again of one run -- the workbench asks every half second while no hint is up --
+        /// and worked out again only once the run has more history to show (<see cref="History.Recorded"/>), the document,
+        /// the design or the hints seen have changed (the 16d sweep). Until the z and glitch hints are seen, which for most
+        /// students is most of the time, each ask sorted every input change, copied every output's settled history and walked
+        /// every port's changes, with the same answer each time: megabytes a half second on a long run.
+        /// </summary>
+        public sealed class Watch
+        {
+            private Project _project;
+            private Design _design;
+            private History _history;
+            private string _designPath;
+            private long _recorded = -1;
+            private int _seen = -1;
+            private string _due;
+
+            /// <inheritdoc cref="SimulatorHints.Due(Project, Design, History, string, Func{long?}, Func{string, bool})"/>
+            public string Due(Project project, Design design, History history, string designPath, Func<long?> slowestOf, Func<string, bool> seen)
+            {
+                int seenNow = 0;
+                for (int i = 0; i < All.Count; i++)
+                    if (seen(All[i]))
+                        seenNow |= 1 << i;
+                if (history != null && ReferenceEquals(project, _project) && ReferenceEquals(design, _design) && ReferenceEquals(history, _history)
+                    && history.Recorded == _recorded && designPath == _designPath && seenNow == _seen)
+                    return _due;
+
+                _due = SimulatorHints.Due(project, design, history, designPath, slowestOf, seen);
+                _project = project;
+                _design = design;
+                _history = history;
+                _designPath = designPath;
+                _recorded = history?.Recorded ?? -1;
+                _seen = seenNow;
+                return _due;
+            }
+        }
+
+        /// <summary>
         /// The longest a change takes from an input, or a register's clock edge, to an output of <paramref name="analysis"/>'s
         /// design -- what <see cref="Due"/> bounds a glitch by; null where it was not reckoned.
         /// </summary>

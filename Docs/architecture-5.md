@@ -4930,7 +4930,7 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
 - **Left, measured**: a drag's preview routes the dragged parts' wires every frame it moves (`CanvasEditor.Overlay` through
   `WireGeometry.Following`, 22 to 36 KB a frame on the small samples), rebuilding every outline and the obstacle map each time --
   the unmoved parts' could be kept from the press; the first-time hints' check every 30 frames (`SimulatorHints.Due`, which the `unity-performance` pass took: it searches no scene and
-  makes no delegate now); a bus row's
+  makes no delegate now, and since Part 16d works nothing out again until the run has changed, `SimulatorHints.Watch`); a bus row's
   readout made once each time its value changes (`WaveformView.Readout`).
 
 **As built in Part 16: the browser download** (the `optimize-web` skill, 2026-11-03). The release settings the skill asks for
@@ -5084,6 +5084,12 @@ exercises, each fixed with a test that failed first.
   was bound to the document alone, and Alt+Up steps out with the question still up and the document as it was: answered
   then, the edit was made on the parent with the drawing's ids, deleting whichever of its parts had them. A step anywhere
   now drops the question, and its answer makes nothing.
+- **What first-time hint is due is worked out again only once the run has changed** (`SimulatorHints.Watch`). Asked every 30
+  frames with no hint up, and until the z and glitch hints are seen -- most students, most of the time -- each ask sorted
+  every input change, copied every output's settled history and walked every port's changes, with the same answer each time.
+  Measured with `DOTNET_JitObjectStackAllocation=0` (`LessonCostTests.WhatIsDue_IsWorkedOutAgain_OnlyOnceTheRunHasChanged`):
+  the counter run to 200,000 made 4.5 MB an ask, the pipelined processor and the reference circuit 2.6 KB; asked again of
+  the same run, document and hints seen, nothing.
 
 ---
 
