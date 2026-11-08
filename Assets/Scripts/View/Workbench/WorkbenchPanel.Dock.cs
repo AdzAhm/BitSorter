@@ -509,6 +509,13 @@ namespace BitSorter.View
         /// The panels laid out for the window as it is now and the dock's height, if either has changed since: the shell's
         /// panels moved, and the drawings under them placed again -- or, the waves another width, made again.
         /// </summary>
+        /// <remarks>
+        /// **A window being resized makes the stage again once it stands still** (Part 16d's sweep). The waves are made for
+        /// their width, and another width made the whole stage again -- every label, row, layer and the minimap -- which a
+        /// window's edge dragged asked for on every frame of the drag. A width that changes on the frame after another change
+        /// is put off, the stage placed as it is meanwhile, and made on the first frame the window has not changed; a change
+        /// alone, the first of a drag, is made at once, so a window that changes once is a frame behind nowhere.
+        /// </remarks>
         private void Fit()
         {
             if (Root == null)
@@ -516,8 +523,21 @@ namespace BitSorter.View
 
             Vector2 window = Root.rect.size;
             float dock = _dockHeight >= 0f ? _dockHeight : ShellLayout.DefaultDockFor(Window, StageTop);
+            int frame = UnityEngine.Time.frameCount;
             if (window == _laidWindow && dock == _laidDock)
+            {
+                // Standing still: the width put off while the window was resized, made now.
+                if (_widthPutOff && frame != _shapedFrame && _stage != null)
+                {
+                    _widthPutOff = false;
+                    if (!Mathf.Approximately(_regions.Waves.width, _wavesWidth))
+                        RebuildStage(keepViews: true);
+                }
                 return;
+            }
+
+            bool resizing = _shapedFrame == frame - 1;
+            _shapedFrame = frame;
             _laidWindow = window;
             _laidDock = dock;
             _regions = ShellLayout.Of(Window, StageTop, dock);
@@ -525,11 +545,24 @@ namespace BitSorter.View
 
             if (_stage == null)
                 return;
-            if (!Mathf.Approximately(_regions.Waves.width, _wavesWidth))
-                RebuildStage(keepViews: true);
-            else
+            if (Mathf.Approximately(_regions.Waves.width, _wavesWidth))
                 PlaceStage();
+            else if (resizing)
+            {
+                _widthPutOff = true;
+                PlaceStage();
+            }
+            else
+            {
+                _widthPutOff = false;
+                RebuildStage(keepViews: true);
+            }
         }
+
+        /// <summary>The frame the window or the dock last changed shape, and whether a width was put off then (<see cref="Fit"/>).</summary>
+        private int _shapedFrame = int.MinValue;
+
+        private bool _widthPutOff;
 
         /// <summary>The shell's panels where the regions say, and the toolbar across the window.</summary>
         private void PlaceShell()

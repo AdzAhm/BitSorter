@@ -1743,7 +1743,9 @@ re-hosted in them, 11b-3 the popups moved into the shell.
   `Preferences` on release (`workbench.dock`), 370 until then -- the reference circuit's nine rows.
 - **The stage is no longer one card scaled to the window.** Each drawing is placed, at its own size, under the panel
   that frames it, and moved when the layout changes, nothing built again (`PlaceStage`); only a change in the waves'
-  width builds the waveform again. Gone: `StageScale`, `FitHeight`, `MinStageScale`, `MinStageWidth`, `Overflow`,
+  width builds the waveform again -- and, since Part 16d's sweep, not on every frame of a window being resized: a width
+  that changes the frame after another change is put off, the stage placed meanwhile, and made once the window has
+  stood still a frame (`Fit`), where a drag of a window's edge made the whole stage again on every frame. Gone: `StageScale`, `FitHeight`, `MinStageScale`, `MinStageWidth`, `Overflow`,
   the page and its scroll, and the card, whose outline the panels' frames replace and whose legend is a layer of its
   own (`WorkbenchGraphic.Layer.Legend`). A panel's middle takes no clicks, so a press on the circuit or the waves goes
   through the shell to them.
