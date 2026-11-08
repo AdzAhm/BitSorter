@@ -471,7 +471,20 @@ window.setProgress = setProgress; window.finishLoading = finishLoading; window.s
       var smallestWidth = Math.round({{{ WIDTH }}} * 2 / 3);
       var largestWidth = 1920;
 
+      // Whether the page is fullscreen, by its button below.
+      function pageIsFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement);
+      }
+
       function fitToWindow() {
+        // Fullscreen, the page is the screen, and the canvas fills it: the footer is out of the way (style.css), and the
+        // code's box, laid over the canvas from the page, follows it there (browser-2).
+        if (pageIsFullscreen()) {
+          canvas.style.width = window.innerWidth + "px";
+          canvas.style.height = window.innerHeight + "px";
+          return;
+        }
+
         var room = Math.min(window.innerWidth, (window.innerHeight - footerHeight) * aspect);
         var width = Math.floor(Math.max(smallestWidth, Math.min(largestWidth, room)));
 
@@ -581,6 +594,8 @@ window.setProgress = setProgress; window.finishLoading = finishLoading; window.s
         // drawn at the size it was written for; past that a larger canvas only costs the GPU.
         fitToWindow();
         window.addEventListener("resize", fitToWindow);
+        document.addEventListener("fullscreenchange", fitToWindow);
+        document.addEventListener("webkitfullscreenchange", fitToWindow);
       }
 
 #if BACKGROUND_FILENAME
@@ -626,7 +641,16 @@ window.setProgress = setProgress; window.finishLoading = finishLoading; window.s
                 };
 #endif
                 document.querySelector("#unity-fullscreen-button").onclick = () => {
-                  unityInstance.SetFullscreen(1);
+                  // The page fullscreen, not the canvas alone (browser-2): a written block's code is a box the page lays
+                  // over the canvas -- CodeMirror, Part 12f -- and a fullscreen element shows nothing but itself, so with
+                  // the canvas fullscreen the code could be neither read nor typed. The canvas alone only where the page
+                  // cannot be.
+                  var page = document.documentElement;
+                  var full = page.requestFullscreen || page.webkitRequestFullscreen;
+                  if (full)
+                    full.call(page);
+                  else
+                    unityInstance.SetFullscreen(1);
                 };
 
 #if DEVELOPMENT_PLAYER

@@ -8,6 +8,8 @@ body { padding: 0; margin: 0; display: flex }
 #unity-canvas { display: block; background: {{{ BACKGROUND_COLOR }}} }
 .unity-mobile #unity-canvas { width: 100%; height: 100% }
 #unity-footer { position: relative; display: flex; align-items: center; box-sizing: border-box; height: 38px; padding: 0 6px 0 16px; border-top: 1px solid var(--edge) }
+:fullscreen #unity-footer { display: none }
+:-webkit-full-screen #unity-footer { display: none }
 .unity-mobile #unity-footer { display: none }
 #unity-build-title { display: flex; align-items: center; margin-right: auto }
 #bs-footer-mark { width: 91px; height: 11px; fill: var(--dim) }
