@@ -284,6 +284,49 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(WorkbenchPanel.WriteItCaption, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.CodeButton).text);
         }
 
+        /// <summary>
+        /// CHECK grades the code on screen, as EXPORT exports it (the 16d sweep): code typed with an error is not checked, the
+        /// chip saying why, and never marked solved as the last code that applied; code typed and not yet applied is applied
+        /// first, then graded. It graded the document alone, the last code that applied.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Check_GradesTheCodeOnScreen_AndChecksNothingThatDoesNotApply()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Workbench;
+            workbench.OpenExercise("half-adder");
+            yield return null;
+            workbench.ExerciseCard.Close();
+            yield return Click(WorkbenchPanel.CodeButton);
+            WorkbenchSession session = workbench.Session;
+            Assert.IsTrue(session.ShowsCode, "sanity: the answer's code on screen");
+
+            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string solving = header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            EditResult applied = session.SetSource(solving);
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            yield return null;
+
+            // The editor's clock is the game's in milliseconds: typed a minute ahead of it, the text is "just typed" however many
+            // frames CHECK takes, so the pause never runs out and applies it first.
+            double justTyped = Time.timeAsDouble * 1000.0 + 60000.0;
+            CodeDocument code = session.Code;
+            code.Type(solving.Replace("(carry, a, b)", "(carry, a, )"), justTyped);
+            Assert.IsTrue(code.Pending, "sanity: on screen, not the document's");
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.IsFalse(Store.IsComplete("half-adder"), "code on screen that does not apply is not checked as the last that did");
+            StringAssert.Contains("does not apply", workbench.ChipText, "and the chip says so");
+            Assert.AreEqual(solving, session.Project.TopModule.Source, "the document keeps the last code that worked");
+
+            string typed = solving.Replace("(sum, a, b)", "(sum, b, a)");
+            code.Type(typed, justTyped);
+            yield return Click(WorkbenchPanel.CheckButton);
+            Assert.AreEqual(typed, session.Project.TopModule.Source, "typed and not yet applied: applied first");
+            Assert.IsTrue(workbench.LastGrade.Solved, string.Join("\n", workbench.LastGrade.Faults.Concat(workbench.LastGrade.Problems)));
+            Assert.IsTrue(Store.IsComplete("half-adder"), "and the code on screen solves it");
+        }
+
         [UnityTest]
         public IEnumerator TheTutorial_FollowsTheDocument_LightsWhatItMeans_AndEndsOnCheck()
         {
