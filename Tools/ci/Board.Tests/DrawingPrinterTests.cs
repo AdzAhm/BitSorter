@@ -178,6 +178,28 @@ namespace BitSorter.Board.Tests
             Assert.Less(source.IndexOf("output logic y", StringComparison.Ordinal), source.IndexOf("input logic a", StringComparison.Ordinal));
         }
 
+        /// <summary>
+        /// A block comment over the module is kept as the line comments over it are, every line of it -- a header of the
+        /// course's kind, or one opened on the line a line comment ends -- and code on its last line is not (the 16d sweep: the
+        /// first line that did not start with // ended the head, and a /* */ header was lost to the first edit on the drawing).
+        /// </summary>
+        [Test]
+        public void ABlockCommentOverAModule_IsKept_AsTheLineCommentsAre()
+        {
+            const string header =
+                "/* A chooser, written for this test.\n" +
+                " * Its second line.\n" +
+                " */\n" +
+                "\n" +
+                "// And a line comment under it. /* not a block's start: inside a line comment\n" +
+                "/* one line */ // and another\n";
+            string source = Written(Drawn(header +
+                "module choose (input logic s, output logic y, input logic a, b);\n" +
+                "    assign y = s ? b : a;\n" +
+                "endmodule\n"));
+            StringAssert.StartsWith(header + "module choose", source);
+        }
+
         [Test]
         public void AnAssignWithADelay_IsNotWritten_AndSaysSo()
         {
