@@ -19,6 +19,14 @@ namespace BitSorter.View
     [Serializable]
     public sealed class ProgressFile
     {
+        /// <summary>
+        /// What the save was written with, made afresh by every save (browser-1; Ahmad's decision, 2026-11-03): another
+        /// window -- a second tab, a second BitSorter -- that read the save before this was written finds it is not the stamp
+        /// it read, and writes nothing over the save. First, so the head of the file says it. Absent, so empty, in every file
+        /// from before it.
+        /// </summary>
+        public string stamp;
+
         /// <summary>The ids of the exercises solved.</summary>
         public string[] completed;
 
@@ -131,6 +139,12 @@ namespace BitSorter.View
         /// the store knows nothing of what is in it (save-7).
         /// </summary>
         CouldNotRead,
+
+        /// <summary>
+        /// Another window -- a second tab of the browser build, or a second BitSorter -- wrote the save since this one read it,
+        /// and this one's would put its older save back over that (browser-1).
+        /// </summary>
+        WrittenElsewhere,
     }
 
     /// <summary>
@@ -215,6 +229,9 @@ namespace BitSorter.View
         /// <summary>A save that could not be read and whose copy could not be kept either: copied before anything is written over it.</summary>
         private string _keepAsideFrom;
 
+        /// <summary>The stamp of the save as this store last read or wrote it; null for none (<see cref="ProgressFile.stamp"/>).</summary>
+        private string _stamp;
+
         public bool IsComplete(string levelName) =>
             !string.IsNullOrEmpty(levelName) && _completed.Contains(levelName);
 
@@ -285,6 +302,7 @@ namespace BitSorter.View
             LastError = null;
             Held = SaveHold.None;
             _keepAsideFrom = null;
+            _stamp = null;
             _completed.Clear();
             _hintsSeen.Clear();
             _milestones.Clear();
@@ -316,6 +334,9 @@ namespace BitSorter.View
                 Held = SaveHold.CouldNotRead;
                 return;
             }
+
+            // The stamp as the file has it, damaged or not: what a save from now on is held to (browser-1).
+            _stamp = BitSorter.ViewModel.SaveFile.StampOf(json, out _);
 
             try
             {
@@ -462,9 +483,13 @@ namespace BitSorter.View
         public void Save()
         {
             LastError = null;   // what this save says, not what an earlier one did
-            if (Held == SaveHold.CouldNotRead)
+            if (Held == SaveHold.None && WrittenSinceRead())
+                Held = SaveHold.WrittenElsewhere;
+            if (Held != SaveHold.None)
             {
-                LastError = "the save could not be read, so nothing is written over it until it is read again";
+                LastError = Held == SaveHold.CouldNotRead
+                    ? "the save could not be read, so nothing is written over it until it is read again"
+                    : "another window has written the save since this one read it, so nothing is written over it until it is read again";
                 return;
             }
             if (_keepAsideFrom != null && File.Exists(_keepAsideFrom) && !KeepAside(_keepAsideFrom))
@@ -475,8 +500,10 @@ namespace BitSorter.View
 
             try
             {
+                string stamp = Guid.NewGuid().ToString("N");
                 var file = new ProgressFile
                 {
+                    stamp = stamp,
                     completed = new string[_completed.Count],
                     hintsSeen = new string[_hintsSeen.Count],
                     milestones = new string[_milestones.Count],
@@ -505,11 +532,53 @@ namespace BitSorter.View
                     File.Delete(_path);
 
                 File.Move(TempPath, _path);
+                _stamp = stamp;
+                BrowserSave.Written(stamp);
             }
             catch (Exception exception)
             {
                 LastError = exception.Message;
             }
+        }
+
+        /// <summary>
+        /// In a browser, has this tab hear from now on of every save another tab writes (<see cref="BrowserSave"/>): its file
+        /// system is its own, and never shows it another tab's. <see cref="ProgressTracker"/> asks it once the save is read.
+        /// </summary>
+        public void HearOtherWindows() => BrowserSave.Read(_stamp);
+
+        /// <summary>
+        /// Whether another window has written the save since this store read it or last wrote it (browser-1): the stamp the
+        /// file has now is not the one this store knows -- one made since by a window that began with none included -- or, in
+        /// a browser, another tab has said it wrote one. A file not there now is none of those, and nor is one not read just
+        /// now: the write that follows says whether it could be written.
+        /// </summary>
+        private bool WrittenSinceRead()
+        {
+            if (BrowserSave.WrittenElsewhere())
+                return true;
+            string path = ReadablePath();
+            if (path == null)
+                return false;
+            try
+            {
+                return !string.Equals(StampOf(path), _stamp, StringComparison.Ordinal);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>The stamp of the save at <paramref name="path"/>: from its head, where the stamp is, or from the whole file where it is not.</summary>
+        private static string StampOf(string path)
+        {
+            var head = new char[1024];
+            int read;
+            using (var reader = new StreamReader(path))
+                read = reader.ReadBlock(head, 0, head.Length);
+            string stamp = BitSorter.ViewModel.SaveFile.StampOf(new string(head, 0, read), out bool sure);
+            return sure ? stamp : BitSorter.ViewModel.SaveFile.StampOf(File.ReadAllText(path), out _);
         }
 
         /// <summary>Forgets everything, on disk as well as in memory.</summary>

@@ -35,6 +35,7 @@ namespace BitSorter.View
                 string.IsNullOrWhiteSpace(_pathOverride) ? ProgressStore.DefaultPath : _pathOverride);
 
             _store.Load();
+            _store.HearOtherWindows();   // a second tab's saves, in a browser (browser-1)
 
             if (_store.LastError != null)
             {
