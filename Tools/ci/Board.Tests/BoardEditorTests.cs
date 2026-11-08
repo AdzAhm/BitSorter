@@ -519,6 +519,45 @@ namespace BitSorter.Board.Tests
             Assert.AreSame(start, b.Project, "and the refused group left no step behind");
         }
 
+        /// <summary>
+        /// A group asks the rules once, of the document it ends on, and an error it adds refuses it all with that error; inside
+        /// it, a wire between ends already joined is refused -- by a wire the group made, a tap included -- as one outside is
+        /// (the 16d sweep: each edit of a group asked the rules of the whole project, and each wire worked its netlist out again).
+        /// </summary>
+        [Test]
+        public void AGroup_AsksTheRulesOnceAtItsEnd_AndKnowsWhatItHasJoined()
+        {
+            var b = new Bench();
+            int a = b.Input("a"), y = b.Output("y");
+            Project before = b.Project;
+
+            EditResult joined = b.Editor.Group(() =>
+            {
+                int g = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 0)));
+                int w = Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(a, "out"), Endpoint.At(g, "a")));
+                Assert.AreEqual("Those are already joined.", b.Editor.Connect(b.Module, Endpoint.At(g, "a"), Endpoint.OnWire(w)).Refusal,
+                    "a tap on the wire just made, to a pin it is on");
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(g, "y"), Endpoint.At(y, "in")));
+                return b.Editor.Connect(b.Module, Endpoint.At(y, "in"), Endpoint.At(g, "y"));
+            });
+            Assert.AreEqual("Those are already joined.", joined.Refusal);
+            Assert.AreSame(before, b.Project, "and the group taken back");
+
+            EditResult twoDrivers = b.Editor.Group(() =>
+            {
+                int g = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 0)));
+                int h = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 2)));
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(g, "y"), Endpoint.At(y, "in")));
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(h, "y"), Endpoint.At(y, "in")));
+                return EditResult.Ok();
+            });
+            Assert.IsFalse(twoDrivers.Done);
+            StringAssert.Contains("both drive one wire", twoDrivers.Refusal, "the error the whole group adds, in the rules' words");
+            Assert.AreSame(before, b.Project);
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.IsNull(b.Current.Parts.FirstOrDefault(p => p.Name == "y"), "no step left behind by either: one undo takes y away");
+        }
+
         [Test]
         public void Undo_GivesBackTheVeryDocumentBefore_AndRedoTheOneAfter()
         {

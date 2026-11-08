@@ -111,7 +111,22 @@ namespace BitSorter.Board
                 Files = files ?? Array.Empty<ProjectFile>(),
             });
             foreach (ModuleDeclaration module in order)
-                new ModuleReader(editor, module, modules, interfaces, problems).Read();
+            {
+                // A module's parts and wires are made as one group, the rules asked once of the module it ends on (the 16d sweep:
+                // asked of the whole project for every part and wire, a 64-bit adder made 2.5 GB). One the group refuses is read
+                // again an element at a time, as it always was, so each fault is said where it is.
+                int had = problems.Count;
+                EditResult read = editor.Group(() =>
+                {
+                    new ModuleReader(editor, module, modules, interfaces, problems).Read();
+                    return problems.Count > had ? EditResult.Refused(problems[had]) : EditResult.Ok();
+                });
+                if (!read.Done)
+                {
+                    problems.RemoveRange(had, problems.Count - had);
+                    new ModuleReader(editor, module, modules, interfaces, problems).Read();
+                }
+            }
 
             // A `timescale of one whole unit is the project's unit, as printing one wrote it. One in tens
             // of a unit (10ns/1ns) has none a project can count in, and the delays are read as written.

@@ -60,6 +60,9 @@ namespace BitSorter.Board
         /// <summary>Whether a <see cref="Group"/> is being made: its edits keep no step of their own and say nothing until it ends.</summary>
         private bool _grouping;
 
+        /// <summary>Whether an edit inside the group open was made without the rules asked, which the group's end asks then.</summary>
+        private bool _uncheckedInGroup;
+
         public BoardEditor(Project project)
         {
             Project = project ?? throw new ArgumentNullException(nameof(project));
@@ -106,7 +109,11 @@ namespace BitSorter.Board
                 Layout = m.Layout.WithPart(id, at),
             };
 
-            return Commit(Project.WithModule(next), id);
+            IReadOnlyList<Module> was = Project.Modules;
+            EditResult made = Commit(Project.WithModule(next), id);
+            if (made.Done)
+                JoinsKept(was);
+            return made;
         }
 
         /// <summary>
@@ -211,6 +218,12 @@ namespace BitSorter.Board
         /// or not at all -- when the body's answer is a refusal, every edit it made is taken back, and the
         /// document is as it was before. <see cref="Changed"/> is raised once, at the end, if anything changed.
         /// </summary>
+        /// <remarks>
+        /// **The rules are asked once, of the document the group ends on** (the 16d sweep): an edit inside it is made unchecked,
+        /// and an error the whole group adds refuses it all, with that error. Each edit used to check the whole project, so a
+        /// paste, a MAKE BLOCK or a drawn import of n parts and wires checked it n times -- 2.4 GB made for a paste of 322 parts
+        /// into a 64-bit adder, in a browser that frees memory only between frames.
+        /// </remarks>
         /// <param name="continuing">As for <see cref="MoveParts"/>: a group of the same name straight after another is part of its step.</param>
         public EditResult Group(Func<EditResult> body, string continuing = null)
         {
@@ -224,7 +237,10 @@ namespace BitSorter.Board
             string wasContinuing = _continuing;
             EditResult result;
 
+            bool checkAtTheEnd;
             _grouping = true;
+            _uncheckedInGroup = false;
+            _joins = null;
             try
             {
                 result = body();
@@ -238,6 +254,9 @@ namespace BitSorter.Board
             finally
             {
                 _grouping = false;
+                checkAtTheEnd = _uncheckedInGroup;
+                _uncheckedInGroup = false;
+                _joins = null;
             }
 
             if (!result.Done)
@@ -250,6 +269,20 @@ namespace BitSorter.Board
 
             if (ReferenceEquals(Project, before))
                 return result;
+
+            if (checkAtTheEnd)
+            {
+                List<BoardDiagnostic> after = BoardRules.Check(Project);
+                List<BoardDiagnostic> added = BoardRules.NewErrors(diagnostics, after);
+                if (added.Count > 0)
+                {
+                    Project = before;
+                    _diagnostics = diagnostics;
+                    _continuing = wasContinuing;
+                    return EditResult.Refused(added[0].Message);
+                }
+                _diagnostics = after;
+            }
 
             if (continuing == null || continuing != wasContinuing)
             {
@@ -433,10 +466,10 @@ namespace BitSorter.Board
             if (from.Equals(to))
                 return EditResult.Refused("A wire needs two different ends.");
 
-            Netlist before = Netlist.Of(Project, m);
-            Net a = NetAt(before, from), b = NetAt(before, to);
-            if (a != null && a == b)
+            Joins joins = JoinsOf(m);
+            if (joins != null ? joins.Joined(from, to) : AlreadyJoined(m, from, to))
                 return EditResult.Refused("Those are already joined.");
+            IReadOnlyList<Module> was = Project.Modules;
 
             int id = m.NextId;
             var wire = new Wire { Id = id, From = from, To = to };
@@ -447,7 +480,116 @@ namespace BitSorter.Board
                 Layout = route == null ? m.Layout : m.Layout.WithRoute(id, route),
             };
 
-            return Commit(Project.WithModule(next), id);
+            EditResult made = Commit(Project.WithModule(next), id);
+            if (made.Done && joins != null)
+            {
+                joins.Join(from, to, id);
+                JoinsKept(was);   // a wire of this module joins nothing in another
+            }
+            return made;
+        }
+
+        private bool AlreadyJoined(Module m, Endpoint from, Endpoint to)
+        {
+            Netlist before = Netlist.Of(Project, m);
+            Net a = NetAt(before, from), b = NetAt(before, to);
+            return a != null && a == b;
+        }
+
+        /// <summary>
+        /// Inside a group, which pins and wires of <paramref name="m"/> are joined, kept up as the group adds parts and wires:
+        /// worked out from its netlist once, where Connect worked out the whole netlist again for every wire (the 16d sweep: 385
+        /// netlists of a 64-bit adder for one paste, 800 MB). Null outside a group, where each Connect asks the netlist.
+        /// </summary>
+        private Joins JoinsOf(Module m)
+        {
+            if (!_grouping)
+                return null;
+            _joins ??= new Dictionary<string, Joins>(StringComparer.Ordinal);
+            if (_joins.TryGetValue(m.Name, out Joins joins) && ReferenceEquals(joins.Of, Project.Modules))
+                return joins;
+            joins = new Joins(Netlist.Of(Project, m), Project.Modules);
+            _joins[m.Name] = joins;
+            return joins;
+        }
+
+        /// <summary>
+        /// A part added, a wire made or a wire named inside a group, the modules <paramref name="was"/> before it: nothing is
+        /// joined that was not, but by the wire made, so what each module's <see cref="Joins"/> says still holds. Any other edit
+        /// -- of any module, whose ports a block's pins are -- leaves them to be worked out again.
+        /// </summary>
+        private void JoinsKept(IReadOnlyList<Module> was)
+        {
+            if (_joins == null)
+                return;
+            foreach (Joins joins in _joins.Values)
+                if (ReferenceEquals(joins.Of, was))
+                    joins.Of = Project.Modules;
+        }
+
+        private Dictionary<string, Joins> _joins;
+
+        /// <summary>
+        /// What is joined to what in a module, as <see cref="Netlist"/> works it out -- a union of every pin and wire, a wire with
+        /// its ends and a tap with the wire it is on -- kept up a wire at a time. Valid while <see cref="Of"/> is the project's
+        /// modules, which every edit of a module makes anew.
+        /// </summary>
+        private sealed class Joins
+        {
+            private readonly Dictionary<(int, string), (int, string)> _parent = new Dictionary<(int, string), (int, string)>();
+
+            public Joins(Netlist netlist, IReadOnlyList<Module> of)
+            {
+                Of = of;
+                foreach (Net net in netlist.Nets)
+                {
+                    (int, string)? first = null;
+                    foreach (PinRef pin in net.Pins)
+                        Union(ref first, (pin.Part, pin.Pin));
+                    foreach (int wire in net.Wires)
+                        Union(ref first, (wire, null));
+                }
+            }
+
+            /// <summary>The project's modules this is of.</summary>
+            public IReadOnlyList<Module> Of { get; set; }
+
+            /// <summary>Whether <paramref name="a"/> and <paramref name="b"/> are on one net: a pin no wire is on, or one not there, on its own.</summary>
+            public bool Joined(Endpoint a, Endpoint b) => Find(Key(a)).Equals(Find(Key(b)));
+
+            /// <summary>Wire <paramref name="wire"/> made from <paramref name="a"/> to <paramref name="b"/>.</summary>
+            public void Join(Endpoint a, Endpoint b, int wire)
+            {
+                Link(Find((wire, null)), Find(Key(a)));
+                Link(Find((wire, null)), Find(Key(b)));
+            }
+
+            private static (int, string) Key(Endpoint end) => end.IsTap ? (end.TapOf, null) : (end.Pin.Part, end.Pin.Pin);
+
+            private void Union(ref (int, string)? first, (int, string) node)
+            {
+                if (first is (int, string) root)
+                    Link(Find(root), Find(node));
+                else
+                    first = node;
+            }
+
+            private void Link((int, string) a, (int, string) b)
+            {
+                if (!a.Equals(b))
+                    _parent[b] = a;
+            }
+
+            private (int, string) Find((int, string) node)
+            {
+                while (_parent.TryGetValue(node, out (int, string) up))
+                {
+                    if (_parent.TryGetValue(up, out (int, string) higher))
+                        _parent[node] = higher;   // halved on the way up, as Netlist's union-find is
+                    node = up;
+                }
+                return node;
+            }
         }
 
         /// <summary>Names the net a wire is on; null takes the name away.</summary>
@@ -460,7 +602,11 @@ namespace BitSorter.Board
                 return EditResult.Refused($"There is no wire {wire} in {module}.");
 
             Wire named = old with { NetName = string.IsNullOrEmpty(name) ? null : name };
-            return Commit(Project.WithModule(m with { Wires = Replace(m.Wires, named) }), wire);
+            IReadOnlyList<Module> was = Project.Modules;
+            EditResult made = Commit(Project.WithModule(m with { Wires = Replace(m.Wires, named) }), wire);
+            if (made.Done)
+                JoinsKept(was);
+            return made;
         }
 
         /// <summary>Changes how a wire is drawn. Layout only, like <see cref="Move"/>.</summary>
@@ -831,7 +977,9 @@ namespace BitSorter.Board
             if (locked != null)
                 return EditResult.Refused(locked);
 
-            if (check)
+            if (check && _grouping)
+                _uncheckedInGroup = true;   // checked once, as the group ends (Group)
+            else if (check)
             {
                 List<BoardDiagnostic> after = BoardRules.Check(next);
                 List<BoardDiagnostic> added = BoardRules.NewErrors(_diagnostics, after);
