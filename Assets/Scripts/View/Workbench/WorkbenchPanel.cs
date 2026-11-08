@@ -1721,7 +1721,7 @@ namespace BitSorter.View
             MakeTexts();
 
             // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
-            _list = DefaultList(_model);
+            _list = WaveList.OfPorts(_model);
             _cursors.Clear();
             _appliedNames = new string[0];
             _appliedHeaders = new bool[0];
@@ -1758,16 +1758,6 @@ namespace BitSorter.View
                 _fitWavesOnSwitch = false;
                 _wave?.View.Fit(_model.End);
             }
-        }
-
-        /// <summary>A model's default rows as a list: its layout's ports, by their keys.</summary>
-        private static WaveList DefaultList(WorkbenchModel model)
-        {
-            var keys = new List<string>();
-            foreach (WaveRow row in model.Layout.Rows)
-                if (model.Session.Design.TryFind(row.Signal, out SignalId id))
-                    keys.Add(model.Signals.KeyOf(id.Index));
-            return new WaveList(model.Signals, keys);
         }
 
         /// <summary>

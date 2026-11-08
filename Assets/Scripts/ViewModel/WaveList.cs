@@ -98,6 +98,16 @@ namespace BitSorter.ViewModel
         private object _anchor;
         private bool _dirty = true;
 
+        /// <summary>A model's rows as a circuit opens: its layout's ports, by their keys.</summary>
+        public static WaveList OfPorts(WorkbenchModel model)
+        {
+            var keys = new List<string>();
+            foreach (WaveRow row in model.Layout.Rows)
+                if (model.Session.Design.TryFind(row.Signal, out BitSorter.Sim.SignalId id))
+                    keys.Add(model.Signals.KeyOf(id.Index));
+            return new WaveList(model.Signals, keys);
+        }
+
         /// <summary>A list of the signals named by <paramref name="keys"/>, in their order, resolved in <paramref name="index"/>.</summary>
         public WaveList(SignalIndex index, IEnumerable<string> keys)
         {
