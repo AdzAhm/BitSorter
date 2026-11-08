@@ -53,18 +53,20 @@ commented out**. Unity's own comment in the generated `index.html` says so:
 With the flag off, every write succeeds, nothing errors, and the whole lot is
 discarded when the tab closes. Solved Exercises, saved circuits, personal bests.
 
-**Fix:** `Assets/WebGLTemplates/BitSorter/` is a copy of Unity's Default template
-with one line uncommented:
+**Fix:** `Assets/WebGLTemplates/BitSorter/` began as a copy of Unity's Default
+template with one line uncommented:
 
 ```js
 config.autoSyncPersistentDataPath = true;
 ```
 
 `WebGLBuild` selects it with `PlayerSettings.WebGL.template = "PROJECT:BitSorter"`.
-The template was made for that line, and does two more things the stock one does
-not: it fits the canvas to the window as the window changes, and it caps the
-device pixel ratio at 1.5. If it is ever regenerated from Unity's stock copy, all
-three must be re-applied.
+The template was made for that line, and does three more things the stock one
+does not: it fits the canvas to the window as the window changes, it caps the
+device pixel ratio at 1.5, and it loads under BitSorter's own loading screen
+instead of Unity's logo and loading bar, in the default look's colours
+(`Docs/architecture-5.md`, "As built in Part 16: the loading screen"). If it is
+ever regenerated from Unity's stock copy, all four must be re-applied.
 
 **Still worth testing by hand**, because it depends on the browser: solve the first
 Exercise, reload the page, and check EXERCISES still marks it solved. Private/incognito

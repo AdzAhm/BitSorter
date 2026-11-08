@@ -4726,6 +4726,39 @@ which other passes own. Nothing drawn changes, and nothing BitSorter reads at ru
   none. About 12 KB. UI/Default (every uGUI graphic's), Sprites/Default (the default sprite material's) and the three cubemap
   shaders, which the engine keeps for reflections, stay: 5 KB is not worth the doubt.
 
+**As built in Part 16: the loading screen** (the living schematic, the one of three designs Ahmad chose). The browser page
+loads under BitSorter's own screen rather than Unity's: one layer, `#bs-loading`, inset 0 over the canvas in the web template
+(`Assets/WebGLTemplates/BitSorter/index.html`), so it is the canvas's size at any window size and the whole window on a phone.
+Behind BITSORTER, drawn from IBM Plex Sans Bold's outlines as one path, is a faint schematic in three depths: a single-cycle
+RISC-V datapath far back, small working circuits in the middle, two gates out of focus near. A tiny 0/1/x engine runs those
+circuits once as the page opens, and every change it makes plays as a front travelling its wire in its value's colour, on the
+compositor -- nothing runs a frame. The progress is a 1 travelling a wire to its end pin, with a 7-bit register counting the
+percent. The page is 44,721 bytes, 16,988 gzipped.
+
+- **Its easter eggs**: a half adder that adds (click a or b), x draining out of a shift register, 0 & x and 1 | x, the `a & ~a`
+  glitch, bits falling into their bins (4.x), `x0` and a `ZADZ` maker's mark in the datapath, and the waves' `tx` sending
+  HAPPY SIMULATING, 8N1. None blocks, slows or is needed to finish loading.
+- **Wired to the loader**: `createUnityInstance`'s progress calls `setProgress`, and its `.then` `finishLoading`, which fades
+  the layer to the ground, then cancels its animations, clears its timers, lets go of its observer and takes it out of the
+  page, leaving no-op globals so nothing holds the detached layer alive. Its `.catch` calls `stopLoading`, which pauses
+  everything where it stands, before the alert it always put up. Reduced motion is a still frame: the CSS animations off, and
+  every Web Animation paused at one moment.
+- **It reads its own box, not the window's**: container units for the title's and the bar's widths (the window's units first,
+  for a browser without them), and a `ResizeObserver` on the layer for the scene's scale -- the window's resize reached it
+  before `fitToWindow` had sized the canvas. Unity's warning banner is drawn over it, so an error while loading is never under it.
+- **Removed**: Unity's loading bar, its logo, the footer's Unity logo and the product name in Arial, and their seven images
+  (`unity-logo-*`, `progress-bar-*`). The footer is a small BITSORTER in the dim text colour inside `#unity-build-title`, which
+  a development build still appends its buttons to, with the product name as its `aria-label`; and the full-screen control,
+  still a div, as Unity's was: a button keeps the keyboard after a click, and Space or Enter, the workbench's keys, would press
+  it again. Its icon is drawn in the page now; `fullscreen-button.png` is still in `TemplateData`.
+- **Its colours** are the default look's, `SchematicPalette.Dark`'s, written out as CSS custom properties -- the page is drawn
+  before BitSorter exists and cannot ask -- and held to the palette field by field, so the copy cannot drift. The page's own
+  dark, the template's `BACKGROUND_COLOR`, is the splash screen's background colour, which `WebGLBuild.Configure` now sets from
+  `SchematicPalette.Dark.Ground` (it was Unity's #231F20, a warm grey), and `ProjectSettings.asset` holds the same: the page,
+  the loading screen and the first frame are one dark.
+- **Held by** `WebTemplateTests`: no Unity branding in the page or its folder, reduced motion in both halves, the colours, the
+  layer removed once BitSorter runs, stopped on a failure, and the page's dark taken from the palette.
+
 ---
 
 ## 11. The parts
