@@ -337,6 +337,59 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(1, kept.TopModule.Parts.Count, "with the edit that failed to be kept");
         }
 
+        /// <summary>A document the rules refuse, as a save edited by hand may hold one: an AND gate of one input.</summary>
+        private static Project Refused() => Project.New("broken") with
+        {
+            Modules = new[]
+            {
+                new Module
+                {
+                    Name = "broken", NextId = 2,
+                    Parts = new Part[] { new GatePart { Id = 1, Name = "g1", Kind = BitSorter.Sim.GateKind.And, Inputs = 1 } },
+                },
+            },
+        };
+
+        /// <summary>
+        /// A circuit that cannot open, opened from FILE: the one that was open keeps its own name, the one that cannot open is
+        /// left in the save as it was, and the reference circuit is shown in its place, saying why. The new circuit's name was
+        /// taken before its open threw, so the next keep wrote the old circuit over the one that could not open (save-4).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ACircuitThatCannotOpen_OpenedFromFile_LeavesBothCircuitsAsTheyWere()
+        {
+            yield return TestScene.Load();
+            yield return OpenMyCircuit();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            Assert.IsTrue(workbench.TakeFromStrip("xor"));
+            yield return ClickAt(workbench, new BoardPoint(4, -2));
+            ProgressStore store = Find<ProgressTracker>().Store;
+            string broken = Documents.KeyOf("broken");
+            store.SetProject(broken, Refused());
+            store.Save();
+
+            workbench.OpenDocument(broken);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(1, workbench.Sample, "the reference circuit shown in its place");
+            StringAssert.Contains("could not be opened", workbench.ChipText);
+
+            workbench.ShowSample(0);   // where the SAMPLE chip goes back to
+            yield return null;
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.AreEqual(1, Top(workbench).Parts.Count, "MY CIRCUIT, as it was");
+            Assert.IsTrue(workbench.TakeFromStrip("and"));
+            yield return ClickAt(workbench, new BoardPoint(4, 2));
+            workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);   // kept at once
+
+            var saved = new ProgressStore(ProgressStore.DefaultPath);
+            saved.Load();
+            Assert.IsTrue(saved.TryGetProject(broken, out Project still, new System.Collections.Generic.List<string>()));
+            Assert.AreEqual("broken", still.Top, "the circuit that could not open, as it was");
+            Assert.IsTrue(saved.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project mine, new System.Collections.Generic.List<string>()));
+            Assert.AreEqual(2, mine.TopModule.Parts.Count, "and MY CIRCUIT's edits under its own name");
+        }
+
         [UnityTest]
         public IEnumerator MyCircuit_IsKept_AndTheWorkbenchOpensOnItWhenItHasAnythingInIt()
         {
