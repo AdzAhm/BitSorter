@@ -102,6 +102,45 @@ namespace BitSorter.PlayMode.Tests
                           inner.yMax <= outer.yMax + 0.5f, $"{what}, {inner}, is not inside {outer}");
         }
 
+        /// <summary>
+        /// A window being resized makes the stage again once it stands still, not on every frame of the drag (Part 16d's
+        /// sweep): every width the waves were not made for destroyed the whole stage and built it again -- every label, row,
+        /// layer and the minimap -- and a window's edge dragged changes the width every frame. Here the workbench is made 4
+        /// units narrower each frame for twenty, then left alone.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AWindowBeingResized_MakesTheStageAgain_OnceItStandsStill()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            RectTransform root = GameObject.Find(WorkbenchPanel.RootName).GetComponent<RectTransform>();
+            Vector2 offset = root.offsetMax;
+            var made = new System.Collections.Generic.HashSet<RectTransform> { workbench.WavesWindow };
+            try
+            {
+                for (int frame = 1; frame <= 20; frame++)
+                {
+                    root.offsetMax = offset - new Vector2(4f * frame, 0f);   // narrower every frame, as a window's edge dragged
+                    yield return null;
+                    made.Add(workbench.WavesWindow);
+                }
+
+                Assert.LessOrEqual(made.Count, 3, $"the stage was made again {made.Count - 1} times in 20 frames of a resize");
+
+                RectTransform during = workbench.WavesWindow;
+                yield return null;
+                yield return null;
+                Assert.AreNotSame(during, workbench.WavesWindow, "made again for the width it came to, once the window stood still");
+            }
+            finally
+            {
+                root.offsetMax = offset;
+            }
+
+            yield return null;
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator TheCircuitsWindowAndTheWaves_AreWhereTheirPanelsAre()
         {
