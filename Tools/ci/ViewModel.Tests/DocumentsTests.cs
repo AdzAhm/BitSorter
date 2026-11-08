@@ -95,5 +95,23 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("my_ALU_2", Documents.ModuleNameFor("my ALU 2"));
             Assert.AreEqual("circuit_4bit", Documents.ModuleNameFor("4bit"));
         }
+
+        /// <summary>
+        /// A circuit named as a cell of the library is, or as the file the cells are written to, starts with a module the rules
+        /// take: its module was the name as it was, which no module may have, so FILE, NEW NAND2 made a circuit that could not
+        /// open (save-9).
+        /// </summary>
+        [TestCase("NAND2")]
+        [TestCase("XOR2")]
+        [TestCase("AND3")]
+        [TestCase("INV")]
+        [TestCase("BUF")]
+        [TestCase("bitsorter cells")]
+        public void ANewCircuitNamedAsACell_StartsWithAModuleTheRulesTake(string name)
+        {
+            BitSorter.Board.Project made = BitSorter.Board.Project.New(Documents.ModuleNameFor(name));
+
+            CollectionAssert.IsEmpty(BitSorter.Board.BoardRules.Check(made).Where(d => d.IsError).Select(d => d.Message));
+        }
     }
 }
