@@ -267,7 +267,8 @@ namespace BitSorter.Board
         /// <summary>
         /// Puts <paramref name="changed"/> in place of the part with its id: a new delay, width, name,
         /// number of inputs. It must be the same kind of part. A port renamed is renamed wherever the
-        /// module is used as a block, and in the stimulus.
+        /// module is used as a block, and in the stimulus; an input of the top given a new width takes its
+        /// steps to that width (<see cref="RefitSteps"/>).
         /// </summary>
         public EditResult Change(string module, Part changed)
         {
@@ -282,10 +283,48 @@ namespace BitSorter.Board
 
             Project next = Project.WithModule(m with { Parts = Replace(m.Parts, changed) });
 
-            if (old is PortPart oldPort && changed is PortPart newPort && oldPort.Name != newPort.Name)
-                next = RenamePort(next, m.Name, oldPort.Name, newPort.Name);
+            if (old is PortPart oldPort && changed is PortPart newPort)
+            {
+                if (oldPort.Width != newPort.Width)
+                    next = RefitSteps(next, m.Name, oldPort.Name, newPort.Width);
+                if (oldPort.Name != newPort.Name)
+                    next = RenamePort(next, m.Name, oldPort.Name, newPort.Name);
+            }
 
             return Commit(next, changed.Id);
+        }
+
+        /// <summary>
+        /// An input of the top given a new width: its steps, and what it holds from the start, at that width -- each value widened
+        /// with 0s or cut to its low bits -- so the input is not refused for being given its old width (the 16d sweep: none placed
+        /// from the strip could be made a bus). A width no port can have leaves them as they are, and is refused for itself.
+        /// </summary>
+        private static Project RefitSteps(Project project, string module, string port, int width)
+        {
+            Stimulus stimulus = project.Stimulus;
+            if (stimulus == null || project.Top != module || width < 1 || width > BoardRules.MaxWidth)
+                return project;
+
+            LogicVec Fit(LogicVec value) => value.Width == width ? value : value.AsUnsigned().Resize(width);
+
+            bool any = false;
+            var tracks = new List<Track>(stimulus.Tracks.Count);
+            foreach (Track track in stimulus.Tracks)
+            {
+                if (track.Port != port)
+                {
+                    tracks.Add(track);
+                    continue;
+                }
+
+                var steps = new Step[track.Steps.Count];
+                for (int i = 0; i < steps.Length; i++)
+                    steps[i] = new Step(track.Steps[i].Time, Fit(track.Steps[i].Value), track.Steps[i].Late);
+                tracks.Add(track with { Steps = steps, Start = track.Start is LogicVec start ? Fit(start) : (LogicVec?)null });
+                any = true;
+            }
+
+            return any ? project with { Stimulus = stimulus with { Tracks = tracks } } : project;
         }
 
         /// <summary>

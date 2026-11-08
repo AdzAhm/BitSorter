@@ -545,7 +545,9 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   Widths that disagree, two drivers on a net, a bad or taken name, a module that contains itself, a
   stimulus for a port that is not there. An input left open, or a vector gate with different rise and
   fall (where simulators part, section 6), is a warning. Renaming a port renames it on every block of its
-  module and in the stimulus; renaming a module renames its blocks and the top.
+  module and in the stimulus; renaming a module renames its blocks and the top. An input of the top made
+  wider or narrower takes its steps with it, each value widened with 0s or cut to its low bits (the 16d
+  sweep: an input placed from the strip, given one-bit steps, could never be made a bus).
 - **Undo keeps whole documents**: a reference each, a drag one step, a refused edit none, two hundred
   deep.
 - **Compiled to one syntax tree** (`BoardCompiler`), which `Printer` prints and `Elaborator` runs: in the
