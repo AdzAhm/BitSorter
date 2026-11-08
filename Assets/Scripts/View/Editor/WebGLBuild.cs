@@ -81,6 +81,12 @@ namespace BitSorter.View.Editor
             // without it every save the game makes is thrown away when the tab closes.
             PlayerSettings.WebGL.template = "PROJECT:BitSorter";
 
+            // The page's dark. The template's BACKGROUND_COLOR is the splash screen's background colour -- the page round
+            // the canvas, and the canvas until BitSorter draws -- and it was Unity's #231F20, a warm grey beside the
+            // loading screen's and the workbench's ground. Taken from the default look's canvas, so the page, the loading
+            // screen and the first frame are one dark, and stay so if the ground changes.
+            PlayerSettings.SplashScreen.backgroundColor = SchematicPalette.Dark.Ground;
+
             // Thrown exceptions only. Full stack support costs size and speed, and nothing here
             // relies on catching engine-level faults.
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
