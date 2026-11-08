@@ -151,7 +151,7 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
-        /// A thing is taught before it is asked for (CLAUDE.md, "A mechanic is taught before it is required"): the first exercise
+        /// A thing is taught before it is asked for (CLAUDE.md, "A thing is taught before it is required"): the first exercise
         /// to ask each one says so in its goal -- a time to settle by, a clock, a circuit to open on, a block, a period.
         /// </summary>
         [Test]

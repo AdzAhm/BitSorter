@@ -3041,8 +3041,9 @@ the board's own editor and printed.
   put it down, wire in to it and it to binOne, CHECK. Its step is read off the document and what is in hand every frame,
   so nothing blocks input and deleting the NOT or an undo goes back by itself; it lights the NOT in PARTS and then
   CHECK, the steps between being on the canvas, and SKIP stops it. It has the strip while it runs.
-- **The four kinds of teaching** are held apart by `SimulatorHintTests`: no four-word run is shared between a hint, a
-  tutorial step and any exercise's goal or hint -- what 15c owed.
+- **The three kinds of teaching** -- an exercise's goal and hint, the first-time hints, the tutorial -- are held apart by
+  `SimulatorHintTests`: no four-word run is shared between a hint, a tutorial step and any exercise's goal or hint -- what
+  15c owed.
 - **Checked.** dotnet: each hint fired by what a reference solution's run shows, and once; the x at a check; the four-
   word rule; the tutorial's steps over an edited document, an undo and a deletion taking them back. Play Mode: the
   tutorial from the start page to CHECK, lighting the NOT and CHECK; skipped from HELP; a hint coming up once, kept as

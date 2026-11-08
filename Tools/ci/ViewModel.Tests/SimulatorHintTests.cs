@@ -11,8 +11,9 @@ namespace BitSorter.ViewModel.Tests
     /// <summary>
     /// 5.0's first-time hints and its guided tutorial (Part 15f): each hint fired by what the run shows -- a gate's delay,
     /// a clock, a z, a glitch, an x at a check -- once; the tutorial's steps read off the document, going back when it does;
-    /// and the four kinds of teaching kept apart, no four-word run shared between a hint, a tutorial step and any
-    /// exercise's goal or hint (CLAUDE.md, "There are four kinds of teaching").
+    /// and the three kinds of teaching kept apart -- an exercise's goal and hint, the first-time hints, the tutorial -- no
+    /// four-word run shared between a hint, a tutorial step and any exercise's goal or hint (CLAUDE.md, "There are three
+    /// kinds of teaching").
     /// </summary>
     public class SimulatorHintTests
     {
@@ -130,7 +131,7 @@ namespace BitSorter.ViewModel.Tests
         }
 
         [Test]
-        public void TheFourKindsOfTeaching_ShareNoFourWordRun()
+        public void TheThreeKindsOfTeaching_ShareNoFourWordRun()
         {
             var teaching = new List<(string Where, string Text)>();
             foreach (string id in SimulatorHints.All)
