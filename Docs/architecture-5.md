@@ -5048,6 +5048,11 @@ exercises, each fixed with a test that failed first.
   was saved half a second later, and BitSorter -- opening on the last thing open -- threw again on every launch. The replay
   is tried, and a document `WorkbenchModel.Prepare` cannot run (`DoesNotRunException`) is refused in the elaborator's words,
   the step taken back with nothing to redo; an undo or a redo to one is not taken.
+- **CHECK grades what the student typed** (`WorkbenchPanel.Check`). It graded the document alone, the last code that applied:
+  pressed within the pause it graded the code before the last keystrokes, and over text with an error it could mark the
+  exercise solved, keep its best and report its solve for code that was not what the editor showed. It now applies what is
+  typed first, as EXPORT, the hand-in and the lock do (`ApplyTypedCode`, through `WorkbenchSession.ApplyTyping`), and checks
+  nothing that does not apply, the chip saying why.
 
 ---
 

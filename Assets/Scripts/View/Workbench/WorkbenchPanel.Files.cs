@@ -375,25 +375,22 @@ namespace BitSorter.View
         private static string Count(int n, string thing) => n.ToString(CultureInfo.InvariantCulture) + " " + thing + (n == 1 ? "" : "s");
 
         /// <summary>
-        /// Code typed into the written module on screen and not yet applied, applied now as its editor would after the
-        /// pause, so that what an export holds is what the student is looking at. The editor keeps typed text as its own until
-        /// the pause or Ctrl+Enter, and text with an error as its own for good, while the document holds the last text that
-        /// applied: exporting the document alone hands over older code without a word. Code that cannot apply is refused with
-        /// what is wrong with it, <paramref name="outcome"/> saying what then does not happen ("exported", "handed in"), and
-        /// false is returned: the export stops. True when what is on screen is the document's, whether or not it had to be applied.
+        /// Code typed into a written module and not yet applied -- on screen, kept while its drawing is up (the review of #111),
+        /// or kept since it was stepped out of (the 16d sweep) -- applied now as its editor would after the pause, so that what
+        /// an export holds, or CHECK grades, is what the student typed (<see cref="WorkbenchSession.ApplyTyping"/>). The editor
+        /// keeps typed text as its own until the pause or Ctrl+Enter, and text with an error as its own for good, while the
+        /// document holds the last text that applied: exporting the document alone hands over older code without a word. Code
+        /// that cannot apply is refused with what is wrong with it, <paramref name="outcome"/> saying what then does not happen
+        /// ("exported", "handed in", "checked"), and false is returned: the export stops. True when nothing typed is left.
         /// </summary>
         private bool ApplyTypedCode(string outcome)
         {
-            // The code on screen, or typed and kept while its drawing is up (the review of #111).
-            CodeDocument code = _session.ShowsCode ? _session.Code : _session.PendingCode;
-            if (code == null || !code.Pending)
-                return true;
-
-            EditResult applied = code.Apply();
+            EditResult applied = _session.ApplyTyping(out string module);
             if (applied.Done)
                 return true;
 
-            Notice(code.Module + "'s code on screen does not apply, so it is not " + outcome + ": " + applied.Refusal);
+            Notice(module + "'s code " + (module == _session.Module && _session.ShowsCode ? "on screen" : "typed and not applied")
+                + " does not apply, so it is not " + outcome + ": " + applied.Refusal);
             return false;
         }
 

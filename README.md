@@ -234,7 +234,8 @@ Once a circuit works, the workbench answers the questions the course asks of it.
 have solved marked and the next one picked out. An Exercise opens with its brief: what to
 build, and a hint if you ask for it (**GOAL** brings the brief back). Its own test drives
 the inputs, and only its parts are in PARTS, each with how many are left. **CHECK** grades
-the circuit: each check that failed is a line in the TRANSCRIPT that takes the run to its
+the circuit, and code as you typed it; code with an error is not checked, and the chip says
+why. Each check that failed is a line in the TRANSCRIPT that takes the run to its
 moment. Once it is solved, a card says how many gates it took and how fast it settles,
 beside your best, and offers the next.
 
