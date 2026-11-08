@@ -72,5 +72,17 @@ module scheduling;
     logic q9 = 1'b0;
     initial #d9 q9 = 1'b1;
 
+    // S10: two nonblocking writes to one variable in one time step land in turn, each its own update
+    // (IEEE 1800, 10.4.2): the fall between wakes the negedge, the rise after it the posedge, and both
+    // read the value the last write left. Writes to bits apart land together: no value between.
+    logic a10 = 1'b1, neg10 = 1'b0, pos10 = 1'b0, saw10;
+    always @(negedge a10) begin neg10 = 1'b1; saw10 = a10; end
+    always @(posedge a10) pos10 = 1'b1;
+    initial begin #12 a10 <= 1'b0; a10 <= 1'b1; end
+    logic [1:0] v10;
+    integer across10 = 0;
+    always @(v10[1] ^ v10[0]) across10 = across10 + 1;
+    initial begin #13 v10 = 2'b01; #1 v10[0] <= 1'b0; v10[1] <= 1'b1; end
+
     initial #50 $finish;
 endmodule

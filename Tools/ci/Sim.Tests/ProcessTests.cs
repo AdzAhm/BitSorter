@@ -129,6 +129,55 @@ endmodule"), 10);
             Assert.AreEqual("1", Now(sim, "bb"), "... and bb then takes ba's new 1");
         }
 
+        /// <summary>
+        /// Two nonblocking writes to one variable in one time step land one after the other, each an update of its own
+        /// (IEEE 1800, 10.4.2 and 4.9.4; Ahmad's decision, 2026-11-03): a process waiting on the edge the value between
+        /// makes is woken, and -- as Icarus and ModelSim run it -- reads the value the last one left, since every update of
+        /// the region lands before anything it wakes runs. A continuous assignment reads only that last value, as ModelSim's
+        /// does (Icarus passes the value between on through it); writes to bits apart land together, so a wait on an
+        /// expression of them sees no value between, in both. They landed together, and the edge between was lost.
+        /// </summary>
+        [Test]
+        public void TwoNonblockingWritesInOneStep_LandInTurn_AndTheEdgeBetweenWakes()
+        {
+            Simulator sim = Run(Clean(@"
+module t;
+    logic a = 1, neg = 0, pos = 0, any = 0, saw;
+    logic [1:0] v = 2'b01;
+    int across = 0, last = 0;
+    wire y;
+    logic yfell = 0;
+    assign y = a;
+    always @(negedge a) begin neg = 1; saw = a; end
+    always @(posedge a) pos = 1;
+    always @(a) any = 1;
+    always @(negedge y) yfell = 1;
+    always @(v[1] ^ v[0]) across = across + 1;
+    initial begin
+        #10 a <= 0; a <= 1;
+        #10 v[0] <= 0; v[1] <= 1;
+        #10 for (int i = 1; i <= 20000; i++) last <= i;
+    end
+endmodule"), 40);
+
+            Assert.AreEqual("1", Now(sim, "neg"), "the fall between woke @(negedge a)");
+            Assert.AreEqual("1", Now(sim, "pos"), "and the rise after it @(posedge a)");
+            Assert.AreEqual("1", Now(sim, "any"));
+            Assert.AreEqual("1", Now(sim, "saw"), "it read the value the last write left");
+            Assert.AreEqual("0", Now(sim, "yfell"), "an assign reads the last value only, as ModelSim's");
+            Assert.AreEqual("0", sim.Value(sim.Design.Find("t.across")).Format(Radix.Unsigned), "bits apart land together: no value between");
+            Assert.AreEqual("10", Now(sim, "v"));
+            Assert.AreEqual("20000", sim.Value(sim.Design.Find("t.last")).Format(Radix.Unsigned), "twenty thousand in turn are no zero-delay loop");
+            Assert.IsFalse(sim.Stopped, string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+
+            // The value between is in the history, in a delta of its own; the waves show what the step settled on.
+            SignalId a = sim.Design.Find("t.a");
+            var at10 = Enumerable.Range(0, sim.History.ChangeCount(a)).Select(i => sim.History.Change(a, i)).Where(c => c.Time == 10).ToArray();
+            CollectionAssert.AreEqual(new[] { "0", "1" }, at10.Select(c => c.Value.Format(Radix.Binary)).ToArray());
+            Assert.Less(at10[0].Delta, at10[1].Delta);
+            CollectionAssert.AreEqual(new[] { "0 1" }, Changes(sim, "a"));
+        }
+
         [Test]
         public void AlwaysComb_RunsOnceAtTimeZero_ButAlwaysStar_WaitsForAChange()
         {
