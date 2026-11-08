@@ -2203,8 +2203,10 @@ and one browser build for Part 13's checks -- and Part 12f's.
     editor, a desktop build or a browser's page ended there. The calls under way now hold at most `FunctionRunner.MaxFrames`
     (600) frames between them, each call costing its body's deepest expression (`Expr.Height`) and its own, and at most a
     hundred calls, across every function; the call past either gives x. `MaxSteps` counts everything under one call from
-    an expression, and why a call was stopped is said by the run that stopped it, each reason once -- the postponed
-    region's `$strobe` included -- and never by the next run.
+    an expression, and a call past it never ends: the run stops there, as it does for a process that never waits, and
+    every call after it gives x at once until the run has said so (`FunctionRunner.Runaway`; the 16d sweep, engine-3: the
+    run went on, and each later call spent ten million steps again). Why a call was stopped is said by the run that
+    stopped it, each reason once -- the postponed region's `$strobe` included -- and never by the next run.
   - **A design bigger than a run can hold.** A signal and a memory were bounded alone but not the whole, so a million
     words of a million bits elaborated and the run asked for terabytes. A design now holds at most 64 million bits
     (`Elaborator.MaxBits`) and 262,144 signals, every memory word one of them (`MaxSignals`, since a word costs hundreds

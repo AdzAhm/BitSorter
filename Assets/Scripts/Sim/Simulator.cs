@@ -2361,15 +2361,20 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// A function stopped short since the last time this asked -- a loop that never ends, or calls with no way out
-        /// (<see cref="FunctionRunner"/>) -- said at the time it happened, each reason once a run.
+        /// (<see cref="FunctionRunner"/>) -- said at the time it happened, each reason once a run. One that never ends stops
+        /// the run, as a process that never waits does (the 16d sweep, engine-3): the run went on, and every later call of
+        /// it spent the steps again.
         /// </summary>
         private void SayFunctionsStopped()
         {
             if (FunctionRunner.Stopped == null)
                 return;
+            bool runaway = FunctionRunner.Runaway;
             string stopped = FunctionRunner.TakeStopped();
             if (_functionsStopped.Add(stopped))
                 _history.Message(_now, Severity.Error, $"At t = {_now} {stopped}");
+            if (runaway)
+                Stopped = true;
         }
 
         private void StopOnRunaway(int p)

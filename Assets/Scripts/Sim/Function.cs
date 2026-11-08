@@ -117,8 +117,11 @@ namespace BitSorter.Sim
     /// desktop build or a browser's page would end there. So the calls under way hold at most <see cref="MaxFrames"/>
     /// frames between them, counted by what each costs (<see cref="FunctionInfo.Frames"/>) -- a call with a deep expression
     /// costs more than one with a shallow one -- and at most <see cref="MaxNesting"/> calls, across every function; a call
-    /// past either gives x. Everything under one call from an expression runs at most <see cref="MaxSteps"/> instructions.
-    /// Each is left in <see cref="Stopped"/> for the run to say (Part 13f). One run at a time, as the pure layers run.
+    /// past either gives x. Everything under one call from an expression runs at most <see cref="MaxSteps"/> instructions:
+    /// past that the function never ends, and the run stops as it does for a process that never waits (<see cref="Runaway"/>;
+    /// the 16d sweep, engine-3) -- every call after it gives x at once until the run has said so, rather than spend the
+    /// steps again. Each is left in <see cref="Stopped"/> for the run to say (Part 13f). One run at a time, as the pure
+    /// layers run.
     /// </remarks>
     internal static class FunctionRunner
     {
@@ -148,21 +151,29 @@ namespace BitSorter.Sim
         /// <summary>Why a call stopped short since this was last taken, in the run's words; null when none did.</summary>
         internal static string Stopped { get; private set; }
 
-        /// <summary><see cref="Stopped"/>, taken: the run says it once.</summary>
+        /// <summary>
+        /// Whether a call ran past <see cref="MaxSteps"/> since <see cref="Stopped"/> was last taken: a function that never
+        /// ends, which stops the run. Until it is taken, every call gives x at once.
+        /// </summary>
+        internal static bool Runaway { get; private set; }
+
+        /// <summary><see cref="Stopped"/>, taken: the run says it once. <see cref="Runaway"/> is taken with it.</summary>
         internal static string TakeStopped()
         {
             string stopped = Stopped;
             Stopped = null;
+            Runaway = false;
             return stopped;
         }
 
         /// <summary>The value an expression's call gives: the arguments' values in, the statements run, the result out.</summary>
         public static LogicVec Call(FunctionInfo f, LogicVec[] arguments, LogicVec[] values, int width, bool signed)
         {
-            if (_nesting >= MaxNesting || _frames + f.Frames > MaxFrames)
+            if (Runaway || _nesting >= MaxNesting || _frames + f.Frames > MaxFrames)
             {
-                Stopped ??= $"{f.Name} was called {_nesting} deep, each call inside the last, and the call past that gave x. " +
-                    "Does each call come nearer to one that does not call again?";
+                if (!Runaway)
+                    Stopped ??= $"{f.Name} was called {_nesting} deep, each call inside the last, and the call past that gave x. " +
+                        "Does each call come nearer to one that does not call again?";
                 LogicVec x = LogicVec.AllX(width);
                 return signed ? x.AsSigned() : x;
             }
@@ -230,8 +241,10 @@ namespace BitSorter.Sim
             {
                 if (++_steps > MaxSteps)
                 {
-                    Stopped ??= $"{f.Name} ran {MaxSteps.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} steps in one call " +
-                        "and was stopped there, with the result it had. Does a loop in it never end?";
+                    if (!Runaway)
+                        Stopped = $"{f.Name} ran {MaxSteps.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} steps in one call " +
+                            "without ending, so the run stops here, as it does for a process that never waits. Does a loop in it never end?";
+                    Runaway = true;
                     return;
                 }
 
