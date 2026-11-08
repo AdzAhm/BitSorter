@@ -82,8 +82,8 @@ you want; `pick-a-lane.json` and `pass-it-on.json` are short.
 | `title`, `order`, `chapter` | Its name, and where it sits in the run. Orders need not be tens. The run goes chapter by chapter. |
 | `goal` | The objective, stated plainly. It may name parts. |
 | `hint` | A nudge towards the answer. It may name at most one of the parts it stocks, and never which part makes which output; `ExerciseCurriculumTests` checks. |
-| `inputs`, `outputs` | Each a `name` and its `values`, one character a vector for a bit (`0110`), or binary words with spaces between for a bus. An `x` in an output leaves that answer free. |
-| `parts` | What it stocks: a gate's `kind` (or `Register`), or a block's module, each with a `count`; -1 is any number. |
+| `inputs`, `outputs` | Each a `name`, its `width` -- 1 when left out -- and its `values`: one character a vector for a bit (`0110`), or for a bus a binary word of exactly `width` digits a vector, with spaces between (`"width": 4, "values": "0101 1100"`; left at 1, each word is refused as "no value of 1 bit"). An `x` in an output leaves that answer free. |
+| `parts` | What it stocks: a gate's `kind` (or `Register`), or a block's module under `block`, each with a `count` -- -1, or left out, is any number -- and a gate's `inputs` where it is not the usual one for NOT and BUF and two for the rest. |
 | `delay`, `constants`, `clock`, `cycle` | Every gate's delay; whether constants may be drawn; whether it has a clock, `clk`; how long each vector has (0 works it out). |
 | `settleBy`, `period` | A timing Exercise's slowest input-to-output path, or a pipelining one's clock period, that the design must meet. |
 | `start`, `blocks` | The circuit it opens on, and the blocks it stocks, as structural SystemVerilog. A `start` must fail as it opens, for the reason its goal gives. |
