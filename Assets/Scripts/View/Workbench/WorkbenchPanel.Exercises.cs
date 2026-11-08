@@ -371,8 +371,8 @@ namespace BitSorter.View
 
             string took = "It took " + ExerciseRun.Took(solved, grade, unit) + ".";
             string best = !hadBest ? "Your first solve of it."
-                : fewer || quicker ? "Your best before: " + ExerciseRun.Took(bestGates, bestSettle, unit) + ". This one beats it."
-                : "Your best: " + ExerciseRun.Took(bestGates, bestSettle, unit) + ".";
+                : fewer || quicker ? "Your best before: " + ExerciseRun.Best(solved, bestGates, bestSettle, unit) + ". This one beats it."
+                : "Your best: " + ExerciseRun.Best(solved, bestGates, bestSettle, unit) + ".";
             Exercise next = ExerciseRun.Next(ExerciseCatalog.Run, Solved, after: solved.Id);
             _exerciseCard.Solve(UnderTheChip(GoalButton), ExerciseHeading(solved), took, best,
                 next != null ? "NEXT: " + ExerciseHeading(next) : null,

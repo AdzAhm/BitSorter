@@ -151,6 +151,9 @@ namespace BitSorter.ViewModel
         public static string Took(int gates, long? settle, string unit) =>
             Count(gates, "gate") + (settle.HasValue ? ", settling in " + Number(settle.Value) + " " + unit : "");
 
+        /// <summary>The student's best at <paramref name="exercise"/>, in the solved card's words: what <see cref="Took(int, long?, string)"/> says.</summary>
+        public static string Best(Exercise exercise, int gates, long? settle, string unit) => Took(gates, settle, unit);
+
         /// <summary>
         /// What <paramref name="grade"/>'s design took at <paramref name="exercise"/>: the blocks it gives, each counted whole,
         /// and its own gates -- <c>4 FA</c>, not <c>0 gates</c> -- how fast it settles, and for a pipelining exercise the

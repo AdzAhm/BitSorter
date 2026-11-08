@@ -99,6 +99,26 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNull(pipeline.Settle, "sanity: registers all round, so no settle to say");
         }
 
+        /// <summary>
+        /// The solved card's best, beside what this solve took: at an exercise that gives only blocks, each counted whole, its
+        /// gates are always 0 and no measure, so the best is how fast it settled (the 16d sweep: "It took 4 FA, settling in
+        /// 9 ns. Your best: 0 gates, settling in 9 ns."); at one of gates, their count and the settle, as ever.
+        /// </summary>
+        [Test]
+        public void TheSolvedCardsBest_AtAnExerciseOfBlocks_IsNoCountOfGates()
+        {
+            Exercise four = Run.Single(e => e.Id == "four-at-once");
+            Grade adders = ExerciseGrader.Grade(four, ExerciseFiles.Solution(four));
+            Assert.AreEqual(0, adders.Gates, "sanity: a stocked block is counted whole, its gates none");
+            string best = ExerciseRun.Best(four, adders.Gates, adders.Settle, "ns");
+            StringAssert.DoesNotContain("gate", best, "no count of gates it cannot have");
+            Assert.AreEqual("settling in " + adders.Settle + " ns", best);
+            Assert.AreEqual("0 gates", ExerciseRun.Best(four, 0, null, "ns"), "with no settle, still something to say");
+
+            Exercise half = Run.Single(e => e.Id == "half-adder");
+            Assert.AreEqual("2 gates, settling in 1 ns", ExerciseRun.Best(half, 2, 1, "ns"), "an exercise of gates: their count and the settle");
+        }
+
         [Test]
         public void ACheck_ThatIsRightButLate_SaysByHowMuch()
         {
