@@ -76,25 +76,43 @@ namespace BitSorter.ViewModel
             return rows;
         }
 
+        /// <summary>The most characters of a name's end <see cref="Tail"/> keeps: more than any room on screen holds.</summary>
+        public const int MostTail = 1024;
+
         /// <summary>
         /// <paramref name="text"/> cut from its start behind "...", until it is no wider than <paramref name="room"/> by
         /// <paramref name="width"/>: whole where it fits, and as it is where not even its last character fits behind "..." --
         /// a wave row's name, whose end tells it from the rest.
         /// </summary>
+        /// <remarks>
+        /// **The longest end that fits is found by halves** (browser-4), a dozen measures of at most <see cref="MostTail"/>
+        /// characters each: a character cut at a time, each what was left laid out whole, a 5,000-letter port name was twelve
+        /// million characters in one frame, and a browser's page ran out of memory on a longer one before it could end. An
+        /// end grows no narrower as it takes a character more, so the answer is the one a character at a time finds; and a
+        /// text longer than <see cref="MostTail"/> is wider than any room, at any size BitSorter writes in, so it is never
+        /// measured whole.
+        /// </remarks>
         public static string Tail(string text, float room, Func<string, float> width)
         {
             if (width == null)
                 throw new ArgumentNullException(nameof(width));
-            if (string.IsNullOrEmpty(text) || width(text) <= room)
+            if (string.IsNullOrEmpty(text))
                 return text ?? "";
-            for (int cut = 1; cut < text.Length; cut++)
+            if (text.Length <= MostTail && width(text) <= room)
+                return text;
+
+            // An end of `fits` characters fits behind "...", and one of `fails` does not: closed in on by halves.
+            int fits = 0, fails = Math.Min(text.Length - 1, MostTail) + 1;
+            while (fails - fits > 1)
             {
-                string shorter = "..." + text.Substring(cut);
-                if (width(shorter) <= room)
-                    return shorter;
+                int middle = fits + (fails - fits) / 2;
+                if (width("..." + text.Substring(text.Length - middle)) <= room)
+                    fits = middle;
+                else
+                    fails = middle;
             }
 
-            return text;
+            return fits == 0 ? text : "..." + text.Substring(text.Length - fits);
         }
     }
 }
