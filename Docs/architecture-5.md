@@ -526,8 +526,11 @@ Exercise    a stable id (analytics uses it), title, goal, hint, order, chapter; 
   one to eight inputs, any width, rise and fall), a constant, a register (`d`, `clk`, an optional
   asynchronous active-high `rst` with its value, a starting value, and since Part 14a a clock to Q and a
   setup), a mux of two, four or eight, a
-  splitter and a joiner bit by bit, a lamp, and a block of another module. Memory, select and written
-  blocks come with the parts that need them (Part 12). The four tri-state gates came in Part 8, so the
+  splitter and a joiner bit by bit, a lamp, and a block of another module. Written blocks came in Part 12d,
+  an operator part in Part 15h-3 and the drawing of code's box in 15h-4 (`OperatorPart`, `BoxPart`). **No
+  memory or select part was built**, though the model above lists both: a memory is written code -- an array
+  and `$readmemh` (D10) -- and a select a splitter's, or on the drawing of code a slice's box (the 16d sweep
+  found the old line still promising them to Part 12). The four tri-state gates came in Part 8, so the
   canvas could show a z: a data input `a` and a control `en`, one bit wide, printed as the primitive
   with its delay (`bufif1 #(1, 2) g1 (q, d, en);`) because no cell of the library is one. A net with
   more than one driver is a bus since Part 14f: allowed when every driver can let go -- a tri-state gate, or
