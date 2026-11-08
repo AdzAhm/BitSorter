@@ -122,6 +122,31 @@ namespace BitSorter.Sim.Tests
         }
 
         /// <summary>
+        /// A vector dumped a bit at a time with more bits than the reader takes is left out, and its bits cost its changes
+        /// nothing (the 16d sweep, engine-13): left out, every change of its id still walked all 65,537 of them doing nothing,
+        /// so a dump of 1.7 MB and a few hundred thousand changes took tens of seconds, on the main thread, in COMPARE WITH
+        /// MODELSIM'S RUN. Sixty thousand changes of such an id, beside a vector it shares the id with that is read.
+        /// </summary>
+        [Test]
+        public void AVectorDumpedABitAtATime_TooWideToRead_CostsItsChangesNothing()
+        {
+            var dump = new System.Text.StringBuilder("$scope module tb $end\n$var wire 1 ! k [0] $end\n");
+            for (int i = 0; i <= VcdReader.MostBits; i++)
+                dump.Append("$var wire 1 ! a [").Append(i).Append("] $end\n");
+            dump.Append("$upscope $end\n$enddefinitions $end\n");
+            for (int t = 0; t < 60000; t++)
+                dump.Append('#').Append(t).Append('\n').Append(t % 2).Append("!\n");
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var traces = VcdReader.Read(new StringReader(dump.ToString()));
+            clock.Stop();
+
+            Assert.IsFalse(traces.ContainsKey("tb.a"), "too wide to read: left out");
+            Assert.AreEqual(60000, traces["tb.k"].Changes.Count, "the vector beside it is read");
+            Assert.Less(clock.Elapsed.TotalSeconds, 1.0, $"read in {clock.Elapsed.TotalSeconds:F2} s");
+        }
+
+        /// <summary>
         /// The review of 16c: every change was made as wide as its variable as it was read, once for each <c>$var</c> of its id,
         /// so a dump well under the 16 MB a file may be could hold many GB. Four variables of 65,536 bits on one id, 500 changes
         /// written short, as a dump may write a vector.
