@@ -3100,6 +3100,53 @@ namespace BitSorter.PlayMode.Tests
             return dump;
         }
 
+        /// <summary>A gate slower than every pulse into it: every edge of the clock is a change on its way to y that the next swallows.</summary>
+        private const string SlowBuffer =
+            "module slow (input logic a, output logic y);\n" +
+            "    buf #7 g (y, a);\n" +
+            "endmodule\n";
+
+        private const string SlowBufferBench =
+            "module slow_tb;\n" +
+            "    logic a = 1'b0, y;\n" +
+            "    slow dut (.a(a), .y(y));\n" +
+            "    always #2 a = ~a;\n" +
+            "    initial #4000 $stop;\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A glitch swallowed is named where there is room for its words (Part 16d's sweep). The waves made a "glitch swallowed"
+        /// label for every one in view, none ever destroyed and every one moved again on every frame: a fast clock into a slow
+        /// gate swallows every pulse, and its run of 4,000 units, fitted, made some 2,000 labels in one frame. Every glitch is
+        /// still marked, by its cross.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ManyGlitchesSwallowed_AreNamedOnlyWhereTheirWordsHaveRoom()
+        {
+            PutInTheImportFolder(("slow.sv", SlowBuffer), ("slow_tb.sv", SlowBufferBench));
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.ImportFromFolder();
+            yield return null;
+            Assert.AreEqual("slow", workbench.Session.Project.Top, "sanity: imported, the design its top");
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            workbench.Seek(workbench.Model.End);
+            yield return null;
+
+            int swallowed = 0;
+            for (int row = 0; row < workbench.Model.RowCount; row++)
+                swallowed += workbench.Model.RowSwallowedSoFar(row);
+            Assert.Greater(swallowed, 1000, "sanity: the buffer swallows the clock's pulses, all of them by the end");
+
+            int labels = Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Count(label => label.text == "glitch swallowed");
+            Assert.Greater(labels, 0, "sanity: a glitch swallowed is still named");
+            Assert.LessOrEqual(labels, 64, $"{labels} labels for {swallowed} glitches: one where there is room for its words, and no more");
+        }
+
         /// <summary>
         /// An import never replaces a circuit (Part 15a, where it asked before replacing MY CIRCUIT): the same project imported
         /// twice is two circuits, the second numbered, MY CIRCUIT as it was, and FILE, OPEN lists all three, the latest first.
