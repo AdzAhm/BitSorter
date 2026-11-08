@@ -436,6 +436,36 @@ endmodule
                 "an arrow no input takes is still refused, after the second look");
         }
 
+        /// <summary>
+        /// A register of an enum of fewer than two members is no state machine, as a case of fewer than two labels is not (the
+        /// 16d sweep: an empty enum, half written, read as a machine of no states, and its diagram's layout threw).
+        /// </summary>
+        [TestCase("", TestName = "AnEnumOfNoMembers_IsNoStateMachine")]
+        [TestCase("IDLE", TestName = "AnEnumOfOneMember_IsNoStateMachine")]
+        public void AnEnumOfFewerThanTwoMembers_IsNoStateMachine(string members)
+        {
+            string text = $@"
+module skeleton (input logic clk, output logic y);
+    typedef enum logic [1:0] {{{members}}} st_t;
+    st_t state, nxt;
+    always_ff @(posedge clk) state <= nxt;
+    always_comb begin
+        nxt = state;
+        y = 1'b0;
+        case (state)
+            default: nxt = state;
+        endcase
+    end
+endmodule
+";
+            SyntaxTree tree = SyntaxReader.ReadText(text, "skeleton.sv");
+            if (tree.HasErrors)
+                Assert.Pass("refused as it is read, which is as good: " + tree.Diagnostics.First());
+            ControllerReading reading = ControllerReader.Read(tree, tree.Modules.Single(), out string why);
+            Assert.IsNull(reading?.Machine, "no machine of " + (reading?.Machine?.States.Count ?? 0) + " states");
+            StringAssert.Contains("fewer than two states", why ?? "");
+        }
+
         /// <summary>A decoder whose labels are an enum's members lights the row of the member's value (the review: every value read "otherwise").</summary>
         [Test]
         public void ADecodersEnumLabels_PickTheirRows()
