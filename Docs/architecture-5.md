@@ -5077,6 +5077,9 @@ exercises, each fixed with a test that failed first.
   splitter's or a joiner's width, typed out of range in the inspector was said by `CheckPart` -- and then the module's netlist
   was made anyway: a count below 0 threw out of the edit with no refusal shown, and a width in the hundreds of millions was a
   pin array that size. The module's check stops at the part's own error, which the edit is refused with.
+- **A register's values are read at a width it may have** (`Inspector.Apply`): its reset value and starting value are read
+  again at a new WIDTH, and at 0, below or past what a value can be, reading them threw. Past the document's range they are
+  left as they are, and the width is refused in the document's words.
 
 ---
 
