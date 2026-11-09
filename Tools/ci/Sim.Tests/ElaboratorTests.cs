@@ -697,7 +697,6 @@ endmodule", "top");
         [TestCase("module m (input logic [7:0] a, output logic y); assign y = a[64'sd9223372036854775807:-1]; endmodule", ElaborationCodes.BadSelect)]
         [TestCase("module m (input logic [7:0] a, output logic y); assign y = a[64'sh8000000000000000:0]; endmodule", ElaborationCodes.BadSelect)]
         [TestCase("module m (input logic a, output logic [7:0] y); assign y[64'sd9223372036854775807:-1] = a; endmodule", ElaborationCodes.BadSelect)]
-        [TestCase("module m (input logic a, output logic [7:0] y); assign y[64'sd9223372036854775807 -: 2] = a; endmodule", ElaborationCodes.BadSelect)]
         [TestCase("module m (input logic [3:0][3:0] a, output logic y); assign y = a[0 +: 64'd2305843009213693952]; endmodule", ElaborationCodes.TooLarge)]
         [TestCase("module m (input logic a, output logic [3:0][3:0] y); assign y[0 +: 64'd2305843009213693952] = a; endmodule", ElaborationCodes.TooLarge)]
         public void ABoundAtTheEndOfALong_IsSaid_NeverThrown(string text, string code)
@@ -705,6 +704,20 @@ endmodule", "top");
             Elaboration e = null;
             Assert.DoesNotThrow(() => e = Elaborate(text));
             CollectionAssert.Contains(Codes(e), code, string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
+        /// An indexed part-select written from the top of a long reaches outside, said so. It did before the bounds were held
+        /// too, so it reproduces nothing: it stood among ABoundAtTheEndOfALong's cases, and passed there on their red commit
+        /// (the review of the Part 16d sweep). Kept as a guard of the same place, apart from them.
+        /// </summary>
+        [Test]
+        public void AnIndexedWriteFromTheTopOfALong_ReachesOutside()
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate("module m (input logic a, output logic [7:0] y); assign y[64'sd9223372036854775807 -: 2] = a; endmodule"));
+            CollectionAssert.Contains(Codes(e), ElaborationCodes.BadSelect, string.Join("\n", e.Diagnostics));
             Assert.IsNull(e.Design);
         }
 
