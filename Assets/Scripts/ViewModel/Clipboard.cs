@@ -102,40 +102,24 @@ namespace BitSorter.ViewModel
             var madeWires = new Dictionary<int, int>();
             var kept = new HashSet<int>();
 
-            EditResult result = editor.Group(() =>
-            {
-                foreach ((Part part, Placement at) in clip.Parts)
+            // Every part and wire in one edit, checked once (BoardEditor.AddAll), and the inputs given 0 in another: each was an
+            // edit of its own, each checking the whole project, and a paste of a thousand parts took seconds (the 16d sweep).
+            var placed = new List<(Part, Placement)>(clip.Parts.Count);
+            foreach ((Part part, Placement at) in clip.Parts)
+                placed.Add((part with { Name = null }, at.Moved(dx, dy)));
+            var drawn = new List<(Wire, Route)>(clip.Wires.Count);
+            foreach ((Wire wire, Route route) in clip.Wires)
+                drawn.Add((wire, Moved(route, dx, dy)));   // a net's name is left behind: two nets of one name would be refused
+
+            // Into an exercise's top with its own ports among the clip's, the wires end on parts already in the module, which
+            // AddAll does not join: those are made an edit at a time, as every paste was -- a paste there is small.
+            EditResult result = ownPorts && HasOwnPort(editor, module, clip)
+                ? editor.Group(() => PasteEach(editor, module, clip, dx, dy, made, madeWires, kept))
+                : editor.Group(() =>
                 {
-                    if (ownPorts && part is PortPart port && editor.Project.Find(module)?.FindPart(port.Name) is PortPart own
-                        && own.Direction == port.Direction)
-                    {
-                        made[part.Id] = own.Id;
-                        kept.Add(own.Id);
-                        continue;
-                    }
-
-                    var moved = at.Moved(dx, dy);
-                    EditResult added = editor.Add(module, part with { Name = null }, moved);
-                    if (!added.Done)
-                        return added;
-                    made[part.Id] = added.Id;
-
-                    EditResult driven = GiveZero(editor, module, added.Id);
-                    if (!driven.Done)
-                        return driven;
-                }
-
-                foreach ((Wire wire, Route route) in clip.Wires)
-                {
-                    Endpoint from = Remap(wire.From, made, madeWires), to = Remap(wire.To, made, madeWires);
-                    EditResult joined = editor.Connect(module, from, to, Moved(route, dx, dy));
-                    if (!joined.Done)
-                        return joined;
-                    madeWires[wire.Id] = joined.Id;   // a net's name is left behind: two nets of one name would be refused
-                }
-
-                return EditResult.Ok();
-            });
+                    EditResult added = editor.AddAll(module, placed, drawn, made, madeWires);
+                    return added.Done ? GiveZero(editor, module, made) : added;
+                });
 
             if (!result.Done)
                 return result;
@@ -150,20 +134,75 @@ namespace BitSorter.ViewModel
             return result;
         }
 
-        /// <summary>An input of the top module pasted is given 0 from the start, as the strip gives one.</summary>
-        private static EditResult GiveZero(BoardEditor editor, string module, int part)
+        /// <summary>Whether a port of <paramref name="clip"/> is one <paramref name="module"/> has already, by name and way.</summary>
+        private static bool HasOwnPort(BoardEditor editor, string module, Clip clip)
         {
-            Project project = editor.Project;
-            if (module != project.Top || !(project.Find(module)?.FindPart(part) is PortPart port) || port.Direction != PortDirection.Input)
-                return EditResult.Ok(part);
+            Module m = editor.Project.Find(module);
+            if (m == null)
+                return false;
+            foreach ((Part part, Placement _) in clip.Parts)
+                if (part is PortPart port && m.FindPart(port.Name) is PortPart own && own.Direction == port.Direction)
+                    return true;
+            return false;
+        }
 
-            Stimulus stimulus = project.Stimulus ?? new Stimulus();
-            var tracks = new List<Track>(stimulus.Tracks) { new Track { Port = port.Name, Steps = new[] { new Step(0, LogicVec.FromUInt64(0, port.Width)) } } };
-            return editor.SetStimulus(stimulus with { Tracks = tracks });
+        /// <summary>
+        /// The clip made a part and a wire an edit at a time, a port the module has of the clip's being that one (the 16d sweep:
+        /// a cut of everything in an exercise left the ports, and its paste, adding them again, was refused whole).
+        /// </summary>
+        private static EditResult PasteEach(BoardEditor editor, string module, Clip clip, double dx, double dy,
+            Dictionary<int, int> made, Dictionary<int, int> madeWires, HashSet<int> kept)
+        {
+            foreach ((Part part, Placement at) in clip.Parts)
+            {
+                if (part is PortPart port && editor.Project.Find(module)?.FindPart(port.Name) is PortPart own && own.Direction == port.Direction)
+                {
+                    made[part.Id] = own.Id;
+                    kept.Add(own.Id);
+                    continue;
+                }
+
+                EditResult added = editor.Add(module, part with { Name = null }, at.Moved(dx, dy));
+                if (!added.Done)
+                    return added;
+                made[part.Id] = added.Id;
+            }
+
+            foreach ((Wire wire, Route route) in clip.Wires)
+            {
+                Endpoint from = Remap(wire.From, made, madeWires), to = Remap(wire.To, made, madeWires);
+                EditResult joined = editor.Connect(module, from, to, Moved(route, dx, dy));
+                if (!joined.Done)
+                    return joined;
+                madeWires[wire.Id] = joined.Id;   // a net's name is left behind: two nets of one name would be refused
+            }
+
+            var pasted = new Dictionary<int, int>();
+            foreach (KeyValuePair<int, int> entry in made)
+                if (!kept.Contains(entry.Value))
+                    pasted[entry.Key] = entry.Value;
+            return GiveZero(editor, module, pasted);
         }
 
         private static Endpoint Remap(Endpoint end, Dictionary<int, int> parts, Dictionary<int, int> wires) =>
             end.IsTap ? Endpoint.OnWire(wires[end.TapOf]) : Endpoint.At(parts[end.Pin.Part], end.Pin.Pin);
+
+        /// <summary>Each input of the top module pasted is given 0 from the start, as the strip gives one: one edit for them all.</summary>
+        private static EditResult GiveZero(BoardEditor editor, string module, Dictionary<int, int> made)
+        {
+            Project project = editor.Project;
+            Module m = project.Find(module);
+            if (module != project.Top || m == null)
+                return EditResult.Ok();
+
+            var pasted = new HashSet<int>(made.Values);
+            Stimulus stimulus = project.Stimulus ?? new Stimulus();
+            List<Track> tracks = null;
+            foreach (Part part in m.Parts)
+                if (pasted.Contains(part.Id) && part is PortPart port && port.Direction == PortDirection.Input)
+                    (tracks ??= new List<Track>(stimulus.Tracks)).Add(new Track { Port = port.Name, Steps = new[] { new Step(0, LogicVec.FromUInt64(0, port.Width)) } });
+            return tracks == null ? EditResult.Ok() : editor.SetStimulus(stimulus with { Tracks = tracks });
+        }
 
         private static Route Moved(Route route, double dx, double dy)
         {

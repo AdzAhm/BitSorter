@@ -127,6 +127,138 @@ namespace BitSorter.Board
         }
 
         /// <summary>
+        /// Places several parts and draws the wires between them as one edit, the whole checked once (a paste, Part 10d): each
+        /// part given the module's next id and, if it has none, a name of its kind free of every other -- those placed before it
+        /// here among them -- and each wire after them, in order, the next id, its ends on the parts placed here or taps on the
+        /// wires drawn before it, named by their ids in <paramref name="parts"/> and <paramref name="wires"/>. A wire's net name
+        /// stays behind, as <see cref="Connect"/> gives none: two nets of one name would be refused.
+        /// </summary>
+        /// <remarks>
+        /// What <see cref="Add"/> and <see cref="Connect"/> make a part and a wire at a time, and what they refuse: each of those
+        /// checked the whole project and copied the module, so a paste of a thousand parts took seconds and gigabytes, as the
+        /// square of its size (the 16d sweep, canvas-14). A wire joining what is joined already is refused here too, its ends
+        /// being all on what is placed here.
+        /// </remarks>
+        /// <param name="parts">Each part, by an id of its own that the wires' ends name, and where it goes.</param>
+        /// <param name="wires">Each wire, by an id of its own that later wires' taps name, and its route, or null.</param>
+        /// <param name="madeParts">Filled, once it is done, with the id each part was given, by its own.</param>
+        /// <param name="madeWires">The same, for the wires.</param>
+        public EditResult AddAll(string module, IReadOnlyList<(Part Part, Placement At)> parts, IReadOnlyList<(Wire Wire, Route Route)> wires,
+            IDictionary<int, int> madeParts = null, IDictionary<int, int> madeWires = null)
+        {
+            if (!TryModule(module, out Module m, out EditResult refused))
+                return refused;
+            if (parts == null || parts.Count == 0)
+                return EditResult.Refused("There is nothing to place.");
+            wires ??= Array.Empty<(Wire, Route)>();
+
+            HashSet<string> taken = TakenNames(m);
+            int id = m.NextId;
+            var partIds = new Dictionary<int, int>(parts.Count);
+            var newParts = new List<Part>(m.Parts.Count + parts.Count);
+            newParts.AddRange(m.Parts);
+            var placements = new Dictionary<int, Placement>(parts.Count);
+            foreach ((Part given, Placement at) in parts)
+            {
+                if (given == null)
+                    return EditResult.Refused("There is nothing to place.");
+                Part part = given;
+                // Under a library a gate takes its cell's delays, as Add gives them.
+                if (part is GatePart gate && Project.Settings?.Library?.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell)
+                    part = gate with { Rise = cell.Rise, Fall = cell.Fall };
+                string name = part.Name ?? DefaultName(taken, part);
+                taken.Add(name);
+                partIds[given.Id] = id;
+                newParts.Add(part with { Id = id, Name = name });
+                placements[id] = at;
+                id++;
+            }
+
+            // Every end is on what is placed here, so which ends are joined is the wires' alone: a set of joined ends each, a
+            // wire in its ends' set.
+            var wireIds = new Dictionary<int, int>(wires.Count);
+            var newWires = new List<Wire>(m.Wires.Count + wires.Count);
+            newWires.AddRange(m.Wires);
+            var routes = new Dictionary<int, Route>();
+            var pinSet = new Dictionary<PinRef, int>();
+            var wireSet = new Dictionary<int, int>();
+            var joined = new List<int>();
+            int Root(int set)
+            {
+                while (joined[set] != set)
+                    set = joined[set] = joined[joined[set]];
+                return set;
+            }
+            int SetOf(Endpoint end)
+            {
+                if (end.IsTap)
+                    return Root(wireSet[end.TapOf]);
+                if (!pinSet.TryGetValue(end.Pin, out int set))
+                {
+                    set = joined.Count;
+                    joined.Add(set);
+                    pinSet.Add(end.Pin, set);
+                }
+                return Root(set);
+            }
+            foreach ((Wire wire, Route route) in wires)
+            {
+                if (wire == null)
+                    return EditResult.Refused("There is nothing to draw.");
+                if (!TryRemap(wire.From, partIds, wireIds, out Endpoint from) || !TryRemap(wire.To, partIds, wireIds, out Endpoint to))
+                    return EditResult.Refused("A wire ends on something not placed with it.");
+                if (from.Equals(to))
+                    return EditResult.Refused("A wire needs two different ends.");
+                int a = SetOf(from), b = SetOf(to);
+                if (a == b)
+                    return EditResult.Refused("Those are already joined.");
+                joined[b] = a;
+                wireIds[wire.Id] = id;
+                wireSet[id] = a;
+                newWires.Add(new Wire { Id = id, From = from, To = to });
+                if (route != null)
+                    routes[id] = route;
+                id++;
+            }
+
+            Module next = m with
+            {
+                Parts = newParts,
+                Wires = newWires,
+                NextId = id,
+                Layout = m.Layout.WithParts(placements).WithRoutes(routes),
+            };
+            EditResult made = Commit(Project.WithModule(next));
+            if (made.Done)
+            {
+                if (madeParts != null)
+                    foreach (KeyValuePair<int, int> each in partIds)
+                        madeParts[each.Key] = each.Value;
+                if (madeWires != null)
+                    foreach (KeyValuePair<int, int> each in wireIds)
+                        madeWires[each.Key] = each.Value;
+            }
+            return made;
+        }
+
+        /// <summary>An end of a wire given to <see cref="AddAll"/>, on what it places, by their new ids; false for one on anything else.</summary>
+        private static bool TryRemap(Endpoint end, Dictionary<int, int> parts, Dictionary<int, int> wires, out Endpoint remapped)
+        {
+            remapped = default;
+            if (end.IsTap)
+            {
+                if (!wires.TryGetValue(end.TapOf, out int wire))
+                    return false;
+                remapped = Endpoint.OnWire(wire);
+                return true;
+            }
+            if (!parts.TryGetValue(end.Pin.Part, out int part))
+                return false;
+            remapped = Endpoint.At(part, end.Pin.Pin);
+            return true;
+        }
+
+        /// <summary>
         /// Takes a part away, and every wire on it, and every wire that tapped those -- and, for an input of the
         /// top module, what the stimulus gave it, as renaming one renames its stimulus.
         /// </summary>
@@ -1218,7 +1350,10 @@ namespace BitSorter.Board
         }
 
         /// <summary>The first free name of the part's kind: g1, r1 ...; for ports, a, b, c ... and y, z.</summary>
-        private static string DefaultName(Module m, Part part)
+        private static string DefaultName(Module m, Part part) => DefaultName(TakenNames(m), part);
+
+        /// <summary>Every name a module's parts and nets have: what a new part's name must be none of.</summary>
+        private static HashSet<string> TakenNames(Module m)
         {
             var taken = new HashSet<string>(StringComparer.Ordinal);
             foreach (Part each in m.Parts)
@@ -1227,7 +1362,11 @@ namespace BitSorter.Board
             foreach (Wire wire in m.Wires)
                 if (wire.NetName != null)
                     taken.Add(wire.NetName);
+            return taken;
+        }
 
+        private static string DefaultName(HashSet<string> taken, Part part)
+        {
             bool Free(string name) => !taken.Contains(name);
 
             if (part is PortPart port)

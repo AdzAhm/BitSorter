@@ -1564,7 +1564,10 @@ gesture of the brief's D3 and D4 is on the canvas.
   Ctrl+V makes it again a cell right and a cell down, and each paste a step further on: new ids, the document's own
   new names, wires reconnected with their bends moved, a tap at its place along the pasted wire, an input of the top
   module given 0 as one placed is -- one step, replayed, what it made selected. A net's name is not pasted: two nets
-  of one name would be refused. Ctrl+X copies and takes away.
+  of one name would be refused. Ctrl+X copies and takes away. **A paste is one edit, checked once**
+  (`BoardEditor.AddAll`, the 16d sweep, canvas-14), and the inputs' zeros one more: each part and wire was an edit of
+  its own inside the step, each checking the whole project and copying the module, so all of the 64-bit adder pasted
+  -- 516 parts and 707 wires -- took 13 s and made 9.4 GB; it takes 35 ms and 11 MB (`BigDrawingTests`).
 - **Align and spread** (`Arrange`): the selected parts' outlines lined up by their left, right, top or bottom edge,
   or their middles in a column or a row, or spread across or down, their middles evenly spaced with the first and last
   where they are -- the gaps between outlines equal only where the parts are as wide (the 16d sweep: this said equal

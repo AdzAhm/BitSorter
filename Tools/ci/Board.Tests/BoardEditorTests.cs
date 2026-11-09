@@ -177,6 +177,57 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("already joined", result.Refusal);
         }
 
+        /// <summary>
+        /// Several parts and the wires between them placed as one edit (a paste, the 16d sweep): the ids and names each would have
+        /// had placed one at a time, the wires' ends and taps on the new ones, and what Add and Connect refuse refused, leaving
+        /// the document as it was.
+        /// </summary>
+        [Test]
+        public void SeveralPartsAndTheirWires_PlacedAsOneEdit_AreWhatOneAtATimeMakes()
+        {
+            var b = new Bench();
+            b.Gate(GateKind.And);
+            var not = new GatePart { Id = 7, Kind = GateKind.Not, Inputs = 1 };
+            var and = new GatePart { Id = 8, Kind = GateKind.And };
+            var parts = new List<(Part, Placement)> { (not, new Placement(1, 1)), (and, new Placement(4, 1)) };
+            var wires = new List<(Wire, Route)>
+            {
+                (new Wire { Id = 20, From = Endpoint.At(7, "y"), To = Endpoint.At(8, "a"), NetName = "kept" }, null),
+                (new Wire { Id = 21, From = Endpoint.OnWire(20), To = Endpoint.At(8, "b") }, null),
+            };
+            var madeParts = new Dictionary<int, int>();
+            var madeWires = new Dictionary<int, int>();
+
+            EditResult placed = b.Editor.AddAll(b.Module, parts, wires, madeParts, madeWires);
+
+            Assert.IsTrue(placed.Done, placed.Refusal);
+            CollectionAssert.AreEqual(new[] { "g1", "g2", "g3" }, b.Current.Parts.Select(p => p.Name), "named as one at a time names them");
+            Assert.AreEqual(2, madeParts[7]);
+            Assert.AreEqual(3, madeParts[8]);
+            Assert.AreEqual(new Placement(4, 1), b.Current.Layout.PlacementOf(3));
+            Wire first = b.Current.FindWire(madeWires[20]), tap = b.Current.FindWire(madeWires[21]);
+            Assert.AreEqual(4, first.Id, "the wires after the parts");
+            Assert.AreEqual(Endpoint.At(2, "y"), first.From);
+            Assert.IsNull(first.NetName, "a net's name stays behind");
+            Assert.AreEqual(Endpoint.OnWire(4), tap.From, "a tap on the wire placed with it");
+            Assert.AreEqual(6, b.Current.NextId);
+
+            Project before = b.Editor.Project;
+            var joinedAgain = new List<(Wire, Route)>(wires)
+            {
+                (new Wire { Id = 22, From = Endpoint.At(7, "y"), To = Endpoint.At(8, "b") }, null),
+            };
+            EditResult again = b.Editor.AddAll(b.Module, parts, joinedAgain);
+            Assert.IsFalse(again.Done);
+            StringAssert.Contains("already joined", again.Refusal);
+            EditResult elsewhere = b.Editor.AddAll(b.Module, parts, new List<(Wire, Route)>
+            {
+                (new Wire { Id = 23, From = Endpoint.At(7, "y"), To = Endpoint.At(1, "a") }, null),
+            });
+            Assert.IsFalse(elsewhere.Done, "a wire to a part not placed with it");
+            Assert.AreSame(before, b.Editor.Project, "each refused, the document as it was");
+        }
+
         [Test]
         public void AnInputLeftUnconnected_IsAWarning_NotARefusal()
         {

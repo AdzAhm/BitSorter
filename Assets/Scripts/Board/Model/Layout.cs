@@ -130,6 +130,20 @@ namespace BitSorter.Board
             return copy.Count == Parts.Count ? this : this with { Parts = copy };
         }
         public Layout WithRoute(int wire, Route route) => this with { Routes = With(Routes, wire, route) };
+
+        /// <summary>Every wire <paramref name="routes"/> names given its route, in one copy of the layout, as <see cref="WithParts"/> does.</summary>
+        public Layout WithRoutes(IReadOnlyDictionary<int, Route> routes)
+        {
+            if (routes == null || routes.Count == 0)
+                return this;
+            var copy = new Dictionary<int, Route>(Routes.Count + routes.Count);
+            foreach (KeyValuePair<int, Route> entry in Routes)
+                copy[entry.Key] = entry.Value;
+            foreach (KeyValuePair<int, Route> entry in routes)
+                copy[entry.Key] = entry.Value;
+            return this with { Routes = copy };
+        }
+
         public Layout WithoutRoute(int wire) => this with { Routes = Without(Routes, wire) };
 
         private static IReadOnlyDictionary<int, T> With<T>(IReadOnlyDictionary<int, T> from, int key, T value)
