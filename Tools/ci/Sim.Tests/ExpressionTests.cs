@@ -144,5 +144,27 @@ endmodule");
             Assert.IsTrue(e.HasErrors || tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "it should have been refused");
             StringAssert.Contains(said, string.Join("\n", e.Diagnostics.Concat(tree.Diagnostics).Select(d => d.Message)));
         }
+
+        /// <summary>
+        /// A long concatenation, a '{default:} of a wide packed array and a long inside set are as deep as their deepest item,
+        /// not as long as they are (the Part 16d sweep): built item on item, a thousand items were a thousand evaluations deep,
+        /// past the 600 frames a call may hold, so a function giving one back gave x -- and tens of thousands, read cleanly
+        /// from a file inside the import's limit, overflowed the machine's stack itself, which nothing can catch.
+        /// </summary>
+        [Test]
+        public void ALongConcatenation_PatternOrSet_IsNoDeeperThanItsItems()
+        {
+            string items = string.Join(", ", Enumerable.Repeat("a", 1000));
+            string set = string.Join(", ", Enumerable.Range(0, 1000).Select(i => (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            CollectionAssert.AreEqual(new[] { "1000 1000 1000 1" }, Printed($@"
+module t;
+    typedef logic [999:0][0:0] wide_t;
+    logic a = 1'b1;
+    function automatic logic [999:0] joined(input logic a); return {{{items}}}; endfunction
+    function automatic wide_t filled(input logic a); wide_t v; v = '{{default: a}}; return v; endfunction
+    function automatic logic found(input int n); return n inside {{{set}}}; endfunction
+    initial #1 $display(""%0d %0d %0d %b"", $countones(joined(a)), $countones(filled(a)), $countones({{{items}}}), found(1000));
+endmodule"));
+        }
     }
 }
