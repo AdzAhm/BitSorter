@@ -4193,7 +4193,8 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   deleted, a paste, the inspector -- is made on the drawing, in an editor of its own over `RtlDrawing.Project`, and the
   drawing so edited is compiled as any drawn module is and printed (`DrawingPrinter.Print`) as the module's new code:
   `BoardEditor.SetSource`, one undo step, and the drawing made again from it. An edit that changes nothing writes
-  nothing. Its ids were the drawing's, so the result carries none.
+  nothing. Its ids were the drawing's, so the result carries none, and what it made is not selected: a paste selected
+  the numbers it gave its parts on the drawing thrown away, by then the new drawing's own parts (the 16d sweep).
 - **What is kept**: the ports in the code's order (a drawn module lists inputs first; the printed declaration's are put
   back, for an instance that connects by order), every signal's name (a wire named for a signal names its net; one
   made up, `$p4_y`, is left to the board; a generate's `slice[3].s` is `slice_3_s`), every gate's delay (on the netlist

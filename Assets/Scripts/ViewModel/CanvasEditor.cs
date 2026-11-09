@@ -491,11 +491,13 @@ namespace BitSorter.ViewModel
                     if (InHand == null)
                         return null;
                     BoardPoint at = command.Free ? command.At : CanvasSnap.Snap(command.At);
+                    bool renumbered = Renumbers;
                     EditResult placed = _session.Place(InHand, new Placement(at));
                     if (placed.Done)
                     {
                         Selection.Clear();
-                        Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: placed.Id), extend: false, toggle: false);
+                        if (!renumbered)
+                            Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: placed.Id), extend: false, toggle: false);
                         if (!command.Extend)
                             PutDown();
                     }
@@ -929,6 +931,7 @@ namespace BitSorter.ViewModel
                 return Said(EditResult.Refused(why));
             }
 
+            bool renumbered = Renumbers;
             EditResult made = _session.Connect(_draft.From, to, _draft.RouteTo(tapAt));
             if (made.Done || AskedFirst(made))
             {
@@ -936,7 +939,7 @@ namespace BitSorter.ViewModel
                 _draftOver = _checkedOver = CanvasTarget.Nothing;
                 _draftWhyNot = null;
                 Selection.Clear();
-                if (made.Done)
+                if (made.Done && !renumbered)
                     Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: made.Id), extend: false, toggle: false);
             }
 
@@ -1247,8 +1250,11 @@ namespace BitSorter.ViewModel
         {
             var parts = new List<int>();
             var wires = new List<int>();
+            bool renumbered = Renumbers;
             EditResult pasted = _session.Paste(clip, parts, wires);
-            if (pasted.Done)
+            if (pasted.Done && renumbered)
+                Selection.Clear();
+            else if (pasted.Done)
                 Selection.Box(parts, wires, extend: false);
             _version++;
             return Said(pasted);
@@ -1377,6 +1383,14 @@ namespace BitSorter.ViewModel
         /// the part in hand stayed, and the next click placed a second (the 16d sweep).
         /// </summary>
         private bool AskedFirst(EditResult result) => !result.Done && result.Refusal == WorkbenchSession.RewriteAsked && _session.AsksToRewrite;
+
+        /// <summary>
+        /// Whether an edit made now numbers the parts afresh: on the drawing of code it is written into the code and the drawing
+        /// made again (<see cref="WorkbenchSession"/>), so what it made carries no id of the drawing shown after, and is not
+        /// selected by one -- a paste selected the numbers it gave its parts on the drawing thrown away, the drawing's own
+        /// parts by then (the 16d sweep).
+        /// </summary>
+        private bool Renumbers => _session.ShowsDrawingOfCode;
 
         private EditResult Said(EditResult result)
         {
