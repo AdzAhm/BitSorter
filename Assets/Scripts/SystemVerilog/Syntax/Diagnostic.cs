@@ -67,21 +67,18 @@ namespace BitSorter.SystemVerilog.Syntax
     public sealed class DiagnosticBag
     {
         private readonly List<Diagnostic> _items = new List<Diagnostic>();
+        private int _errors;
+        private int _others;
 
         public IReadOnlyList<Diagnostic> Items => _items;
 
-        public bool HasErrors
-        {
-            get
-            {
-                foreach (Diagnostic d in _items)
-                    if (d.Severity == DiagnosticSeverity.Error)
-                        return true;
-                return false;
-            }
-        }
+        public bool HasErrors => _errors > 0;
 
-        /// <summary>A cap, so a file of nonsense gives a readable number of messages and not one per token.</summary>
+        /// <summary>
+        /// A cap, so a file of nonsense gives a readable number of messages and not one per token -- for errors and for the
+        /// rest apart, so warnings never crowd out an error after them (the 16d sweep: code pasted from a slide warns once a
+        /// no-break space, and its 501st message, an error, was dropped, the tree read as having none).
+        /// </summary>
         public const int MaxItems = 500;
 
         public void Error(SourceLocation at, string code, string message) => Add(DiagnosticSeverity.Error, at, code, message);
@@ -89,8 +86,20 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private void Add(DiagnosticSeverity severity, SourceLocation at, string code, string message)
         {
-            if (_items.Count < MaxItems)
-                _items.Add(new Diagnostic(severity, at, code, message));
+            if (severity == DiagnosticSeverity.Error)
+            {
+                if (_errors >= MaxItems)
+                    return;
+                _errors++;
+            }
+            else
+            {
+                if (_others >= MaxItems)
+                    return;
+                _others++;
+            }
+
+            _items.Add(new Diagnostic(severity, at, code, message));
         }
     }
 }
