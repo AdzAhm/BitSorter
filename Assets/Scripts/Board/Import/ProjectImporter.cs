@@ -339,6 +339,22 @@ namespace BitSorter.Board
                 kept.Add(new ProjectFile { Name = name, Text = untimed });
             }
 
+            // A name in quotes through a folder, in a file kept -- an include, a memory image's name in a define -- made the bare
+            // name of the file it names, as a module's is cut (ModuleCutter.Flattened): the project keeps them side by side.
+            bool IsKept(string name) => kept.Exists(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+            for (int i = 0; i < kept.Count; i++)
+            {
+                var renamed = new List<string>();
+                string[] lines = ModuleCutter.LinesOf(kept[i].Text);
+                for (int l = 0; l < lines.Length; l++)
+                    lines[l] = ModuleCutter.Flattened(lines[l], IsKept, renamed);
+                if (renamed.Count == 0)
+                    continue;
+                kept[i] = kept[i] with { Text = string.Join("\n", lines) };
+                foreach (string path in renamed)
+                    Note(kept[i].Name, 0, 0, ReadAsBare(path), false);
+            }
+
             // A file that declares something -- constants, types -- or includes one that does, goes inside each module
             // that includes it, where it means the same to that module. And without an include guard, which would leave it
             // empty in every module but the first once they are files of their own read together -- unless another of the
@@ -454,12 +470,17 @@ namespace BitSorter.Board
                     cutters[file] = cutter;
                 }
 
-                string source = cutter.Cut(module, out string problem);
+                var renamed = new List<string>();
+                string source = cutter.Cut(module, out string problem, renamed);
                 if (problem != null)
                 {
                     Note(module.Location.File, module.Location.Line, module.Location.Column, problem, true);
-                    source = cutter.Alone(module);
+                    renamed.Clear();
+                    source = cutter.Alone(module, renamed);
                 }
+
+                foreach (string path in renamed)
+                    Note(module.Location.File, module.Location.Line, module.Location.Column, ReadAsBare(path), false);
 
                 return new Module { Name = module.Name, Source = BoardPrinter.WithoutHeader(module.Name, source) };
             }
@@ -707,6 +728,10 @@ namespace BitSorter.Board
                     return $"its {parameter.Name} defaults to {Printer.Print(parameter.Value)} where the library's is 1: give every instance its delays, or rename the module.";
             return null;
         }
+
+        /// <summary>What a name in quotes made bare says.</summary>
+        private static string ReadAsBare(string path) =>
+            $"{path} is read as {ModuleCutter.NameOf(path)}: a project keeps its files side by side, by their names.";
 
         /// <summary>The module drawn, if it is structural and every module it uses is drawn or <paramref name="written"/>; null otherwise.</summary>
         private static Module Drawn(Dictionary<string, ModuleDeclaration> modules, HashSet<string> interfaces, string timescale, string module,

@@ -24,6 +24,9 @@ namespace BitSorter.Board
         private static readonly Regex Assigned = new Regex(@"([A-Za-z_]\w*)\s*=(?!=)", RegexOptions.CultureInvariant);
         private static readonly Regex Typedef = new Regex(@"\btypedef\b[^;]*?([A-Za-z_]\w*)\s*;", RegexOptions.CultureInvariant);
 
+        /// <summary>A string in quotes on one line, its text the group, as <see cref="ProjectImporter"/> finds the files a module names.</summary>
+        private static readonly Regex Quoted = new Regex("\"([^\"\\r\\n]*)\"", RegexOptions.CultureInvariant);
+
         private readonly string _file;
         private readonly string[] _lines;
         private readonly string[] _code;
@@ -80,7 +83,8 @@ namespace BitSorter.Board
         public string Problem { get; }
 
         /// <summary>The module whose <c>module</c> is on <paramref name="line"/> (from 1), as a text of its own; null with a reason when it cannot be.</summary>
-        public string Cut(ModuleDeclaration module, out string problem)
+        /// <param name="renamed">Where given, each name in quotes made the bare name of the file it names (<see cref="Flattened"/>).</param>
+        public string Cut(ModuleDeclaration module, out string problem, ICollection<string> renamed = null)
         {
             problem = Problem;
             int own = _bodies.FindIndex(b => b.Start == module.Location.Line - 1);
@@ -219,20 +223,43 @@ namespace BitSorter.Board
                 from++;
             var source = new StringBuilder();
             for (int i = from; i < kept.Count; i++)
-                source.Append(kept[i]).Append('\n');
+                source.Append(Flattened(kept[i], IsKept, renamed)).Append('\n');
             return source.ToString();
         }
 
         /// <summary>The text of a module whose file cannot be cut: the module alone, from its <c>module</c> to its <c>endmodule</c>.</summary>
-        public string Alone(ModuleDeclaration module)
+        public string Alone(ModuleDeclaration module, ICollection<string> renamed = null)
         {
             int own = _bodies.FindIndex(b => b.Start == module.Location.Line - 1);
             if (own < 0)
                 return "";
             var source = new StringBuilder();
             for (int l = _bodies[own].Start; l <= _bodies[own].End; l++)
-                source.Append(_lines[l]).Append('\n');
+                source.Append(Flattened(_lines[l], IsKept, renamed)).Append('\n');
             return source.ToString();
+        }
+
+        private bool IsKept(string name) => _textOf(name) != null;
+
+        /// <summary>
+        /// <paramref name="line"/> with each name in quotes that names one of the project's files through a folder --
+        /// <c>"mem/rom.hex"</c> of a <c>$readmemh</c>, or of a define a <c>$readmemh</c> reads -- made the file's bare name, as
+        /// an include's is (<see cref="Bare"/>): the project keeps its files side by side by those, so its run finds them by
+        /// those, and so does an export, which puts them beside the code. Each name made bare goes in <paramref name="renamed"/>.
+        /// </summary>
+        internal static string Flattened(string line, Func<string, bool> isKept, ICollection<string> renamed)
+        {
+            if (line.IndexOf('"') < 0)
+                return line;
+            return Quoted.Replace(line, quoted =>
+            {
+                string path = quoted.Groups[1].Value;
+                string name = NameOf(path);
+                if (name.Length == 0 || name == path || path.IndexOf(' ') >= 0 || path.IndexOf('\t') >= 0 || !isKept(name))
+                    return quoted.Value;
+                renamed?.Add(path);
+                return "\"" + name + "\"";
+            });
         }
 
         /// <summary>A guard round the whole file: <c>`ifndef X</c> and <c>`define X</c> its first code, and the <c>`endif</c> that closes them its last.</summary>

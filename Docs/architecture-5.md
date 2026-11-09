@@ -2059,7 +2059,10 @@ template is imported, then exported filled.
   the line the export heads a module's file with, "// reg4: written in BitSorter." (`BoardPrinter.WithoutHeader`), so a
   project exported and imported again is the text it was -- until the 14g-4 review found it, each round added one.
   A file whose conditionals choose *between* modules cannot be cut, and the import says so. An include is named by its
-  file's bare name, since that is how a project keeps its files.
+  file's bare name, since that is how a project keeps its files -- and so, since Part 16d's sweep, is any other name in
+  quotes that names one of them through a folder, a `$readmemh("mem/rom.hex", ...)` or a define a `$readmemh` reads, in
+  a module's text and in a file kept, each said in a note (`ModuleCutter.Flattened`): kept as written, the run looked
+  for mem/rom.hex and found nothing, and so did ModelSim, given the files side by side by an export.
 - **A project has other files** (`Project.Files`, `ProjectFiles`): what a written module includes and what
   `$readmemh` reads, each by a bare name -- the course's three `.inc` parameter files and its memory images are bare
   names beside the sources -- and a `.sv` of nothing but defines. Every run is given a copy of them
