@@ -391,6 +391,9 @@ namespace BitSorter.View
                 hint.text = text;
         }
 
+        /// <summary>Whether <paramref name="field"/> was finished with Enter or Escape and is still to be let go (<see cref="FinishedBefore"/>), asking nothing of it.</summary>
+        public static bool Finishing(TextField field) => field != null && FinishedOn.TryGetValue(field, out Finished finished) && finished.Frame >= 0;
+
         /// <summary>Whether <paramref name="focused"/>, or the field it is inside, was finished with Enter or Escape before frame <paramref name="frame"/>.</summary>
         public static bool FinishedBefore(VisualElement focused, int frame)
         {

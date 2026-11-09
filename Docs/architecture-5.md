@@ -3188,7 +3188,10 @@ without code, for buses as well as bits (2026-10-28): a double-click on the wave
   input already holds, the end it has -- commits nothing and is no undo step (`StimulusEdits.Same`), and a value the input
   holds already says so. A cell finds its row by its moment and its column by its port, and the table is made again before
   every edit, so a commit as a field is let go and the click that let it go are both made on the stimulus there is; the
-  table is not redrawn under a held mouse button, whose click a redraw would take away. A new document starts the table
+  table is not redrawn under a held mouse button, whose click a redraw would take away. **A field that has the keyboard
+  keeps it through a redraw**, found again by its row's moment and its column: a cell left by a click into another
+  commits, the table is drawn again on the release, and the cell clicked into went with the old drawing, its keys the
+  workbench's (the 16d sweep). A new document starts the table
   afresh. Times go no further than `StimulusEdits.MaxTime`, an import's own limit: a run needs a finite end.
 - **An import without its testbench says which inputs nothing drives** (`InputTable.Undriven`): they read z and what they
   feed x, and the notice says how to drive them -- INPUTS, a double-click on the wave, or importing the testbench too.

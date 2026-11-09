@@ -238,14 +238,49 @@ namespace BitSorter.View
             return (row, column);
         }
 
-        /// <summary>The table drawn: its column heads, and the rows that fit from the first scrolled to.</summary>
+        /// <summary>
+        /// The table drawn: its column heads, and the rows that fit from the first scrolled to. **A cell or a time that has the
+        /// keyboard keeps it**, found again by what it edits -- its row's moment and its column (<see cref="InputFieldKey"/>): a
+        /// cell typed in and left by a click into another commits as it is let go, the table is drawn again on the release, and
+        /// the cell clicked into went with the old drawing, so the next keys reached the workbench (the 16d sweep). One finished
+        /// with Enter or Escape is let go as ever.
+        /// </summary>
         private void DrawInputs()
         {
             _inputsDrawn = true;
+            TextField had = FocusedInputField();
+            string hadKey = had != null && !ShellTheme.Finishing(had) ? had.userData as string : null;
+            int hadCursor = had?.cursorIndex ?? 0, hadSelect = had?.selectIndex ?? 0;
             _inputsList.Clear();
             if (_inputs == null)
                 return;
+            DrawInputRows();
+            if (hadKey == null)
+                return;
+            foreach (VisualElement element in _inputsList.Children())
+                if (element is TextField field && hadKey == field.userData as string)
+                {
+                    field.Focus();   // the shell holds it from here (ShellPanel), as any field given the keyboard
+                    field.SelectRange(Mathf.Min(hadCursor, field.value.Length), Mathf.Min(hadSelect, field.value.Length));
+                    return;
+                }
+        }
 
+        /// <summary>What a field of the table edits, which a redraw keeps: a row's time by its moment, a cell by its moment and its column's input.</summary>
+        private static string InputFieldKey(long moment, string port) => port == null ? "time " + moment : "cell " + port + " " + moment;
+
+        /// <summary>The field of the table that has the keyboard, if one does.</summary>
+        private TextField FocusedInputField()
+        {
+            for (var e = _inputsList?.focusController?.focusedElement as VisualElement; e != null; e = e.parent)
+                if (e is TextField field)
+                    return field.parent == _inputsList ? field : null;
+            return null;
+        }
+
+        /// <summary>The table's line, its column heads and its rows, into the list emptied for them.</summary>
+        private void DrawInputRows()
+        {
             SchematicPalette palette = SchematicPalette.Current;
             InputTable table = _inputs;
             if (!IsFocused(_stepField))
@@ -331,6 +366,7 @@ namespace BitSorter.View
                 {
                     TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(InputAt(moment, null).Row, text), type: UiType.Caption);
                     when.SetValueWithoutNotify(row.Time.ToString(CultureInfo.InvariantCulture));
+                    when.userData = InputFieldKey(moment, null);
                     ShellTheme.Place(when, 14f, y, TimeColumnWidth, InputRowHeight - 4f);
                     _inputsList.Add(when);
                 }
@@ -349,6 +385,7 @@ namespace BitSorter.View
                             SetInputCell(atRow, atColumn, text);
                         }, type: UiType.Caption);
                         cell.SetValueWithoutNotify(row.Cells[c]);
+                        cell.userData = InputFieldKey(moment, port);
                         ShellTheme.Place(cell, x, y, width, InputRowHeight - 4f);
                         _inputsList.Add(cell);
                     }
