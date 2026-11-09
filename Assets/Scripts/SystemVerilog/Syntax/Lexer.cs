@@ -9,7 +9,9 @@ namespace BitSorter.SystemVerilog.Syntax
     /// </summary>
     /// <remarks>
     /// - **A number is one token however it is spaced.** The standard allows <c>8 'h FF</c>; the lexer
-    ///   joins it to <c>8'hFF</c>, which is what <see cref="Literal.Parse"/> reads.
+    ///   joins it to <c>8'hFF</c>, which is what <see cref="Literal.Parse"/> reads. A size and a base that
+    ///   reach the parser apart -- <c>`W'hFF</c>, the size a macro's, or the base on the next line -- the
+    ///   parser joins.
     /// - **A comment later on a line is kept**, on the token before it, because a port's or a
     ///   declaration's comment is part of what the course writes and the printer gives back.
     /// - **Look-alike characters are read as what they look like, with a warning.** Code copied out of a

@@ -198,6 +198,12 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     Next();
 
+                    // A size and its base read apart -- `W'hFF, a macro's value the size; w'b0, a macro's argument; or the
+                    // base on the next line -- are one literal, as the standard allows space between them (5.7.1); the lexer
+                    // joins them only when it reads them together (the 16d sweep). Two numbers side by side are nothing else.
+                    if (IsSize(t.Text) && Current.Kind == TokenKind.Number && IsUnsizedBase(Current.Text))
+                        t = new Token(TokenKind.Number, t.Text + Next().Text, t.Location, t.LogicalLine);
+
                     // A size cast: 8'(x).
                     if (Current.Is("'") && Peek(1).Is("("))
                     {
@@ -272,6 +278,26 @@ namespace BitSorter.SystemVerilog.Syntax
 
             Error(t.Location, DiagnosticCodes.Expected, $"Expected a value here, but found {Describe(t)}.");
             return new ErrorExpression { Location = t.Location };
+        }
+
+        /// <summary>Digits alone, a literal's size: <c>8</c>, <c>1_024</c>.</summary>
+        private static bool IsSize(string text)
+        {
+            if (text.Length == 0 || !char.IsDigit(text[0]))
+                return false;
+            foreach (char c in text)
+                if (!char.IsDigit(c) && c != '_')
+                    return false;
+            return true;
+        }
+
+        /// <summary>A based literal with no size: <c>'hFF</c>, <c>'sd5</c> -- not a fill, <c>'0</c>, which takes no size.</summary>
+        private static bool IsUnsizedBase(string text)
+        {
+            if (text.Length < 2 || text[0] != '\'')
+                return false;
+            int at = text[1] == 's' || text[1] == 'S' ? 2 : 1;
+            return at < text.Length && "bodhBODH".IndexOf(text[at]) >= 0;
         }
 
         private NumberLiteral Literal(Token t)
