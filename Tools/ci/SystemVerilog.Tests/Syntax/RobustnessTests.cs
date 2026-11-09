@@ -232,6 +232,69 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
                 "chains inside brackets");
         }
 
+        /// <remarks>
+        /// A chain of selects -- <c>a[0][0]...</c> -- or of members after one, <c>a[0].b.b...</c>, is read in a loop as an
+        /// operator chain is, each select over all the ones before it, so its tree is as deep as it is long: on a thread of a
+        /// megabyte, an import of two thousand selects overflowed the printer's stack, which nothing can catch (the review of
+        /// Part 16d's fixes, 2026-11-09). Only the read is asked here, which goes no deeper for it.
+        /// </remarks>
+        [Test]
+        public void ALongChainOfSelects_StopsWithAMessage_AsDeepNestingDoes()
+        {
+            string selects = "module m; assign y = a" + string.Concat(Enumerable.Repeat("[0]", 100_000)) + "; endmodule";
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(selects, "selects.sv")), "a hundred thousand selects");
+
+            string members = "module m; assign y = a[0]" + string.Concat(Enumerable.Repeat(".b", 100_000)) + "; endmodule";
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(members, "members.sv")), "and as many members after one");
+        }
+
+        [Test]
+        public void AChainOfAHundredSelects_IsRead()
+        {
+            // The pair of the one above: a memory of many dimensions, and a select of it as deep as anyone writes one and more.
+            string text = "module m (input logic [3:0] i, output logic y);\n    logic [1:0][1:0] mem [0:1][0:1][0:1];\n" +
+                "    assign y = mem[i[0]][i[1]][i[2]][1][0] ^ mem" + string.Concat(Enumerable.Repeat("[0]", 100)) + ";\nendmodule\n";
+            SyntaxTree tree = SyntaxReader.ReadText(text, "selects.sv");
+            Assert.IsEmpty(tree.Diagnostics);
+        }
+
+        /// <remarks>
+        /// A struct inside a struct is read by the type's reader calling itself, a level of the machine's stack each, and none
+        /// of the reader's depth: two thousand of them overflowed a megabyte's stack in the reader itself (the review of Part
+        /// 16d's fixes). Three hundred are asked here, past the depth and short of the stack, so that it is the test that fails.
+        /// </remarks>
+        [Test]
+        public void StructsNestedPastTheDepth_StopWithAMessage()
+        {
+            foreach (string kind in new[] { "struct", "union" })
+            {
+                string text = "module m; typedef " + string.Concat(Enumerable.Repeat(kind + " packed { ", 300)) + "logic x;" +
+                    string.Concat(Enumerable.Repeat(" } f;", 299)) + " } t; endmodule";
+                Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(text, "nested.sv")), kind);
+            }
+        }
+
+        /// <remarks>
+        /// Each packed dimension of a type holds the ones after it, <c>logic [3:0][7:0]</c> four bytes, so a type of ten thousand
+        /// on one declaration overflowed a megabyte's stack where the elaborator measures it (the same review).
+        /// </remarks>
+        [Test]
+        public void PackedDimensionsPastTheDepth_StopWithAMessage()
+        {
+            string text = "module m; logic " + string.Concat(Enumerable.Repeat("[0:0]", 100_000)) + " v; endmodule";
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(text, "packed.sv")));
+        }
+
+        [Test]
+        public void StructsInStructs_AndAHundredDimensions_AreRead()
+        {
+            // The pair of the two above.
+            string text = "module m;\n    typedef " + string.Concat(Enumerable.Repeat("struct packed { logic a; ", 20)) + "logic x;" +
+                string.Concat(Enumerable.Repeat(" } f;", 19)) + " } t;\n    t v;\n    logic " + string.Concat(Enumerable.Repeat("[1:0]", 100)) + " w;\nendmodule\n";
+            SyntaxTree tree = SyntaxReader.ReadText(text, "nested.sv");
+            Assert.IsEmpty(tree.Diagnostics);
+        }
+
         [Test]
         public void AChainOfAHundredOperators_IsRead()
         {
