@@ -353,6 +353,24 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.IsInstanceOf<MemberExpression>(Expr("slice[0].sum"));
         }
 
+        /// <summary>
+        /// The 16d sweep: a size and its base read apart -- a macro's value as the size, `W'hFF, a macro's argument as one,
+        /// w'b0, or the base on the next line -- stayed two numbers, 8 and 'hFF, and the read said 'Missing ;' where Icarus
+        /// and ModelSim read one literal, as the standard has it (white space may stand between a size and its base, 5.7.1).
+        /// </summary>
+        [TestCase("`define W 8\n", "`W'hA5", "8'hA5", 8, "10100101")]
+        [TestCase("`define W 8\n", "`W 'sd5", "8'sd5", 8, "00000101")]
+        [TestCase("`define Z(w) w'b0\n", "`Z(6)", "6'b0", 6, "000000")]
+        [TestCase("", "8\n'hA5", "8'hA5", 8, "10100101")]
+        public void ASizeReadApartFromItsBase_IsOneLiteral(string defines, string written, string text, int width, string bits)
+        {
+            SyntaxTree tree = Clean(defines + "module m;\n  assign y = " + written + ";\nendmodule\n");
+            var literal = (NumberLiteral)((ContinuousAssign)tree.Modules.Single().Items.Single()).Assignments.Single().Value;
+            Assert.AreEqual(text, literal.Text);
+            Assert.AreEqual(width, literal.Value.Width);
+            Assert.AreEqual(bits, literal.Value.Format(Radix.Binary));
+        }
+
         [Test]
         public void ConcatenationAndReplication_AsTheWorkshopsWriteThem()
         {
