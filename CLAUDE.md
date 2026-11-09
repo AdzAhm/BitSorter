@@ -1017,6 +1017,10 @@ stretch that way.
   from it, a state diagram is the engine run from its start (`StateExplorer`),
   and a controller's reading is checked against its netlist before it is shown
   (`ControllerCheck`). A second copy of a fact is a second thing to drift.
+  **One copy is written down on purpose**: the browser page's loading screen is drawn
+  before BitSorter exists and cannot ask it, so it writes `SchematicPalette.Dark`'s
+  colours out as CSS -- and `TheLoadingScreensColours_AreThePalettes` holds every one
+  of them to the palette, so the two cannot drift apart unseen.
 
 ## Not yet
 **5.0 was asked for by name** (2026-10-11), and its parts are listed in
