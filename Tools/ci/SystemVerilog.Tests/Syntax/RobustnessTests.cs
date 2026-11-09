@@ -246,6 +246,11 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
 
             string members = "module m; assign y = a[0]" + string.Concat(Enumerable.Repeat(".b", 100_000)) + "; endmodule";
             Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(members, "members.sv")), "and as many members after one");
+            Survives(selects, "a long chain of selects");
+            Survives(members, "a long chain of members");
+            Survives("module m; initial $display(q" + string.Concat(Enumerable.Repeat(".size()", 100_000)) + "); endmodule", "a long chain of methods");
+            Survives("module m; assign v" + string.Concat(Enumerable.Repeat("[0]", 100_000)) + " = a; endmodule", "a long chain of selects assigned to");
+            Survives("module m; assign y = a[0]" + string.Concat(Enumerable.Repeat("[0:0]", 100_000)) + "; endmodule", "a long chain of part-selects");
         }
 
         [Test]
@@ -271,6 +276,8 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
                 string text = "module m; typedef " + string.Concat(Enumerable.Repeat(kind + " packed { ", 300)) + "logic x;" +
                     string.Concat(Enumerable.Repeat(" } f;", 299)) + " } t; endmodule";
                 Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(text, "nested.sv")), kind);
+                Survives("module m; typedef " + string.Concat(Enumerable.Repeat(kind + " packed { ", 100_000)) + "logic x;" +
+                    string.Concat(Enumerable.Repeat(" } f;", 99_999)) + " } t; endmodule", $"{kind}s nested a hundred thousand deep");
             }
         }
 
@@ -283,6 +290,7 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         {
             string text = "module m; logic " + string.Concat(Enumerable.Repeat("[0:0]", 100_000)) + " v; endmodule";
             Assert.Contains(DiagnosticCodes.TooDeep, Codes(SyntaxReader.ReadText(text, "packed.sv")));
+            Survives(text, "a hundred thousand packed dimensions");
         }
 
         [Test]

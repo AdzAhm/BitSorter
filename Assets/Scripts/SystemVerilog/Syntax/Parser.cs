@@ -192,6 +192,9 @@ namespace BitSorter.SystemVerilog.Syntax
             return true;
         }
 
+        private static readonly string DimensionsTooDeep =
+            $"This type has more than {MaxDepth} packed dimensions, each holding the ones after it; BitSorter stopped reading here.";
+
         private static readonly string TooTall =
             $"This expression is more than {MaxHeight} levels deep, each operator or select in a row a level and each bracket " +
             "around it; BitSorter stopped reading here. Split it over a few assigns.";
@@ -910,8 +913,27 @@ namespace BitSorter.SystemVerilog.Syntax
             else if (AcceptKeyword("unsigned"))
                 type.Unsigned = true;
 
-            while (Current.Is("["))
-                type.Packed.Add(ParseDimension());
+            // Each packed dimension holds the ones after it, so each after the first is a level, as a bracket is (the 16d sweep:
+            // a hundred thousand of them read without a word, a type no stack would walk).
+            int dimensions = 0;
+            try
+            {
+                while (Current.Is("["))
+                {
+                    if (type.Packed.Count > 0)
+                    {
+                        if (!Enter(DimensionsTooDeep))
+                            break;
+                        dimensions++;
+                    }
+
+                    type.Packed.Add(ParseDimension());
+                }
+            }
+            finally
+            {
+                _depth -= dimensions;
+            }
 
             return type;
         }
