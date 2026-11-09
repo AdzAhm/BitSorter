@@ -226,7 +226,10 @@ Diagnostic    severity, file, line, column, code, message
   shift amount or index gives x; `>>>` fills with the sign only on a signed value.
 - **Literals.** IEEE 1800, 5.7.1: plain decimals are signed and 32 bits, a short literal pads with x or
   z only when its leftmost digit is x or z, and truncation warns when it loses a bit. `'0 '1 'x 'z`
-  are reported as filling their context.
+  are reported as filling their context. A decimal is read nine digits at a time in words of its own,
+  once its count of digits says it may fit in a value at all (the 16d sweep: `BigInteger.Parse` and a
+  bit count made one bit at a time took 6.9 GB for a hundred thousand digits; it is 0.6 MB and 29 ms),
+  and a message names a literal past forty characters cut short.
 - **Checked three ways.** Worked examples of each rule; a slow second implementation written from the
   standard's tables and `BigInteger`, held equal on thousands of random values of widths 1 to 130
   (`Tools/ci/SystemVerilog.Tests`); and about 1,600 generated cases run under Icarus and compared bit

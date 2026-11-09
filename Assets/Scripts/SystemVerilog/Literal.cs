@@ -1,5 +1,4 @@
 using System;
-using System.Numerics;
 
 namespace BitSorter.SystemVerilog
 {
@@ -79,7 +78,7 @@ namespace BitSorter.SystemVerilog
             if (sized)
             {
                 if (!TryDigits(size, out string sizeDigits) || !int.TryParse(sizeDigits, out width))
-                    return LiteralResult.Fail($"'{size}' is not a size: a size is a positive whole number.");
+                    return LiteralResult.Fail($"'{Shown(size)}' is not a size: a size is a positive whole number.");
 
                 if (width < 1)
                     return LiteralResult.Fail("A literal's size must be at least 1.");
@@ -102,7 +101,7 @@ namespace BitSorter.SystemVerilog
             string digits = rest.Substring(1);
 
             if (digits.Length == 0)
-                return LiteralResult.Fail($"The literal '{text}' has a base but no digits.");
+                return LiteralResult.Fail($"The literal '{Shown(text)}' has a base but no digits.");
 
             if (digits[0] == '_')
                 return LiteralResult.Fail("A number may not start with an underscore.");
@@ -124,19 +123,20 @@ namespace BitSorter.SystemVerilog
         private static LiteralResult PlainDecimal(string text)
         {
             if (!TryDigits(text, out string digits))
-                return LiteralResult.Fail($"'{text}' is not a number.");
+                return LiteralResult.Fail($"'{Shown(text)}' is not a number.");
 
-            BigInteger value = BigInteger.Parse(digits, System.Globalization.CultureInfo.InvariantCulture);
+            if (!DecimalNumber.TryRead(digits, out DecimalNumber value))
+                return LiteralResult.Fail($"The number {Shown(text)} is wider than BitSorter allows.");
 
-            int needed = BitLength(value) + 1;
+            int needed = value.Bits + 1;
             if (needed <= UnsizedWidth)
-                return new LiteralResult(LogicVec.FromBigInteger(value, UnsizedWidth, true), null, null, false);
+                return new LiteralResult(value.ToValue(UnsizedWidth, true), null, null, false);
 
             if (needed > LogicVec.MaxWidth)
-                return LiteralResult.Fail($"The number {text} is wider than BitSorter allows.");
+                return LiteralResult.Fail($"The number {Shown(text)} is wider than BitSorter allows.");
 
-            return new LiteralResult(LogicVec.FromBigInteger(value, needed, true), null,
-                $"The unsized number {text} needs {needed} bits; it is wider than the usual {UnsizedWidth}.", false);
+            return new LiteralResult(value.ToValue(needed, true), null,
+                $"The unsized number {Shown(text)} needs {needed} bits; it is wider than the usual {UnsizedWidth}.", false);
         }
 
         /// <summary>Binary, octal or hex digits, each worth <paramref name="bitsPerDigit"/> bits.</summary>
@@ -144,7 +144,7 @@ namespace BitSorter.SystemVerilog
         {
             long bitCount = (long)digits.Length * bitsPerDigit;
             if (bitCount > LogicVec.MaxWidth)
-                return LiteralResult.Fail($"The literal '{text}' is wider than BitSorter allows.");
+                return LiteralResult.Fail($"The literal '{Shown(text)}' is wider than BitSorter allows.");
 
             // Bits from the least significant up, one entry a bit.
             var bits = new Logic4[bitCount];
@@ -191,20 +191,21 @@ namespace BitSorter.SystemVerilog
                         $"'{digits[i]}' is not a decimal digit. A decimal literal is a whole number, or a single x or z.");
             }
 
-            BigInteger value = BigInteger.Parse(digits, System.Globalization.CultureInfo.InvariantCulture);
-            int needed = Math.Max(1, BitLength(value));
+            if (!DecimalNumber.TryRead(digits, out DecimalNumber value))
+                return LiteralResult.Fail($"The literal '{Shown(text)}' is wider than BitSorter allows.");
+            int needed = Math.Max(1, value.Bits);
 
             if (!sized)
                 width = Math.Max(UnsizedWidth, needed);
 
             if (needed > LogicVec.MaxWidth)
-                return LiteralResult.Fail($"The literal '{text}' is wider than BitSorter allows.");
+                return LiteralResult.Fail($"The literal '{Shown(text)}' is wider than BitSorter allows.");
 
             string warning = needed > width
-                ? $"The literal '{text}' needs {needed} bits but is sized {width}; its top bits are lost."
+                ? $"The literal '{Shown(text)}' needs {needed} bits but is sized {width}; its top bits are lost."
                 : null;
 
-            return new LiteralResult(LogicVec.FromBigInteger(value, width, signed), null, warning, false);
+            return new LiteralResult(value.ToValue(width, signed), null, warning, false);
         }
 
         /// <summary>Pads or truncates the bits to the width, by the standard's rule, and builds the value.</summary>
@@ -222,11 +223,19 @@ namespace BitSorter.SystemVerilog
                 writer.Set(i, i < bits.Length ? bits[i] : pad);
 
             string warning = lost
-                ? $"The literal '{text}' has more digits than its {width} bits hold; the top ones are lost."
+                ? $"The literal '{Shown(text)}' has more digits than its {width} bits hold; the top ones are lost."
                 : null;
 
             return new LiteralResult(writer.ToValue(signed), null, warning, false);
         }
+
+        /// <summary>
+        /// The literal as a message names it: whole, or cut short past forty characters, since a number of a hundred thousand
+        /// digits said in full is a message of a hundred thousand characters.
+        /// </summary>
+        private static string Shown(string text) =>
+            text.Length <= 40 ? text : text.Substring(0, 20) + "..." + text.Substring(text.Length - 8) +
+                " (" + text.Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " characters)";
 
         /// <summary>The digits of a whole number with any underscores taken out, if that is all it is.</summary>
         private static bool TryDigits(string text, out string digits)
@@ -256,17 +265,103 @@ namespace BitSorter.SystemVerilog
         private static string BaseName(int bitsPerDigit) =>
             bitsPerDigit == 1 ? "binary" : bitsPerDigit == 3 ? "octal" : "hex";
 
-        /// <summary>How many bits a non-negative number needs.</summary>
-        private static int BitLength(BigInteger value)
+        /// <summary>
+        /// A whole number read from its decimal digits, in 32-bit words, least significant first: worked in place, nine digits
+        /// a multiplication, once the digits alone have said it may fit in a value at all (the 16d sweep). BigInteger.Parse
+        /// on Unity's runtimes makes a new number for every digit, and counting the bits by shifting made one for every bit --
+        /// 6.9 GB for a hundred thousand digits under .NET 10, in one frame.
+        /// </summary>
+        private readonly struct DecimalNumber
         {
-            int bits = 0;
-            while (value > 0)
+            /// <summary>log2(10), a little under, so a number is refused only when it certainly needs more than a value's bits.</summary>
+            private const double BitsPerDigitAtLeast = 3.3219;
+
+            /// <summary>log2(10), a little over, so the words made always hold the number.</summary>
+            private const double BitsPerDigitAtMost = 3.3220;
+
+            private static readonly ulong[] Pow10 = { 1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000 };
+
+            private readonly uint[] _words;
+
+            /// <summary>How many bits the number needs: 0 for zero.</summary>
+            public readonly int Bits;
+
+            private DecimalNumber(uint[] words, int bits)
             {
-                value >>= 1;
-                bits++;
+                _words = words;
+                Bits = bits;
             }
 
-            return bits;
+            /// <summary>False, having made nothing, when the digits need more bits than any value has.</summary>
+            public static bool TryRead(string digits, out DecimalNumber value)
+            {
+                int start = 0;
+                while (start < digits.Length - 1 && digits[start] == '0')
+                    start++;
+                int count = digits.Length - start;
+
+                // At least 10^(count - 1): more than a value may hold, whatever the digits are.
+                if ((count - 1) * BitsPerDigitAtLeast >= LogicVec.MaxWidth)
+                {
+                    value = default;
+                    return false;
+                }
+
+                var words = new uint[(int)(count * BitsPerDigitAtMost / 32) + 2];
+                int used = 0;
+                int at = start;
+                int chunk = count % 9 == 0 ? 9 : count % 9;
+                while (at < digits.Length)
+                {
+                    uint part = 0;
+                    for (int end = at + chunk; at < end; at++)
+                        part = part * 10 + (uint)(digits[at] - '0');
+
+                    // words = words * 10^chunk + part
+                    ulong scale = Pow10[chunk], carry = part;
+                    for (int k = 0; k < used; k++)
+                    {
+                        ulong product = words[k] * scale + carry;
+                        words[k] = (uint)product;
+                        carry = product >> 32;
+                    }
+                    if (carry != 0)
+                        words[used++] = (uint)carry;
+                    chunk = 9;
+                }
+
+                int bits = 0;
+                if (used > 0)
+                {
+                    bits = (used - 1) * 32;
+                    for (uint top = words[used - 1]; top != 0; top >>= 1)
+                        bits++;
+                }
+
+                value = new DecimalNumber(words, bits);
+                return true;
+            }
+
+            /// <summary>The number modulo 2^<paramref name="width"/>, as a known value.</summary>
+            public LogicVec ToValue(int width, bool signed)
+            {
+                if (width <= 64)
+                    return LogicVec.FromUInt64(Word(0), width, signed);
+
+                ulong[] planes = LogicVec.NewPlanes(width);
+                int n = LogicVec.WordsFor(width);
+                for (int i = 0; i < n && 2 * i < _words.Length; i++)
+                    planes[i] = Word(i);
+                return LogicVec.Wide(width, signed, planes);
+            }
+
+            /// <summary>Bits 64i to 64i + 63.</summary>
+            private ulong Word(int i)
+            {
+                ulong low = 2 * i < _words.Length ? _words[2 * i] : 0U;
+                ulong high = 2 * i + 1 < _words.Length ? _words[2 * i + 1] : 0U;
+                return low | (high << 32);
+            }
         }
     }
 }

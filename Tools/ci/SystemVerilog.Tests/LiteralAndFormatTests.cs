@@ -107,6 +107,57 @@ namespace BitSorter.SystemVerilog.Tests
             Assert.Less(timer.ElapsedMilliseconds, 1000, "100,000 digits read in well under a second");
         }
 
+        /// <summary>
+        /// The decimal reader works nine digits at a time in words of its own: held to BigInteger, which it replaced, on
+        /// numbers of every length round the word boundaries, sized, unsized, signed and plain, with leading zeros.
+        /// </summary>
+        [Test]
+        public void DecimalDigits_ReadAsBigIntegerReadsThem()
+        {
+            var random = new Random(1800);
+            for (int round = 0; round < 400; round++)
+            {
+                int length = round < 60 ? round + 1 : random.Next(1, 120);
+                var digits = new char[length];
+                for (int i = 0; i < length; i++)
+                    digits[i] = (char)('0' + random.Next(10));
+                if (round % 7 == 0)
+                    digits[0] = '0';
+                string number = new string(digits);
+                var big = System.Numerics.BigInteger.Parse(number, System.Globalization.CultureInfo.InvariantCulture);
+                int bits = 0;
+                while (System.Numerics.BigInteger.Pow(2, bits) <= big)
+                    bits++;
+
+                foreach (string prefix in new[] { "", "'d", "'sd", "7'd", "64'd", "65'sd", "130'd" })
+                {
+                    LiteralResult result = Literal.Parse(prefix + number);
+                    Assert.IsTrue(result.Ok, $"{prefix}{number}: {result.Error}");
+                    int width = result.Value.Width;
+                    string expected = Bits(big % System.Numerics.BigInteger.Pow(2, width), width);
+                    Assert.AreEqual(expected, result.Value.Format(Radix.Binary), $"{prefix}{number}");
+
+                    int needed = prefix.Length == 0 ? bits + 1 : Math.Max(1, bits);
+                    int sizedTo = prefix.Length > 2 && char.IsDigit(prefix[0]) ? int.Parse(prefix.Substring(0, prefix.IndexOf('\''))) : -1;
+                    if (sizedTo < 0)
+                        Assert.AreEqual(Math.Max(Literal.UnsizedWidth, needed), width, $"{prefix}{number}: its width");
+                    else
+                        Assert.AreEqual(needed > sizedTo, result.Warning != null, $"{prefix}{number}: warned of bits lost");
+                }
+            }
+        }
+
+        private static string Bits(System.Numerics.BigInteger value, int width)
+        {
+            var text = new char[width];
+            for (int i = width - 1; i >= 0; i--)
+            {
+                text[i] = value.IsEven ? '0' : '1';
+                value >>= 1;
+            }
+            return new string(text);
+        }
+
         [TestCase("")]
         [TestCase("'d")]
         [TestCase("8'd")]
@@ -122,8 +173,24 @@ namespace BitSorter.SystemVerilog.Tests
 
             Assert.IsFalse(result.Ok);
             StringAssert.Contains("wider than BitSorter allows", result.Error);
+            Assert.Less(result.Error.Length, 200, "the number named cut short, not in full: " + result.Error);
             Assert.Less(allocated, 2_000_000, $"{allocated:N0} bytes allocated refusing it");
             Assert.Less(timer.ElapsedMilliseconds, 200, "refused before anything is worked out");
+        }
+
+        [Test]
+        public void TheWidestDecimalLiteral_IsRead_AndOneBitMore_IsRefused()
+        {
+            var widest = System.Numerics.BigInteger.Pow(2, LogicVec.MaxWidth) - 1;
+            string digits = widest.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            LiteralResult read = Literal.Parse("'d" + digits);
+            Assert.IsTrue(read.Ok, read.Error);
+            Assert.AreEqual(LogicVec.MaxWidth, read.Value.Width);
+            Assert.IsTrue(read.Value.IsKnown && LogicVec.ReduceAnd(read.Value)[0] == Logic4.One, "every bit a 1");
+
+            LiteralResult over = Literal.Parse("'d" + (widest + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Assert.IsFalse(over.Ok);
+            Assert.IsFalse(Literal.Parse(digits).Ok, "a plain number needs a sign bit too");
         }
 
         // -----------------------------------------------------------------
