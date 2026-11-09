@@ -127,6 +127,23 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         /// <summary>
+        /// The 16d sweep's review: a run past the limit whose operands have selects, as most do, stopped at a select's bracket
+        /// with the brackets' message -- "nests more than 200 levels deep", at a bit index -- and never said the run's own, which
+        /// says what to do about it.
+        /// </summary>
+        [TestCase("a[{0}]")]
+        [TestCase("a")]
+        [TestCase("(a[{0}])")]
+        public void ARunPastTheLimit_SaysToSplitIt_WhateverItsOperands(string operand)
+        {
+            string chain = string.Join(" ^ ", Enumerable.Range(0, 2 * Parser.MaxDepth + 10).Select(i => string.Format(operand, i % 8)));
+            SyntaxTree tree = SyntaxReader.ReadText("module m (input logic [7:0] a, output logic y);\n  assign y = " + chain + ";\nendmodule\n", "chain.sv");
+            Diagnostic first = tree.Diagnostics.First(d => d.Severity == DiagnosticSeverity.Error);
+            Assert.AreEqual(DiagnosticCodes.TooDeep, first.Code, first.ToString());
+            StringAssert.Contains("Split it over a few assigns", first.Message);
+        }
+
+        /// <summary>
         /// The 16d sweep: generate regions inside each other, an enum based on an enum, and a struct inside a struct each
         /// recursed with no count of how deep, so enough of them overflowed the stack rather than stopping the read.
         /// </summary>

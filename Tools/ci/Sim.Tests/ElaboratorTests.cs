@@ -574,12 +574,15 @@ endmodule");
 
         /// <summary>
         /// The 16d sweep: a run of operators counts as levels of nesting, so the reader stops one too deep for the walks that
-        /// build it a call a level -- and one just inside that limit is built and run.
+        /// build it a call a level -- and one just inside that limit is built and run. Its review: the limit was the brackets'
+        /// 200, so a parity of 250 bits written out, which ran before, was refused; a tree may be as tall as the deepest
+        /// bracket nest makes one, twice that, and the elaborator was measured to build a run that tall in the stack that
+        /// nest takes.
         /// </summary>
         [Test]
         public void ARunOfOperatorsJustInsideTheReadersLimit_IsBuiltAndRun()
         {
-            int terms = Parser.MaxDepth - 10;
+            int terms = 2 * Parser.MaxDepth - 10;
             string chain = string.Join(" ^ ", Enumerable.Range(0, terms).Select(i => $"a[{i}]"));
             Design design = Clean($"module m (input logic [{terms - 1}:0] a, output logic y); assign y = {chain}; endmodule");
 
