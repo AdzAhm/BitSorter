@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
@@ -209,6 +211,30 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
 
             Assert.IsFalse(tree.Diagnostics.Any(d => d.Message.Contains("expand to more than")), "joined, not stopped");
             Assert.Less(seconds, 2, "joined in a moment");
+        }
+
+        /// <summary>
+        /// The 16d sweep: every directive token -- each use of a macro among them -- had the rest of its line copied out for
+        /// it before it was looked at, though a use never reads it: a line of N uses, or a macro body of N uses (a body is one
+        /// line), cost N squared over two copies, uncharged by the expansion budget.
+        /// </summary>
+        [TestCase("line")]
+        [TestCase("body")]
+        public void ManyMacroUsesOnOneLine_AreWorkedInLinearTime(string where)
+        {
+            string uses = string.Concat(Enumerable.Repeat("`A ", 20_000));
+            string text = where == "line"
+                ? "`define A x\n" + uses + "\n"
+                : "`define A x\n`define B " + uses + "\nmodule m; `B endmodule\n";
+            var diagnostics = new DiagnosticBag();
+            Preprocessor.Run("test.sv", text, null, diagnostics, out _);
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            List<Token> tokens = Preprocessor.Run("test.sv", text, null, diagnostics, out _);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(20_000, tokens.Count(t => t.Text == "x"), "every use expanded");
+            Assert.Less(allocated, 40_000_000, $"{allocated:N0} bytes allocated working 20,000 uses on one line");
         }
 
         private static string Doubling(int length, string bottom, string step, string use)
