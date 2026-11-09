@@ -266,6 +266,37 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(pointer.Held);
         }
 
+        /// <summary>
+        /// A press made while one is held, with the held button up -- its release went unseen, in a frame a page or Escape
+        /// took the pointer from the canvas -- lets the held drag go without making it, and is a press of its own, whatever
+        /// its button. Another button pressed was taken for the drag's and asked for nothing, and the release that followed
+        /// dropped the selection where the pointer had got to; the same button pressed again started afresh with the
+        /// editor's drag still alive (the review of the 16d sweep's fixes).
+        /// </summary>
+        [Test]
+        public void APressAfterAReleaseNeverSeen_LetsTheDragHeldGo_AndIsItsOwn()
+        {
+            // The right button, the left drag's release unseen: the drag let go of, and the menu.
+            var pointer = new CanvasPointer();
+            var commands = new List<CanvasCommand>();
+            CanvasPress press = At(OnAnd);
+            pointer.Press(press, commands);
+            pointer.Move(press.Window + new Vec2(48, 0), new BoardPoint(5, 0), false, commands);
+            pointer.Press(At(OnAnd, button: 1), commands);
+            pointer.Release(new BoardPoint(9, 0), OnAnd, false, commands);
+            Assert.AreEqual("Select part 3, BeginMove 4,0, MoveTo 5,0, LetGo, Menu part 3", string.Join(", ", commands));
+            Assert.IsFalse(pointer.Held);
+
+            // The left again, its own release unseen: the drag let go of, and a click on nothing.
+            commands.Clear();
+            pointer.Press(press, commands);
+            pointer.Move(press.Window + new Vec2(48, 0), new BoardPoint(5, 0), false, commands);
+            pointer.Press(At(CanvasTarget.Nothing), commands);
+            pointer.Release(new BoardPoint(4, 0), CanvasTarget.Nothing, false, commands);
+            Assert.AreEqual("Select part 3, BeginMove 4,0, MoveTo 5,0, LetGo, Select nothing", string.Join(", ", commands));
+            Assert.IsFalse(pointer.Held);
+        }
+
         [Test]
         public void WithAPartInHand_TheLeftPlacesIt_AndTheRightPutsItDown()
         {
