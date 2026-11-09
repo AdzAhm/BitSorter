@@ -212,9 +212,16 @@ namespace BitSorter.ViewModel
         /// <summary>Whether the selection is being moved.</summary>
         public bool Moving => _hold == Hold.Moving;
 
-        /// <summary>A button pressed: what it asks for, added to <paramref name="into"/>.</summary>
+        /// <summary>
+        /// A button pressed: what it asks for, added to <paramref name="into"/>. **Another button pressed while a press is held
+        /// is that press's**, and asks for nothing: it let the press go with the editor never told, so a drag's ghost stayed
+        /// drawn, and neither its release nor Escape could end it (the 16d sweep). The held button pressed again is a release
+        /// that was never seen, and starts afresh.
+        /// </summary>
         public void Press(CanvasPress press, List<CanvasCommand> into)
         {
+            if (_hold != Hold.None && press.Button != _press.Button)
+                return;
             _hold = Hold.None;
             _press = press;
             _last = press.Window;
