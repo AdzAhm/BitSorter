@@ -105,6 +105,38 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual("a=%d\n", s.Text);
         }
 
+        /// <summary>
+        /// The 16d sweep: only \n and \t were read, and any other escaped character was kept as itself -- so "\101" was the
+        /// text 101 where Icarus and ModelSim print A, an ANSI colour's \033 lost its escape, and a string continued onto the
+        /// next line with a backslash kept the line break, or in a file of CR LF lines was never closed. Every escape of
+        /// IEEE 1800's table 5-1, and a backslash before a line's end dropped with it (5.9).
+        /// </summary>
+        [TestCase("\"\\101\\x42\\103\"", "41 42 43")]
+        [TestCase("\"\\v\\f\\a\\033[1m\"", "0b 0c 07 1b 5b 31 6d")]
+        [TestCase("\"\\0\\7\\x4\\xfF!\"", "00 07 04 ff 21")]
+        [TestCase("\"\\1234\"", "53 34")]
+        [TestCase("\"ab\\\ncd\"", "61 62 63 64")]
+        [TestCase("\"ab\\\r\ncd\"", "61 62 63 64")]
+        [TestCase("\"\\\\ \\\" \\q\"", "5c 20 22 20 71")]
+        public void Strings_ReadEveryEscapeOfTheStandard(string source, string codes)
+        {
+            Token s = Lex(source).Single();
+            Assert.AreEqual(TokenKind.String, s.Kind);
+            Assert.AreEqual(codes, string.Join(" ", s.Text.Select(c => ((int)c).ToString("x2"))), "the characters, by their codes");
+        }
+
+        [Test]
+        public void AStringOfEveryEscape_IsPrintedBackAsItReads()
+        {
+            const string written = "module m; initial $display(\"\\033[1m\\v\\f\\a\\001 \\\\ \\\" done\\n\\t\"); endmodule";
+            SyntaxTree tree = SyntaxReader.ReadText(written, "t.sv");
+            string printed = Printer.Print(tree);
+            StringAssert.Contains("\\033[1m\\v\\f\\a\\001 \\\\ \\\" done\\n\\t", printed);
+
+            SyntaxTree again = SyntaxReader.ReadText(printed, "t.sv");
+            Assert.AreEqual(printed, Printer.Print(again), "a fixed point");
+        }
+
         [Test]
         public void ABackslashAtALinesEnd_ContinuesTheLogicalLine()
         {
