@@ -113,8 +113,15 @@ disabled.
 not by the page. The 4.x game's main menu had a Quit item, compiled out of WebGL
 builds; it went with that menu in Part 16a, and 5.0 has no Quit item and no
 `Application.Quit` call anywhere. The Windows build is closed by its window's own
-close button -- Escape closes what is on top and never the workbench. Either way the circuit open is kept as BitSorter loses
-the focus or quits (`WorkbenchPanel.OnApplicationFocus`, `OnApplicationQuit`).
+close button -- Escape closes what is on top and never the workbench.
+
+The circuit open is kept half a second after its last edit, and at once as
+BitSorter loses the focus (`WorkbenchPanel.OnApplicationFocus`). The Windows
+build keeps it as it quits too (`OnApplicationQuit`), with code typed inside the
+code editor's pause applied first. A browser runs nothing as its tab closes:
+`OnApplicationQuit` does not run there, and the page sets no `beforeunload`,
+`pagehide` or `visibilitychange` hook. So a tab closed within half a second of
+the last edit, or inside the pause after typing, can lose that edit.
 
 ### Not affected
 
