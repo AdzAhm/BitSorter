@@ -70,23 +70,37 @@ namespace BitSorter.Board
             return module.Layout with { Parts = at, Routes = routes };
         }
 
-        /// <summary>Whether two layouts put every part and wire in the same place -- the view's pan and zoom aside.</summary>
+        /// <summary>The route a wire with none of its own is drawn on: the automatic one.</summary>
+        private static readonly Route Automatic = new Route();
+
+        /// <summary>
+        /// Whether two layouts put every part and wire in the same place -- the view's pan and zoom aside. A wire with no route
+        /// kept is on the automatic route, as one whose route of no bends was kept by ROUTE AGAIN is: counted as two layouts,
+        /// a tidy circuit routed again was untidy (the 16d sweep).
+        /// </summary>
         public static bool Same(Layout a, Layout b)
         {
-            if (a.Parts.Count != b.Parts.Count || a.Routes.Count != b.Routes.Count)
+            if (a.Parts.Count != b.Parts.Count)
                 return false;
             foreach (KeyValuePair<int, Placement> part in a.Parts)
                 if (!b.Parts.TryGetValue(part.Key, out Placement other) || !other.Equals(part.Value))
                     return false;
             foreach (KeyValuePair<int, Route> route in a.Routes)
-            {
-                if (!b.Routes.TryGetValue(route.Key, out Route other) || other.Smooth != route.Value.Smooth ||
-                    !other.TapAt.Equals(route.Value.TapAt) || other.Bends.Count != route.Value.Bends.Count)
+                if (!SameRoute(route.Value, b.Routes.TryGetValue(route.Key, out Route other) ? other : Automatic))
                     return false;
-                for (int i = 0; i < other.Bends.Count; i++)
-                    if (!other.Bends[i].Equals(route.Value.Bends[i]))
-                        return false;
-            }
+            foreach (KeyValuePair<int, Route> route in b.Routes)
+                if (!a.Routes.ContainsKey(route.Key) && !SameRoute(route.Value, Automatic))
+                    return false;
+            return true;
+        }
+
+        private static bool SameRoute(Route a, Route b)
+        {
+            if (a.Smooth != b.Smooth || !a.TapAt.Equals(b.TapAt) || a.Bends.Count != b.Bends.Count)
+                return false;
+            for (int i = 0; i < a.Bends.Count; i++)
+                if (!a.Bends[i].Equals(b.Bends[i]))
+                    return false;
             return true;
         }
 
