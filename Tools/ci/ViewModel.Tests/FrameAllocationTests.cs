@@ -190,18 +190,29 @@ namespace BitSorter.ViewModel.Tests
                 least = Math.Min(least, BytesEach(() => Frame(time += frame), 600));
             Assert.AreEqual(0, least, $"a frame's wires on {model.Layout.Nets.Count} nets, playing");
 
-            // Each moment in a new step, so worked out each time; and each in the one step, so worked out once.
+            // Each moment in a new step, so worked out each time; and each in the one step, so worked out once. Each the fastest
+            // of three runs, as the machine's other work -- the oracles, run beside these in a full run -- once made a run of the
+            // one step 31 ms against 53.
             double across = Math.Floor(model.End * 0.5), within = Math.Floor(model.End * 0.75) + 0.1;
+            Assert.Greater(model.End, across + 401, "sanity: four hundred steps of the run to cross");
             Frame(across);
             Frame(within);
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-            for (int i = 0; i < 400; i++)
-                Frame(across += 1.0);
-            double eachStep = watch.Elapsed.TotalMilliseconds;
-            watch.Restart();
-            for (int i = 0; i < 400; i++)
-                Frame(within += 0.002);
-            double oneStep = watch.Elapsed.TotalMilliseconds;
+            double eachStep = double.MaxValue, oneStep = double.MaxValue;
+            var watch = new System.Diagnostics.Stopwatch();
+            for (int run = 0; run < 3; run++)
+            {
+                double at = across;
+                watch.Restart();
+                for (int i = 0; i < 400; i++)
+                    Frame(at += 1.0);
+                eachStep = Math.Min(eachStep, watch.Elapsed.TotalMilliseconds);
+                at = within;
+                watch.Restart();
+                for (int i = 0; i < 400; i++)
+                    Frame(at += 0.002);
+                oneStep = Math.Min(oneStep, watch.Elapsed.TotalMilliseconds);
+            }
+            TestContext.WriteLine($"400 frames in one step: {oneStep:F2} ms; 400 in a step each: {eachStep:F2} ms");
             Assert.Less(oneStep, eachStep / 2, $"400 frames in one step took {oneStep:F2} ms, 400 in a step each {eachStep:F2} ms");
         }
 
