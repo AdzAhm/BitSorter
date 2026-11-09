@@ -1379,7 +1379,9 @@ on an input's row, undo and redo -- is 9b-3b-2.
   - Alt and a click on a wire still adds its signal
   - Q turns the selection a quarter and Shift+Q back, V mirrors it on screen however it was turned, Ctrl+A
     selects all
-  - Delete takes away what is selected on whichever was clicked last, the circuit or the waveform's rows
+  - Delete takes away what is selected on whichever was clicked last, the circuit or the waveform's rows -- or, for
+    the circuit, selected on last from elsewhere: Ctrl+A, a CODE line or a TRANSCRIPT line, which Delete missed for
+    the rows until the 16d sweep
   - the help under the stage is two lines, the circuit's gestures and then the waveform's: as one line it ran
     the width of the screen in a small size (Ahmad, 2026-10-20)
 - **The parts strip is temporary**, a column of the canvas's own buttons left of the stage, until Part 11's shell

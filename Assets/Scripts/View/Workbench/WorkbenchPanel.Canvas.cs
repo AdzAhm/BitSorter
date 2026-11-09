@@ -50,7 +50,11 @@ namespace BitSorter.View
         private int _overlayVersion = -1;
         private int _drawnLayout = -1;
 
-        /// <summary>Whether the circuit was clicked last, rather than the waveform: what Delete takes away.</summary>
+        /// <summary>
+        /// Whether the circuit was chosen last, rather than the waveform: what Delete takes away and Enter inspects. Clicked, or a
+        /// selection made on it from elsewhere -- Ctrl+A, a CODE line, a TRANSCRIPT line -- which Delete missed for the
+        /// waveform's rows (the 16d sweep).
+        /// </summary>
         private bool _canvasFocused;
 
         /// <summary>Whether Space has been used to pan since it went down: then its release plays nothing.</summary>

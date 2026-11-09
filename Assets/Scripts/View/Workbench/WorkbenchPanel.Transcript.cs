@@ -395,6 +395,9 @@ namespace BitSorter.View
                 _editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: l.Part), false, false);
             else if (l.Wire >= 0)
                 _editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: l.Wire), false, false);
+            else
+                return;
+            _canvasFocused = true;   // what Delete and Enter now act on (the 16d sweep)
         }
 
         // -----------------------------------------------------------------

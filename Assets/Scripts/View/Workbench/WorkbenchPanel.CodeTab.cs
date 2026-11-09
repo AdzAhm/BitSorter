@@ -175,6 +175,8 @@ namespace BitSorter.View
             if (line < 1)
                 return;
             int parts = _editor.SelectLine(line);
+            if (parts > 0)
+                _canvasFocused = true;   // the selection made on the drawing is what Delete and Enter act on (the 16d sweep)
             string number = line.ToString(System.Globalization.CultureInfo.InvariantCulture);
             Notice(parts == 0 ? "Line " + number + " makes no part of the drawing by itself."
                 : "Line " + number + ": " + parts.ToString(System.Globalization.CultureInfo.InvariantCulture) + (parts == 1 ? " part" : " parts") + " selected on the drawing.");

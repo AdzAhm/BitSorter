@@ -581,7 +581,10 @@ namespace BitSorter.View
                 case WorkbenchCommand.TurnLeft: CanvasEdit(_editor.Turn(1)); break;
                 case WorkbenchCommand.TurnRight: CanvasEdit(_editor.Turn(-1)); break;
                 case WorkbenchCommand.Mirror: CanvasEdit(_editor.Mirror()); break;
-                case WorkbenchCommand.SelectAll: _editor.SelectAll(); break;
+                case WorkbenchCommand.SelectAll:
+                    _editor.SelectAll();
+                    _canvasFocused = true;   // what Delete and Enter now act on (the 16d sweep)
+                    break;
                 case WorkbenchCommand.Inspect: InspectSelected(); break;
                 case WorkbenchCommand.Copy: CopySelected(); break;
                 case WorkbenchCommand.Cut: CutSelected(); break;
