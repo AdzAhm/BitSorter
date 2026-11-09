@@ -142,8 +142,8 @@ namespace BitSorter.Sim
     /// (<c>vvp -n</c>), ends the run at a <c>$stop</c> instead, so the two agree up to it.
     ///
     /// **The transcript.** <c>$display</c> and its kind write lines into the history's messages, at the
-    /// time they run; <c>$write</c> leaves its line open for the next, which is shown as it stands once the
-    /// run hands back for good or suspends (<see cref="RunTo"/>). <c>$monitor</c> and <c>$strobe</c>
+    /// time they run; <c>$write</c> leaves its line open for the next, which is shown as it stands whenever the
+    /// run hands back but paused by its budget (<see cref="RunTo"/>). <c>$monitor</c> and <c>$strobe</c>
     /// print once the time step has settled, the monitor first, as Icarus orders them; the monitor only
     /// when one of its values other than the time changed.
     ///
@@ -615,10 +615,12 @@ namespace BitSorter.Sim
         {
             RunResult result = Run(time, maxEvents);
 
-            // A line $write began and nothing ended is shown once the run hands back for good or suspends -- stopped, at a
-            // $stop, or with nothing left to run -- as a simulator shows what was written (the 16d sweep, engine-11). Paused,
-            // or at a time with more to come, it stays open for the next call to go on with.
-            if (_line.Length > 0 && (Stopped || Suspended || _heap.Count == 0))
+            // A line $write began and nothing ended is shown whenever the run hands back but paused by its budget -- stopped, at
+            // a $stop, or at the time it was run to, with more to come or not -- as a simulator shows what was written (the 16d
+            // sweep, engine-11). A testbench whose clock runs for ever is run to its stop time, and showed nothing until the
+            // review of the 16d engine batch. Paused, the next call goes on at once, and the line stays open for it: a run made
+            // a slice at a time is one line, not one a slice. Run on past where it was shown, a line goes on as a new one.
+            if (_line.Length > 0 && result.Status != RunStatus.Paused)
                 EndLine(Severity.Info);
 
             // What the design has written into its files is written out whenever a run hands back -- but paused by its budget,
