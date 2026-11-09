@@ -564,6 +564,12 @@ endmodule");
         // still asked for most of a gigabyte (Part 13f review).
         [TestCase("module m (output logic y); logic mem [0:1048575]; endmodule", ElaborationCodes.TooLarge)]
         [TestCase("module m (output logic y); logic [7:0] a [0:131071]; logic [7:0] b [0:131071]; endmodule", ElaborationCodes.TooLarge)]
+        // And by parts (the Part 16d sweep): each generate loop was held to 65,536 rounds alone, never a loop inside another, and
+        // a round that declares no signal and makes no instance was counted by nothing -- two loops of 65,536 made 4.3 thousand
+        // million blocks, and a browser's page ran out of memory with no word said.
+        [TestCase("module m; for (genvar i = 0; i < 600; i++) begin : a for (genvar j = 0; j < 600; j++) begin : b end end endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (input logic [399:0] a, b, output logic [159999:0] y); for (genvar i = 0; i < 400; i++) begin : r " +
+            "for (genvar j = 0; j < 400; j++) begin : c assign y[i*400+j] = a[i] & b[j]; end end endmodule", ElaborationCodes.TooLarge)]
         public void AnError_IsReported_AndThereIsNoDesign(string text, string code)
         {
             Elaboration e = Elaborate(text);
@@ -662,6 +668,17 @@ endmodule", "top");
             Assert.IsTrue(Codes(e).Contains(code), "the error after them");
             Assert.IsTrue(e.HasErrors);
             Assert.IsNull(e.Design);
+
+        /// What the parts limit leaves room for: a loop inside a loop of 65,536 rounds between them, an assign each, is built --
+        /// the pair of the refusals above, so they cannot pass by refusing everything.
+        /// </summary>
+        [Test]
+        public void LoopsInsideLoops_OfAFullLoopsRounds_AreBuilt()
+        {
+            Elaboration e = Elaborate("module m (input logic [255:0] a, b, output logic [65535:0] y); for (genvar i = 0; i < 256; i++) begin : r " +
+                "for (genvar j = 0; j < 256; j++) begin : c assign y[i*256+j] = a[i] & b[j]; end end endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            Assert.AreEqual(65536, e.Design.Drivers.Count);
         }
 
         [Test]
