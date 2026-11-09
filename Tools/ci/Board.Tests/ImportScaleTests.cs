@@ -59,5 +59,28 @@ namespace BitSorter.Board.Tests
             Assert.Less(made, 64 * Megabyte, "a thousand gates made 13.5 GB, an edit at a time");
             Assert.Less(seconds, 10, "and took 14 s");
         }
+
+        /// <summary><c>assign w1 = a; assign w2 = w1; ...</c>, <paramref name="aliases"/> long: one net of many names.</summary>
+        private static string Aliases(int aliases)
+        {
+            var text = new StringBuilder("module chain (input logic a, output logic y);\n    logic w0;\n    assign w0 = a;\n");
+            for (int i = 1; i <= aliases; i++)
+                text.Append("    logic w").Append(i).Append(";\n    assign w").Append(i).Append(" = w").Append(i - 1).Append(";\n");
+            return text.Append("    assign y = w").Append(aliases).Append(";\nendmodule\n").ToString();
+        }
+
+        /// <summary>
+        /// The names an assign joins are gathered by a union-find, which had no path compression and put each older root under
+        /// the newer name: a chain of aliases became a list, walked from every name, the square of its length -- 16,000 took
+        /// 2 s, and 40,000, a file of 1.3 MB, 25 s.
+        /// </summary>
+        [Test]
+        public void AChainOfFortyThousandAliases_IsJoinedInMoments()
+        {
+            (_, double seconds, Module drawn) = Draw(Aliases(40_000), "chain");
+
+            Assert.AreEqual(1, drawn.Wires.Count, "sanity: one net, a to y, one wire");
+            Assert.Less(seconds, 3, "16,000 aliases took 2 s, and the time grew as their square");
+        }
     }
 }
