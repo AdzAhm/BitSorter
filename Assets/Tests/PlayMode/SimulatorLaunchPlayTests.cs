@@ -330,6 +330,27 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The launch after one that stopped while opening anything but MY CIRCUIT -- a sample, an exercise, a circuit of the
+        /// student's -- opens the start page over MY CIRCUIT, as it did before save-6, and Escape takes it down onto MY
+        /// CIRCUIT: only a stop while MY CIRCUIT opened puts the reference under it (the save-6 fix's review: every
+        /// recovery did).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ALaunchThatStoppedWhileOpeningSomethingElse_OpensTheStartPageOverMyCircuit()
+        {
+            Plant(store => store.LastOpen = Documents.SampleKey(WorkbenchSamples.All[2].Name));
+            Preferences.SetInt(WorkbenchPanel.OpeningKey, WorkbenchPanel.OpeningOther);
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: the start page, not what stopped the last launch");
+            Assert.AreEqual(WorkbenchPanel.StoppedOpening, workbench.ChipText, "sanity: and why");
+            Assert.AreEqual(0, workbench.Sample, "over MY CIRCUIT, which did not stop it");
+            Assert.AreEqual(WorkbenchSamples.MyCircuitKey, workbench.DocumentKey);
+            Assert.AreEqual("", Find<ProgressTracker>().Store.LastOpen, "the start page what opens next, as any time it is up");
+        }
+
+        /// <summary>
         /// The launch after one that stopped while opening MY CIRCUIT opens the start page over the reference circuit, never
         /// over MY CIRCUIT, and remembers the reference as what opens next: the recovery built MY CIRCUIT before its start
         /// page, so a MY CIRCUIT that stopped the page stopped it again, every launch (save-6). A launch onto the start page is
