@@ -5060,7 +5060,9 @@ exercises, each fixed with a test that failed first.
   (`CodeDocument.Follow`), an edit of the drawing or an undo setting aside what was typed against the code before, as the
   editor shown always did. `Drafts` lists what is typed, by module, and `DraftsVersion` says when it changed; the workbench
   writes it with the circuit (`KeepMyCircuit`, two seconds after typing alone, at once as another circuit, an exercise or a
-  sample opens and as BitSorter quits) and gives it back to the next session (`drafts`, section 8), each module with one
+  sample opens, as the page or the window loses the focus, and as the desktop build quits -- a browser runs nothing as its
+  tab closes, so there the typing of the last two seconds before is not written unless the focus went first, as an edit of
+  the last half second never was) and gives it back to the next session (`drafts`, section 8), each module with one
   opening on its code. `ApplyTyping` applies everything typed, on screen or not, or refuses at the first text that does not
   apply, naming its module: what EXPORT, the hand-in, the lock and CHECK do first. A sample is never written, so what is
   typed into one goes with it, as its edits do.

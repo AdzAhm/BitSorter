@@ -205,6 +205,13 @@ stretch that way.
   keeps that cannot open is left as it is, the reference circuit shown in its
   place (`WorkbenchSession.TryOpen`).
 
+  a sample or quitting -- but a browser runs nothing as its tab closes, so
+  there the typing of the two seconds before it closes can be) --
+  `Docs/architecture-5.md`, section 8. Every key added
+  later is read as absent by an older file. 4.x had no version field, and its
+  boards, free play and blocks are no longer read -- its solves and hints still
+  are, being the same names.
+
 ## Working agreement
 - **The loop below, with its exact calls, is the `unity-test-loop` skill**
   (`.claude/skills/unity-test-loop/`): compile, check the DLL, Edit Mode, Play

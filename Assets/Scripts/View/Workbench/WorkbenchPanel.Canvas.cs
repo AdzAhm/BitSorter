@@ -180,8 +180,10 @@ namespace BitSorter.View
         /// Writes the circuit open, under its own key (Part 15a), when it has changed: <paramref name="now"/>, or half a
         /// second after an edit. **With it, the code typed into its written modules and not applied** (Ahmad, 2026-11-03:
         /// kept as a draft, <see cref="WorkbenchSession.Drafts"/>), which the next session opened on it is given back, so
-        /// opening another circuit or a sample, and quitting -- each of which keeps the circuit open at once -- never lose
-        /// it; typing alone is written <see cref="DraftDelay"/> after it changed. The samples are never written.
+        /// opening another circuit or a sample, and quitting the desktop build -- each of which keeps the circuit open at once --
+        /// never lose it; typing alone is written <see cref="DraftDelay"/> after it changed. **A browser runs nothing as its tab
+        /// closes** (no OnApplicationQuit), so there what was typed in the last <see cref="DraftDelay"/> seconds before -- an edit
+        /// in the last half second -- is lost unless the page lost the focus first. The samples are never written.
         /// </summary>
         private void KeepMyCircuit(bool now)
         {

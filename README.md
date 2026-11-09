@@ -148,9 +148,10 @@ opens its code in the circuit's window. It applies itself when you pause typing;
 **Ctrl+Enter** or **Ctrl+S** applies it at once. Code with an error stays as you typed it,
 marked NOT APPLIED while the waves are the last code that worked, and it is kept: step
 out, open another circuit or a sample, or quit, and it is there when you come back, until
-you fix it or press **REVERT**. **Ctrl+Z** and **Ctrl+Y** undo and redo
-the typing, **Tab** and **Shift+Tab** indent and outdent by four spaces, and **Ctrl+/**
-comments lines out or back in. In a browser **Ctrl+F** finds and replaces and **Ctrl+D**
+you fix it or press **REVERT**. (A browser runs nothing as its tab closes, so there what
+you typed in the last two seconds before closing it may not be kept.) **Ctrl+Z** and
+**Ctrl+Y** undo and redo the typing, **Tab** and **Shift+Tab** indent and outdent by four
+spaces, and **Ctrl+/** comments lines out or back in. In a browser **Ctrl+F** finds and replaces and **Ctrl+D**
 selects the next match. While you type, none of the workbench's own keys act.
 
 The classic first slips are answered with what to write instead: an `assign` inside an
