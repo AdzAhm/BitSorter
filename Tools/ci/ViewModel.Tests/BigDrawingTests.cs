@@ -430,9 +430,11 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(now.x, ghost.x, 1e-3, "a wire carried along, its first end where its pin has got to");
             Assert.AreEqual(now.y, ghost.y, 1e-3);
 
+            // What a step makes holds it, as no load on the machine moves it (186 MB before); the time, 18 to 30 ms here alone,
+            // came past 50 once with other test runs on the machine, and is held to a fifth of the 491 ms it took.
             TestContext.WriteLine($"a step of dragging all of it: {took:F1} ms, {made / 1024.0:F0} KB");
-            Assert.Less(took, 50, "a step of the drag");
             Assert.Less(made, 4 << 20, "what a step makes");
+            Assert.Less(took, 100, "a step of the drag");
         }
 
         /// <summary>

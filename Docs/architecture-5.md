@@ -3352,7 +3352,7 @@ the slower of the two, and it was made more than once an edit.
   twice, the second time from the routes the first made, and the review found a 500 ms edit told as 6 ms.
 - **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; a
   drag by an offset carries the wires between its parts, runs a bent one through its bends and routes those out to the
-  rest; all of the thousand-part adder dragged takes a step within 50 ms and 4 MB, its wires carried end to end; the
+  rest; all of the thousand-part adder dragged takes a step within 4 MB and 100 ms (about 19 alone), its wires carried end to end; the
   session routes a document once, an input's edit keeps the routes, and a move and its undo route afresh to what routing
   from nothing gives; the hit map and the drawing take the routes they are given; the hint's rule, the session keeping the
   slowest until asked, and a slow edit of the thousand-part adder heard as slow; and that adder drawn, timed and dragged
