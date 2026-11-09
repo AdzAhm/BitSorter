@@ -363,5 +363,40 @@ module t;
 endmodule");
             StringAssert.Contains("its members are a, b and c", string.Join("\n", e.Diagnostics));
         }
+
+        /// <summary>
+        /// An enum's names each stand for a value of their own that its type can hold (IEEE 1800, 6.19), as Icarus 12 and
+        /// ModelSim both refuse otherwise: a fifth name in two bits counted on round to IDLE's 0, so case (s) IDLE: ... D: never
+        /// reached D's arm and the waves named the state IDLE (the Part 16d sweep).
+        /// </summary>
+        [TestCase("typedef enum logic [1:0] {IDLE, A, B, C, D} state_t;", ElaborationCodes.WidthMismatch, "D would be 4")]
+        [TestCase("typedef enum logic [1:0] {X = 0, Y = 1, Z = 1} state_t;", ElaborationCodes.Duplicate, "Y's too")]
+        [TestCase("typedef enum logic [1:0] {P = 5} state_t;", ElaborationCodes.WidthMismatch, "P is given 5")]
+        [TestCase("typedef enum logic [1:0] {Q = -1} state_t;", ElaborationCodes.WidthMismatch, "Q is given -1")]
+        [TestCase("typedef enum logic signed [1:0] {M = -2, N, O, R} state_t;", ElaborationCodes.WidthMismatch, "R would be 2")]
+        [TestCase("typedef enum logic signed [1:0] {S = 2} state_t;", ElaborationCodes.WidthMismatch, "S is given 2")]
+        [TestCase("typedef enum logic [1:0] {U = 2'b1x, V} state_t;", ElaborationCodes.NotConstant, "V follows U")]
+        [TestCase("typedef enum bit [1:0] {W = 2'b1x} state_t;", ElaborationCodes.NotConstant, "only 0 and 1")]
+        [TestCase("typedef enum {E0, E1 = 0} state_t;", ElaborationCodes.Duplicate, "E0's too")]
+        public void AnEnumsNames_EachHoldAValueOfTheirOwn_ItsTypeCanHold(string declaration, string code, string said)
+        {
+            Elaboration e = Elaborate($"module t; {declaration} state_t s; endmodule");
+            Diagnostic refused = e.Diagnostics.SingleOrDefault(d => d.Code == code);
+            Assert.IsNotNull(refused, string.Join("\n", e.Diagnostics));
+            StringAssert.Contains(said, refused.Message);
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>The pair of the refusals: every value two bits hold, either way, counted on or given, and an x in a 4-state enum.</summary>
+        [TestCase("typedef enum logic [1:0] {IDLE, A, B, C} state_t;")]
+        [TestCase("typedef enum logic signed [1:0] {M = -2, N, O} state_t;")]
+        [TestCase("typedef enum logic signed [1:0] {M = -2, N, O, P = 2'sb01} state_t;")]
+        [TestCase("typedef enum logic [3:0] {R = 4'd3, S, T = 2} state_t;")]
+        [TestCase("typedef enum logic [1:0] {U = 2'b1x, V = 2'b00} state_t;")]
+        public void AnEnumOfValuesItsTypeHolds_IsDeclared(string declaration)
+        {
+            Elaboration e = Elaborate($"module t; {declaration} state_t s; endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+        }
     }
 }
