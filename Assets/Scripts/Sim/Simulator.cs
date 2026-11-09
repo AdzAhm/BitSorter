@@ -1574,7 +1574,6 @@ namespace BitSorter.Sim
                         pc = RunDisable(p, pc, ins.Disable);
                         if (_done[p])
                             return;   // it was inside what it disabled: a branch of a fork in the block
-                        Unwind(p, pc);
                         break;
 
                     case OpCode.Call:
@@ -1811,41 +1810,52 @@ namespace BitSorter.Sim
         /// goes on after it -- this one at once, any other in the next delta -- and the processes a fork in it
         /// started end. Returns the counter this process goes on from.
         /// </summary>
+        /// <remarks>
+        /// In an automatic task that has called itself, the block may be under way in several calls at once, and a call made
+        /// from inside it runs within it: so the outermost call inside it goes on after it, and every call made since ends
+        /// with it, each giving back the signals it put aside (<see cref="LeaveCalls"/>). Only the innermost call left it,
+        /// and the calls above went on inside theirs (the review of the 16d engine batch). Disabling the task itself is
+        /// the same with the task's own place: every call of it ends.
+        /// </remarks>
         private int RunDisable(int p, int pc, DisableSpec spec)
         {
-            int next = pc + 1;
-            foreach (BlockRange range in spec.Ranges)
+            // Where each place's process is inside it, before anything here ends: a branch ended may wake it at the join it
+            // ends, and a process inside goes on past the block, never from there. -1 where it is not inside.
+            List<BlockRange> ranges = spec.Ranges;
+            if (_kept.Length < ranges.Count)
+                _kept = new int[ranges.Count];
+            int[] kept = _kept;
+            for (int i = 0; i < ranges.Count; i++)
             {
-                ProcessInfo owner = range.Process;
-                int q = owner?.Index ?? -1;
-                if (q < 0 || q >= _processes.Length || _processes[q] != owner)
-                    continue;
+                int q = Owner(ranges[i]);
+                kept[i] = q < 0 || _done[q] ? -1 : OutermostInside(q, q == p ? pc : _blockedAt[q], ranges[i]);
+            }
 
-                // Where it waits, before anything here ends: a branch ended may wake it at the join it ends, and a process
-                // inside the block goes on past the block, never from there.
-                bool inside = !_done[q] && _blockedAt[q] >= range.Start && _blockedAt[q] < range.End;
+            int next = pc + 1;
+            for (int i = 0; i < ranges.Count; i++)
+            {
+                BlockRange range = ranges[i];
+                int q = Owner(range);
+                if (q < 0)
+                    continue;
 
                 if (range.Fork)
                     KillForksIn(q, range);
 
-                if (q == p)
-                {
-                    if (next == pc + 1 && pc >= range.Start && pc < range.End)
-                    {
-                        KillForksIn(p, range);
-                        next = range.End;
-                    }
-
-                    continue;
-                }
-
-                if (!inside)
+                // A process inside two of its places -- a task's block, the task called from two places -- leaves the outer.
+                if (kept[i] < 0 || !Outermost(ranges, kept, i))
                     continue;
 
                 KillForksIn(q, range);
+                LeaveCalls(q, kept[i]);
+                if (q == p)
+                {
+                    next = range.End;
+                    continue;
+                }
+
                 Cancel(q);
                 _pc[q] = range.End;
-                Unwind(q, range.End);
                 _blockedAt[q] = -1;
                 _runnable.Add(q);
             }
@@ -1853,19 +1863,60 @@ namespace BitSorter.Sim
             return next;
         }
 
-        /// <summary>
-        /// A process a <c>disable</c> has sent to <paramref name="pc"/> leaves every call of an automatic task under way whose
-        /// statements that is outside: disabling the task ends every call of it, and a block inside it only that block.
-        /// </summary>
-        private void Unwind(int p, int pc)
+        /// <summary>What <see cref="RunDisable"/> keeps of each place's process, reused: a disable used as a loop's break runs often.</summary>
+        private int[] _kept = new int[1];
+
+        /// <summary>The process a place of a block is in, or -1 if it is not this run's.</summary>
+        private int Owner(BlockRange range)
         {
-            List<CallFrame> calls = _calls[p];
-            while (calls != null && calls.Count > 0)
+            ProcessInfo owner = range.Process;
+            int q = owner?.Index ?? -1;
+            return q < 0 || q >= _processes.Length || _processes[q] != owner ? -1 : q;
+        }
+
+        /// <summary>Whether place <paramref name="i"/> holds its process's outermost call inside any of them, the first if two do.</summary>
+        private static bool Outermost(List<BlockRange> ranges, int[] kept, int i)
+        {
+            for (int j = 0; j < ranges.Count; j++)
+                if (j != i && kept[j] >= 0 && ranges[j].Process == ranges[i].Process && (kept[j] < kept[i] || (kept[j] == kept[i] && j < i)))
+                    return false;
+            return true;
+        }
+
+        /// <summary>
+        /// How many of process <paramref name="q"/>'s calls of automatic tasks are kept when <paramref name="range"/> is left:
+        /// the calls made before the outermost one inside it, which goes on after it -- the process itself, 0, when that is
+        /// where it is -- or -1 when no call is inside it. Each call under way is where it called the next, and the last
+        /// where the process is, <paramref name="at"/>.
+        /// </summary>
+        private int OutermostInside(int q, int at, BlockRange range)
+        {
+            List<CallFrame> calls = _calls[q];
+            int depth = calls?.Count ?? 0;
+            for (int k = 0; k < depth; k++)
             {
-                CallSpec call = calls[calls.Count - 1].Spec;
-                if (pc >= call.Body && pc <= call.ReturnAt)
-                    break;
+                int called = calls[k].ReturnPc - 1;
+                if (called >= range.Start && called < range.End)
+                    return k;
+            }
+
+            return at >= range.Start && at < range.End ? depth : -1;
+        }
+
+        /// <summary>
+        /// Ends every call of an automatic task under way in process <paramref name="q"/> past the first <paramref name="keep"/>,
+        /// the last first, each giving back the signals it put aside -- so the call it goes on in reads its own -- and nothing
+        /// given back to its caller, whose call has ended too.
+        /// </summary>
+        private void LeaveCalls(int q, int keep)
+        {
+            List<CallFrame> calls = _calls[q];
+            while (calls != null && calls.Count > keep)
+            {
+                CallFrame frame = calls[calls.Count - 1];
                 calls.RemoveAt(calls.Count - 1);
+                for (int i = 0; i < frame.Spec.Saved.Length; i++)
+                    Write(frame.Spec.Saved[i], 0, frame.Saved[i]);
             }
         }
 

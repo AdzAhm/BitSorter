@@ -4838,7 +4838,8 @@ two kinds of call need them:
   call from inside them -- directly, or through another automatic task -- is an `OpCode.Call` back to their start,
   which puts the call's own signals aside and starts them afresh, until the `OpCode.Return` at their end gives the
   outputs back and the signals with them. A process holds at most `Simulator.MaxCallDepth` (10,000) such calls under
-  way before the run stops; a `disable` of the task leaves every one.
+  way before the run stops; a `disable` of the task leaves every one, and a `disable` of a block in it every call made
+  from inside the outermost call's block, which goes on after it with its own signals back (9.6.2).
 - **Its own signals are the design's own working variables**, made once, the first time a call needs them,
   and shared by every call of a static function or task: static storage, the standard's default. **An automatic
   task gives each call written in its own** -- the first the task's, every later one a frame made for it, with its
