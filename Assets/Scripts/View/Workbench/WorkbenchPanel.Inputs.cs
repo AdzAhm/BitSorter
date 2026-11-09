@@ -239,35 +239,77 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The table drawn: its column heads, and the rows that fit from the first scrolled to. **A cell or a time that has the
-        /// keyboard keeps it**, found again by what it edits -- its row's moment and its column (<see cref="InputFieldKey"/>): a
-        /// cell typed in and left by a click into another commits as it is let go, the table is drawn again on the release, and
-        /// the cell clicked into went with the old drawing, so the next keys reached the workbench (the 16d sweep). One finished
-        /// with Enter or Escape is let go as ever.
+        /// The table drawn: its column heads, and the rows that fit from the first scrolled to. **The cell or time that has the
+        /// keyboard is kept through it** -- the very field, found again by what it edits, its row's moment and its column
+        /// (<see cref="InputFieldTag"/>), and placed where its row now is -- so what is typed in it, its caret and what it held
+        /// when clicked into all stay, and the text drawn into it changes only where nothing has been typed since. A cell typed
+        /// in and left by a click into another commits as it is let go, the table is drawn again on the release, and the cell
+        /// clicked into went with the old drawing, so the next keys reached the workbench (the 16d sweep); a field made afresh
+        /// for it and given the keyboard lost what was typed in it to any redraw while typing -- a wheel over the table, the
+        /// dock resized -- put back, or committed half typed (the sweep's review). One finished with Enter or Escape, or not
+        /// drawn again -- scrolled out of the table, or its row gone -- is let go as ever.
         /// </summary>
         private void DrawInputs()
         {
             _inputsDrawn = true;
             TextField had = FocusedInputField();
-            string hadKey = had != null && !ShellTheme.Finishing(had) ? had.userData as string : null;
-            int hadCursor = had?.cursorIndex ?? 0, hadSelect = had?.selectIndex ?? 0;
-            _inputsList.Clear();
-            if (_inputs == null)
-                return;
-            DrawInputRows();
-            if (hadKey == null)
-                return;
-            foreach (VisualElement element in _inputsList.Children())
-                if (element is TextField field && hadKey == field.userData as string)
-                {
-                    field.Focus();   // the shell holds it from here (ShellPanel), as any field given the keyboard
-                    field.SelectRange(Mathf.Min(hadCursor, field.value.Length), Mathf.Min(hadSelect, field.value.Length));
-                    return;
-                }
+            _keptInput = had != null && !ShellTheme.Finishing(had) && had.userData is InputFieldTag ? had : null;
+            for (int i = _inputsList.childCount - 1; i >= 0; i--)
+                if (_inputsList[i] != _keptInput)
+                    _inputsList.RemoveAt(i);
+            if (_inputs != null)
+                DrawInputRows();
+            if (_keptInput != null)
+            {
+                _inputsList.Remove(_keptInput);   // not drawn again: let go, as every field of the table was
+                _keptInput = null;
+            }
         }
 
-        /// <summary>What a field of the table edits, which a redraw keeps: a row's time by its moment, a cell by its moment and its column's input.</summary>
+        // The field kept with the keyboard while the table is drawn again, until its own place in it is drawn.
+        private TextField _keptInput;
+
+        /// <summary>What a field of the table edits -- a row's time by its moment, a cell by its moment and its column's input -- and the text drawn into it.</summary>
+        private sealed class InputFieldTag
+        {
+            public InputFieldTag(string key, string drawn)
+            {
+                Key = key;
+                Drawn = drawn;
+            }
+
+            public readonly string Key;
+            public string Drawn;
+        }
+
         private static string InputFieldKey(long moment, string port) => port == null ? "time " + moment : "cell " + port + " " + moment;
+
+        /// <summary>
+        /// The field kept with the keyboard where it is the one for <paramref name="key"/>, named <paramref name="name"/> and
+        /// showing <paramref name="text"/> unless something has been typed in it since it was drawn; null where it is not.
+        /// </summary>
+        private TextField KeptInputField(string key, string name, string text)
+        {
+            if (_keptInput == null || !(_keptInput.userData is InputFieldTag tag) || tag.Key != key)
+                return null;
+            TextField field = _keptInput;
+            _keptInput = null;
+            field.name = name;
+            if (field.value == tag.Drawn)
+                field.SetValueWithoutNotify(text);
+            tag.Drawn = text;
+            return field;
+        }
+
+        /// <summary>A field of the table made for <paramref name="key"/>, showing <paramref name="text"/>, in the list.</summary>
+        private TextField NewInputField(string key, string name, string text, System.Action<string> submitted, SchematicPalette palette)
+        {
+            TextField field = ShellTheme.Field(name, "", palette, submitted, type: UiType.Caption);
+            field.SetValueWithoutNotify(text);
+            field.userData = new InputFieldTag(key, text);
+            _inputsList.Add(field);
+            return field;
+        }
 
         /// <summary>The field of the table that has the keyboard, if one does.</summary>
         private TextField FocusedInputField()
@@ -364,11 +406,10 @@ namespace BitSorter.View
                 }
                 else
                 {
-                    TextField when = ShellTheme.Field(InputTimeName + r, "", palette, text => SetInputTime(InputAt(moment, null).Row, text), type: UiType.Caption);
-                    when.SetValueWithoutNotify(row.Time.ToString(CultureInfo.InvariantCulture));
-                    when.userData = InputFieldKey(moment, null);
+                    string written = row.Time.ToString(CultureInfo.InvariantCulture), key = InputFieldKey(moment, null);
+                    TextField when = KeptInputField(key, InputTimeName + r, written)
+                        ?? NewInputField(key, InputTimeName + r, written, text => SetInputTime(InputAt(moment, null).Row, text), palette);
                     ShellTheme.Place(when, 14f, y, TimeColumnWidth, InputRowHeight - 4f);
-                    _inputsList.Add(when);
                 }
 
                 x = 14f + TimeColumnWidth + 8f;
@@ -378,16 +419,13 @@ namespace BitSorter.View
                     float width = ColumnWidth(column);
                     if (column.IsInput && !column.IsClock && !bench)
                     {
-                        string port = column.Port;
-                        TextField cell = ShellTheme.Field(InputCellName + column.Port + " " + r, "", palette, text =>
+                        string port = column.Port, key = InputFieldKey(moment, port), name = InputCellName + column.Port + " " + r;
+                        TextField cell = KeptInputField(key, name, row.Cells[c]) ?? NewInputField(key, name, row.Cells[c], text =>
                         {
                             (int atRow, int atColumn) = InputAt(moment, port);
                             SetInputCell(atRow, atColumn, text);
-                        }, type: UiType.Caption);
-                        cell.SetValueWithoutNotify(row.Cells[c]);
-                        cell.userData = InputFieldKey(moment, port);
+                        }, palette);
                         ShellTheme.Place(cell, x, y, width, InputRowHeight - 4f);
-                        _inputsList.Add(cell);
                     }
                     else
                     {

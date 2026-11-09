@@ -1376,7 +1376,7 @@ namespace BitSorter.PlayMode.Tests
 
             Assert.AreEqual(typed == "5" ? "0101" : "0011", InputAt(workbench, "s", first), "the cell left committed what was typed in it");
             UnityEngine.UIElements.TextField now = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "a 0");
-            Assert.AreNotSame(a, now, "sanity: the table was drawn again");
+            Assert.AreNotSame(s, ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 0"), "sanity: the table was drawn again");
             var focused = now.panel?.focusController?.focusedElement as UnityEngine.UIElements.VisualElement;
             Assert.IsTrue(focused != null && (focused == now || now.Contains(focused)), $"the cell clicked into has the keyboard, not {focused?.name ?? "nothing"}");
             Assert.IsTrue(UiText.Typing, "and the workbench's keys are the cell's while it does");
