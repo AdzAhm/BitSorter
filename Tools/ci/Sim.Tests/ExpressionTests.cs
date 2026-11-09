@@ -168,6 +168,30 @@ endmodule"));
         }
 
         /// <summary>
+        /// An inside set's matches are drawn as they were before the Part 16d sweep, joined by || one on the next in the order
+        /// they are written: each || takes the || before it and the next match. The sweep made the set one tree of || half and
+        /// half, so a set of four members or more came out another drawing of code (the review of the sweep's fix).
+        /// </summary>
+        [Test]
+        public void AnInsideSetsMatches_AreDrawnJoinedOneOnTheNext()
+        {
+            Elaboration e = Elaborate("module m (input logic [3:0] a, output logic y); assign y = a inside {1, 3, 5, 7, 9}; endmodule");
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            RtlNetlist netlist = RtlExtractor.Of(e.Design, "m");
+
+            bool IsOr(int net)
+            {
+                int driver = netlist.Nets[net].Driver;
+                return driver >= 0 && netlist.Cells[driver].Kind == RtlKind.Binary && netlist.Cells[driver].Binary == BinaryOp.LogicalOr;
+            }
+
+            RtlCell[] ors = netlist.Cells.Where(c => c.Kind == RtlKind.Binary && c.Binary == BinaryOp.LogicalOr).ToArray();
+            Assert.AreEqual(4, ors.Length, "one || between each two of the five matches");
+            Assert.AreEqual(0, ors.Count(c => IsOr(c.Inputs[1])), "a || whose second operand is another ||: the set drawn as a tree");
+            Assert.AreEqual(3, ors.Count(c => IsOr(c.Inputs[0])), "each || but the first takes the one before it");
+        }
+
+        /// <summary>
         /// A replication of 0 inside a concatenation with bits of its own is left out (IEEE 1800, 11.4.12.1), as Icarus 12 and
         /// ModelSim both run it: the parameterised extension {{(W-N){1'b0}}, a} is written for its identity case, W == N, which
         /// was refused as "must be at least 1" (the Part 16d sweep). It adds no bit to the concatenation's width either.
