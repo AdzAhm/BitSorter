@@ -142,6 +142,7 @@ endmodule", "wide.sv")).Design;
             long before = GC.GetTotalMemory(true);
             RunResult result = sim.RunTo(1_000_000);
             long kept = GC.GetTotalMemory(true) - before;
+            TestContext.WriteLine($"stopped at t = {result.Time}, keeping {kept:N0} bytes");
 
             Assert.AreEqual(RunStatus.Stopped, result.Status);
             Assert.Less(kept, 10_000 * 80 * 2, "a full history holds about what the limit says, 80 bytes a record");
