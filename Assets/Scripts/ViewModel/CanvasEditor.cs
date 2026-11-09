@@ -154,8 +154,13 @@ namespace BitSorter.ViewModel
         /// </summary>
         public string Note { get; private set; }
 
-        /// <summary>Counts every change to what the overlay draws.</summary>
-        public int Version { get; private set; }
+        /// <summary>
+        /// Counts every change to what the overlay draws -- the selection's own included, however it was changed: a TRANSCRIPT
+        /// line's click picks through it, and the part was selected with no outline round it on the circuit (the 16d sweep).
+        /// </summary>
+        public int Version => _version + Selection.Version;
+
+        private int _version;
 
         /// <summary>Whether the selection is being dragged.</summary>
         public bool Moving => _start != null;
@@ -237,7 +242,7 @@ namespace BitSorter.ViewModel
             _endsFor = null;   // where it may end moved with the edit (the 15g-3 review)
             _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
-            Version++;
+            _version++;
         }
 
         /// <summary>Where a point of the stage is on the board.</summary>
@@ -320,7 +325,7 @@ namespace BitSorter.ViewModel
         {
             InHand = entry;
             _draft = null;
-            Version++;
+            _version++;
         }
 
         /// <summary>Puts the part in hand down, placing nothing.</summary>
@@ -330,7 +335,7 @@ namespace BitSorter.ViewModel
                 return;
             InHand = null;
             _handShown = false;
-            Version++;
+            _version++;
         }
 
         /// <summary>
@@ -348,7 +353,7 @@ namespace BitSorter.ViewModel
                 _handShown = shown;
                 _handAt = at;
                 _handFree = free;
-                Version++;
+                _version++;
             }
 
             // The pin a press would wire from (Part 15g): only while a press there would -- <paramref name="pins"/>, the view
@@ -385,7 +390,7 @@ namespace BitSorter.ViewModel
             {
                 _pinOver = pin;
                 _handleOver = handle;
-                Version++;
+                _version++;
             }
 
             if (_draft == null)
@@ -406,7 +411,7 @@ namespace BitSorter.ViewModel
             _draftFree = free;
             _draftOver = over;
             Check(over);
-            Version++;
+            _version++;
         }
 
         // -----------------------------------------------------------------
@@ -437,7 +442,7 @@ namespace BitSorter.ViewModel
             {
                 case CanvasGesture.Select:
                     Selection.Pick(command.Target, command.Extend, command.Toggle);
-                    Version++;
+                    _version++;
                     return null;
 
                 case CanvasGesture.BeginMove:
@@ -459,7 +464,7 @@ namespace BitSorter.ViewModel
                     bool moved = _dx != 0 || _dy != 0;
                     _start = null;
                     _guides.Clear();
-                    Version++;
+                    _version++;
                     return moved ? Said(_session.Move(to)) : (EditResult?)null;
                 }
 
@@ -467,7 +472,7 @@ namespace BitSorter.ViewModel
                     _boxing = true;
                     _boxFrom = command.From;
                     _boxTo = command.At;
-                    Version++;
+                    _version++;
                     return null;
 
                 case CanvasGesture.EndBox:
@@ -477,7 +482,7 @@ namespace BitSorter.ViewModel
                     var wires = new List<int>();
                     _hit.In(command.From.X, command.From.Y, command.At.X, command.At.Y, parts, wires);
                     Selection.Box(parts, wires, command.Extend);
-                    Version++;
+                    _version++;
                     return null;
                 }
 
@@ -495,7 +500,7 @@ namespace BitSorter.ViewModel
                             PutDown();
                     }
 
-                    Version++;
+                    _version++;
                     return Said(placed);
                 }
 
@@ -513,7 +518,7 @@ namespace BitSorter.ViewModel
                         return null;
                     _draft.Bend(command.Free ? command.At : CanvasSnap.Snap(command.At));
                     _draftAt = command.At;
-                    Version++;
+                    _version++;
                     return null;
 
                 case CanvasGesture.EndWire:
@@ -542,7 +547,7 @@ namespace BitSorter.ViewModel
                     Placement to = _resizeTo;
                     bool changed = !to.Equals(_resizeFrom);
                     _resizing = -1;
-                    Version++;
+                    _version++;
                     return changed ? Said(_session.Move(new Dictionary<int, Placement> { [part] = to })) : (EditResult?)null;
                 }
 
@@ -558,7 +563,7 @@ namespace BitSorter.ViewModel
                     if (on.Kind != CanvasTargetKind.Nothing && !Selection.Has(on))
                     {
                         Selection.Pick(on, extend: false, toggle: false);
-                        Version++;
+                        _version++;
                     }
 
                     return null;
@@ -572,7 +577,7 @@ namespace BitSorter.ViewModel
                                    || command.Target.Kind == CanvasTargetKind.Handle
                         ? new CanvasTarget(CanvasTargetKind.Part, part: command.Target.Part)
                         : new CanvasTarget(CanvasTargetKind.Wire, wire: command.Target.Wire), extend: false, toggle: false);
-                    Version++;
+                    _version++;
                     return null;
 
                 case CanvasGesture.ReshapeTo:
@@ -589,7 +594,7 @@ namespace BitSorter.ViewModel
                     bool changed = shaped != null && !SamePoints(shaped, _reshapeFrom);
                     _reshaping = -1;
                     _reshaped = null;
-                    Version++;
+                    _version++;
                     if (!changed)
                         return null;
 
@@ -647,7 +652,7 @@ namespace BitSorter.ViewModel
             _reshaped = null;
             _resizing = -1;
             _guides.Clear();
-            Version++;
+            _version++;
         }
 
         // What a drag, a resize or a reshape was taken hold of on -- the module, and on the drawing of code its code -- and where
@@ -724,7 +729,7 @@ namespace BitSorter.ViewModel
                 _reshaping = -1;
                 _reshaped = null;
             }
-            Version++;
+            _version++;
         }
 
         // -----------------------------------------------------------------
@@ -743,7 +748,7 @@ namespace BitSorter.ViewModel
             _reshapeFrom = points;
             _reshapeBy = target;
             _reshaped = new List<BoardPoint>(points);
-            Version++;
+            _version++;
         }
 
         /// <summary>The piece or corner taken hold of at <paramref name="from"/>, dragged to <paramref name="at"/>: landing on the quarter grid, or exactly with <paramref name="free"/>.</summary>
@@ -775,7 +780,7 @@ namespace BitSorter.ViewModel
                 _reshaped = WireShape.MoveSegment(_reshapeFrom, _reshapeBy.Segment, x - a.X, y - a.Y);
             }
 
-            Version++;
+            _version++;
         }
 
         // -----------------------------------------------------------------
@@ -791,7 +796,7 @@ namespace BitSorter.ViewModel
             _resizeHandle = target.Segment;
             _resizeFrom = _resizeTo = Module.Layout.PlacementOf(target.Part);
             _resizeDx = _resizeDy = 0;
-            Version++;
+            _version++;
         }
 
         /// <summary>The handle taken hold of at <paramref name="from"/>, dragged to <paramref name="at"/>: the sides it is on moved by half cells.</summary>
@@ -805,7 +810,7 @@ namespace BitSorter.ViewModel
             if (to.Equals(_resizeTo))
                 return;
             _resizeTo = to;
-            Version++;
+            _version++;
         }
 
         private static bool SamePoints(IReadOnlyList<BoardPoint> a, IReadOnlyList<BoardPoint> b)
@@ -838,7 +843,7 @@ namespace BitSorter.ViewModel
             }
 
             _dx = _dy = 0;
-            Version++;
+            _version++;
         }
 
         private void MoveTo(BoardPoint at, BoardPoint from, bool free)
@@ -861,7 +866,7 @@ namespace BitSorter.ViewModel
             }
 
             (_dx, _dy) = AlignmentGuides.Align(moving, dx, dy, others, catchUp: free, _guides);
-            Version++;
+            _version++;
         }
 
         // -----------------------------------------------------------------
@@ -876,7 +881,7 @@ namespace BitSorter.ViewModel
             _draft = null;
             _draftOver = _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
-            Version++;
+            _version++;
         }
 
         private void BeginWire(CanvasTarget target, BoardPoint at)
@@ -890,7 +895,7 @@ namespace BitSorter.ViewModel
             _draftShown = true;
             _draftOver = _checkedOver = CanvasTarget.Nothing;
             _draftWhyNot = null;
-            Version++;
+            _version++;
         }
 
         /// <summary>
@@ -906,7 +911,7 @@ namespace BitSorter.ViewModel
             {
                 // Two taps on one wire are one end to the document; to the student it is the wire, still, and a bend.
                 _draft.Bend(CanvasSnap.Snap(at));
-                Version++;
+                _version++;
                 return null;
             }
 
@@ -916,7 +921,7 @@ namespace BitSorter.ViewModel
             string why = WhyNot(to, tapAt);
             if (why != null)
             {
-                Version++;
+                _version++;
                 return Said(EditResult.Refused(why));
             }
 
@@ -930,7 +935,7 @@ namespace BitSorter.ViewModel
                 Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: made.Id), extend: false, toggle: false);
             }
 
-            Version++;
+            _version++;
             return Said(made);
         }
 
@@ -1194,7 +1199,7 @@ namespace BitSorter.ViewModel
                     Note = $"{string.Join(" and ", left)} stay in the project, as their work does: right-click one in PARTS to delete it.";
             }
 
-            Version++;
+            _version++;
             return Said(result);
         }
 
@@ -1240,7 +1245,7 @@ namespace BitSorter.ViewModel
             EditResult pasted = _session.Paste(clip, parts, wires);
             if (pasted.Done)
                 Selection.Box(parts, wires, extend: false);
-            Version++;
+            _version++;
             return Said(pasted);
         }
 
@@ -1289,7 +1294,7 @@ namespace BitSorter.ViewModel
                 Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: result.Id), extend: false, toggle: false);
             }
 
-            Version++;
+            _version++;
             return Said(result);
         }
 
@@ -1348,7 +1353,7 @@ namespace BitSorter.ViewModel
             Selection.Clear();
             foreach (int part in parts)
                 Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: part), extend: true, toggle: false);
-            Version++;
+            _version++;
             return parts.Count;
         }
 
@@ -1358,7 +1363,7 @@ namespace BitSorter.ViewModel
             if (Module == null)
                 return;
             Selection.All(Module);
-            Version++;
+            _version++;
         }
 
         private EditResult Said(EditResult result)
@@ -1393,7 +1398,7 @@ namespace BitSorter.ViewModel
             if (ReferenceEquals(paths, _path))
                 return;
             _path = paths;
-            Version++;
+            _version++;
         }
 
         /// <summary>Fills <paramref name="overlay"/> with what the overlay draws now.</summary>
