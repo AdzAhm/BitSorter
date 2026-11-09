@@ -378,6 +378,32 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
+        /// A project keeps its files side by side, by their bare names, and an include through a folder is made to name the
+        /// bare file. A memory image named through a folder was kept so too, but its name stayed as written, so the run looked
+        /// for mem/rom.hex, found nothing, and an export put rom.hex beside the code, where ModelSim looked for mem/rom.hex.
+        /// </summary>
+        [Test]
+        public void AMemoryImageNamedThroughAFolder_IsReadByItsBareName_AsItIsKept()
+        {
+            const string rom =
+                "module rom_tb;\n" +
+                "    logic [7:0] words [0:0];\n" +
+                "    initial begin $readmemh(\"mem/rom.hex\", words); #1 $display(\"%h\", words[0]); $stop; end\n" +
+                "endmodule\n";
+            ProjectImport import = Import(("rom_tb.sv", rom), ("mem/rom.hex", "5a\n"));
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Project project = import.Project;
+
+            CompiledProject compiled = BoardCompiler.Compile(project);
+            var sim = new Simulator(Elaborator.Elaborate(compiled.Tree, compiled.Top).Design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
+            sim.RunTo(10);
+
+            CollectionAssert.Contains(sim.History.Messages.Select(m => m.Text), "5a", string.Join("\n", sim.History.Messages.Select(m => m.Text)));
+            StringAssert.Contains("$readmemh(\"rom.hex\", words)", project.Find("rom_tb").Source, "so an export, its files side by side, reads it too");
+            StringAssert.Contains("mem/rom.hex is read as rom.hex", Notes(import), "and the import says so");
+        }
+
+        /// <summary>
         /// A course's project folder holds more than its code -- the handout's PDF, a zip, the simulator's waveform logs -- and
         /// a folder imported whole kept each as one of the project's files, read as text: binary in the save, and in every
         /// export for ModelSim (Part 13f). A file no module names, by an include or as a file it reads, is left out, said so.
