@@ -227,6 +227,9 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             string chain = "module m; assign y = a" + string.Concat(Enumerable.Repeat(" & a", 100_000)) + "; endmodule";
             SyntaxTree tree = SyntaxReader.ReadText(chain, "chain.sv");
             Assert.Contains(DiagnosticCodes.TooDeep, Codes(tree));
+            Survives(chain, "a long flat chain");
+            Survives("module m; assign y = a" + string.Concat(Enumerable.Repeat(" + (b", 50_000)) + new string(')', 50_000) + "; endmodule",
+                "chains inside brackets");
         }
 
         [Test]

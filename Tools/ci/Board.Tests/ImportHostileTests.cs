@@ -27,6 +27,8 @@ namespace BitSorter.Board.Tests
             ("a file including itself", "`include \"self.sv\"\nmodule self_tb; endmodule\n", "self.sv"),
             ("nesting a hundred thousand deep", "module deep_tb; logic y = " + new string('(', 100_000) + "1" + new string(')', 100_000) + "; endmodule\n",
                 "levels deep"),
+            ("a chain a hundred thousand long", "module chain (input logic a, output logic y);\n    assign y = a" +
+                string.Concat(Enumerable.Repeat(" & a", 100_000)) + ";\nendmodule\n", "operators deep"),
             ("a recursion with no way out",
                 "module rec_tb;\n    integer y;\n    function automatic integer f(input integer n); return f(n + 1); endfunction\n    initial y = f(0);\nendmodule\n",
                 " deep, each call inside the last"),
