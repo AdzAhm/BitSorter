@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using BitSorter.Board;
 using BitSorter.View;
@@ -142,6 +143,115 @@ namespace BitSorter.PlayMode.Tests
             saved.Load();
             Assert.IsTrue(saved.TryGetProject(WorkbenchSamples.MyCircuitKey, out Project kept, new System.Collections.Generic.List<string>()));
             Assert.AreEqual(1, ((GatePart)kept.TopModule.Parts.Single()).Inputs, "kept in the save as it was");
+        }
+
+        /// <summary>
+        /// An answer the save keeps for an exercise that the rules refuse: the exercise as it starts, its top given an AND gate
+        /// of one input, as a save edited by hand may hold -- an answer to it still, so it is adopted, and then cannot open.
+        /// </summary>
+        private static (Exercise Exercise, Project Answer) AnAnswerThatCannotOpen()
+        {
+            foreach (Exercise exercise in ExerciseCatalog.Run)
+            {
+                Project start = exercise.ToProject(new List<string>());
+                Module top = start?.TopModule;
+                if (top == null || top.IsWritten)
+                    continue;
+                var parts = new List<Part>(top.Parts)
+                {
+                    new GatePart { Id = top.NextId, Name = "g_one", Kind = BitSorter.Sim.GateKind.And, Inputs = 1 },
+                };
+                var modules = new List<Module>(start.Modules);
+                modules[modules.IndexOf(top)] = top with { Parts = parts, NextId = top.NextId + 1 };
+                return (exercise, start with { Modules = modules });
+            }
+            Assert.Fail("sanity: a drawn exercise, to give an answer that cannot open");
+            return default;
+        }
+
+        /// <summary>Every report the workbench asks GameAnalytics for while <paramref name="body"/> runs, as event and id.</summary>
+        private static IEnumerator Listening(List<string> asked, IEnumerator body)
+        {
+            void Heard(string name, string id) => asked.Add(name + " " + id);
+            GameAnalytics.Asked += Heard;
+            try
+            {
+                while (body.MoveNext())
+                    yield return body.Current;
+            }
+            finally
+            {
+                GameAnalytics.Asked -= Heard;
+            }
+        }
+
+        /// <summary>
+        /// An exercise open last whose answer cannot open is not reported started: the reference circuit opens in its place
+        /// (save-1), and the launch reported a level started for it all the same -- the one thing analytics measures being
+        /// which exercise people stop at (the save-1 fix's review). One that opens is reported, so the absence is the
+        /// workbench's and not a listener that heard nothing.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnExerciseOpenLast_WhoseAnswerCannotOpen_IsNotReportedStarted()
+        {
+            (Exercise exercise, Project answer) = AnAnswerThatCannotOpen();
+            Exercise other = ExerciseCatalog.Run.First(e => e.Id != exercise.Id);
+            Plant(store =>
+            {
+                store.SetProject(exercise.Id, answer);
+                store.LastOpen = Documents.ExerciseKey(exercise.Id);
+            });
+            var asked = new List<string>();
+            WorkbenchPanel workbench = null;
+            yield return Listening(asked, Launched());
+
+            IEnumerator Launched()
+            {
+                yield return TestScene.LoadSimulator();
+                workbench = Find<WorkbenchPanel>();
+                Assert.IsNull(workbench.ExerciseOpen, "sanity: the exercise did not open");
+                Assert.AreEqual(1, workbench.Sample, "sanity: the reference circuit in its place");
+                StringAssert.Contains("could not be opened", workbench.StartPageNotice, "sanity: saying why");
+
+                workbench.OpenExercise(other.Id);
+                yield return null;
+                Assert.AreSame(other, workbench.ExerciseOpen, "sanity: an exercise that opens");
+            }
+
+            CollectionAssert.DoesNotContain(asked, AnalyticsRules.LevelStarted + " " + exercise.Id, "an exercise that never opened, reported started");
+            CollectionAssert.Contains(asked, AnalyticsRules.LevelStarted + " " + other.Id, "one that opened, reported");
+        }
+
+        /// <summary>
+        /// An exercise opened from EXERCISES whose answer cannot open is not reported started either (the save-1 fix's review),
+        /// and one opened after it that does open is.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnExerciseOpened_WhoseAnswerCannotOpen_IsNotReportedStarted()
+        {
+            (Exercise exercise, Project answer) = AnAnswerThatCannotOpen();
+            Exercise other = ExerciseCatalog.Run.First(e => e.Id != exercise.Id);
+            Plant(store => store.SetProject(exercise.Id, answer));
+            var asked = new List<string>();
+            yield return Listening(asked, Opened());
+
+            IEnumerator Opened()
+            {
+                yield return TestScene.LoadSimulator();
+                WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+                workbench.OpenExercise(exercise.Id);
+                yield return null;
+                Assert.IsNull(workbench.ExerciseOpen, "sanity: the exercise did not open");
+                Assert.AreEqual(1, workbench.Sample, "sanity: the reference circuit in its place");
+
+                workbench.OpenExercise(other.Id);
+                yield return null;
+                Assert.AreSame(other, workbench.ExerciseOpen, "sanity: an exercise that opens");
+            }
+
+            CollectionAssert.DoesNotContain(asked, AnalyticsRules.LevelStarted + " " + exercise.Id, "an exercise that never opened, reported started");
+            CollectionAssert.Contains(asked, AnalyticsRules.LevelStarted + " " + other.Id, "one that opened, reported");
         }
 
         [UnityTest]
