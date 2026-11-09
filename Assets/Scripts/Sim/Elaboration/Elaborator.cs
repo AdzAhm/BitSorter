@@ -66,6 +66,16 @@ namespace BitSorter.Sim
         public const long MaxSignals = 1L << 18;
 
         /// <summary>
+        /// How many parts a whole design may have: its instances, generate blocks and named blocks, its continuous drivers --
+        /// assigns, gates, port connections -- and its processes, together: 262,144, a hundred times the corpus's largest (the
+        /// 64-bit ALU's 2,627). Each costs one to three kilobytes as it is made, measured: 65,536 empty generate blocks made
+        /// 126 MB, as many with an assign each 236 MB. A generate loop is held to <see cref="MaxIterations"/> alone, but a loop
+        /// inside another multiplies them, and a round that declares nothing was counted by nothing -- two loops of 65,536
+        /// made 4.3 thousand million blocks (the Part 16d sweep).
+        /// </summary>
+        public const int MaxParts = 1 << 18;
+
+        /// <summary>
         /// Elaborates <paramref name="tree"/> from <paramref name="top"/>, or from the one module that
         /// nothing instantiates when no top is named.
         /// </summary>
@@ -297,6 +307,26 @@ namespace BitSorter.Sim
                 _stopped = true;
                 return false;
             }
+
+            /// <summary>
+            /// Whether the design is still within <see cref="MaxParts"/>, asked before each item is built and each generate block
+            /// made, so a loop inside a loop stops where it passes: refused, said once at <paramref name="at"/>, and the
+            /// elaboration stopped, as it is past <see cref="MaxInstances"/>.
+            /// </summary>
+            private bool PartsFit(SourceLocation at)
+            {
+                if (_stopped)
+                    return false;
+                if ((long)_builder.Parts + _written <= MaxParts)
+                    return true;
+
+                Error(at, ElaborationCodes.TooLarge, $"Here the design comes to more than {MaxParts.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} " +
+                    "parts -- instances, generate blocks, assigns, gates and processes together -- more than BitSorter will simulate. " +
+                    "Does a generate loop, or a loop inside one, go round more times than meant?");
+                _stopped = true;
+                return false;
+            }
+
             private void Warning(SourceLocation at, string code, string message) => _diagnostics.Warning(at, code, message);
 
             private void NotYet(SourceLocation at, string message) => Error(at, ElaborationCodes.NotYet, message);
@@ -1696,7 +1726,7 @@ namespace BitSorter.Sim
 
                 foreach (ModuleItem item in items)
                 {
-                    if (_stopped)
+                    if (!PartsFit(item.Location))
                         return;
 
                     switch (item)
@@ -2507,6 +2537,9 @@ namespace BitSorter.Sim
 
             private void BuildBlock(Scope scope, GenerateBlock block, string name, int depth, string genvar = null, LogicVec genvarValue = default)
             {
+                if (!PartsFit(block.Location))
+                    return;
+
                 var entry = new InstanceEntry { Declared = block.Location };
                 if (!scope.TryDeclare(name, entry))
                 {

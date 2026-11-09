@@ -771,6 +771,9 @@ namespace BitSorter.Sim
 
         public Design Build() => new Design(_name, _signals, _drivers, _processes, _memories, _time, _scopes, _aliases);
 
+        /// <summary>How many scopes and continuous drivers are made so far: what the elaborator holds a whole design's parts to.</summary>
+        internal int Parts => _scopes.Count + _drivers.Count;
+
         /// <summary>The scope the drivers made now are written in, which the elaborator sets as it makes them (<see cref="DriverInfo.WrittenIn"/>).</summary>
         internal int WrittenIn = -1;
 

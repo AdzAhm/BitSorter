@@ -2258,7 +2258,7 @@ and one browser build for Part 13's checks -- and Part 12f's.
   file rather than per import, two quadratic paths in merged code (`` `` `` joins, and wide concatenation), a quadratic
   search for named files, and an oversized file refusing a whole folder.
   What held already: the parser's nesting (200), includes nesting and cycles, the elaborator's depth, instances and
-  generate loops, the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
+  generate loops -- each loop alone: a loop inside another was held by nothing until Part 16d's `MaxParts` -- the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
   lines printed too), the importer's own run (`MaxRun`, `MaxEvents`), names a file can have, and `$fopen`, which writes
   only through the host and so nowhere in an import's run.
 - **Checked.** `ImportLimitsTests`; `FileImportTests` in Edit Mode, on a scratch folder; the red tests and their fixes
@@ -4793,6 +4793,17 @@ percent. The page is 44,721 bytes, 16,988 gzipped.
   the loading screen and the first frame are one dark.
 - **Held by** `WebTemplateTests`: no Unity branding in the page or its folder, reduced motion in both halves, the colours, the
   layer removed once BitSorter runs, stopped on a failure, and the page's dark taken from the palette.
+
+**As built in Part 16d: the elaborator's findings** (the sweep's `elaborator` area, 2026-11-09). Each was confirmed by three
+verifiers, re-checked on the code, and fixed as a failing test and then its fix.
+- **A print's width is read a digit at a time** (`ExpressionBuilder.Digits`): `%99999999999d` went to `int.Parse` before
+  the cap of a thousand and threw out of Elaborate, as a digit of another script did. Only `0` to `9` make a width now,
+  held to the most as they are read.
+- **A whole design is held to 262,144 parts** (`Elaborator.MaxParts`): its instances, generate and named blocks,
+  continuous drivers and processes together, asked before each item is built and each generate block made. One generate
+  loop was held to 65,536 rounds, but never a loop inside another, and a round that declared nothing was counted by
+  nothing: two loops of 65,536 made 4.3 thousand million blocks. A hundred times the corpus's largest design (the 64-bit
+  ALU's 2,627 parts), and a loop inside a loop of 65,536 rounds between them, an assign each, is still built.
 
 ---
 
