@@ -1299,8 +1299,8 @@ namespace BitSorter.Sim
                 bool signed = shape.Signed;
                 var members = new List<EnumMemberInfo>(e.Members.Count);
 
-                // Each name a value of its own that the type can hold (IEEE 1800, 6.19), as Icarus and ModelSim refuse otherwise:
-                // counted on past the type, it wrapped onto the first name's (the Part 16d sweep).
+                // Each name a value of its own that a cast to the type keeps (IEEE 1800, 6.19; Holds): counted on past the type,
+                // it wrapped onto the first name's (the Part 16d sweep).
                 var named = new Dictionary<LogicVec, string>();
                 EnumMember before = null;
                 LogicVec previous = default;
@@ -1388,15 +1388,19 @@ namespace BitSorter.Sim
             }
 
             /// <summary>
-            /// Whether <paramref name="value"/>, read as its own signedness says, is a number <paramref name="width"/> bits of that
-            /// <paramref name="signed"/>ness hold: cut to them and read back, it is the same at a width wider than both.
+            /// Whether <paramref name="value"/> cast to <paramref name="width"/> bits of that <paramref name="signed"/>ness keeps
+            /// it (IEEE 1800, 6.19, "evaluated in the context of a cast to the enum base type"): a cast that cuts nothing off
+            /// keeps it, extended by its own signedness as an assignment is, and one that does keeps it where every bit cut off
+            /// is 0 for an unsigned type, or the sign bit of what is left for a signed one. Never whether the value, read as its
+            /// own signedness, is a number the type holds: <c>typedef enum {A = 32'hFFFF_FFFF}</c> is A = -1, as Icarus 12 and
+            /// ModelSim have it, and so is <c>logic signed [3:0]</c>'s <c>4'b1000</c> -8.
             /// </summary>
             private static bool Holds(LogicVec value, int width, bool signed)
             {
-                int wider = Math.Max(value.Width, width) + 1;
-                LogicVec whole = value.Extend(wider, value.IsSigned).AsUnsigned();
-                LogicVec back = value.Extend(width, value.IsSigned).Extend(wider, signed).AsUnsigned();
-                return whole == back;
+                if (value.Width <= width)
+                    return true;
+                LogicVec back = value.Extend(width, false).Extend(value.Width, signed).AsUnsigned();
+                return back == value.AsUnsigned();
             }
 
             private static string Bits(int width) => width == 1 ? "1 bit" : $"{width} bits";

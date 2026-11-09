@@ -365,9 +365,10 @@ endmodule");
         }
 
         /// <summary>
-        /// An enum's names each stand for a value of their own that its type can hold (IEEE 1800, 6.19), as Icarus 12 and
-        /// ModelSim both refuse otherwise: a fifth name in two bits counted on round to IDLE's 0, so case (s) IDLE: ... D: never
-        /// reached D's arm and the waves named the state IDLE (the Part 16d sweep).
+        /// An enum's names each stand for a value of their own that a cast to its type keeps (IEEE 1800, 6.19), as Icarus 12
+        /// refuses each of these, and ModelSim each but S's, which it reads as its bits, -2 (Docs/oracle-notes.md): a fifth name in
+        /// two bits counted on round to IDLE's 0, so case (s) IDLE: ... D: never reached D's arm and the waves named the state IDLE
+        /// (the Part 16d sweep).
         /// </summary>
         [TestCase("typedef enum logic [1:0] {IDLE, A, B, C, D} state_t;", ElaborationCodes.WidthMismatch, "D would be 4")]
         [TestCase("typedef enum logic [1:0] {X = 0, Y = 1, Z = 1} state_t;", ElaborationCodes.Duplicate, "Y's too")]

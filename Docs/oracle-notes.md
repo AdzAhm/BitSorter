@@ -500,6 +500,20 @@ parts from the standard, BitSorter follows the standard, and `DataTypeTests` hol
 | `a.st.name()`, a method of a member | "Method name nesting is not supported yet" | the member's enum's name |
 | `v[i][3:0]`, `prog[i].op`: a select after an index known only as the run goes | "must be constant here" | supported |
 
+**An enum's values** (Part 16d, ModelSim ASE 2020.1 beside Icarus 12, 2026-11-09). A name's value is what it is given
+"evaluated in the context of a cast to the enum base type" (6.19): refused where the cast cuts off bits that are not 0
+for an unsigned type or not the sign bit for a signed one, or where it repeats another's or is counted on past the type.
+Both oracles refuse a repeat and a count past the type, and print `typedef enum {A = 32'hFFFF_FFFF}` as -1,
+`enum int {A = 32'h8000_0000}` as -2147483648, `enum logic signed [3:0] {A = 4'b1000}` as -8 and `enum logic [31:0]
+{A = -1}` as 4294967295. Where they part (`DataTypeTests`):
+
+| Question | Icarus 12 | ModelSim 2020.1 | The standard, and BitSorter |
+| --- | --- | --- | --- |
+| `logic signed [1:0] {S = 2}`, `logic signed [7:0] {A = 255}` | refused, too large | S = -2, A = -1: its bits | refused: the cast cuts off 0s under a sign bit of 1 |
+| `logic [7:0] {A = P}`, P a `logic signed [3:0]` of -1 | refused, negative | 15: extended by zeros | 255: extended by its sign, as an assignment extends it (6.24.1) |
+| `logic signed [3:0] {A = -8}` | -8 | refused, a suppressible error: the literal's 32 bits are not the enum's 4 | -8 |
+| `logic signed [7:0] {A = 4'b1000}`, a sized constant of another width | refused, "incorrectly sized" | a warning, A = 8 | refused by the standard. BitSorter accepts it, A = 8, as it did before Part 16d and as ModelSim does: refusing it would refuse what the course's simulator runs, which is Ahmad's to decide |
+
 ## Expressions (Part L3, 2026-10-19)
 
 `corpus/behavioural/expressions.sv` runs in both and agrees on every line: `==?` and `!=?`, the bit

@@ -4834,11 +4834,15 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   in. A task is written into its caller wherever it is called, so 25 tasks each calling the one below twice wrote 33
   million copies, and a generate loop compiles its processes again every round; nothing counted either. The corpus's most
   is 350, and a 65,536-word ROM written as a case some 131,000.
-- **An enum's names each hold a value of their own its type can hold** (IEEE 1800, 6.19; `TryEnum`): a name counted on
-  past the type -- a fifth state in two bits -- wrapped onto the first's, so `case (s) IDLE: ... D:` never reached D's
-  arm and the waves named the state IDLE. A value counted past the type, given too large or negative for it, repeated, an
-  x in a 2-state enum, and a name counted on from an x are each refused, once, as Icarus 12 and ModelSim refuse them;
-  the type is still declared, so what uses it is not said again.
+- **An enum's names each hold a value of their own that its type keeps** (IEEE 1800, 6.19; `TryEnum`): a name counted
+  on past the type -- a fifth state in two bits -- wrapped onto the first's, so `case (s) IDLE: ... D:` never reached D's
+  arm and the waves named the state IDLE. A name's value is what it is given cast to the type (`Holds`), so
+  `typedef enum {A = 32'hFFFF_FFFF}` is A = -1 and `logic signed [3:0]`'s `4'b1000` is -8. Refused are a value counted
+  past the type, one the cast cuts bits off that are not 0 for an unsigned type or not the sign bit for a signed one, a
+  value repeated, an x in a 2-state enum and a name counted on from an x: each said at its name and nothing said again of
+  it -- not its value as another's, nor the type as unknown, since the type is still declared -- though a module made
+  twice says it for each. Icarus 12 refuses each of them, and ModelSim all but a value past a signed type's top; where
+  they part from the cast, `Docs/oracle-notes.md` has it.
 - **A replication of 0 inside a concatenation is left out** (IEEE 1800-2017, 11.4.12.1; `IsZeroReplication`): the
   parameterised extension `{{(W-N){1'b0}}, a}` is written for its identity case, `W == N`, which was refused as "must be
   at least 1" -- and its width counted as a bit. What it would have replicated is still built, so a fault in it is said.
