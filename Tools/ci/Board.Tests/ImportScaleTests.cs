@@ -155,5 +155,30 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
             Assert.Less(seconds, 4, "the instances were looked for one at a time over the whole file");
         }
+
+        /// <summary>
+        /// Which of the files kept declare something -- a constant, a type -- or include one that does is found pass by pass
+        /// until none is added, and each pass read every file not yet found in full, twice: a chain of includes listed against
+        /// its direction adds one a pass. 150 headers of 20 KB, each including the one before and the first declaring a
+        /// constant, listed last first, made 2,001 MB in 1.6 s -- in one frame, where a browser frees memory only between them.
+        /// </summary>
+        [Test]
+        public void AChainOfHeadersListedAgainstItsDirection_IsFoundDeclaringInOnePass()
+        {
+            const int chain = 150;
+            string padding = Comments(20_000);
+            var files = new System.Collections.Generic.List<SourceFile>
+            {
+                new SourceFile("m.sv", "// its constants are in \"f149.svh\"\nmodule m (input logic a, output logic y);\n    assign y = a;\nendmodule\n"),
+            };
+            for (int i = chain - 1; i >= 0; i--)
+                files.Add(new SourceFile($"f{i:000}.svh", (i == 0 ? "localparam int K = 1;\n" : $"`include \"f{i - 1:000}.svh\"\n") + padding));
+
+            (long made, double seconds, ProjectImport import) = Imported(files.ToArray());
+
+            Assert.AreEqual(chain, import.Project.Files.Count, "sanity: every header kept");
+            Assert.Less(made, 128 * Megabyte, "each pass read every header not yet found, twice");
+            Assert.Less(seconds, 1);
+        }
     }
 }
