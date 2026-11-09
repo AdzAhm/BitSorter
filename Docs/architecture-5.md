@@ -4819,6 +4819,10 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   `[64'sh8000000000000000:0]` -- wrapped to long.MinValue and threw, in a declaration, a memory, a part-select read or
   written, and an indexed width times its element's. A declaration past it is too large, a select past it reaches
   outside, and a constant index past it reads x as any index outside does.
+- **What cannot be built is said.** An indexed part-select of no width, read or written, `$clog2` of no value, of two or of
+  one with x or z bits, and a size cast to no width or past the widest set the builder's `Failed` and said nothing, and a
+  caller takes `Failed` as said: the assign or the whole process went, and the design ran without a word. Each is an error
+  at its place now (SV0310, SV0323, SV0304, SV0318).
 
 ---
 

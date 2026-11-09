@@ -392,6 +392,10 @@ namespace BitSorter.Sim
             return (int)Math.Max(1, Math.Min(LogicVec.MaxWidth, ConstantOf(r.Right, report: false)));
         }
 
+        /// <summary>An indexed part-select of no width, said: it selects nothing (IEEE 1800, 11.5.1, a width of at least 1).</summary>
+        private void NoWidth(RangeSelectExpression range, long width) =>
+            Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} selects {width} bits: an indexed part-select is at least 1 bit wide.");
+
         private long ConstantOf(Expression e, bool report)
         {
             var quiet = new DiagnosticBag();
@@ -1421,9 +1425,15 @@ namespace BitSorter.Sim
                 return Expr.Slice(target, (int)low, (int)width);
             }
 
-            if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w) || w < 1)
+            if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w))
             {
                 Failed = true;
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
+            if (w < 1)
+            {
+                NoWidth(range, w);
                 return Expr.Constant(LogicVec.AllX(1));
             }
 
@@ -1690,10 +1700,22 @@ namespace BitSorter.Sim
 
                 case "$clog2":
                 {
-                    if (call.Arguments.Count != 1 || call.Arguments[0] == null ||
-                        !TryConstant(call.Arguments[0], _scope, _diagnostics, out LogicVec value) || !value.IsKnown)
+                    if (call.Arguments.Count != 1 || call.Arguments[0] == null)
+                    {
+                        Error(call.Location, ElaborationCodes.BadCall, $"$clog2 takes one value, and this call gives {call.Arguments.Count}.");
+                        return Expr.Constant(LogicVec.AllX(32, true));
+                    }
+
+                    if (!TryConstant(call.Arguments[0], _scope, _diagnostics, out LogicVec value))
                     {
                         Failed = true;
+                        return Expr.Constant(LogicVec.AllX(32, true));
+                    }
+
+                    if (!value.IsKnown)
+                    {
+                        Error(call.Arguments[0].Location, ElaborationCodes.NotConstant,
+                            $"$clog2 is given {Printer.Print(call.Arguments[0])}, which has x or z bits; it must be a known number.");
                         return Expr.Constant(LogicVec.AllX(32, true));
                     }
 
@@ -1912,9 +1934,18 @@ namespace BitSorter.Sim
 
             if (cast.Width != null)
             {
-                if (!TryInteger(cast.Width, _scope, _diagnostics, "a cast's width", out long width) || width < 1 || width > LogicVec.MaxWidth)
+                if (!TryInteger(cast.Width, _scope, _diagnostics, "a cast's width", out long width))
                 {
                     Failed = true;
+                    return Expr.Constant(LogicVec.AllX(1));
+                }
+
+                if (width < 1 || width > LogicVec.MaxWidth)
+                {
+                    if (width < 1)
+                        Error(cast.Location, ElaborationCodes.BadSelect, $"A cast to {width} bits gives no value: a size cast is at least 1 bit.");
+                    else
+                        Error(cast.Location, ElaborationCodes.TooLarge, $"A cast to {width} bits is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                     return Expr.Constant(LogicVec.AllX(1));
                 }
 
@@ -3180,9 +3211,15 @@ namespace BitSorter.Sim
             }
             else
             {
-                if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w) || w < 1)
+                if (!TryInteger(range.Right, _scope, _diagnostics, "an indexed part-select's width", out long w))
                 {
                     Failed = true;
+                    return false;
+                }
+
+                if (w < 1)
+                {
+                    NoWidth(range, w);
                     return false;
                 }
 
