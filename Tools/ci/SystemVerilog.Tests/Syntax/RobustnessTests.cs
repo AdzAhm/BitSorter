@@ -215,6 +215,31 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Clean(text);
         }
 
+        /// <remarks>
+        /// <c>a &amp; a &amp; a</c> is read in a loop, so it never deepened the reader's own stack, but its tree is as deep as
+        /// the chain is long -- each operator over all the ones before it -- and every walk over the tree after the reader, the
+        /// elaborator's, the importer's, the printer's and a run's, goes as deep on the machine's: on a thread of a megabyte,
+        /// an import of six hundred of them overflowed it, which nothing can catch (2026-11-09).
+        /// </remarks>
+        [Test]
+        public void ALongFlatChain_StopsWithAMessage_AsDeepNestingDoes()
+        {
+            string chain = "module m; assign y = a" + string.Concat(Enumerable.Repeat(" & a", 100_000)) + "; endmodule";
+            SyntaxTree tree = SyntaxReader.ReadText(chain, "chain.sv");
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(tree));
+        }
+
+        [Test]
+        public void AChainOfAHundredOperators_IsRead()
+        {
+            // The pair of the one above: a sum of products from an eight-input truth table runs to 128 terms, each of 8.
+            var products = Enumerable.Range(0, 128).Select(p =>
+                "(" + string.Join(" & ", Enumerable.Range(0, 8).Select(b => ((p >> b) & 1) == 1 ? $"x[{b}]" : $"~x[{b}]")) + ")");
+            string text = "module m (input logic [7:0] x, output logic y);\n    assign y = " + string.Join(" | ", products) + ";\nendmodule\n";
+            SyntaxTree tree = SyntaxReader.ReadText(text, "sop.sv");
+            Assert.IsEmpty(tree.Diagnostics);
+        }
+
         [Test]
         public void ALongFlatFile_IsReadQuickly()
         {
