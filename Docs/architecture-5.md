@@ -4888,7 +4888,12 @@ two kinds of call need them:
   variable and the seed moved on, both worked out from the seed as it was, just before the statement that
   asks for it (`ExpressionBuilder.Random`), so the seed's new value is recorded like any write and the
   expression evaluates purely. So such a call belongs in a process statement only, and is refused in a
-  continuous assignment or a constant.
+  continuous assignment or a constant. One in an operand worked out only on some paths -- a `?:` arm, the right
+  of `&&` or `||` -- is written behind a jump that passes it over where the operand is (`ExpressionBuilder
+  .BeginOperand`, IEEE 1800 11.4.11 and 11.3.5): the seed moves on only where the call is worked out, in both
+  arms of an x condition, as Icarus and ModelSim move it. It moved on in an arm passed over until the review of
+  the 16d engine batch. A `?:` built at the context's width and signedness -- every one written, a `?:` of reals
+  among them since that review -- gives its choice alone where the other arm calls a function.
 - **Found on the way, and fixed:** `%s` of a vector wider than its text dropped the leading zero bytes
   where Icarus prints spaces (`oracle-notes.md`, printing). And `OperatorOracleTests` met, for the first
   time, an Icarus departure from the standard: z kept where an ambiguous `?:` should give x

@@ -83,6 +83,36 @@ namespace BitSorter.Sim
         /// </summary>
         public Func<CallExpression, Expr> Opens { get; set; }
 
+        /// <summary>
+        /// Where a process asks for <see cref="Random"/> and <see cref="Opens"/>: an operand worked out only on some paths -- a
+        /// ?: arm, the right of &amp;&amp; or || -- is built between this and <see cref="EndOperand"/>, given what passes it
+        /// over, so the calls written just before the statement for it run only where the operand is worked out (IEEE 1800,
+        /// 11.4.11 and 11.3.5; the review of the 16d engine batch). It returns a mark for <see cref="EndOperand"/>. Null where
+        /// nothing runs before a statement.
+        /// </summary>
+        public Func<Expr, int> BeginOperand { get; set; }
+
+        /// <inheritdoc cref="BeginOperand"/>
+        public Action<int> EndOperand { get; set; }
+
+        /// <summary>
+        /// <paramref name="build"/>'s operand, worked out only where <paramref name="skipIf"/> is not true: what a process
+        /// writes before the statement for it is passed over with it (<see cref="BeginOperand"/>).
+        /// </summary>
+        private Expr Operand(Expr skipIf, Func<Expr> build)
+        {
+            if (BeginOperand == null || EndOperand == null)
+                return build();
+
+            int mark = BeginOperand(skipIf);
+            Expr built = build();
+            EndOperand(mark);
+            return built;
+        }
+
+        /// <summary>Whether a value is false: what passes over a ?:'s first arm and the right of &amp;&amp;. x and z are neither.</summary>
+        private static Expr IsFalse(Expr truth) => Expr.Apply(UnaryOp.LogicalNot, truth);
+
         /// <summary>Whether a named event may be read: in an event control, <c>@(e)</c>, which waits on its bit (Part L5).</summary>
         public bool AllowEvents { get; set; }
 
@@ -409,7 +439,9 @@ namespace BitSorter.Sim
                 {
                     Expr condition = BuildTruth(c.Condition);
                     // Both choices at the context's width and signedness, so a known condition may leave the other alone.
-                    return Expr.Conditional(condition, BuildAt(c.WhenTrue, width, signed), BuildAt(c.WhenFalse, width, signed), signed);
+                    Expr whenTrue = Operand(IsFalse(condition), () => BuildAt(c.WhenTrue, width, signed));
+                    Expr whenFalse = Operand(condition, () => BuildAt(c.WhenFalse, width, signed));
+                    return Expr.Conditional(condition, whenTrue, whenFalse, signed);
                 }
 
                 default:
@@ -1481,8 +1513,17 @@ namespace BitSorter.Sim
                 case "===": return Extend(Compare(BinaryOp.CaseEqual, b), width, false);
                 case "!==": return Extend(Compare(BinaryOp.CaseNotEqual, b), width, false);
 
-                case "&&": return Extend(Expr.Apply(BinaryOp.LogicalAnd, BuildTruth(b.Left), BuildTruth(b.Right)), width, false);
-                case "||": return Extend(Expr.Apply(BinaryOp.LogicalOr, BuildTruth(b.Left), BuildTruth(b.Right)), width, false);
+                case "&&":
+                {
+                    Expr left = BuildTruth(b.Left);
+                    return Extend(Expr.Apply(BinaryOp.LogicalAnd, left, Operand(IsFalse(left), () => BuildTruth(b.Right))), width, false);
+                }
+
+                case "||":
+                {
+                    Expr left = BuildTruth(b.Left);
+                    return Extend(Expr.Apply(BinaryOp.LogicalOr, left, Operand(left, () => BuildTruth(b.Right))), width, false);
+                }
 
                 default:
                     Error(b.Location, ElaborationCodes.NotYet, $"The operator {b.Operator} is not supported by BitSorter yet.");
@@ -2027,7 +2068,14 @@ namespace BitSorter.Sim
                     return Expr.RealArithmetic(b.Operator == "**" ? '^' : b.Operator[0], BuildReal(b.Left), BuildReal(b.Right));
 
                 case ConditionalExpression c when TypeOf(c).Real:
-                    return Expr.Conditional(BuildTruth(c.Condition), BuildReal(c.WhenTrue), BuildReal(c.WhenFalse));
+                {
+                    // A real is 64 bits unsigned either way, so its choice alone is the value (the review of the 16d engine
+                    // batch: built without it, a ?: of reals worked out both arms, and a recursion through one never ended).
+                    Expr condition = BuildTruth(c.Condition);
+                    Expr whenTrue = Operand(IsFalse(condition), () => BuildReal(c.WhenTrue));
+                    Expr whenFalse = Operand(condition, () => BuildReal(c.WhenFalse));
+                    return Expr.Conditional(condition, whenTrue, whenFalse, signed: false);
+                }
 
                 case CastExpression cast when IsRealKeyword(cast.TargetText):
                     return BuildReal(cast.Value);

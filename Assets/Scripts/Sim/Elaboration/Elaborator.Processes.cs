@@ -735,7 +735,26 @@ namespace BitSorter.Sim
 
             /// <summary>An expression builder for a statement of this process: one that can call <c>$random</c> and its kin.</summary>
             private ExpressionBuilder Builder(Proc p, Scope scope) =>
-                new ExpressionBuilder(scope, _diagnostics, constantOnly: false) { Random = call => RandomCall(p, scope, call), Opens = call => OpenCall(p, scope, call) };
+                new ExpressionBuilder(scope, _diagnostics, constantOnly: false)
+                {
+                    Random = call => RandomCall(p, scope, call),
+                    Opens = call => OpenCall(p, scope, call),
+                    BeginOperand = skipIf => p.Emit(OpCode.JumpIf, skipIf),
+                    EndOperand = at => PassOver(p, at),
+                };
+
+            /// <summary>
+            /// The end of an operand worked out only on some paths (<see cref="ExpressionBuilder.BeginOperand"/>): the jump at
+            /// <paramref name="at"/> passes over what was written before the statement for it -- a <c>$random</c>'s number and
+            /// seed, a <c>$fopen</c> -- or goes, with nothing to pass over.
+            /// </summary>
+            private static void PassOver(Proc p, int at)
+            {
+                if (p.Here == at + 1)
+                    p.Code.RemoveAt(at);
+                else
+                    p.Patch(at, p.Here);
+            }
 
             /// <summary>
             /// <c>$fopen(name [, mode])</c> (Part L6): the file opened just before the statement that asks, its
@@ -781,7 +800,8 @@ namespace BitSorter.Sim
             /// <c>$random(seed)</c>, <c>$urandom</c>, <c>$urandom_range(max, min)</c> (Part L3): the number into a
             /// working variable and the seed moved on, both worked out from the seed as it was and written just
             /// before the statement that asks -- so the call has no side effect of its own, and the seed's new
-            /// value is recorded like any write. The call reads the working variable.
+            /// value is recorded like any write. The call reads the working variable. In an operand worked out only
+            /// on some paths, a jump passes both over where the operand is (<see cref="PassOver"/>).
             /// </summary>
             private Expr RandomCall(Proc p, Scope scope, CallExpression call)
             {

@@ -460,6 +460,8 @@ counters, casts, an enum's methods, and `$random` with and without a seed. What 
 | --- | --- | --- |
 | `$random(seed)` | the standard's `rtl_dist_uniform`, number for number: seed 7 gives -2146999808, then 1181502348; seed 0 starts from the generator's own constant | the same generator, held to Icarus's numbers |
 | `$random` with no seed | an internal seed from 0 | the design's own, from 0 |
+| `$random(seed)` in a `?:` arm passed over, or the right of a decided `&&` or `\|\|` | not worked out: the seed stays (ModelSim the same) | the same since the review of the 16d engine batch; it moved the seed on |
+| `$random(seed)` in an arm of an x condition | both arms worked out, the seed moved on once | the same |
 | `$urandom(1)` | 69120 -- its own algorithm, as the standard allows | `$random`'s bits read unsigned; no test compares them |
 | `int'(4'b1x01)`, `bit'(1'bx)` | 9, 0: a 2-state cast drops x | the same |
 | `signed'(x)`, `unsigned'(x)` | a syntax error | read as `$signed` and `$unsigned`, as the standard has them |
