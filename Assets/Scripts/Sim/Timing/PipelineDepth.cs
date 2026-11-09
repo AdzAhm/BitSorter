@@ -23,8 +23,10 @@ namespace BitSorter.Sim
     ///
     /// **A condition is no stage, and is still a way.** An <c>if</c>'s or a <c>case</c>'s condition decides what is
     /// written: counted towards a loop and towards reaching an output -- a state machine written in one process is a
-    /// loop -- but never as a register crossed, so a pipeline's enable or reset leaves it a pipeline. A condition that
-    /// reads a register makes its process's writes <see cref="Sequenced"/>.
+    /// loop -- but never as a register crossed, so a pipeline's enable or reset leaves it a pipeline. An output no input's
+    /// value reaches is counted along its decisions instead, each crossing the register it decides: a registered comparator
+    /// writing 1 or 0 is one stage (the 16d sweep). A condition that reads a register makes its process's writes
+    /// <see cref="Sequenced"/>.
     ///
     /// A clock -- what an edge waits on -- starts no path and is no condition. The first review of this found each of
     /// these wrong (2026-11-02).
@@ -50,10 +52,13 @@ namespace BitSorter.Sim
         /// <summary>Whether any input reaches any output, by its value or by deciding what is written.</summary>
         public bool Reaches { get; }
 
-        /// <summary>The fewest registers a path from an input's value to an output crosses.</summary>
+        /// <summary>
+        /// The fewest registers a path from an input's value to an output crosses -- or, to an output no input's value
+        /// reaches, a way of the decisions that write it, each crossing the register it decides.
+        /// </summary>
         public int Fewest { get; }
 
-        /// <summary>The most a path from an input's value to an output crosses.</summary>
+        /// <summary>The most, counted as <see cref="Fewest"/> is.</summary>
         public int Most { get; }
 
         /// <summary>Whether a way from an input to an output runs round a loop -- a state machine's, or logic fed back.</summary>
@@ -127,7 +132,7 @@ namespace BitSorter.Sim
 
             // Every way, conditions included: a loop on one, and the registers on them.
             bool[] on = Between(n, inputs, graph.Outputs, all);
-            bool loop = !InOrder(n, on, all, out _);
+            bool loop = !InOrder(n, on, all, out List<int> wayOrder);
 
             bool sequenced = false, mixed = false, unfollowed = false;
             (int, EdgeKind)? seen = null;
@@ -143,57 +148,46 @@ namespace BitSorter.Sim
                     mixed = true;
             }
 
-            // The registers counted along values alone.
+            // The registers counted along values alone, where an input's value reaches an output: an enable or a reset deciding
+            // a stage is no stage of its own.
             bool[] onData = Between(n, inputs, graph.Outputs, data);
             bool any = false;
-            int least = 0, greatest = 0;
+            int least = int.MaxValue, greatest = 0;
+            bool[] byValue = null;
             if (InOrder(n, onData, data, out List<int> order))
             {
-                var fewest = new int[n];
-                var most = new int[n];
-                var reached = new bool[n];
-                foreach (int input in inputs)
-                    if (input >= 0 && input < n)
-                        reached[input] = true;
-                foreach (int v in order)
-                {
-                    if (!reached[v] || data[v] == null)
-                        continue;
-                    foreach ((int to, int weight) in data[v])
-                    {
-                        if (!onData[to])
-                            continue;
-                        int low = fewest[v] + weight, high = most[v] + weight;
-                        if (!reached[to])
-                        {
-                            reached[to] = true;
-                            fewest[to] = low;
-                            most[to] = high;
-                        }
-                        else
-                        {
-                            fewest[to] = Math.Min(fewest[to], low);
-                            most[to] = Math.Max(most[to], high);
-                        }
-                    }
-                }
-
-                least = int.MaxValue;
+                byValue = Count(n, inputs, onData, data, order, out int[] fewest, out int[] most);
                 foreach (int output in graph.Outputs)
                 {
-                    if (output < 0 || output >= n || !reached[output] || !onData[output])
+                    if (output < 0 || output >= n || !byValue[output] || !onData[output])
                         continue;
                     any = true;
                     least = Math.Min(least, fewest[output]);
                     greatest = Math.Max(greatest, most[output]);
                 }
-                if (!any)
-                    least = 0;
             }
             else
             {
                 loop = true;   // a loop of values alone is on a way of every kind too
             }
+
+            // An output no input's value reaches, but one decides -- a registered comparator writing 1 or 0, a decoder writing
+            // constants -- is counted along every way, a decision crossing the register it decides (the 16d sweep: counted
+            // by values alone it was none, and said to be within the period, beside the flip-flop it is).
+            if (!loop && byValue != null)
+            {
+                bool[] byWay = Count(n, inputs, on, all, wayOrder, out int[] fewest, out int[] most);
+                foreach (int output in graph.Outputs)
+                {
+                    if (output < 0 || output >= n || !on[output] || !byWay[output] || (byValue[output] && onData[output]))
+                        continue;
+                    any = true;
+                    least = Math.Min(least, fewest[output]);
+                    greatest = Math.Max(greatest, most[output]);
+                }
+            }
+            if (!any)
+                least = 0;
 
             // Reaching an output by deciding alone -- a Moore machine's input -- is reaching it too.
             bool reaches = any || Array.IndexOf(on, true) >= 0;
@@ -321,8 +315,9 @@ namespace BitSorter.Sim
                     build.Condition(d, conditions);
                     followed.Sequenced |= registerBits.Contains(d);
                 }
+                // Into what it decides, through the register it is written in: what a way of decisions alone counts.
                 foreach (int w in written)
-                    build.Condition(conditions, w);
+                    build.Condition(conditions, w, 1);
             }
             return followed;
         }
@@ -476,6 +471,44 @@ namespace BitSorter.Sim
             return false;
         }
 
+        /// <summary>
+        /// The fewest and the most registers on a way from <paramref name="inputs"/> to each node <paramref name="on"/>, along
+        /// <paramref name="next"/> in <paramref name="order"/>; which nodes a way reaches.
+        /// </summary>
+        private static bool[] Count(int n, List<int> inputs, bool[] on, List<(int To, int Weight)>[] next, List<int> order,
+            out int[] fewest, out int[] most)
+        {
+            fewest = new int[n];
+            most = new int[n];
+            var reached = new bool[n];
+            foreach (int input in inputs)
+                if (input >= 0 && input < n)
+                    reached[input] = true;
+            foreach (int v in order)
+            {
+                if (!reached[v] || next[v] == null)
+                    continue;
+                foreach ((int to, int weight) in next[v])
+                {
+                    if (!on[to])
+                        continue;
+                    int low = fewest[v] + weight, high = most[v] + weight;
+                    if (!reached[to])
+                    {
+                        reached[to] = true;
+                        fewest[to] = low;
+                        most[to] = high;
+                    }
+                    else
+                    {
+                        fewest[to] = Math.Min(fewest[to], low);
+                        most[to] = Math.Max(most[to], high);
+                    }
+                }
+            }
+            return reached;
+        }
+
         /// <summary>Every node on some way from <paramref name="starts"/> to <paramref name="ends"/>.</summary>
         private static bool[] Between(int n, IReadOnlyList<int> starts, IReadOnlyList<int> ends, List<(int To, int Weight)>[] next)
         {
@@ -572,9 +605,12 @@ namespace BitSorter.Sim
 
             public void Data(int from, int to, int weight) => _arcs.Add((from, to, weight, true));
 
-            public void Condition(int from, int to) => _arcs.Add((from, to, 0, false));
+            public void Condition(int from, int to, int weight = 0) => _arcs.Add((from, to, weight, false));
 
-            /// <summary>Each node's arcs out: of values alone, or of values and conditions.</summary>
+            /// <summary>
+            /// Each node's arcs out: of values alone, or of values and conditions -- a condition crossing the register it
+            /// decides, which only an output no value reaches is counted by.
+            /// </summary>
             public List<(int To, int Weight)>[] Adjacency(int n, bool data)
             {
                 var next = new List<(int To, int Weight)>[n];

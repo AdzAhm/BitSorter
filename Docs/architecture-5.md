@@ -4143,7 +4143,10 @@ extra", beside the course read, which gives both for a K-stage pipeline).
   data it made a pipeline of enables "1 to 3 registers" and claimed a register gated by its machine's phase a pipeline).
 - **A condition is a way but no stage.** An `if`'s or a `case`'s condition reaches every bit its process writes, through
   a junction: it counts for reaching an output and for a loop -- a state machine written in one `always_ff` is a loop,
-  Moore or Mealy -- never as a register crossed, so a pipeline's synchronous reset or enable leaves it a pipeline. A
+  Moore or Mealy -- never as a register crossed, so a pipeline's synchronous reset or enable leaves it a pipeline. **An
+  output no input's value reaches is counted along its decisions**, each crossing the register it decides (the 16d sweep:
+  a registered comparator writing 1 or 0, or a decoder writing constants, read as within the period, and a flag set by an
+  input beside a value two stages on was left out of the count; they are one stage, and 1 to 2). A
   condition reading a register makes the process's writes **sequenced**, as a multicycle machine's are. A clock, what an
   edge waits on, starts no path and is no condition.
 - **What it says** (`TimingView`, after the period lines of a design with registers): LATENCY, "K clock periods: every path
