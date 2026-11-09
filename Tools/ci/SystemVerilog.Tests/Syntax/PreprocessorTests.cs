@@ -237,6 +237,27 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.Less(allocated, 40_000_000, $"{allocated:N0} bytes allocated working 20,000 uses on one line");
         }
 
+        /// <summary>
+        /// The 16d sweep: a use was charged one and each token it put out one, but a token of its body in a dropped stretch
+        /// put out nothing and was charged nothing, though every use still copied the whole body and walked it -- so macros
+        /// doubling over a body that is mostly `ifdef'd away walked it hundreds of thousands of times before the cap.
+        /// </summary>
+        [Test]
+        public void ABodyMostlyDroppedByAnIfdef_IsStillPaidFor()
+        {
+            string text = Doubling(16, "`define M0 `ifdef NOPE " + string.Concat(Enumerable.Repeat("a ", 2_000)) + "`endif\n",
+                "`define M{i} `M{j} `M{j}\n", "module m; `M{n} endmodule\n");
+            Read(text);
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            SyntaxTree tree = Read(text);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(1, tree.Diagnostics.Count(d => d.Code == DiagnosticCodes.MacroTooMuch),
+                "65,536 uses of a body of 2,003 tokens walk more than a million: " + string.Join("\n", tree.Diagnostics.Take(3)));
+            Assert.Less(allocated, 50_000_000, $"{allocated:N0} bytes allocated before it was stopped");
+        }
+
         private static string Doubling(int length, string bottom, string step, string use)
         {
             var text = new System.Text.StringBuilder(bottom);
