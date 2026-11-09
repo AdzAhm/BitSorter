@@ -126,6 +126,45 @@ namespace BitSorter.Board.Tests
             Assert.Less(seconds, 3);
         }
 
+        private const string Inv = "module inv (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n";
+
+        /// <summary>
+        /// The import runs a testbench to find where it stops, held to so many events, and an event is one wait -- but a process
+        /// may take a million instructions between two (Part 16d sweep): a thousand waits a hundred thousand turns of a loop
+        /// apart took the import's run whole, a hundred million turns in one frame.
+        /// </summary>
+        [Test]
+        public void ATestbenchThatWorksHardBetweenItsWaits_IsRunOnlySoFar_InMoments()
+        {
+            const string bench = "module work_tb;\n    logic a, y;\n    inv dut (.a(a), .y(y));\n" +
+                "    initial begin\n        repeat (1000) begin repeat (100000) ; #1; end\n        $finish;\n    end\nendmodule\n";
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("inv.sv", Inv), new SourceFile("work_tb.sv", bench) });
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.IsTrue(import.Succeeded, Said(import));
+            Assert.Less(import.Project.Stimulus.End, 1000, "shown to where the run's work ran out, not to its $finish");
+            StringAssert.Contains("had not stopped by", Said(import));
+            Assert.Less(seconds, 5, "in moments");
+        }
+
+        /// <summary>The pair of the one above: the corpus's hardest-working testbench, the multicycle processor's, is run to its end.</summary>
+        [TestCase("mcpu_tb", 27_160)]
+        [TestCase("pcpu_tb", 580)]
+        public void TheCorpusProcessors_AreRunToTheirEnd(string bench, long end)
+        {
+            string root = BitSorter.Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus/processor");
+            SourceFile[] files = System.IO.Directory.GetFiles(root).OrderBy(p => p, System.StringComparer.Ordinal)
+                .Select(p => new SourceFile(System.IO.Path.GetFileName(p), System.IO.File.ReadAllText(p))).ToArray();
+
+            ProjectImport import = ProjectImporter.Import(files, bench);
+
+            Assert.IsTrue(import.Succeeded, Said(import));
+            Assert.AreEqual(end, import.Project.Stimulus.End, "run to its $finish");
+            StringAssert.DoesNotContain("had not stopped by", Said(import));
+        }
+
         [Test]
         public void AReaderReads_OnlyWhatAnImportWouldTake()
         {
