@@ -5069,7 +5069,10 @@ exercises, each fixed with a test that failed first.
   design past `Elaborator.MaxBits`, `MaxSignals` or `MaxInstances`: the edit was kept, the replay threw out of it, the circuit
   was saved half a second later, and BitSorter -- opening on the last thing open -- threw again on every launch. The replay
   is tried, and a document `WorkbenchModel.Prepare` cannot run (`DoesNotRunException`) is refused in the elaborator's words,
-  the step taken back with nothing to redo; an undo or a redo to one is not taken.
+  the step taken back as if it had never been made, as an edit the rules refuse leaves no step: the steps to undo and to
+  redo as they were, a drag's last move alone, and the canvas inside the instance it was in, which the design refused had
+  stepped out of as it was drawn (the review of the sweep's fixes: the take-back left the redo cleared). An undo or a redo
+  to one is not taken.
 - **CHECK grades what the student typed** (`WorkbenchPanel.Check`). It graded the document alone, the last code that applied:
   pressed within the pause it graded the code before the last keystrokes, and over text with an error it could mark the
   exercise solved, keep its best and report its solve for code that was not what the editor showed. It now applies what is

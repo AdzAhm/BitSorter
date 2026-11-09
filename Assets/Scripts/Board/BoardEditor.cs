@@ -53,9 +53,19 @@ namespace BitSorter.Board
         public const int HistoryLimit = 200;
 
         private readonly List<Project> _undo = new List<Project>();
-        private readonly List<Project> _redo = new List<Project>();
+        private List<Project> _redo = new List<Project>();
         private string _continuing;
         private List<BoardDiagnostic> _diagnostics;
+
+        // The history as the last step found it, for TakeBack: the document before it, its diagnostics and the step it
+        // continued; whether it added a step to undo, and the oldest one that pushed out at the cap; and the steps to redo it
+        // cleared, kept by trading lists with _redo rather than copied. _takeBackTo is null with nothing to take back.
+        private Project _takeBackTo;
+        private List<BoardDiagnostic> _takeBackDiagnostics;
+        private string _takeBackContinuing;
+        private bool _takeBackAdded;
+        private Project _takeBackDropped;
+        private List<Project> _redoCleared = new List<Project>();
 
         /// <summary>Whether a <see cref="Group"/> is being made: its edits keep no step of their own and say nothing until it ends.</summary>
         private bool _grouping;
@@ -282,14 +292,7 @@ namespace BitSorter.Board
                 _diagnostics = after;
             }
 
-            if (continuing == null || continuing != wasContinuing)
-            {
-                _undo.Add(before);
-                if (_undo.Count > HistoryLimit)
-                    _undo.RemoveAt(0);
-            }
-
-            _redo.Clear();
+            Kept(before, diagnostics, wasContinuing, continuing == null || continuing != wasContinuing);
             _continuing = continuing;
             Changed?.Invoke();
             return result;
@@ -955,15 +958,30 @@ namespace BitSorter.Board
         }
 
         /// <summary>
-        /// The last step taken back and forgotten, with nothing to redo: an edit the rules let through -- each module checked
-        /// alone -- whose whole design no run can be made of, which the workbench's session refuses once it tries (the 16d
-        /// sweep). False with no step to take back.
+        /// The last step taken back as if it had never been made -- as an edit the rules refuse leaves no step: the document
+        /// before it, its diagnostics, the steps to undo with the oldest it pushed out at the cap, and the steps to redo it
+        /// cleared. For an edit the rules let through -- each module checked alone -- whose whole design no run can be made of,
+        /// which the workbench's session refuses once it tries (the 16d sweep); it left the redo cleared, and undid a whole drag
+        /// for its last move (the review of the sweep's fixes). Once only, and only straight after the step: false with none.
         /// </summary>
         public bool TakeBack()
         {
-            if (!Undo())
+            if (_takeBackTo == null)
                 return false;
-            _redo.RemoveAt(_redo.Count - 1);
+
+            if (_takeBackAdded)
+            {
+                _undo.RemoveAt(_undo.Count - 1);
+                if (_takeBackDropped != null)
+                    _undo.Insert(0, _takeBackDropped);
+            }
+            (_redo, _redoCleared) = (_redoCleared, _redo);
+            _redoCleared.Clear();
+            Project = _takeBackTo;
+            _diagnostics = _takeBackDiagnostics;
+            _continuing = _takeBackContinuing;
+            Forget();
+            Changed?.Invoke();
             return true;
         }
 
@@ -972,7 +990,43 @@ namespace BitSorter.Board
             Project = project;
             _diagnostics = BoardRules.Check(project);
             _continuing = null;
+            Forget();
             Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The step from <paramref name="before"/> kept in the history -- a new step to undo, unless it continues the last one --
+        /// and the steps to redo cleared, with what it changed noted for <see cref="TakeBack"/>.
+        /// </summary>
+        private void Kept(Project before, List<BoardDiagnostic> diagnostics, string wasContinuing, bool newStep)
+        {
+            _takeBackTo = before;
+            _takeBackDiagnostics = diagnostics;
+            _takeBackContinuing = wasContinuing;
+            _takeBackAdded = newStep;
+            _takeBackDropped = null;
+            if (newStep)
+            {
+                _undo.Add(before);
+                if (_undo.Count > HistoryLimit)
+                {
+                    _takeBackDropped = _undo[0];
+                    _undo.RemoveAt(0);
+                }
+            }
+
+            // Cleared, and kept for a take-back until the next step: the two lists change places.
+            (_redo, _redoCleared) = (_redoCleared, _redo);
+            _redo.Clear();
+        }
+
+        /// <summary>Nothing to take back: an undo, a redo or a take-back is no step, and holds no document of one.</summary>
+        private void Forget()
+        {
+            _takeBackTo = null;
+            _takeBackDiagnostics = null;
+            _takeBackDropped = null;
+            _redoCleared.Clear();
         }
 
         // -----------------------------------------------------------------
@@ -985,6 +1039,7 @@ namespace BitSorter.Board
             if (locked != null)
                 return EditResult.Refused(locked);
 
+            List<BoardDiagnostic> diagnostics = _diagnostics;
             if (check && _grouping)
                 _uncheckedInGroup = true;   // checked once, as the group ends (Group)
             else if (check)
@@ -1003,14 +1058,7 @@ namespace BitSorter.Board
                 return EditResult.Ok(id);
             }
 
-            if (continuing == null || continuing != _continuing)
-            {
-                _undo.Add(Project);
-                if (_undo.Count > HistoryLimit)
-                    _undo.RemoveAt(0);
-            }
-
-            _redo.Clear();
+            Kept(Project, diagnostics, _continuing, continuing == null || continuing != _continuing);
             _continuing = continuing;
             Project = next;
             Changed?.Invoke();

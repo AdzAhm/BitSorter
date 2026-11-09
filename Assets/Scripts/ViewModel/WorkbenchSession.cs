@@ -1651,16 +1651,57 @@ namespace BitSorter.ViewModel
         {
             if (!result.Done)
                 return result;
+            KeepSteps();
             Relayout();
             return StartReplay(from) is string refused ? TakenBack(refused) : result;
         }
 
-        /// <summary>The edit just made taken back for <paramref name="refused"/>, the drawing made again as it was, and refused.</summary>
+        /// <summary>
+        /// The edit just made taken back for <paramref name="refused"/> as if it had never been made (<see cref="BoardEditor.TakeBack"/>),
+        /// the canvas where it was and the drawing made again as it was, and refused.
+        /// </summary>
         private EditResult TakenBack(string refused)
         {
             Editor.TakeBack();
+            StepBack();
             Relayout();
             return EditResult.Refused(refused);
+        }
+
+        // The steps as an edit, an undo or a redo found them, for one taken back: drawn round a design that elaborates to
+        // nothing, Relayout steps out of every instance reached through written code, which the document taken back still has
+        // (the review of the 16d sweep's fixes). Filled again each time, not made.
+        private readonly List<string> _pathKept = new List<string>(), _codeStepsKept = new List<string>();
+
+        private void KeepSteps()
+        {
+            _pathKept.Clear();
+            _pathKept.AddRange(_path);
+            _codeStepsKept.Clear();
+            _codeStepsKept.AddRange(_codeSteps);
+        }
+
+        /// <summary>The steps put back as <see cref="KeepSteps"/> kept them, where they changed since.</summary>
+        private void StepBack()
+        {
+            if (Same(_path, _pathKept) && Same(_codeSteps, _codeStepsKept))
+                return;
+            _path.Clear();
+            _path.AddRange(_pathKept);
+            _codeSteps.Clear();
+            _codeSteps.AddRange(_codeStepsKept);
+            _pathVersion++;
+            StepVersion++;
+        }
+
+        private static bool Same(List<string> a, List<string> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!string.Equals(a[i], b[i], StringComparison.Ordinal))
+                    return false;
+            return true;
         }
 
         /// <summary>An edit to where things are drawn made: drawn again, the run and any replay going on.</summary>
@@ -1734,6 +1775,7 @@ namespace BitSorter.ViewModel
             EditResult result = Editor.ConvertBench();
             if (result.Done)
             {
+                KeepSteps();
                 Relayout();
                 if (StartReplay(0) is string refused)
                     return TakenBack(refused);
@@ -1815,10 +1857,12 @@ namespace BitSorter.ViewModel
         {
             if (WhyNotUndo != null || !Editor.Undo())
                 return false;
+            KeepSteps();
             Relayout();
             if (StartReplay(0) == null)
                 return true;
             Editor.Redo();   // a step back to a document no run can be made of -- one saved before the edits were held to it -- is not taken
+            StepBack();
             Relayout();
             return false;
         }
@@ -1828,19 +1872,22 @@ namespace BitSorter.ViewModel
         {
             if (WhyNotRedo != null || !Editor.Redo())
                 return false;
+            KeepSteps();
             Relayout();
             if (StartReplay(0) == null)
                 return true;
             Editor.Undo();
+            StepBack();
             Relayout();
             return false;
         }
 
         private EditResult Replayed(EditResult result, long from)
         {
-            if (result.Done && StartReplay(from) is string refused)
-                return TakenBack(refused);
-            return result;
+            if (!result.Done)
+                return result;
+            KeepSteps();
+            return StartReplay(from) is string refused ? TakenBack(refused) : result;
         }
 
         /// <summary>The replay of the document as it is now started, from <paramref name="from"/>; why no run can be made of it, or null.</summary>

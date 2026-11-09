@@ -175,7 +175,11 @@ stretch that way.
   document it ends on: an error one edit in it makes and a later one mends is no
   refusal, and one it leaves refuses the whole group with the first error new to
   that document (the 16d sweep: each edit checked the whole project, so a paste
-  cost the square of the drawing). A drag is one
+  cost the square of the drawing). An edit whose whole design no run can be made
+  of, which the rules let through, checking each module alone, leaves no step
+  either: the session refuses it once it tries the run, and takes it back with
+  the history as it was, redo included (`BoardEditor.TakeBack`, the 16d sweep).
+  A drag is one
   step, as a run of scroll notches on one wire was in 4.x. Inverses were
   rejected there because the edits that remove things take wires with them, so
   their inverses are snapshots of part of the board anyway.
