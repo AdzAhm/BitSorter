@@ -2344,7 +2344,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **`TimingView`** (view-model) reads `TimingAnalysis` into lines: for a design with registers the **minimum period**
   as its sum (`clock to Q 2 + logic 3 + setup 1 ns`), the **maximum frequency** it gives in the unit that keeps it over
   1 (`166.7 MHz`), and the critical path -- the slowest register to register -- with the slowest input to register and
-  register to output beside it; for one without, the critical path is the slowest input to output. Then the **gate
+  register to output beside it; for one without, the critical path is the slowest input to output -- static timing's
+  where the walk of paths stopped at its cap short of it (the 16d sweep: the walk takes the inputs one after another,
+  and named the slowest of the first input's 10,000 paths when a later input's was slower). Then the **gate
   count** by kind and inputs, the most first (`5 gates: 2 AND2, 2 XOR2, 1 OR2`, a block counting its contents, and a
   drawn gate four bits wide four -- it prints as one bitwise assignment, which the graph sees no gate in), any loop of
   logic named, and **every path**, the slowest first, each with its ends -- identical ones together, `a → cout, b →
@@ -2791,7 +2793,9 @@ dotnet, that the next parts build on: 15c writes the exercises, 15d opens them o
   breaking a rule is not run. A test that makes no check solves nothing. It also gives:
   - the rules broken (a part not stocked, one too many);
   - the parts, and the gates by kind, a stocked block counted whole;
-  - the static settle time (the slowest input-to-output path, Part 14a) against `settleBy`;
+  - the static settle time (the slowest input-to-output path, Part 14a: `TimingAnalysis.InputToOutput`, static
+    timing's or the walk's, whichever is later -- the walk's alone stops at 10,000 paths, and a design slower than
+    its limit passed it, the 16d sweep) against `settleBy`;
   - the minimum period against `period`, every path the clock times counted -- register to register, and from an
     input to a register and a register to an output, as an exercise's inputs change and its outputs are read a clock
     apart. The TIMING tab's minimum period is register to register alone; two registers at the output met a period that

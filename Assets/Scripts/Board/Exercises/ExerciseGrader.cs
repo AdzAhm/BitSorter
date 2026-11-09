@@ -191,7 +191,8 @@ namespace BitSorter.Board
                 TimingAnalysis timing = TimingAnalysis.Of(graded);
                 if (timing.Succeeded)
                 {
-                    settle = timing.Paths.Worst?.Worst;
+                    // The slowest path, however many there are: the walk's alone stops at 10,000 (the 16d sweep).
+                    settle = timing.InputToOutput;
                     period = timing.Timing.ClockPeriod;
 
                     // Written code (Part 15e) is counted from the design it builds: what the stock counts of drawn parts

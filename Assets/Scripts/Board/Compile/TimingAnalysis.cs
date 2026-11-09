@@ -41,6 +41,23 @@ namespace BitSorter.Board
         /// <summary>Why there is no analysis, in the player's words; null when there is one.</summary>
         public string Problem { get; }
 
+        /// <summary>
+        /// The slowest an input's change takes straight to an output: static timing's latest arrival, which is exact, or the
+        /// path walk's slowest where that is later. The walk stops at <see cref="PathDelays.MaxPaths"/>, taking the inputs one
+        /// after another, so its slowest alone can be short of the design's (the 16d sweep: a's 2^14 ways were walked, and b's
+        /// slower one never). Null when no input reaches an output, or there is no analysis.
+        /// </summary>
+        public long? InputToOutput
+        {
+            get
+            {
+                if (!Succeeded)
+                    return null;
+                long? walked = Paths.Worst?.Worst, exact = Timing.InputToOutput?.Total;
+                return walked == null ? exact : exact == null ? walked : Math.Max(walked.Value, exact.Value);
+            }
+        }
+
         public bool Succeeded => Graph != null;
 
         public static TimingAnalysis Of(Project project)

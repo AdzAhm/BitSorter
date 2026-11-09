@@ -91,7 +91,7 @@ namespace BitSorter.ViewModel
         {
             if (analysis == null || !analysis.Succeeded)
                 return null;
-            long slowest = Math.Max(analysis.Paths?.Worst?.Worst ?? 0, analysis.Timing?.RegisterToOutput?.Total ?? 0);
+            long slowest = Math.Max(analysis.InputToOutput ?? 0, analysis.Timing?.RegisterToOutput?.Total ?? 0);
             return slowest > 0 ? slowest : (long?)null;
         }
 

@@ -353,6 +353,13 @@ namespace BitSorter.ViewModel
                         + (period is long each && each > 0 ? ", " + Frequency(each, unit) + " at the clock period" : ""),
                         period is long every && every > 0 ? "1 per " + Time(every, unit) : "1 a period"));
             }
+            else if (paths.Capped && timing.InputToOutput is StaticPath exact && exact.Total > (paths.Worst?.Worst ?? -1))
+            {
+                // The walk stopped at its cap before reaching the slowest -- it takes the inputs one after another -- so the
+                // critical path is static timing's, which reckons every way (the 16d sweep: it named the slowest walked).
+                critical = lines.Count;
+                lines.Add(StaticLine("CRITICAL PATH", exact, Name, unit));
+            }
             else if (paths.Worst is TimingPath worst)
             {
                 critical = lines.Count;
