@@ -442,6 +442,31 @@ endmodule");
             Assert.Less(bytes, 64L << 20, "13.5 MB measured with the junction, 2026-11-09");
         }
 
+        /// <summary>
+        /// A sum too wide to follow bit by bit cheaply is taken whole, as a value too wide to follow is (the 16d sweep): bit i
+        /// of a sum takes every source of bits 0 to i, so the bits of a 2,048-bit sum held 4.2 million sources between them --
+        /// 297 MB in the frame TIMING opened -- and a 1,024-bit register's next value 329 MB more, followed bit by bit.
+        /// </summary>
+        [Test]
+        public void AVeryWideSum_IsTakenWhole_NotASetOfSourcesForEveryBit()
+        {
+            TimingGraph sum = Graph("module m (output logic o); logic [2047:0] a, b, s; assign s = a + b; assign o = s[0]; endmodule");
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            TimingGraph.Of(sum.Design);
+            long assigned = System.GC.GetAllocatedBytesForCurrentThread() - before;
+
+            TimingGraph register = Graph("module m (input logic clk, output logic o); logic [1023:0] a, b, q; " +
+                "always_ff @(posedge clk) q <= a + b; assign o = q[0]; endmodule");
+            PipelineDepth.Of(register);
+            before = System.GC.GetAllocatedBytesForCurrentThread();
+            PipelineDepth.Of(register);
+            long registered = System.GC.GetAllocatedBytesForCurrentThread() - before;
+
+            TestContext.WriteLine($"assigned {assigned / 1024 / 1024} MB, registered {registered / 1024 / 1024} MB");
+            Assert.Less(assigned, 32L << 20, "the sum's timing graph");
+            Assert.Less(registered, 32L << 20, "the register's stages");
+        }
+
         /// <summary>A register's delay that calls a function is the run's to know: taken as 0, never a crash.</summary>
         [Test]
         public void ARegisterDelayCallingAFunction_IsNoConstant_AndNoCrash()
