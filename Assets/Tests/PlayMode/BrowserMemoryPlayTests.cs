@@ -151,6 +151,7 @@ namespace BitSorter.PlayMode.Tests
                     // A scratch folder of the editor's own; left for the next to clear.
                 }
             }
+        }
 
         /// <summary>What a frame replaying an edit of the reference may make, however long its run: an edit of a gate's worth.</summary>
         private const long LongRunCap = 32L << 20;

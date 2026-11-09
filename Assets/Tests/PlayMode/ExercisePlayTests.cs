@@ -291,13 +291,6 @@ namespace BitSorter.PlayMode.Tests
         /// </summary>
         [UnityTest]
         public IEnumerator Check_GradesTheCodeOnScreen_AndChecksNothingThatDoesNotApply()
-
-        /// CHECK grades the code on screen (Part 16d's sweep), as EXPORT hands in what is: typed and not yet applied -- inside
-        /// the editor's pause -- it is applied first, and code that cannot apply is refused saying what is wrong with it, never
-        /// graded, and solved, as the last text that did. CHECK graded the document alone, a step behind the screen.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Check_GradesTheCodeOnScreen_NeverTheLastTextThatApplied()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Workbench;
@@ -335,21 +328,12 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-<<<<<<< HEAD
-        /// CHECK grades the code on screen, as EXPORT exports it (the 16d sweep): code typed with an error is not checked, the
-        /// chip saying why, and never marked solved as the last code that applied; code typed and not yet applied is applied
-        /// first, then graded. It graded the document alone, the last code that applied.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator Check_GradesTheCodeOnScreen_AndChecksNothingThatDoesNotApply()
-=======
         /// CHECK grades the code on screen (Part 16d's sweep), as EXPORT hands in what is: typed and not yet applied -- inside
         /// the editor's pause -- it is applied first, and code that cannot apply is refused saying what is wrong with it, never
         /// graded, and solved, as the last text that did. CHECK graded the document alone, a step behind the screen.
         /// </summary>
         [UnityTest]
         public IEnumerator Check_GradesTheCodeOnScreen_NeverTheLastTextThatApplied()
->>>>>>> 394e02b7 (test: CHECK must grade the code on screen, not the last text that applied (red))
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Workbench;
