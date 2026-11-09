@@ -146,12 +146,25 @@ namespace BitSorter.View
         private int _rewriteAsksSeen;
         private WorkbenchSession _rewriteAsksOf;
 
+        /// <summary>The session whose rewrite question is up, while it is; null otherwise.</summary>
+        private WorkbenchSession _rewriteAskedOf;
+
         /// <summary>
         /// The question the first edit of a module's drawing of code asks (<see cref="WorkbenchSession.RewriteQuestion"/>), asked
         /// once each time an edit asks it, by the pointer; yes makes the edit, and CANCEL, Escape or a click off it leaves it.
+        /// **It goes down with the edit it waits on**: a step anywhere -- Alt+Up, which the workbench takes with the question
+        /// up -- or another document drops the edit (<see cref="WorkbenchSession.AsksToRewrite"/>), and the question stayed up,
+        /// its yes saying the drawing's refusal of an edit there no longer was (the review of the 16d sweep's fixes).
         /// </summary>
         private void TickRewriteQuestion()
         {
+            if (_rewriteAskedOf != null && (!ReferenceEquals(_rewriteAskedOf, _session) || !_session.AsksToRewrite))
+            {
+                _rewriteAskedOf = null;
+                if (_ask != null && _ask.IsOpen && _ask.Question == WorkbenchSession.RewriteQuestion)
+                    _ask.Close();
+            }
+
             if (_session != null && !ReferenceEquals(_session, _rewriteAsksOf))
             {
                 // Another document's session counts from nothing (the review of #117: its first question went unasked).
@@ -163,10 +176,15 @@ namespace BitSorter.View
             _rewriteAsksSeen = _session.RewriteAsks;
             if (!_session.AsksToRewrite || _ask == null)
                 return;
+            WorkbenchSession asked = _session;
+            _rewriteAskedOf = asked;
             Vector2 at = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
             _ask.Ask(at, WorkbenchSession.RewriteQuestion, RewriteYes, () =>
             {
-                BitSorter.Board.EditResult done = _session.AnswerRewrite(true);
+                _rewriteAskedOf = null;
+                if (!ReferenceEquals(asked, _session) || !asked.AsksToRewrite)
+                    return;   // dropped in the frame it was answered: nothing to make, and nothing to say of it
+                BitSorter.Board.EditResult done = asked.AnswerRewrite(true);
                 Said(done);
                 if (done.Done)
                     Notice(RewrittenNotice);

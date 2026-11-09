@@ -5088,7 +5088,8 @@ exercises, each fixed with a test that failed first.
 - **The question before a drawing of code is first edited waits only on that drawing** (`WorkbenchSession.AsksToRewrite`). It
   was bound to the document alone, and Alt+Up steps out with the question still up and the document as it was: answered
   then, the edit was made on the parent with the drawing's ids, deleting whichever of its parts had them. A step anywhere
-  now drops the question, and its answer makes nothing.
+  now drops the edit, and the workbench takes the question down with it (`WorkbenchPanel.TickRewriteQuestion`): left up,
+  its yes made nothing and said the drawing's refusal of an edit there no longer was (the review of the sweep's fixes).
 - **What first-time hint is due is worked out again only once the run has changed** (`SimulatorHints.Watch`). Asked every 30
   frames with no hint up, and until the z and glitch hints are seen -- most students, most of the time -- each ask sorted
   every input change, copied every output's settled history and walked every port's changes, with the same answer each time.
