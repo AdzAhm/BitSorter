@@ -4578,6 +4578,20 @@ something needed").
   twice, a string a line, and a chain of includes listed against its direction adds one a pass. The files are read once
   now and the declaring found from those that declare, through who includes them. 150 headers of 20 KB so listed made
   2,001 MB in 1.6 s and make 52 MB in 0.05 s (`AChainOfHeadersListedAgainstItsDirection_IsFoundDeclaringInOnePass`).
+- **A file is read once for the paths that look inside its instances** (`ProjectImporter.LookedInto`, `PathsIn`): a module
+  a testbench looks inside -- `dut.state` -- is written, and the importer found such paths with a regex made for each named
+  instance, cells included, run over the whole of its module's file, each match copying the rest of its path and splitting
+  it: the instances times the file. Each file is read once now, by hand, for every instance's name with a path after it,
+  kept as where the name and its path end, never as text, and walked only as far as the instances along it go. A name
+  further along a spaced path -- `dut . u1 . q` -- starts one too, as it did for its own regex, and its path is the rest of
+  the one it is in, so where that ends is found once for all of them: a first version that looked ahead at every name's
+  path read a run of `u. u. u.` again from each name, 90 GB for 187 KB, and was reverted (`ARunOfNamesAfterDots_IsOnePath_ReadOnce`
+  holds it, 1.3 MB). An escaped name that is no plain identifier, `\d+u`, is found where the code writes it, after its
+  backslash and up to the white space that ends it, as the lexer reads one, where its regex also found it written bare. A
+  walk deeper than there are modules goes round a module that makes itself, which the rules refuse, and stops there. Four
+  thousand instances named along one path in a comment made 1,050 MB and make 34 MB; sixteen thousand in a file of 3.5 MB
+  took 7.0 s and take 0.8 s, the rest of the import (`ImportScaleTests`). Against the regexes it replaced, on 100,000
+  random texts and hierarchies, it looks inside the same modules every time -- escaped names read as the lexer reads them.
 
 **As built after Part 16a: blocks resized by their handles** (Ahmad, 2026-11-02, Part 16 paused for his features: "I want
 it to be resizeable when you drag the blue outline things (or the white ones you decide what is better)", on the

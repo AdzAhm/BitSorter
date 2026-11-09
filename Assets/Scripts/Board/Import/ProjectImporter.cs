@@ -706,40 +706,246 @@ namespace BitSorter.Board
         /// The modules something looks inside by a hierarchical name -- <c>dut.state</c>, <c>dut.u1.q</c> -- and so the ones a
         /// drawing would not keep the names of.
         /// </summary>
+        /// <remarks>
+        /// Each file is read once for every instance's name with a path after it (<see cref="PathsIn"/>), where a regex made for
+        /// each instance read the whole of its module's file and copied every path it found, the instances times the file (Part
+        /// 16d). A path is kept as where it starts and ends, and walked only as far as the instances along it go.
+        /// </remarks>
         private static HashSet<string> LookedInto(List<ModuleDeclaration> modules, Dictionary<string, Dictionary<string, string>> instances,
             Dictionary<string, string> texts, Dictionary<string, ModuleDeclaration> byName)
         {
             var looked = new HashSet<string>(StringComparer.Ordinal);
+            var wanted = new InstanceNames();
+            foreach (ModuleDeclaration module in modules)
+                foreach (string name in instances[module.Name].Keys)
+                    wanted.Add(name);
+
+            var pathsIn = new Dictionary<string, Dictionary<string, List<(int NameEnd, int PathEnd)>>>(StringComparer.Ordinal);
             foreach (ModuleDeclaration module in modules)
             {
                 if (instances[module.Name].Count == 0)
                     continue;
-                texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string text);
+                string file = SourcePaths.Normalise(module.Location.File ?? "");
+                texts.TryGetValue(file, out string text);
                 if (string.IsNullOrEmpty(text))
                     continue;
+                if (!pathsIn.TryGetValue(file, out Dictionary<string, List<(int NameEnd, int PathEnd)>> paths))
+                    pathsIn[file] = paths = PathsIn(text, wanted);
 
                 foreach (KeyValuePair<string, string> instance in instances[module.Name])
                 {
-                    var path = new Regex(@"(?<![\w$.])" + Regex.Escape(instance.Key) + @"((?:\s*\.\s*[A-Za-z_]\w*)+)", RegexOptions.CultureInvariant);
-                    foreach (Match match in path.Matches(text))
+                    if (!paths.TryGetValue(instance.Key, out List<(int NameEnd, int PathEnd)> found))
+                        continue;
+                    foreach ((int nameEnd, int pathEnd) in found)
                     {
-                        // Each name along the path that is an instance takes its module with it.
+                        // The instance's module, and each one a name along the path but its last passes through -- the last is
+                        // what the path names in the module it has reached. No module is inside itself, so a walk deeper than
+                        // there are modules goes round one that makes itself, which the rules refuse.
                         string inside = instance.Value;
-                        foreach (string part in match.Groups[1].Value.Split('.'))
+                        if (inside == null || !byName.ContainsKey(inside))
+                            continue;
+                        looked.Add(inside);
+                        int at = nameEnd;
+                        for (int depth = 0; depth < byName.Count; depth++)
                         {
+                            int end = StepEnd(text, at, out int step);
+                            if (end < 0 || end >= pathEnd)
+                                break;
+                            string name = text.Substring(step, end - step);
+                            inside = instances.TryGetValue(inside, out Dictionary<string, string> within) && within.TryGetValue(name, out string next) ? next : null;
                             if (inside == null || !byName.ContainsKey(inside))
                                 break;
                             looked.Add(inside);
-                            string name = part.Trim();
-                            if (name.Length == 0)
-                                continue;
-                            inside = instances.TryGetValue(inside, out Dictionary<string, string> within) && within.TryGetValue(name, out string next) ? next : null;
+                            at = end;
                         }
                     }
                 }
             }
 
             return looked;
+        }
+
+        /// <summary>
+        /// Every name of <paramref name="wanted"/> in <paramref name="text"/> with a path through dots after it -- <c>dut.state</c>,
+        /// <c>dut . u1 . q</c> -- by the name: where the name ends and where its path does. They are what a regex made for each
+        /// name, <c>(?&lt;![\w$.])name((?:\s*\.\s*[A-Za-z_]\w*)+)</c>, found, each match taking its path, in one reading of the
+        /// text for all of them, making nothing for a name not wanted (Part 16d).
+        /// </summary>
+        /// <remarks>
+        /// A name further along a path, after a space, starts a path too, as it did for its own regex. Its path is the rest of
+        /// the one it is in, so where that ends is found once for every name along it: read again from each, a run of
+        /// <c>a. a. a.</c> cost the square of its length. An escaped name that is no plain identifier, <c>\d+u</c>, is found
+        /// where the code writes it, after its backslash and up to the white space that ends it, as the lexer reads one.
+        /// </remarks>
+        private static Dictionary<string, List<(int NameEnd, int PathEnd)>> PathsIn(string text, InstanceNames wanted)
+        {
+            var paths = new Dictionary<string, List<(int NameEnd, int PathEnd)>>(StringComparer.Ordinal);
+
+            // Whether a name at start is inside the path its own last match took, as a regex taking each match skips it.
+            bool Taken(string name, int start) =>
+                paths.TryGetValue(name, out List<(int NameEnd, int PathEnd)> found) && start < found[found.Count - 1].PathEnd;
+
+            void Found(string name, int nameEnd, int pathEnd)
+            {
+                if (!paths.TryGetValue(name, out List<(int NameEnd, int PathEnd)> found))
+                    paths[name] = found = new List<(int NameEnd, int PathEnd)>(1);
+                found.Add((nameEnd, pathEnd));
+            }
+
+            int readTo = 0;      // the end of the last path read through from a name
+            int escapedTo = 0;   // the end of the last escaped name: a backslash inside one is part of it
+            for (int i = 0; i < text.Length;)
+            {
+                char c = text[i];
+                if (c == '\\' && i >= escapedTo && wanted.HasEscaped)
+                {
+                    int end = i + 1;
+                    while (end < text.Length && !char.IsWhiteSpace(text[end]))
+                        end++;
+                    escapedTo = end;
+                    string escaped = wanted.EscapedAt(text, i + 1, end - i - 1);
+                    if (escaped != null && !Taken(escaped, i + 1))
+                    {
+                        int pathEnd = PathEnd(text, end);
+                        if (pathEnd > end)
+                            Found(escaped, end, pathEnd);
+                    }
+                }
+
+                if (!IsNameChar(c))
+                {
+                    i++;
+                    continue;
+                }
+
+                int start = i;
+                while (i < text.Length && IsNameChar(text[i]))
+                    i++;
+                if (!IsNameStart(text[start]) || start > 0 && text[start - 1] == '.')
+                    continue;
+                string name = wanted.PlainAt(text, start, i - start);
+                if (name == null || Taken(name, start))
+                    continue;
+
+                int to;
+                if (start < readTo && i <= readTo)
+                {
+                    to = readTo;   // a name along the last path read: the rest of that path is its own
+                }
+                else
+                {
+                    to = PathEnd(text, i);
+                    readTo = to;
+                }
+
+                if (to > i)
+                    Found(name, i, to);
+            }
+
+            return paths;
+        }
+
+        /// <summary>Where the path through dots from <paramref name="at"/> ends: <paramref name="at"/> itself where there is none.</summary>
+        private static int PathEnd(string text, int at)
+        {
+            for (int end = StepEnd(text, at, out _); end >= 0; end = StepEnd(text, at, out _))
+                at = end;
+            return at;
+        }
+
+        /// <summary>
+        /// The end of one step of a path from <paramref name="at"/>, <c>\s*\.\s*[A-Za-z_]\w*</c>, its name from <paramref name="name"/>;
+        /// -1 where there is none.
+        /// </summary>
+        private static int StepEnd(string text, int at, out int name)
+        {
+            name = -1;
+            int i = at;
+            while (i < text.Length && char.IsWhiteSpace(text[i]))
+                i++;
+            if (i >= text.Length || text[i] != '.')
+                return -1;
+            i++;
+            while (i < text.Length && char.IsWhiteSpace(text[i]))
+                i++;
+            if (i >= text.Length || !IsNameStart(text[i]))
+                return -1;
+            name = i;
+            for (i++; i < text.Length && IsWord(text[i]); i++)
+            {
+            }
+
+            return i;
+        }
+
+        /// <summary>A regex's <c>\w</c>: a letter, a non-spacing mark, a decimal digit or a connector, <c>_</c> among them.</summary>
+        private static bool IsWord(char c)
+        {
+            if (c < 128)
+                return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_';
+            UnicodeCategory category = char.GetUnicodeCategory(c);
+            return category <= UnicodeCategory.OtherLetter || category == UnicodeCategory.NonSpacingMark ||
+                category == UnicodeCategory.DecimalDigitNumber || category == UnicodeCategory.ConnectorPunctuation;
+        }
+
+        private static bool IsNameChar(char c) => c == '$' || IsWord(c);
+
+        private static bool IsNameStart(char c) => c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
+
+        /// <summary>
+        /// The instances' names, found by a stretch of a text without making a string of it -- in order, and searched by halves,
+        /// so that no set of names a file is given can make the search slow -- the plain identifiers apart from the escaped names
+        /// that are not, which are looked for only after a backslash.
+        /// </summary>
+        private sealed class InstanceNames
+        {
+            private readonly List<string> _plain = new List<string>();
+            private readonly List<string> _escaped = new List<string>();
+            private bool _sorted;
+
+            public bool HasEscaped => _escaped.Count > 0;
+
+            public void Add(string name)
+            {
+                if (string.IsNullOrEmpty(name))
+                    return;
+                bool plain = IsNameStart(name[0]);
+                for (int i = 1; plain && i < name.Length; i++)
+                    plain = IsNameChar(name[i]);
+                (plain ? _plain : _escaped).Add(name);
+                _sorted = false;
+            }
+
+            public string PlainAt(string text, int start, int length) => Find(_plain, text, start, length);
+
+            public string EscapedAt(string text, int start, int length) => Find(_escaped, text, start, length);
+
+            private string Find(List<string> names, string text, int start, int length)
+            {
+                if (!_sorted)
+                {
+                    _plain.Sort(StringComparer.Ordinal);
+                    _escaped.Sort(StringComparer.Ordinal);
+                    _sorted = true;
+                }
+
+                for (int low = 0, high = names.Count - 1; low <= high;)
+                {
+                    int middle = low + (high - low) / 2;
+                    string name = names[middle];
+                    int order = string.CompareOrdinal(text, start, name, 0, Math.Min(length, name.Length));
+                    if (order == 0)
+                        order = length - name.Length;
+                    if (order == 0)
+                        return name;
+                    if (order < 0)
+                        high = middle - 1;
+                    else
+                        low = middle + 1;
+                }
+
+                return null;
+            }
         }
 
         /// <summary>When the run last changed anything: its last settled change, or the end of its last transition.</summary>
