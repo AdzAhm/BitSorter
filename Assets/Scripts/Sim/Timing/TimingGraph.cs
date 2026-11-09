@@ -327,11 +327,22 @@ namespace BitSorter.Sim
         /// </summary>
         private void Spread(BitDeps value, int to, int width, string through, long rise, long fall, bool wire)
         {
+            // The pairs are counted as far as they must be to know which costs less: past the most given apart, and then past
+            // what a junction would cost. Stopped at the first alone, a value of millions of pairs looked cheaper paired than a
+            // junction of a few thousand arcs, and was paired (the 16d sweep: an 8,192-bit copy made 67 million arcs).
             long apart = 0;
-            for (int i = 0; i < width && apart <= MostArcsApart; i++)
-                apart += value.Of(i).Count;
+            int bit = 0;
+            for (; bit < width && apart <= MostArcsApart; bit++)
+                apart += value.Of(bit).Count;
+            long joined = long.MaxValue;
+            if (apart > MostArcsApart)
+            {
+                joined = (long)value.Union.Count + width;
+                for (; bit < width && apart <= joined; bit++)
+                    apart += value.Of(bit).Count;
+            }
 
-            if (apart > MostArcsApart && (long)value.Union.Count + width < apart)
+            if (apart > MostArcsApart && joined < apart)
             {
                 int junction = Junction(through);
                 SourceSet all = value.Union;

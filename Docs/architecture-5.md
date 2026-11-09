@@ -2289,7 +2289,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **A junction** stands between many bits and many where every one depends on every one -- a combinational process, a
   value too wide to follow bit by bit (over 4,096 bits) -- so they cost an arc each rather than one for every pair; a
   process copying a 256-word memory of four-bit words was 66,820 arcs and is 2,088. It is a node of no signal, named for
-  its driver.
+  its driver. An assignment's value meets at one wherever its pairs come to more than 4,096 and more than the junction's
+  own arcs; the 16d sweep found the pairs counted only to just past 4,096, so a 1,400-bit sum was 1,961,401 arcs and
+  537 MB (4,201 arcs now), and an 8,192-bit copy would have been 67 million (24,576).
   A combinational process reaches **each signal it writes from what that signal's own assignments read**, and what its
   decisions -- its `if`s, `case`s and loop conditions -- read, from outside: what it writes and then reads is followed
   through to what that was worked out from (`t = a & b; y = t | c` gives y a, b and c), what it reads of its own before

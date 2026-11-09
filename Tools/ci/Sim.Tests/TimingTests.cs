@@ -430,6 +430,16 @@ endmodule");
         {
             TimingGraph sum = Graph("module m (output logic o); logic [1399:0] a, b, s; assign s = a + b; assign o = s[0]; endmodule");
             Assert.Less(sum.Arcs.Count, 4 * 1400, "an arc for each of a's and b's bits into the junction, and one out of it for each of s's");
+
+            // Too wide to follow bit by bit, every bit of y on every bit of a: 67 million pairs, and tens of gigabytes, before.
+            const string Copy = "module m (output logic o); logic [8191:0] a, y; assign y = a; assign o = y[0]; endmodule";
+            Graph(Copy);
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            TimingGraph copy = Graph(Copy);
+            long bytes = System.GC.GetAllocatedBytesForCurrentThread() - before;
+            TestContext.WriteLine($"{copy.Arcs.Count} arcs, {bytes / 1024 / 1024} MB");
+            Assert.Less(copy.Arcs.Count, 4 * 8192, "an arc for each of a's bits in, and one for each of y's out");
+            Assert.Less(bytes, 64L << 20, "13.5 MB measured with the junction, 2026-11-09");
         }
 
         /// <summary>A register's delay that calls a function is the run's to know: taken as 0, never a crash.</summary>
