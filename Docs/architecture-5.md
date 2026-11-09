@@ -4993,7 +4993,9 @@ two kinds of call need them:
   nor at every `$fclose` or slice of a run: each copied the whole file, and an append read it back in, so a log
   opened and closed each cycle cost the square of its length (the 16d sweep, engine-6). The run keeps what it
   wrote by path, closed or not, for an append to go on from, and holds a file to `Simulator.MaxFileCharacters`,
-  sixteen million, saying once what it left out. `$fopen` in an expression is run just
+  sixteen million, saying once what it left out. A path named again in another case goes out to the files before
+  the new name is kept, since the workbench's run files match a name whatever its case and the browser's do not:
+  the files say whether it is the same one. `$fopen` in an expression is run just
   before its statement, as `$random` is. The corpus test now compares every file a testbench writes with
   Icarus's, word for word.
 - **Icarus 12 cannot run four of these** (`oracle-notes.md`, "Packages, macros, strings and files"), so

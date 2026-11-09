@@ -1058,11 +1058,18 @@ namespace BitSorter.Sim
         private sealed class FileText
         {
             public string Name;
+
+            /// <summary>Its path as the run keeps it, in the case the design gave it.</summary>
+            public string Key;
+
             public readonly StringBuilder Text = new StringBuilder();
             public bool Dirty;
 
             /// <summary>Whether it has reached <see cref="MaxFileCharacters"/>, and been said to.</summary>
             public bool Full;
+
+            /// <summary>How many descriptors are open on it.</summary>
+            public int Opens;
         }
 
         /// <summary>
@@ -1075,8 +1082,14 @@ namespace BitSorter.Sim
         /// <summary>The files open, by descriptor: the top bit set over 3 and up for a mode, a single bit above bit 0 for a channel.</summary>
         private readonly Dictionary<int, FileText> _openFiles = new Dictionary<int, FileText>();
 
-        /// <summary>Every file the run has opened, by its path: what it last opened there, open or closed.</summary>
-        private readonly Dictionary<string, FileText> _fileTexts = new Dictionary<string, FileText>(StringComparer.Ordinal);
+        /// <summary>
+        /// Every file the run has opened, by its path whatever its case: what it last opened there, open or closed. One the
+        /// design names again in another case may be the same file -- the workbench's run files match a name whatever its
+        /// case -- or another, as the browser's and the tests' are, so the text kept goes out to the files before the new
+        /// name is kept, and the files say which (the review of the 16d engine batch). One opened again while still open is
+        /// written out as it closes, or as the run hands back.
+        /// </summary>
+        private readonly Dictionary<string, FileText> _fileTexts = new Dictionary<string, FileText>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// <c>$fopen(name, mode)</c> (IEEE 1800, 21.3.1): a descriptor with the top bit set, as Icarus numbers
@@ -1126,11 +1139,20 @@ namespace BitSorter.Sim
                 descriptor = int.MinValue | n;
             }
 
-            // An append goes on from what the run last wrote there, kept; only a file it has not opened is read in.
+            // An append goes on from what the run last wrote there, kept; only a file it has not opened is read in. Kept under
+            // the name in another case, it goes out first, and the files say whether it is this one.
             string key = SystemVerilog.Syntax.SourcePaths.Normalise(path);
-            if (!append || !_fileTexts.TryGetValue(key, out FileText file))
+            if (_fileTexts.TryGetValue(key, out FileText kept) && !string.Equals(kept.Key, key, StringComparison.Ordinal))
             {
-                file = new FileText { Name = path, Dirty = true };
+                WriteOut(kept);
+                _fileTexts.Remove(key);
+                kept = null;
+            }
+
+            FileText file = append ? kept : null;
+            if (file == null)
+            {
+                file = new FileText { Name = path, Key = key, Dirty = true };
                 if (append && _options.Files.TryRead(path, out string before))
                 {
                     file.Text.Append(before, 0, Math.Min(before.Length, MaxFileCharacters));
@@ -1139,6 +1161,7 @@ namespace BitSorter.Sim
                 _fileTexts[key] = file;
             }
 
+            file.Opens++;
             _openFiles[descriptor] = file;
             return descriptor;
         }
@@ -1210,8 +1233,19 @@ namespace BitSorter.Sim
                     closing.Add(open);
 
             foreach (int open in closing)
+            {
+                FileText file = _openFiles[open];
                 _openFiles.Remove(open);
+                file.Opens--;
+
+                // One opened again since, or let go by a $writememh, is no longer kept: it goes out now or never.
+                if (!Kept(file))
+                    WriteOut(file);
+            }
         }
+
+        /// <summary>Whether <paramref name="file"/> is what the run keeps at its path.</summary>
+        private bool Kept(FileText file) => _fileTexts.TryGetValue(file.Key, out FileText kept) && ReferenceEquals(kept, file);
 
         /// <summary>
         /// <c>$fflush</c>: writes out the file a descriptor names -- one file, or a channel's bits -- or, for -1, every file
@@ -1219,11 +1253,15 @@ namespace BitSorter.Sim
         /// </summary>
         private void FlushFiles(int descriptor)
         {
-            if (_options.Files == null || _fileTexts.Count == 0)
+            if (_options.Files == null || (_fileTexts.Count == 0 && _openFiles.Count == 0))
                 return;
 
             if (descriptor == -1)
             {
+                // One opened again while still open first, so the file is what was opened there last.
+                foreach (FileText file in _openFiles.Values)
+                    if (!Kept(file))
+                        WriteOut(file);
                 foreach (FileText file in _fileTexts.Values)
                     WriteOut(file);
                 return;
@@ -1234,7 +1272,10 @@ namespace BitSorter.Sim
                     WriteOut(open.Value);
         }
 
-        /// <summary>The file at <paramref name="path"/> written out if the run holds more of it than it has written: before it is read.</summary>
+        /// <summary>
+        /// The file at <paramref name="path"/>, in whichever case the run keeps it, written out if the run holds more of it than
+        /// it has written: before it is read.
+        /// </summary>
         private void FlushPath(string path)
         {
             if (_fileTexts.Count > 0 && _fileTexts.TryGetValue(SystemVerilog.Syntax.SourcePaths.Normalise(path), out FileText file))
@@ -2290,11 +2331,16 @@ namespace BitSorter.Sim
                     break;
             }
 
-            // The image is the file now: what the run kept of it from a $fopen is not written over it later.
-            if (_fileTexts.Count > 0 && _fileTexts.TryGetValue(SystemVerilog.Syntax.SourcePaths.Normalise(task.File), out FileText kept))
+            // The image is the file now: what the run kept of it from a $fopen is not written over it later. Kept under the name
+            // in another case, it goes out first -- another file, where the files tell the cases apart -- and is let go too.
+            string key = SystemVerilog.Syntax.SourcePaths.Normalise(task.File);
+            if (_fileTexts.Count > 0 && _fileTexts.TryGetValue(key, out FileText kept))
             {
-                kept.Dirty = false;
-                _fileTexts.Remove(SystemVerilog.Syntax.SourcePaths.Normalise(task.File));
+                if (string.Equals(kept.Key, key, StringComparison.Ordinal))
+                    kept.Dirty = false;
+                else
+                    WriteOut(kept);
+                _fileTexts.Remove(key);
             }
 
             _options.Files.Write(task.File, MemoryImage.Write(words, task.Hex));
