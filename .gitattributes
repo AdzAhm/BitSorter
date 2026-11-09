@@ -2,8 +2,10 @@
 # Without this, Git guesses per-clone from core.autocrlf, and a Windows and a
 # macOS checkout disagree about every line of every scene file.
 #
-# Everything text is stored LF in the repository and checked out LF, except
-# Windows batch files, which genuinely need CRLF.
+# Everything text is stored LF in the repository. The kinds named below are
+# checked out LF on every machine too, except Windows batch files, which
+# genuinely need CRLF; anything else text is checked out as the machine's own
+# (CRLF on Windows).
 
 * text=auto
 
@@ -62,6 +64,14 @@
 *.yml         text eol=lf
 *.yaml        text eol=lf
 *.vsconfig    text eol=lf
+
+# SystemVerilog and the memories it reads: the oracle corpus is run by Icarus
+# and ModelSim as it is checked out, and ModelSim reads a backslash at a
+# line's end in a string differently before CRLF (lexical.sv's continued
+# string), so a Windows checkout would hold BitSorter to another text.
+*.sv          text eol=lf
+*.svh         text eol=lf
+*.hex         text eol=lf
 .gitignore    text eol=lf
 .gitattributes text eol=lf
 
