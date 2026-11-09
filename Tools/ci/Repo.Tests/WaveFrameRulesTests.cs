@@ -30,16 +30,17 @@ namespace BitSorter.Ci.Tests
                 string code = PureLayerRulesTests.CommentsAndLiterals.Replace(File.ReadAllText(file), " ");
                 if (WholeRun.IsMatch(code))
                     fromTheStart.Add(Path.GetFileName(file));
-                if (code.Contains(".RowSwallowedIn(", StringComparison.Ordinal))
+                if (code.Contains(".RowSwallowedIn(", StringComparison.Ordinal) || code.Contains(".RowSwallowedApart(", StringComparison.Ordinal))
                     inView.Add(Path.GetFileName(file));
             }
 
             Assert.IsEmpty(fromTheStart, "these read a row's glitch marks from the run's start at every frame, where RowSwallowedIn reads the marks in view: "
                 + string.Join(", ", fromTheStart));
 
-            // Paired, so the rule cannot pass by nothing reading the marks: the labels and the crosses still read them, in view.
+            // Paired, so the rule cannot pass by nothing reading the marks: the labels and the crosses still read them, in view --
+            // the labels where their words have room (RowSwallowedApart, the 16d sweep).
             foreach (string reader in new[] { "WaveformView.cs", "WorkbenchDrawing.cs" })
-                Assert.IsTrue(inView.Contains(reader), $"{reader} reads a row's glitch marks in view (RowSwallowedIn)");
+                Assert.IsTrue(inView.Contains(reader), $"{reader} reads a row's glitch marks in view (RowSwallowedIn, or RowSwallowedApart)");
         }
 
         [Test]
