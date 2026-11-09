@@ -175,6 +175,25 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(printed, Printer.Print(again), "a fixed point");
         }
 
+        /// <summary>
+        /// The 16d sweep's review: a character from 0x80 to 0xFF -- \200 to \377, or one typed, \u00e9 -- was printed as
+        /// itself, which an export in UTF-8 makes two bytes, so "\377" exported was C3 BF to Icarus and ModelSim where it ran
+        /// here as the one byte FF. Printed as its octal escape, it is the byte that ran. A character past 0xFF is no byte of
+        /// any escape, and is left as written.
+        /// </summary>
+        [Test]
+        public void AStringsCharactersPast127_ArePrintedAsTheirEscapes()
+        {
+            const string written = "module m; initial $display(\"\\377\\200\\x80 \u00e9 \u201cx\u201d\"); endmodule";
+            SyntaxTree tree = SyntaxReader.ReadText(written, "t.sv");
+            Assert.IsEmpty(tree.Diagnostics, string.Join("\n", tree.Diagnostics));
+            string printed = Printer.Print(tree);
+            StringAssert.Contains("\"\\377\\200\\200 \\351 \u201cx\u201d\"", printed);
+
+            SyntaxTree again = SyntaxReader.ReadText(printed, "t.sv");
+            Assert.AreEqual(printed, Printer.Print(again), "a fixed point");
+        }
+
         [Test]
         public void ABackslashAtALinesEnd_ContinuesTheLogicalLine()
         {
