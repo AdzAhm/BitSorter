@@ -575,7 +575,9 @@ endmodule"));
 
             Assert.AreEqual(new string('*', 20000) + "|", Printed(sim).Single());
             Assert.Less(made, 8L << 20, $"twenty thousand $writes made {made:N0} bytes");
+        }
 
+        /// <summary>
         /// A width or a precision too long to count is held to the most a print takes, as any wide one is; and a digit that is
         /// no ASCII digit is no width at all but a conversion BitSorter does not know -- said, never thrown (the Part 16d sweep:
         /// the digits went to int.Parse before the cap, and an OverflowException left the compile).

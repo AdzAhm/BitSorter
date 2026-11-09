@@ -100,6 +100,12 @@ namespace BitSorter.Sim
                 /// <summary>The functions and tasks whose statements are being written in, innermost last: where a return goes.</summary>
                 public readonly List<Frame> Frames = new List<Frame>();
 
+                /// <summary>
+                /// Whether what its blocks declare with no lifetime of their own is automatic, outside any function or task being
+                /// written in: a fork's branch in an automatic one's (<see cref="AutomaticHere"/>).
+                /// </summary>
+                public bool AutomaticBlocks;
+
                 /// <summary>Whether anything in it waits: a delay, an event control, a <c>wait</c>.</summary>
                 public bool Waits;
                 public bool Failed;
@@ -479,40 +485,95 @@ namespace BitSorter.Sim
             /// variables the first call made -- the task's statics -- rather than declaring them twice. A call of
             /// an automatic task is a where of its own (<see cref="Scope.Frame"/>), so its blocks are its own.
             /// </summary>
-            private readonly Dictionary<(Statement, string), (InstanceEntry Entry, Scope Inner, List<int> Locals)> _blocks =
-                new Dictionary<(Statement, string), (InstanceEntry, Scope, List<int>)>();
+            private readonly Dictionary<(Statement, string), (InstanceEntry Entry, Scope Inner, List<int> Locals, List<(SignalEntry, Declarator)> Automatic)> _blocks =
+                new Dictionary<(Statement, string), (InstanceEntry, Scope, List<int>, List<(SignalEntry, Declarator)>)>();
+
+            /// <summary>
+            /// Signals declared static where what is declared is automatic by default -- in an automatic function or task, or a
+            /// block of one: kept from one call to the next, where the routine's others start afresh (IEEE 1800, 6.21).
+            /// </summary>
+            private readonly HashSet<int> _kept = new HashSet<int>();
 
             /// <summary>Where a block is, for <see cref="_blocks"/>: its path, and inside an automatic task's call that call's number.</summary>
             private static string Where(Scope scope) => scope.FrameOf == 0 ? scope.Path : scope.Path + "#" + scope.FrameOf;
 
             /// <summary>A block or fork compiled before at the same place, made ready again; false the first time.</summary>
-            private bool Again(Proc p, Scope scope, Statement statement, string label, out InstanceEntry entry, out Scope inner)
+            private bool Again(Proc p, Scope scope, Statement statement, string label, out InstanceEntry entry, out Scope inner,
+                out List<(SignalEntry, Declarator)> automatic)
             {
                 entry = null;
                 inner = scope;
-                if (!_blocks.TryGetValue((statement, Where(scope)), out (InstanceEntry Entry, Scope Inner, List<int> Locals) again))
+                automatic = null;
+                if (!_blocks.TryGetValue((statement, Where(scope)), out (InstanceEntry Entry, Scope Inner, List<int> Locals, List<(SignalEntry, Declarator)> Automatic) again))
                     return false;
 
                 entry = again.Entry;
                 inner = again.Inner;
+                automatic = again.Automatic;
                 p.Locals.UnionWith(again.Locals);
                 if (entry != null && scope.Own(label) == null)
                     scope.TryDeclare(label, entry);
                 return true;
             }
 
-            /// <summary>Declares a block's or fork's own, the first time it is compiled at a place, and remembers them for the next.</summary>
-            private void DeclareOwn(Proc p, Scope scope, Statement statement, InstanceEntry entry, Scope inner, List<ModuleItem> declarations, bool recorded)
+            /// <summary>
+            /// Declares a block's or fork's own, the first time it is compiled at a place, and remembers them for the next; gives
+            /// back those that are automatic, to be made afresh each time it is entered (<see cref="MakeAfresh"/>).
+            /// </summary>
+            private List<(SignalEntry, Declarator)> DeclareOwn(Proc p, Scope scope, Statement statement, InstanceEntry entry, Scope inner,
+                List<ModuleItem> declarations, bool recorded)
             {
                 var before = new HashSet<int>(p.Locals);
+                var automatic = new List<(SignalEntry, Declarator)>();
                 foreach (ModuleItem declaration in declarations)
-                    DeclareInBlock(p, inner, declaration, recorded);
+                    DeclareInBlock(p, inner, declaration, recorded, automatic);
 
                 var locals = new List<int>();
                 foreach (int local in p.Locals)
                     if (!before.Contains(local))
                         locals.Add(local);
-                _blocks[(statement, Where(scope))] = (entry, inner, locals);
+                _blocks[(statement, Where(scope))] = (entry, inner, locals, automatic);
+                return automatic;
+            }
+
+            /// <summary>
+            /// Whether what a block declares here with no lifetime of its own is automatic (IEEE 1800, 6.21): in an automatic
+            /// function or task, the innermost being written in, or a fork's branch of one; never in an initial or an always,
+            /// whose blocks' variables are static.
+            /// </summary>
+            private static bool AutomaticHere(Proc p) =>
+                p.Frames.Count > 0 ? p.Frames[p.Frames.Count - 1].Routine.Declaration.IsAutomatic : p.AutomaticBlocks;
+
+            /// <summary>
+            /// Automatic variables made afresh where their block or routine is entered (IEEE 1800, 6.21): each, in the order
+            /// declared, set to its initializer -- any expression, worked out now -- or, with none, to its type's start, x or 0,
+            /// unless <paramref name="started"/> says it is there already.
+            /// </summary>
+            private void MakeAfresh(Proc p, Scope scope, List<(SignalEntry Variable, Declarator Declarator)> automatic, bool started = false)
+            {
+                if (automatic == null)
+                    return;
+
+                int outer = p.Line;
+                foreach ((SignalEntry variable, Declarator declarator) in automatic)
+                {
+                    if (declarator.Location.Line > 0 && declarator.Location.File == p.At.File)
+                        p.Line = declarator.Location.Line;
+
+                    if (declarator.Initializer != null)
+                    {
+                        var target = new NameExpression { Location = declarator.Location, Path = { declarator.Name } };
+                        Assignment(p, scope, new AssignmentStatement { Location = declarator.Location, Target = target, Operator = "=", Value = declarator.Initializer });
+                    }
+                    else if (!started)
+                    {
+                        LogicVec start = FunctionRunner.Start(_builder.InfoOf(variable.Signal));
+                        p.Emit(new Instruction { Op = OpCode.Assign, Target = Whole(variable), TargetWidth = variable.Width, Value = Expr.Constant(start) });
+                        p.Writes.Add(variable.Signal.Index);
+                    }
+
+                    p.Line = outer;
+                }
             }
 
             private void Block(Proc p, Scope scope, BlockStatement b)
@@ -520,7 +581,8 @@ namespace BitSorter.Sim
                 Scope inner = scope;
 
                 InstanceEntry entry = null;
-                if ((b.Label != null || b.Declarations.Count > 0) && !Again(p, scope, b, b.Label, out entry, out inner))
+                List<(SignalEntry, Declarator)> automatic = null;
+                if ((b.Label != null || b.Declarations.Count > 0) && !Again(p, scope, b, b.Label, out entry, out inner, out automatic))
                 {
                     bool named = b.Label != null;
                     if (named)
@@ -542,10 +604,11 @@ namespace BitSorter.Sim
                     if (recorded)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    DeclareOwn(p, scope, b, entry, inner, b.Declarations, recorded: recorded);
+                    automatic = DeclareOwn(p, scope, b, entry, inner, b.Declarations, recorded: recorded);
                 }
 
                 int start = p.Here;
+                MakeAfresh(p, inner, automatic);
                 foreach (Statement statement in b.Statements)
                     Statement(p, inner, statement);
 
@@ -558,7 +621,7 @@ namespace BitSorter.Sim
                 }
             }
 
-            private void DeclareInBlock(Proc p, Scope scope, ModuleItem item, bool recorded)
+            private void DeclareInBlock(Proc p, Scope scope, ModuleItem item, bool recorded, List<(SignalEntry, Declarator)> automatic)
             {
                 switch (item)
                 {
@@ -582,6 +645,11 @@ namespace BitSorter.Sim
                             return;
                         }
 
+                        // Its own lifetime, else its place's (IEEE 1800, 6.21): an automatic one is made afresh each time the block
+                        // is entered, its initializer worked out then; a static one is set once, before the run, and keeps its value.
+                        bool byDefault = AutomaticHere(p);
+                        bool isAutomatic = d.Lifetime == "automatic" || d.Lifetime == null && byDefault;
+
                         foreach (Declarator declarator in d.Declarators)
                         {
                             if (declarator.Unpacked.Count > 0)
@@ -592,7 +660,7 @@ namespace BitSorter.Sim
                             }
 
                             LogicVec? initial = null;
-                            if (declarator.Initializer != null)
+                            if (declarator.Initializer != null && !isAutomatic)
                             {
                                 if (!TryStartingValue(scope, declarator, shape, out LogicVec value))
                                 {
@@ -605,9 +673,17 @@ namespace BitSorter.Sim
 
                             SignalEntry entry = DeclareSignal(scope, declarator.Name, declarator.Location, shape, SignalKind.Variable, null, initial, local: !recorded);
                             if (entry == null)
+                            {
                                 p.Failed = true;
-                            else if (!recorded)
+                                continue;
+                            }
+
+                            if (!recorded || isAutomatic)
                                 p.Locals.Add(entry.Signal.Index);
+                            if (isAutomatic)
+                                automatic.Add((entry, declarator));
+                            else if (byDefault)
+                                _kept.Add(entry.Signal.Index);
                         }
 
                         return;
@@ -1170,8 +1246,9 @@ namespace BitSorter.Sim
                 p.Forks = true;
                 Scope inner = scope;
                 InstanceEntry entry = null;
+                List<(SignalEntry, Declarator)> automatic = null;
 
-                if ((f.Label != null || f.Declarations.Count > 0) && !Again(p, scope, f, f.Label, out entry, out inner))
+                if ((f.Label != null || f.Declarations.Count > 0) && !Again(p, scope, f, f.Label, out entry, out inner, out automatic))
                 {
                     if (f.Label != null)
                     {
@@ -1189,13 +1266,18 @@ namespace BitSorter.Sim
                     if (entry != null && recorded)
                         inner.Index = _builder.Scope(inner.Path, null, ScopeKind.Block, scope.Recorded);
 
-                    DeclareOwn(p, scope, f, entry, inner, f.Declarations, recorded: recorded);
+                    automatic = DeclareOwn(p, scope, f, entry, inner, f.Declarations, recorded: recorded);
                 }
+
+                MakeAfresh(p, inner, automatic);
 
                 var branches = new ProcessInfo[f.Branches.Count];
                 for (int i = 0; i < f.Branches.Count; i++)
                 {
-                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]") { At = f.Location, Line = f.Location.Line, Kind = p.Kind };
+                    var branch = new Proc($"{p.Name}.fork@{f.Location.Line}[{i + 1}]")
+                    {
+                        At = f.Location, Line = f.Location.Line, Kind = p.Kind, AutomaticBlocks = AutomaticHere(p),
+                    };
                     Statement(branch, inner, f.Branches[i]);
                     branch.Emit(OpCode.End);
                     if (branch.Failed)

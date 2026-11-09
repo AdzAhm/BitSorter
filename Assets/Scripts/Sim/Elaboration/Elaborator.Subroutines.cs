@@ -24,12 +24,18 @@ namespace BitSorter.Sim
         /// made the first time one is needed: static storage, as the standard's default is, so two processes
         /// running one static task at the same moment share them, as they do in any simulator. **An automatic
         /// task gives each call its own** (IEEE 1800, 13.3.1; Ahmad's decision, 2026-11-03): the first call
-        /// written in takes the task's, every later one a frame made for it, its blocks' variables with it, and
-        /// each starts from its locals' starting values -- so two branches of a fork running it at once keep
-        /// theirs across their waits. **And it may call itself**: its statements are written in once, at the
-        /// outer call, and a call from inside them is an <see cref="OpCode.Call"/> back to their start, which
-        /// puts the call's own signals aside until the <see cref="OpCode.Return"/> at their end gives them back.
-        /// A static task, or a function called as a statement, that calls itself is still refused.
+        /// written in takes the task's, every later one a frame made for it, its blocks' variables with it. **And it
+        /// may call itself**: its statements are written in once, at the outer call, and a call from inside them is
+        /// an <see cref="OpCode.Call"/> back to their start, which puts the call's own signals aside until the
+        /// <see cref="OpCode.Return"/> at their end gives them back. A static task, or a function called as a
+        /// statement, that calls itself is still refused.
+        ///
+        /// **A variable's lifetime is its own, else its routine's** (IEEE 1800, 6.21): an automatic one is made as
+        /// each call begins, the arguments in -- set to its initializer, which may read them, else to its type's
+        /// start (<see cref="SubroutineEntry.Fresh"/>) -- and one declared <c>static</c> in an automatic routine
+        /// keeps its value from one call to the next: every call's frame shares it (<see cref="SubroutineEntry.First"/>),
+        /// and a call back into the task does not put it aside. A block's inside it takes the routine's lifetime the
+        /// same way, made each time the block is entered.
         /// </remarks>
         private sealed partial class Run
         {
@@ -87,6 +93,7 @@ namespace BitSorter.Sim
                 r.Frame = frame;
                 r.Arguments = new List<(SignalEntry, PortDirection, Expression)>();
                 r.Own = new List<SignalEntry>();
+                r.Fresh = new List<(SignalEntry, Declarator)>();
                 bool ok = true;
 
                 if (!r.IsVoid)
@@ -168,6 +175,11 @@ namespace BitSorter.Sim
                                 break;
                             }
 
+                            // Its own lifetime, else its routine's (IEEE 1800, 6.21): an automatic one is made afresh as each call
+                            // begins, its initializer -- which may read the arguments -- worked out then; a static one is set once,
+                            // before the run, and keeps its value from one call to the next.
+                            bool isAutomatic = d.Lifetime == "automatic" || d.Lifetime == null && s.IsAutomatic;
+
                             foreach (Declarator declarator in d.Declarators)
                             {
                                 if (declarator.Unpacked.Count > 0)
@@ -177,8 +189,16 @@ namespace BitSorter.Sim
                                     continue;
                                 }
 
+                                // A later call's frame shares the task's static ones: one variable, whichever call wrote it last.
+                                if (!isAutomatic && r.First?.Frame?.Own(declarator.Name) is SignalEntry shared)
+                                {
+                                    frame.TryDeclare(declarator.Name, shared);
+                                    r.Own.Add(shared);
+                                    continue;
+                                }
+
                                 LogicVec? initial = null;
-                                if (declarator.Initializer != null)
+                                if (declarator.Initializer != null && !isAutomatic)
                                 {
                                     if (!TryStartingValue(frame, declarator, shape, out LogicVec value))
                                     {
@@ -191,9 +211,16 @@ namespace BitSorter.Sim
 
                                 SignalEntry local = DeclareSignal(frame, declarator.Name, declarator.Location, shape, SignalKind.Variable, null, initial, local: true);
                                 if (local == null)
+                                {
                                     ok = false;
-                                else
-                                    r.Own.Add(local);
+                                    continue;
+                                }
+
+                                r.Own.Add(local);
+                                if (isAutomatic)
+                                    r.Fresh.Add((local, declarator));
+                                else if (s.IsAutomatic)
+                                    _kept.Add(local.Signal.Index);
                             }
 
                             break;
@@ -239,6 +266,10 @@ namespace BitSorter.Sim
                 var p = new Proc(r.Frame.Path);
                 var frame = new Frame(r);
                 p.Frames.Add(frame);
+
+                // Its automatic locals made as the call begins, the arguments in: an automatic function's are at their
+                // type's start already, the runner having started them.
+                MakeAfresh(p, r.Frame, r.Fresh, started: s.IsAutomatic);
                 foreach (Statement statement in s.Statements)
                     Statement(p, r.Frame, statement);
                 foreach (int at in frame.Returns)
@@ -269,8 +300,13 @@ namespace BitSorter.Sim
                     inputs[i] = r.Arguments[i].Signal.Signal.Index;
 
                 var localInfo = new SignalInfo[own.Count];
+                bool[] kept = null;
                 for (int i = 0; i < own.Count; i++)
+                {
                     localInfo[i] = _builder.InfoOf(new SignalId(own[i]));
+                    if (_kept.Contains(own[i]))
+                        (kept ??= new bool[own.Count])[i] = true;
+                }
 
                 // What it reads, and what the functions it calls read in turn -- one it is calling itself
                 // has none yet, and needs none: its own reads are these.
@@ -284,6 +320,7 @@ namespace BitSorter.Sim
                 info.Result = r.Result != null ? r.Result.Signal.Index : -1;
                 info.Locals = own.ToArray();
                 info.LocalInfo = localInfo;
+                info.Kept = kept;
                 info.BodyReads = new List<int>(reads).ToArray();
                 return info;
             }
@@ -415,6 +452,7 @@ namespace BitSorter.Sim
                         frame = new SubroutineEntry
                         {
                             Declaration = r.Declaration, Scope = r.Scope, Declared = r.Declared, Compile = r.Compile, Width = r.Width, Signed = r.Signed,
+                            First = r,
                         };
                         if (!EnsureFrame(frame))
                         {
@@ -553,8 +591,9 @@ namespace BitSorter.Sim
                     if (!s.IsAutomatic)
                         p.StaticOwn.Add(own.Signal.Index);
 
-                    // An automatic one starts each call afresh: every local, and the result, back to its start.
-                    if (s.IsAutomatic && !arguments.Contains(own))
+                    // An automatic one starts each call afresh: every local, and the result, back to its start -- but those
+                    // declared static, which keep their values (IEEE 1800, 6.21).
+                    if (s.IsAutomatic && !arguments.Contains(own) && !_kept.Contains(own.Signal.Index))
                     {
                         LogicVec start = FunctionRunner.Start(_builder.InfoOf(own.Signal));
                         p.Emit(new Instruction { Op = OpCode.Assign, Target = Whole(own), TargetWidth = own.Width, Value = Expr.Constant(start) });
@@ -608,6 +647,8 @@ namespace BitSorter.Sim
                 else
                     calling = null;
 
+                // Its automatic locals made, the arguments in; an automatic one's at their start already, from above.
+                MakeAfresh(p, r.Frame, r.Fresh, started: s.IsAutomatic);
                 foreach (Statement statement in s.Statements)
                     Statement(p, r.Frame, statement);
 
@@ -622,7 +663,7 @@ namespace BitSorter.Sim
                     int returnAt = p.Emit(new Instruction { Op = OpCode.Return, Jump = body });
                     var saved = new List<int>();
                     foreach (int local in p.Locals)
-                        if (!before.Contains(local) && !p.StaticOwn.Contains(local))
+                        if (!before.Contains(local) && !p.StaticOwn.Contains(local) && !_kept.Contains(local))
                             saved.Add(local);
                     saved.Sort();
                     var starts = new LogicVec[saved.Count];

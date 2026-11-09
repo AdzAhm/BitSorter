@@ -277,6 +277,12 @@ namespace BitSorter.SystemVerilog.Syntax
         public List<Declarator> Declarators { get; } = new List<Declarator>();
         public bool IsConst { get; set; }
 
+        /// <summary>
+        /// <c>automatic</c> or <c>static</c>, written before a variable declared in a block or a function or task (IEEE 1800,
+        /// 6.21); null where none is, and the variable takes its place's lifetime.
+        /// </summary>
+        public string Lifetime { get; set; }
+
         /// <summary>A net's delay: <c>wire #2 w = a &amp; b;</c>.</summary>
         public DelayControl Delay { get; set; }
     }

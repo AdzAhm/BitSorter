@@ -21,7 +21,9 @@ namespace BitSorter.Sim
     /// **Its own signals are the design's own working variables** (<see cref="SignalInfo.Local"/>):
     /// written straight into the array of values, never recorded, and read by nothing outside it. A
     /// static function keeps them from one call to the next, as the standard's static functions do; an
-    /// automatic one starts each call from their starting values.
+    /// automatic one starts each call from their starting values, but those declared <c>static</c>
+    /// (<see cref="Kept"/>), and its code begins by setting each automatic one that has an initializer
+    /// to it (IEEE 1800, 6.21).
     ///
     /// **A call that comes back into a function already running** -- recursion, which an automatic
     /// function may do -- keeps the outer call's own signals aside and puts them back after, so each call
@@ -53,6 +55,12 @@ namespace BitSorter.Sim
 
         /// <summary>Whether each call starts from fresh locals (<c>function automatic</c>), or keeps them (the default, static).</summary>
         public bool Automatic;
+
+        /// <summary>
+        /// Which of <see cref="Locals"/> keep their values from one call to the next in an automatic function -- those declared
+        /// <c>static</c> (IEEE 1800, 6.21) -- and are shared by a call that comes back in; null when none is.
+        /// </summary>
+        public bool[] Kept;
 
         /// <summary>
         /// The design's signals the statements read, its own left out, and those the functions it calls
@@ -184,16 +192,19 @@ namespace BitSorter.Sim
             LogicVec[] kept = null;
             if (f.Depth > 0)
             {
-                // A call coming back in: the running call's own signals go aside until this one is done.
+                // A call coming back in: the running call's own signals go aside until this one is done -- but a static one,
+                // which every call shares.
                 kept = new LogicVec[f.Locals.Length];
                 for (int i = 0; i < f.Locals.Length; i++)
-                    kept[i] = values[f.Locals[i]];
+                    if (f.Kept == null || !f.Kept[i])
+                        kept[i] = values[f.Locals[i]];
             }
 
             if (f.Automatic || kept != null)
             {
                 for (int i = 0; i < f.Locals.Length; i++)
-                    values[f.Locals[i]] = Start(f.LocalInfo[i]);
+                    if (f.Kept == null || !f.Kept[i])
+                        values[f.Locals[i]] = Start(f.LocalInfo[i]);
             }
 
             for (int i = 0; i < f.Inputs.Length; i++)
@@ -223,7 +234,8 @@ namespace BitSorter.Sim
 
             if (kept != null)
                 for (int i = 0; i < f.Locals.Length; i++)
-                    values[f.Locals[i]] = kept[i];
+                    if (f.Kept == null || !f.Kept[i])
+                        values[f.Locals[i]] = kept[i];
 
             return result;
         }

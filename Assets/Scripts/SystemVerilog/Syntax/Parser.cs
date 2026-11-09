@@ -1917,15 +1917,31 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private void ParseLocalDeclaration(List<ModuleItem> into)
         {
-            if (Current.IsKeyword("automatic") || Current.IsKeyword("static"))
+            // const automatic int k = 2; as the grammar has it, or automatic const int k = 2; -- read the same.
+            bool isConst = Current.IsKeyword("const") && (Peek(1).IsKeyword("automatic") || Peek(1).IsKeyword("static"));
+            if (isConst)
                 Next();
+
+            // A variable's own lifetime (IEEE 1800, 6.21), kept: it decides whether the variable is made afresh each time its
+            // block or routine is entered.
+            string lifetime = null;
+            if (Current.IsKeyword("automatic") || Current.IsKeyword("static"))
+            {
+                lifetime = Current.Text;
+                Next();
+            }
 
             if (Current.IsKeyword("typedef"))
                 into.Add(ParseTypedef());
             else if (Current.IsKeyword("parameter") || Current.IsKeyword("localparam"))
                 ParseParameterItems(into);
             else
-                into.Add(ParseDataDeclaration());
+            {
+                DataDeclaration declaration = ParseDataDeclaration();
+                declaration.Lifetime = lifetime;
+                declaration.IsConst |= isConst;
+                into.Add(declaration);
+            }
         }
 
         // -----------------------------------------------------------------

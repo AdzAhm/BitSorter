@@ -668,7 +668,9 @@ endmodule", "top");
             Assert.IsTrue(Codes(e).Contains(code), "the error after them");
             Assert.IsTrue(e.HasErrors);
             Assert.IsNull(e.Design);
+        }
 
+        /// <summary>
         /// A replication counted past what a long holds once multiplied by its item is too large, said so -- never let through
         /// a width the multiplication wrapped to nothing, which threw out of Elaborate (the Part 16d sweep).
         /// </summary>

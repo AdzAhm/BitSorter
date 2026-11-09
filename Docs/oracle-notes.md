@@ -102,6 +102,23 @@ ModelSim runs it as the standard has it, and so does BitSorter since Part 16d --
 word. `ProcessTests.AForsDeclarations_DeclareEveryVariable_EachWithTheTypeBeforeIt` holds ModelSim's
 lines; the corpus keeps out of it, since Icarus would refuse the file.
 
+### A lifetime written on a variable
+
+```systemverilog
+task bump(output int r); automatic int c = 0; c++; r = c; endtask
+initial for (int i = 0; i < 3; i++) begin automatic int id = i * 2; ... end
+```
+
+The standard (IEEE 1800, 6.21) gives a variable its own lifetime where one is written, else its place's: an
+automatic one is made each time its block or routine is entered, its initializer -- any expression -- worked
+out then, and one declared `static` in an automatic routine keeps its value between calls. Icarus 12 reads
+the routine's lifetime, and so a block's inside it, but not one written on a variable ("sorry: overriding the
+default variable lifetime is not yet supported"). ModelSim runs both as the standard has them, and so does
+BitSorter since Part 16d -- which until then dropped the word as it read it and made every block's variable
+static: `automatic int id = i * 2` was refused, its initializer no constant, and one with none kept the last
+time round's value. `SubroutineTests` and `ProcessTests` hold ModelSim's lines; the corpus,
+`subroutines.sv`'s `doubled_sum` and `tally`, holds only what Icarus reads.
+
 ## Two drivers
 
 | Declaration | Two continuous drivers, 0 against 1 |

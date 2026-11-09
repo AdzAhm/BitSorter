@@ -3398,7 +3398,8 @@ that describes a circuit is opened into cells, and what is no circuit stays a bo
 - **A function is opened where it is called**, once a call, as a synthesis tool inlines one (`RtlBuilder.Call`). It
   mirrors `FunctionRunner`:
   - the arguments are shaped as its inputs hold them;
-  - an automatic function's own signals, or those of a call that comes back in, start afresh;
+  - an automatic function's own signals, or those of a call that comes back in, start afresh -- but one declared
+    `static`, memory as a static function's are;
   - a write lands only in its own signals, and anything a function cannot do ends the call;
   - a recursion whose end the arguments fix is run to it, and folds to a constant.
 - **What is no circuit stays a box, with why** (`RtlCell.Why`):
@@ -4923,8 +4924,15 @@ two kinds of call need them:
   and shared by every call of a static function or task: static storage, the standard's default. **An automatic
   task gives each call written in its own** -- the first the task's, every later one a frame made for it, with its
   blocks' variables, which are kept out of a dump as automatic variables are (21.7.1.2) -- so two branches of a
-  fork running it at once keep theirs across their waits; they shared them until Ahmad's decision. An automatic
-  function or task starts each call from its locals' starting values. A function called again while it is running --
+  fork running it at once keep theirs across their waits; they shared them until Ahmad's decision. **A variable's
+  lifetime is its own, else its place's** (6.21; Part 16d -- the read had dropped the word, and a block's variables
+  were static wherever they were): one in an automatic function or task, or declared `automatic`, is made as each
+  call begins, the arguments in -- its initializer, which may read them, worked out then, else its type's start --
+  and one in a block, each time the block is entered; one declared `static` in an automatic routine keeps its value
+  from one call to the next, every call's frame sharing it and a call back into the task leaving it be, and an
+  `initial`'s or an `always`'s blocks' are static unless written `automatic`. Icarus 12 reads no lifetime written
+  on a variable ("not yet supported"), so the corpus holds only a routine's own; ModelSim's lines hold the rest
+  (`SubroutineTests`, `ProcessTests`). A function called again while it is running --
   recursion -- keeps the running call's signals aside and puts them back after, so each call has its own;
   only such a call copies anything. The calls under way hold at most a stack's worth of frames between them, each
   costing its body's deepest expression, and at most a hundred calls, across every function; the call past either gives

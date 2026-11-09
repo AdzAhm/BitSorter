@@ -275,6 +275,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     var text = new StringBuilder();
                     if (d.IsConst) text.Append("const ");
+                    if (d.Lifetime != null) text.Append(d.Lifetime).Append(' ');
                     if (d.NetType != null) text.Append(d.NetType).Append(' ');
                     if (d.Delay != null) text.Append(DelayText(d.Delay)).Append(' ');
                     text.Append(TypePrefix(d.Type));

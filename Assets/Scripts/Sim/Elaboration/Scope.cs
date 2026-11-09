@@ -81,6 +81,13 @@ namespace BitSorter.Sim
         /// <summary>Every signal of its own, the arguments and the result among them.</summary>
         public List<SignalEntry> Own;
 
+        /// <summary>
+        /// Its locals that are automatic -- all but those declared static, in an automatic one; those declared automatic, in a
+        /// static one -- each set as a call begins, once the arguments are in, to its initializer or its type's start (IEEE
+        /// 1800, 6.21).
+        /// </summary>
+        public List<(SignalEntry Variable, Declarator Declarator)> Fresh;
+
         /// <summary>Compiled to run inside an expression, once a call there has asked for it.</summary>
         public FunctionInfo Compiled;
 
@@ -89,6 +96,12 @@ namespace BitSorter.Sim
 
         /// <summary>Whether an automatic task's own signals have been given to a call written in: every later call has a frame made for it.</summary>
         public bool Called;
+
+        /// <summary>
+        /// On a frame made for a later call of an automatic task: the task itself, whose locals declared <c>static</c> every call
+        /// shares, keeping their values from one call to the next (IEEE 1800, 6.21).
+        /// </summary>
+        public SubroutineEntry First;
 
         /// <summary>Whether its signals or its statements could not be made, which has been said once already.</summary>
         public bool Failed;

@@ -10,8 +10,9 @@ namespace BitSorter.Sim
     /// </summary>
     /// <remarks>
     /// **What the engine does is what is opened** (<see cref="FunctionRunner"/>): the arguments shaped as the function's inputs
-    /// hold them; an automatic function, or a call that comes back into one already running, starts its own signals afresh; a
-    /// write lands only in the function's own signals; anything a function cannot do ends the call.
+    /// hold them; an automatic function, or a call that comes back into one already running, starts its own signals afresh --
+    /// but those declared <c>static</c>, which are memory as a static function's are; a write lands only in the function's own
+    /// signals; anything a function cannot do ends the call.
     ///
     /// **What is no circuit stays a box, with why**: a static function that reads one of its own signals before writing it,
     /// which gives what its last call left; a call inside a call past <see cref="MostCalls"/> deep, as a recursion with no
@@ -70,8 +71,19 @@ namespace BitSorter.Sim
             HashSet<int> unbound = null;
             if (f.Automatic || _calling.Contains(f))
             {
+                // One declared static keeps what the last call left, as a static function's own do: memory, read before written.
                 for (int i = 0; i < f.Locals.Length; i++)
-                    first.Now[f.Locals[i]] = Constant(FunctionRunner.Start(f.LocalInfo[i]));
+                {
+                    if (f.Kept != null && f.Kept[i])
+                    {
+                        (unbound ??= new HashSet<int>()).Add(f.Locals[i]);
+                        first.Now.Remove(f.Locals[i]);
+                    }
+                    else
+                    {
+                        first.Now[f.Locals[i]] = Constant(FunctionRunner.Start(f.LocalInfo[i]));
+                    }
+                }
             }
             else
             {
@@ -120,12 +132,18 @@ namespace BitSorter.Sim
             return Splice(-1, value, 0, signal);
         }
 
-        /// <summary>A static function's own signal read before this call wrote it: what its last call left, which no circuit holds.</summary>
+        /// <summary>
+        /// A static function's own signal, or a static variable of an automatic one, read before this call wrote it: what its last
+        /// call left, which no circuit holds.
+        /// </summary>
         private void Unbound(int signal)
         {
-            string function = _calling.Count > 0 ? ShortName(_calling[_calling.Count - 1]) : "A function";
+            FunctionInfo f = _calling.Count > 0 ? _calling[_calling.Count - 1] : null;
+            string function = f != null ? ShortName(f) : "A function";
             throw new NotHardware(function + " reads " + LastName(_design.Signals[signal].Name) + " before writing it, so it gives what its last call left: " +
-                "a static function's memory, not a circuit. Is it meant to be automatic?");
+                (f != null && f.Automatic
+                    ? "a static variable's memory, not a circuit. Is it meant to be automatic?"
+                    : "a static function's memory, not a circuit. Is it meant to be automatic?"));
         }
 
         private string ShortName(FunctionInfo f) => f.Name.StartsWith(_prefix, System.StringComparison.Ordinal) ? f.Name.Substring(_prefix.Length) : LastName(f.Name);
