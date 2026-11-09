@@ -177,6 +177,50 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(late.Solved, "but slower than the exercise allows");
         }
 
+        /// <summary>
+        /// A design's settle time is its slowest path however many paths it has (the 16d sweep): the grader took the slowest the
+        /// path walk found, and the walk stops at 10,000 -- here a's 2^14 ways to y through fourteen stages of two NOTs and a
+        /// NAND, 28 each, before b's one way to z through 42 NOTs is begun -- so a design slower than its limit passed it.
+        /// </summary>
+        [Test]
+        public void ASettleTime_IsTheSlowestPath_HoweverManyPathsTheDesignHas()
+        {
+            Exercise exercise = Make(@"{ ""id"": ""wide"", ""title"": ""Wide"", ""settleBy"": 30,
+                ""inputs"": [ { ""name"": ""a"", ""values"": ""0011"" }, { ""name"": ""b"", ""values"": ""0101"" } ],
+                ""outputs"": [ { ""name"": ""y"", ""values"": ""0011"" }, { ""name"": ""z"", ""values"": ""0101"" } ],
+                ""parts"": [ { ""kind"": ""Not"", ""count"": 70 }, { ""kind"": ""Nand"", ""count"": 14 } ] }");
+            var editor = new BoardEditor(Open(exercise));
+
+            int x = Port(editor, "a");
+            string pin = "out";
+            for (int i = 0; i < 14; i++)
+            {
+                int n = Gate(editor, GateKind.Not, 6 + 10 * i, 0), m = Gate(editor, GateKind.Not, 6 + 10 * i, 4);
+                int g = Gate(editor, GateKind.Nand, 10 + 10 * i, 2);
+                Wire(editor, x, pin, n, "a");
+                Wire(editor, x, pin, m, "a");
+                Wire(editor, n, "y", g, "a");
+                Wire(editor, m, "y", g, "b");
+                (x, pin) = (g, "y");
+            }
+            Wire(editor, x, pin, Port(editor, "y"), "in");
+
+            (x, pin) = (Port(editor, "b"), "out");
+            for (int i = 0; i < 42; i++)
+            {
+                int n = Gate(editor, GateKind.Not, 6 + 4 * i, 10);
+                Wire(editor, x, pin, n, "a");
+                (x, pin) = (n, "y");
+            }
+            Wire(editor, x, pin, Port(editor, "z"), "in");
+
+            Grade grade = ExerciseGrader.Grade(exercise, editor.Project);
+            Assert.IsEmpty(grade.Problems.Concat(grade.Faults).Concat(grade.Failures.Select(f => f.ToString())), "sanity: right at every check");
+            Assert.AreEqual(42L, grade.Settle, "b's way through 42 NOTs, past the walk's 10,000 of a's");
+            Assert.IsFalse(grade.SettleMet);
+            Assert.IsFalse(grade.Solved, "slower than the exercise allows");
+        }
+
         /// <summary>One clock late: q reads, at each vector, what d was the vector before -- a register on the clock.</summary>
         [Test]
         public void AClockedExercise_HasItsClock_AndARegisterSolvesIt()

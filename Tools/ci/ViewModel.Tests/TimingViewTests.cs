@@ -48,6 +48,32 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// Logic of more paths than the walk reckons: a's 2^14 ways to y through fourteen stages of two NOTs and a NAND, 28 each,
+        /// and b's one way to z through a NOT of 41, which the walk never reaches -- it stops at 10,000, a's, before b is
+        /// begun. Its CRITICAL PATH is b's, as static timing finds it (the 16d sweep: it was the slowest of a's).
+        /// </summary>
+        private static string ManyPathsBesideASlowOne()
+        {
+            var text = new System.Text.StringBuilder("module wide (input logic a, b, output logic y, z);\n    logic x0;\n    assign x0 = a;\n");
+            for (int i = 0; i < 14; i++)
+                text.Append($"    logic n{i}, m{i}, x{i + 1};\n    not #1 gn{i} (n{i}, x{i});\n    not #1 gm{i} (m{i}, x{i});\n    nand #1 gx{i} (x{i + 1}, n{i}, m{i});\n");
+            return text.Append("    assign y = x14;\n    not #41 gb (z, b);\nendmodule\n").ToString();
+        }
+
+        [Test]
+        public void LogicOfMorePathsThanTheWalkReckons_ItsCriticalPathIsStillTheSlowest()
+        {
+            Project project = Written("wide", ("wide", ManyPathsBesideASlowOne()));
+            TimingView view = TimingView.Of(project);
+            Assert.IsTrue(view.Analysis.Paths.Capped, "sanity: more paths than the walk reckons");
+
+            TimingLine critical = view.Lines[view.Critical];
+            Assert.AreEqual("CRITICAL PATH", critical.Label);
+            StringAssert.StartsWith("b → z", critical.Text, "the slowest, where the walk never went");
+            StringAssert.Contains("41 " + Unit(project), critical.Numbers);
+        }
+
+        /// <summary>
         /// The counter: q[0] through the AND (1) and the second XOR (2) into the register -- 3 of logic, the register ideal, so
         /// the minimum period is 3. A clock to Q of 2 and a setup of 1 make it 6, and the frequency follows.
         /// </summary>
