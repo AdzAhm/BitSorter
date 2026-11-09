@@ -206,6 +206,68 @@ endmodule", files, until: 0);
             Assert.Less(made, 16L << 20, $"two thousand cycles of a log made {made:N0} bytes");
         }
 
+        /// <summary>Files that match a name whatever its case, as the workbench's run files do (ProjectFiles.RunFiles).</summary>
+        private sealed class CaselessFiles : ISimFiles
+        {
+            public readonly System.Collections.Generic.Dictionary<string, string> Files =
+                new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+            public bool TryRead(string path, out string text) => Files.TryGetValue(SourcePaths.Normalise(path), out text);
+            public void Write(string path, string text) => Files[SourcePaths.Normalise(path)] = text ?? "";
+        }
+
+        /// <summary>
+        /// A file the design writes, closes and then reads, appends to or replaces under its name in another case is the same
+        /// file in a store that matches names whatever their case -- the workbench's -- and another in one that does not, the
+        /// browser's and the tests' (the review of the 16d engine batch). Kept by exact case once closed, the run never wrote
+        /// it out before the read: "there is no file called data.hex", an append that started from nothing, and an image a
+        /// $writememh wrote overwritten as the run handed back.
+        /// </summary>
+        [Test]
+        public void AFileWrittenThenReadOrWrittenAgain_UnderItsNameInAnotherCase_IsTheStoresToMatch()
+        {
+            const string Design = @"
+module t;
+    logic [7:0] m [0:1];
+    integer f;
+    initial begin
+        f = $fopen(""Data.hex"", ""w"");
+        $fdisplay(f, ""aa"");
+        $fdisplay(f, ""bb"");
+        $fclose(f);
+        $readmemh(""data.hex"", m);
+        $display(""m0=%h m1=%h"", m[0], m[1]);
+        f = $fopen(""Log.txt"", ""w""); $fdisplay(f, ""one""); $fclose(f);
+        f = $fopen(""log.txt"", ""a""); $fdisplay(f, ""two""); $fclose(f);
+        f = $fopen(""Log.txt"", ""a""); $fdisplay(f, ""three""); $fclose(f);
+        f = $fopen(""Out.hex"", ""w""); $fdisplay(f, ""zz""); $fclose(f);
+        $writememh(""out.hex"", m);
+    end
+endmodule";
+
+            var caseless = new CaselessFiles();
+            Elaboration e = Elaborate(Design);
+            Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, new SimOptions { Files = caseless });
+            sim.RunTo(10);
+
+            CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Severity == Severity.Error).Select(m => m.Text));
+            CollectionAssert.AreEqual(new[] { "m0=aa m1=bb" }, Printed(sim));
+            Assert.AreEqual("one\ntwo\nthree\n", caseless.Files["log.txt"], "each append goes on from the last, whichever case it names");
+            StringAssert.Contains("aa", caseless.Files["out.hex"], "the image $writememh wrote is the file, not the text written before it");
+            StringAssert.DoesNotContain("zz", caseless.Files["out.hex"]);
+
+            // In a store that tells the cases apart, each name is a file of its own.
+            var exact = new MemorySimFiles();
+            Run(Design, exact, until: 10);
+            Assert.IsTrue(exact.TryRead("Log.txt", out string upper));
+            Assert.IsTrue(exact.TryRead("log.txt", out string lower));
+            Assert.AreEqual("one\nthree\n", upper);
+            Assert.AreEqual("two\n", lower);
+            Assert.IsTrue(exact.TryRead("Out.hex", out string written));
+            Assert.AreEqual("zz\n", written);
+        }
+
         [Test]
         public void OpeningAFileToRead_GivesNothing_AndSaysWhy()
         {
