@@ -1655,8 +1655,17 @@ namespace BitSorter.Sim
             if (exponent < 0)
                 return Expr.Constant(NegativePower(factor, signedBase, exponent, width, signed));
 
-            for (long i = 0; i < Math.Min(exponent, 4096); i++)
-                result = LogicVec.Multiply(result, factor);
+            // Squared and multiplied, a step for each bit of the exponent: the whole power at the result's width, however
+            // large. Multiplied in once a unit up to 4,096 and no further, (-1) ** 5001 came out 1 (found beside the Part
+            // 16d sweep).
+            while (exponent > 0)
+            {
+                if ((exponent & 1) != 0)
+                    result = LogicVec.Multiply(result, factor);
+                exponent >>= 1;
+                if (exponent > 0)
+                    factor = LogicVec.Multiply(factor, factor);
+            }
 
             return Expr.Constant(result);
         }
