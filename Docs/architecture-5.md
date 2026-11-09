@@ -4534,6 +4534,19 @@ something needed").
 
 **As built in Part 16d's sweep: the importer** (the findings of the sweep's import-export area, each a red test and its fix).
 
+- **A drawing is what the code means, or the module comes in written** (`BoardImporter`): a `'1`, `'x` or `'z` fills its
+  net and a signed literal sign-extends, as the assignment does; a `supply0` or `supply1` net and a net's declaration
+  assignment are constants driving it; a type a board's nets are not -- a typedef, an enum, a struct, `int`, an array
+  port -- is refused rather than drawn one bit wide; of two modules of a name the first is drawn, as the project keeps
+  it; a select takes the bit its declared range names, `a[2]` of `[4:1]` at offset 1; a cell's connections are taken by
+  name or in order and `.A`, `.*` or a port it has not are refused; and a width past what a board holds is refused, never
+  wrapped or thrown. Each was a red test first, and no import of the corpus or the exercises' solutions changes.
+- **The drawing's own work is in proportion to it**: the names an assign joins by a union-find that compresses its paths
+  (40,000 aliases in moments, where 16,000 took 2 s), and a drawing's columns relaxed over arrays worked out once (two
+  thousand gates in a ring, 7 s and 205 MB before) -- every net, wire and placement as it was. A chain of operators
+  is held to the reader's depth (`a & a & ...` of six hundred overflowed a megabyte's stack in the elaborator, see the
+  reader), a run's history counts a wide value by its size (see Memory), and the import's run is held to so many
+  instructions (see Part 13f).
 - **A module is drawn whole, then checked once** (`BoardImporter`'s `ModuleReader`). It made its drawing an edit at a time
   through `BoardEditor`, and every `Add`, `Connect` and `NameWire` checked the whole project again, so a flat module cost
   the square of its size in one frame: a thousand NAND gates side by side made 13.5 GB in 14 s under dotnet. Its parts and
