@@ -3169,8 +3169,11 @@ is built (2026-10-28).
   copy whose stimulus is the reset for a cycle, if there is one, then the
   inputs that reach a state, one a cycle, then one combination more. The state is read half a period after the edge from
   the register bits the timing analysis names (`TimingGraph.Of` on the copy; six at most, each register's high bit first),
-  and the outputs just before the edge. The period is twice the measured settle time, or the design's minimum period if
-  that is longer.
+  and the outputs just before the edge. The period is twice the settle time the measured worst uses -- the slowest path
+  static timing finds, and half again (`StepTests.SettleFor` of `TimingView.Slowest`), worked out rather than measured --
+  or the design's clock period (`TimingReport.ClockPeriod`, register to register and in and out) if that is longer,
+  which it never is, the settle time being past every path that period counts. (It said the measured settle time and the
+  minimum period until the 16d sweep.)
 - **Breadth first from the start**: every state reached is run with every combination, up to sixteen states (`Cut`
   past them). **A state with an x in it is run on from like any other**: it is what a register holds from power-up until
   written, and the next state may well be known -- a two-bit shift register with no reset goes xx, then x0 or x1, then
