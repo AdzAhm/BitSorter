@@ -251,6 +251,7 @@ namespace BitSorter.Sim
             }
 
             // What each blocking-written bit holds now: the bits it was worked out from. Absent, it holds its own last value.
+            // A set once held is never changed, so one may stand for many bits.
             var holds = new Dictionary<int, HashSet<int>>();
             var written = new HashSet<int>();
             var decisions = new HashSet<int>();
@@ -403,18 +404,22 @@ namespace BitSorter.Sim
                         for (int b = first[s]; b < first[s + 1]; b++)
                             any.UnionWith(Now(b, holds));
                 int words = piece.Word != null ? Math.Max(1, piece.Depth) : 1;
-                int into = blocking ? -1 : build.Junction();
-                if (into >= 0)
-                    foreach (int s in any)
-                        build.Data(s, into, 0);
+                int into = build.Junction();
+                foreach (int s in any)
+                    build.Data(s, into, 0);
+
+                // Written now, each bit may hold the write -- through the junction, as a nonblocking write's meets there --
+                // or what it held: one set shared by every bit that held its own value, so a memory of thousands of words is
+                // a set, not a copy of all the write reads for each of its bits (the 16d sweep: 939 MB for 4,096 words).
+                HashSet<int> mayHold = blocking ? new HashSet<int> { into, Kept } : null;
                 for (int w = 0; w < words && piece.Signal + w < design.Signals.Count; w++)
                     for (int b = first[piece.Signal + w]; b < first[piece.Signal + w + 1]; b++)
                     {
                         written.Add(b);
-                        if (into >= 0)
+                        if (!blocking)
                             build.Data(into, b, 1);
                         else
-                            Land(b, any, blocking: true, sometimes: true, routing: false, build, holds, written);
+                            holds[b] = holds.TryGetValue(b, out HashSet<int> before) ? new HashSet<int>(before) { into } : mayHold;
                     }
             }
             return unfollowed;

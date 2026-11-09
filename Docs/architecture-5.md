@@ -4145,6 +4145,9 @@ extra", beside the course read, which gives both for a K-stage pipeline).
   its hold now (`Expr.DependsHolding`), nested or on either arm, while `en ? d : q + 1` or `~q` still goes round; and the
   condition of a `?:` on the way to a hold decides as an `if`'s does, a way and never a stage's data (the M2 review: as
   data it made a pipeline of enables "1 to 3 registers" and claimed a register gated by its machine's phase a pipeline).
+  A word written at a place found as it runs is followed only enough to find a loop or an output, through one junction
+  whether it is written with `<=` or `=` (the 16d sweep: with `=` every bit of every word took a copy of all the write
+  read -- 4,096 words of 32 bits, 939 MB and a second in the frame TIMING opened; 142 MB and 166 ms now, as `<=`'s 134).
 - **A condition is a way but no stage.** An `if`'s or a `case`'s condition reaches every bit its process writes, through
   a junction: it counts for reaching an output and for a loop -- a state machine written in one `always_ff` is a loop,
   Moore or Mealy -- never as a register crossed, so a pipeline's synchronous reset or enable leaves it a pipeline. **An
