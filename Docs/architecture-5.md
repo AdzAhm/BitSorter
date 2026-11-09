@@ -2275,7 +2275,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
 - **The timing graph** (`Sim/Timing/TimingGraph`) is built from the flattened `Design`, so a drawn module and a written
   one are reckoned alike: **every bit of every signal a node** (`NameOf` gives `adder.c[1]`), every way a change travels
   an arc -- a gate at its rise (`Tpdlh`, the output going to 1) and fall (`Tpdhl`), an assignment at its delay, a
-  combinational process at none -- each with how it passes a change: the same way, the other way, or either.
+  combinational process at none (at every `#` it waits and its latest `<= #` since the 14c review, below) -- each with how
+  it passes a change: the same way, the other way, or either.
 - **Bits, because a bus is fed bit by bit.** The first version was a node a signal, as the course draws a bus, and the
   review found what that costs: a ripple adder's carries are one vector each copy feeds the next from, so the vector fed
   itself -- a loop -- and every gate in it was dropped from every path. The drawn eight-bit ripple adder's worst path was

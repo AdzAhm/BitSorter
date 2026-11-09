@@ -112,8 +112,9 @@ namespace BitSorter.Sim
     /// <summary>
     /// A design's timing, as the course reckons it (Part 14a): every bit of every signal a node, and every way a change
     /// travels from one to another an arc -- a gate at its <c>Tpdlh</c> and <c>Tpdhl</c>, an assignment at its delay, a
-    /// combinational process at none -- with each register an edge-triggered process where paths start and end. Built from
-    /// the flattened <see cref="Design"/>, so a drawn module and a written one are reckoned alike.
+    /// combinational process at every <c>#</c> it waits and its latest <c>&lt;= #</c> -- with each register an
+    /// edge-triggered process where paths start and end. Built from the flattened <see cref="Design"/>, so a drawn module
+    /// and a written one are reckoned alike.
     /// </summary>
     /// <remarks>
     /// **Bits, not signals.** A carry passed from <c>c[0]</c> to <c>c[1]</c> through a gate is one bit to another; were a
@@ -377,9 +378,9 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// An edge-triggered process is a register; one that waits on no edge -- <c>always_comb</c>, <c>always @*</c> -- is
-        /// logic at no delay, every bit it reads from outside reaching every bit it writes, through a junction. What it both
-        /// writes and reads is its own working -- <c>y = y ^ a[i]</c> -- and no loop, and a loop's own variable no part of
-        /// anything. An <c>initial</c> is a testbench's, and no part.
+        /// logic at the delays it waits, each signal it writes reached from what it reads for that signal, through a junction
+        /// (<see cref="AddLogic"/>). What it both writes and reads is its own working -- <c>y = y ^ a[i]</c> -- and no loop,
+        /// and a loop's own variable no part of anything. An <c>initial</c> is a testbench's, and no part.
         /// </summary>
         private void AddProcesses(IReadOnlyDictionary<string, RegisterTiming> given)
         {
@@ -473,10 +474,10 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// A combinational process: each signal it writes reached from what its own assignments read and what its decisions
-        /// -- its <c>if</c>s, <c>case</c>s and loop conditions -- read, through a junction, at no delay. What it writes and
-        /// then reads is followed through to what that was worked out from, so <c>t = a &amp; b; y = t | c;</c> gives y a, b
-        /// and c; what it reads of its own before writing it -- <c>y = y ^ a[i]</c> -- is its own working, and a loop's
-        /// variable is no part of anything.
+        /// -- its <c>if</c>s, <c>case</c>s and loop conditions -- read, through a junction, at the delay it waits. What it
+        /// writes and then reads is followed through to what that was worked out from, so <c>t = a &amp; b; y = t | c;</c>
+        /// gives y a, b and c; what it reads of its own before writing it -- <c>y = y ^ a[i]</c> -- is its own working, and a
+        /// loop's variable is no part of anything.
         /// </summary>
         /// <remarks>
         /// **Its delay is every <c>#</c> it waits and its latest <c>&lt;= #</c>** (<paramref name="delay"/>), on the way in:
