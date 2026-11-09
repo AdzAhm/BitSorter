@@ -26,8 +26,18 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>How deep expressions, statements, generate blocks and types may nest, a run of operators counting each one.</summary>
         public const int MaxDepth = 200;
 
+        /// <summary>
+        /// How many bits the literals of one read may hold between them, counting only those wider than 64 bits -- the ones a
+        /// value allocates for -- and every file read together sharing it (<see cref="ExpansionBudget"/>): as many as a design
+        /// may hold in its signals. A literal is made at its full width as it is read, so <c>1048576'd0</c>, eleven characters,
+        /// holds 256 KB, and without a budget a hundred thousand bytes of them held 2 GB (the 16d sweep). The literal past it
+        /// is refused, said once, and not made.
+        /// </summary>
+        public const long MaxLiteralBits = 1L << 26;
+
         private readonly List<Token> _tokens;
         private readonly DiagnosticBag _diagnostics;
+        private readonly ExpansionBudget _budget;
         private int _at;
         private int _depth;
         private bool _stopped;
@@ -35,10 +45,16 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>Names declared by <c>typedef</c> so far: a statement or item starting with one is a declaration.</summary>
         private readonly HashSet<string> _typeNames = new HashSet<string>(StringComparer.Ordinal);
 
-        public Parser(List<Token> tokens, DiagnosticBag diagnostics)
+        public Parser(List<Token> tokens, DiagnosticBag diagnostics) : this(tokens, diagnostics, null)
+        {
+        }
+
+        /// <summary>A parser whose literals share <paramref name="budget"/> with the other files of the read; null for one of its own.</summary>
+        internal Parser(List<Token> tokens, DiagnosticBag diagnostics, ExpansionBudget budget)
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
+            _budget = budget ?? new ExpansionBudget();
 
             if (_tokens.Count == 0 || _tokens[_tokens.Count - 1].Kind != TokenKind.EndOfFile)
                 _tokens.Add(new Token(TokenKind.EndOfFile, string.Empty, default, 0));

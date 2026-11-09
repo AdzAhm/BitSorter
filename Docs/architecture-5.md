@@ -229,7 +229,11 @@ Diagnostic    severity, file, line, column, code, message
   are reported as filling their context. A decimal is read nine digits at a time in words of its own,
   once its count of digits says it may fit in a value at all (the 16d sweep: `BigInteger.Parse` and a
   bit count made one bit at a time took 6.9 GB for a hundred thousand digits; it is 0.6 MB and 29 ms),
-  and a message names a literal past forty characters cut short.
+  and a message names a literal past forty characters cut short. A literal is made at its full width
+  as it is read, so the literals of one read -- every file of an import together -- hold at most 64
+  million bits between them, counting those over 64 bits, as many as a design's signals may
+  (`Parser.MaxLiteralBits`, SV0005, said once; the 16d sweep: eight thousand `1048576'd0`, 430 KB of
+  text, kept 2.1 GB live, and keep 25 MB now).
 - **Checked three ways.** Worked examples of each rule; a slow second implementation written from the
   standard's tables and `BigInteger`, held equal on thousands of random values of widths 1 to 130
   (`Tools/ci/SystemVerilog.Tests`); and about 1,600 generated cases run under Icarus and compared bit

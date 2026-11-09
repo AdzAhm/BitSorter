@@ -30,7 +30,7 @@ namespace BitSorter.SystemVerilog.Syntax
         public static SyntaxTree ReadAll(System.Collections.Generic.IEnumerable<string> paths, ISourceFiles files)
         {
             var all = new SyntaxTree();
-            var budget = new ExpansionBudget();   // what macros and includes make is held across the whole list (Part 13f)
+            var budget = new ExpansionBudget();   // what macros, includes and literals make is held across the whole list (Part 13f)
             foreach (string path in paths)
             {
                 SyntaxTree one = Read(path, files, budget);
@@ -53,9 +53,10 @@ namespace BitSorter.SystemVerilog.Syntax
         {
             var diagnostics = new DiagnosticBag();
             var tree = new SyntaxTree();
+            budget = budget ?? new ExpansionBudget();   // the macros' and the literals' alike
 
             var tokens = Preprocessor.Run(path, text ?? string.Empty, files, diagnostics, out Preprocessor done, budget);
-            new Parser(tokens, diagnostics).ParseInto(tree);
+            new Parser(tokens, diagnostics, budget).ParseInto(tree);
 
             tree.Timescale = done.Timescale;
             tree.Files.AddRange(done.FilesRead);

@@ -656,11 +656,18 @@ namespace BitSorter.SystemVerilog.Syntax
 
     /// <summary>
     /// What the macros and includes of one import have made between them (<see cref="Preprocessor.MaxExpansion"/>, Part
-    /// 13f): every file read together shares one, so a bomb split across two hundred files is stopped as one would be.
+    /// 13f), and the bits its wide literals hold (<see cref="Parser.MaxLiteralBits"/>, the 16d sweep): every file read
+    /// together shares one, so a bomb split across two hundred files is stopped as one would be.
     /// </summary>
     public sealed class ExpansionBudget
     {
         internal long Spent;
         internal bool Runaway;
+
+        /// <summary>The bits held by the literals read so far that are wider than 64 bits, the ones a value allocates for.</summary>
+        internal long LiteralBits;
+
+        /// <summary>Whether a literal past <see cref="Parser.MaxLiteralBits"/> has been refused, and said so.</summary>
+        internal bool LiteralsRefused;
     }
 }

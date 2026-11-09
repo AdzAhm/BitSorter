@@ -119,6 +119,34 @@ namespace BitSorter.SystemVerilog
             }
         }
 
+        /// <summary>
+        /// At least as many bits as <see cref="Parse"/> would make <paramref name="text"/> hold, worked out from its spelling alone
+        /// -- its size, or its digits -- so a reader can hold its literals to a budget before it makes one.
+        /// </summary>
+        public static long WidthBound(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return UnsizedWidth;
+
+            int quote = text.IndexOf('\'');
+            if (quote < 0)
+                return Math.Max(UnsizedWidth, (long)(text.Length * 3.3220) + 2);
+
+            if (quote > 0)
+                return TryDigits(text.Substring(0, quote), out string size) && int.TryParse(size, out int width) && width >= 1 ? width : UnsizedWidth;
+
+            int at = quote + 1;
+            if (at < text.Length && (text[at] == 's' || text[at] == 'S'))
+                at++;
+            if (at >= text.Length)
+                return UnsizedWidth;
+
+            char baseChar = char.ToLowerInvariant(text[at]);
+            long digits = text.Length - at - 1;
+            double bitsPerDigit = baseChar == 'b' ? 1 : baseChar == 'o' ? 3 : baseChar == 'h' ? 4 : 3.3220;
+            return Math.Max(UnsizedWidth, (long)(digits * bitsPerDigit) + 1);
+        }
+
         /// <summary>A number with no apostrophe: decimal, signed, 32 bits -- wider only if it cannot fit.</summary>
         private static LiteralResult PlainDecimal(string text)
         {

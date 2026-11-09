@@ -276,6 +276,18 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private NumberLiteral Literal(Token t)
         {
+            // Held to what one read may make before it is made (MaxLiteralBits).
+            long bound = SystemVerilog.Literal.WidthBound(t.Text);
+            if (bound > 64 && _budget.LiteralBits + bound > MaxLiteralBits)
+            {
+                if (!_budget.LiteralsRefused)
+                    Error(t.Location, DiagnosticCodes.BadNumber,
+                        $"With this number, the numbers written here hold more than {MaxLiteralBits >> 20} million bits between them, " +
+                        "more than BitSorter will simulate. Is a literal's size larger than meant?");
+                _budget.LiteralsRefused = true;
+                return new NumberLiteral { Location = t.Location, Text = t.Text, Value = LogicVec.Fill(Logic4.X, 32) };
+            }
+
             LiteralResult result = SystemVerilog.Literal.Parse(t.Text);
 
             if (!result.Ok)
@@ -283,6 +295,9 @@ namespace BitSorter.SystemVerilog.Syntax
                 Error(t.Location, DiagnosticCodes.BadNumber, result.Error);
                 return new NumberLiteral { Location = t.Location, Text = t.Text, Value = LogicVec.Fill(Logic4.X, 32) };
             }
+
+            if (result.Value.Width > 64)
+                _budget.LiteralBits += result.Value.Width;
 
             if (result.Warning != null)
                 _diagnostics.Warning(t.Location, DiagnosticCodes.BadNumber, result.Warning);

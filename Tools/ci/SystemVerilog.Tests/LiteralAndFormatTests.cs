@@ -134,6 +134,7 @@ namespace BitSorter.SystemVerilog.Tests
                     LiteralResult result = Literal.Parse(prefix + number);
                     Assert.IsTrue(result.Ok, $"{prefix}{number}: {result.Error}");
                     int width = result.Value.Width;
+                    Assert.GreaterOrEqual(Literal.WidthBound(prefix + number), width, $"{prefix}{number}: the bound a reader holds it to");
                     string expected = Bits(big % System.Numerics.BigInteger.Pow(2, width), width);
                     Assert.AreEqual(expected, result.Value.Format(Radix.Binary), $"{prefix}{number}");
 
