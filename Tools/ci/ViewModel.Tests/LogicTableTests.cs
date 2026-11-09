@@ -289,6 +289,32 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("01110111", Column("y[1]"), "y[1] = a[6] | b");
         }
 
+        /// <summary>
+        /// A latch is not tabled, however it is written (the 16d sweep): an always_latch, or an always_comb that gives what it
+        /// writes a value on some ways only, keeps it on the others, so a row there reads what the row before it left in Gray
+        /// order -- and the table, its sum of products and its K-map gave that as the circuit's function. A latch of two gates
+        /// was refused as a loop, the same latch written was not. The same block giving q a value on every way is tabled.
+        /// </summary>
+        [Test]
+        public void ALatch_IsNotTabled_HoweverItIsWritten()
+        {
+            foreach (string latch in new[]
+            {
+                "module m (input logic d, en, output logic q);\n    always_latch if (en) q = d;\nendmodule\n",
+                "module m (input logic d, en, output logic q);\n    always_comb if (en) q = d;\nendmodule\n",
+                "module m (input logic d, en, output logic q);\n    always @* if (en) q = d;\nendmodule\n",
+            })
+            {
+                Assert.IsNull(Tabled(Written(latch), out string why), latch);
+                StringAssert.Contains("latch", why, latch);
+            }
+
+            LogicTable table = Tabled(Written("module m (input logic d, en, output logic q);\n    always_comb if (en) q = d; else q = 1'b0;\nendmodule\n"),
+                out string tabled);
+            Assert.IsNotNull(table, tabled);
+            Assert.AreEqual("0001", new string(table.Outputs.Single().Values.ToArray()), "q = d & en, rows counting d en");
+        }
+
         [Test]
         public void ACircuitWithRegisters_IsNotTabled_AndSaysWhy()
         {
