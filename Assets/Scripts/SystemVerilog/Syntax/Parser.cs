@@ -1317,7 +1317,14 @@ namespace BitSorter.SystemVerilog.Syntax
 
             typedef.Name = ExpectIdentifier("the new type's name") ?? "?";
             _typeNames.Add(typedef.Name);
-            ParseUnpacked(new List<Dimension>());
+            if (Current.Is("["))
+            {
+                // Read and dropped, it made every signal of the type one word (the 16d sweep): said instead.
+                Error(Current.Location, DiagnosticCodes.Unsupported,
+                    $"typedef {typedef.Name} has an unpacked range after its name, an array type, which BitSorter does not support; " +
+                    "typedef the word alone and give each signal its range after its name: word_t mem [0:15].");
+                ParseUnpacked(new List<Dimension>());
+            }
 
             if (!Expect(";", $"after typedef {typedef.Name}"))
                 SkipToItemEnd();
@@ -1811,7 +1818,13 @@ namespace BitSorter.SystemVerilog.Syntax
                 port.Direction = direction;
                 port.Type = type ?? new DataType { Location = port.Location };
                 port.Name = ExpectIdentifier("an argument's name") ?? "?";
-                ParseUnpacked(new List<Dimension>());
+                if (Current.Is("["))
+                {
+                    // Read and dropped, it passed one word for the array (the 16d sweep): said instead.
+                    Error(Current.Location, DiagnosticCodes.Unsupported,
+                        $"Argument {port.Name} is an unpacked array, which BitSorter does not support; give it a packed range before its name.");
+                    ParseUnpacked(new List<Dimension>());
+                }
 
                 if (Accept("="))
                     port.Default = ParseExpression();

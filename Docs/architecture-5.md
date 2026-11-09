@@ -613,7 +613,7 @@ patterns, and no tri-state, `function`, `task`, `$display`, `` `timescale ``, `d
 | Reals and time | `real`, `realtime` and `shortreal` (held as a real), real parameters typed or by their value, real ports and functions; arithmetic and comparison with whole numbers made reals; conversion both ways, rounding half away from zero; `$itor`, `$rtoi`, `$realtobits`, `$bitstoreal` and the maths functions; `%e`, `%f`, `%g` with a precision; delays in fractions of a unit, `$realtime` | L7 |
 | Interfaces | `interface` with parameters, ports, signals, assigns, processes, functions and tasks; its instances, in generate loops too, reached by name; modports of `input`, `output`, `inout`, `ref` (read as `inout`) and `import`; interface ports with a modport or without, `interface` for any, a modport chosen at the connection, a port passed on; a task or function of an instance called through it, `bus.send(v)`, `dut.f(x)` | L8 |
 | Packages, macros, strings, files | `package` of parameters, typedefs, functions and tasks; `import p::*`, `import p::name`, in a module's header too, and `p::name`; macros with arguments and defaults, ``` `` ``` and `` `"...`" ``; `string`, joined with `{}`, compared as text, with its methods; `$sformatf`, `$sformat`, `$swrite`; `$fopen`, `$fdisplay`, `$fwrite`, `$fstrobe`, `$fclose`, `$fflush` | L6 |
-| Not supported | interface classes, virtual interfaces, unpacked structs, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
+| Not supported | interface classes, virtual interfaces, unpacked structs, an unpacked array as a typedef or a function's or task's argument, classes, concurrent assertions, `defparam`, DPI — each refused with file, line and a plain message, until the language part that brings it (section 11) |
 
 **Written in the course's style:** an ANSI header with inputs first and outputs last, one commented
 port per line; `logic` everywhere, except a net with more than one driver, which must be a net to
@@ -4932,7 +4932,9 @@ two kinds of call need them:
   refused with why.
 - **Icarus 12 parts from the standard four times here** (`oracle-notes.md`, "Data types"), so
   `corpus/behavioural/data_types.sv` holds what both agree on and `DataTypeTests` the rest by the standard.
-- **Not yet:** unpacked structs and unions, unpacked arrays as ports, a slice of a memory, `$readmemh`
+- **Not yet:** unpacked structs and unions, unpacked arrays as ports, as a typedef (`typedef logic [7:0] ram_t [0:15]`)
+  and as a function's or a task's argument -- the last two refused as they are read (SV0202), since the 16d sweep found the
+  reader dropped their range without a word -- a slice of a memory, `$readmemh`
   into a memory of several dimensions, `$size`, `$left`, `$right`, `$low` and `$high`, type keys in a
   pattern (`'{int: 0}`), and a waveform that lists a struct's members.
 
