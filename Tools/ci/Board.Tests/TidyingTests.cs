@@ -58,6 +58,27 @@ namespace BitSorter.Board.Tests
             TestContext.WriteLine($"{what}: {tidied} tidied");
         }
 
+        /// <summary>
+        /// A tidy circuit is tidy still once a wire of it is put back on its automatic route, which keeps a route of no bends
+        /// for it: TIDY counted the routes kept, came back, and when pressed made a step that changed nothing drawn (the 16d
+        /// sweep).
+        /// </summary>
+        [Test]
+        public void ATidyCircuit_IsTidyStill_AfterAWireIsRoutedAgain()
+        {
+            var editor = new BoardEditor(SampleBoards.Build(SampleBoards.DrawnNames.First()));
+            Module drawn = editor.Project.Modules.First(m => !m.IsWritten && m.Parts.Count > 0 && m.Wires.Any(w => !w.From.IsTap && !w.To.IsTap));
+            EditResult tidied = editor.Tidy(drawn.Name);
+            Assert.IsTrue(tidied.Done || tidied.Refusal == "It is tidy already.", tidied.Refusal);
+
+            Module tidy = editor.Project.Find(drawn.Name);
+            Wire plain = tidy.Wires.First(w => !w.From.IsTap && !w.To.IsTap && !tidy.Layout.Routes.ContainsKey(w.Id));
+            Assert.IsTrue(editor.Reroute(drawn.Name, plain.Id, new Route()).Done, "ROUTE AGAIN, as the workbench asks it");
+            Assert.IsTrue(Tidying.Same(Tidying.Of(editor.Project, editor.Project.Find(drawn.Name)), editor.Project.Find(drawn.Name).Layout),
+                "every wire where TIDY puts it");
+            Assert.AreEqual("It is tidy already.", editor.Tidy(drawn.Name).Refusal);
+        }
+
         [Test]
         public void AWrittenModule_IsRefused_ItsDrawingLaysItselfOut()
         {
