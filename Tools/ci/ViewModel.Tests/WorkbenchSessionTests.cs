@@ -43,7 +43,7 @@ namespace BitSorter.ViewModel.Tests
             Project forever = ReferenceCircuit.Document();
             forever = forever with { Stimulus = forever.Stimulus with { End = long.MaxValue } };
             Assert.IsNull(WorkbenchSession.TryOpen(forever, () => 0, out why));
-            StringAssert.Contains(StimulusEdits.MaxTime.ToString(System.Globalization.CultureInfo.InvariantCulture), why);
+            StringAssert.Contains(ProjectImporter.LatestEnd.ToString(System.Globalization.CultureInfo.InvariantCulture), why);
 
             Assert.IsNotNull(WorkbenchSession.TryOpen(ReferenceCircuit.Document(), () => 0, out why));
             Assert.IsNull(why);

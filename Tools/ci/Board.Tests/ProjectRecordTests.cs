@@ -204,7 +204,7 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
-        /// A run saved to end, or a step or a check saved, past the latest moment an edit puts one at -- a hand-edited or
+        /// A run saved to end, or a step or a check saved, past the latest moment a run is ever shown to -- a hand-edited or
         /// hostile save -- is refused by the rules in words: they let any time through, a run to long's end threw as it was
         /// made, from the workbench's Start, and one to 4e18 would never be made (save-8).
         /// </summary>
@@ -225,7 +225,7 @@ namespace BitSorter.Board.Tests
             Project read = file.ToProject(new List<string>());
 
             List<BoardDiagnostic> found = BoardRules.Check(read);
-            Assert.IsTrue(found.Any(d => d.IsError && d.Message.Contains(StimulusEdits.MaxTime.ToString())), string.Join("\n", found));
+            Assert.IsTrue(found.Any(d => d.IsError && d.Message.Contains(ProjectImporter.LatestEnd.ToString())),string.Join("\n", found));
         }
 
         [Test]

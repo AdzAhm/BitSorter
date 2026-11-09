@@ -109,6 +109,14 @@ namespace BitSorter.Board
         /// <summary>How far, in the project's unit, the testbench is run to find where it stops.</summary>
         public const long MaxRun = 10_000_000;
 
+        /// <summary>
+        /// The latest moment a run is ever shown to: <see cref="MaxRun"/> and a tenth more, where <see cref="RunEnd"/> shows a
+        /// testbench that ran out of things to do just before MaxRun -- to its last change, and a tenth more. The rules hold a
+        /// saved run's end, its steps and its checks to it (save-8), so what an import or a PROGRAM measures is always taken,
+        /// and a time read from a save edited by hand is never later; an edit of the inputs goes no further than MaxRun.
+        /// </summary>
+        public const long LatestEnd = MaxRun + MaxRun / 10;
+
         /// <summary>How many events that run may take: a testbench with a free-running clock and no <c>$stop</c> ends here.</summary>
         public const long MaxEvents = 2_000_000;
 
@@ -649,7 +657,7 @@ namespace BitSorter.Board
         /// Where a written testbench's run is shown to, <paramref name="elaboration"/> run as far as <see cref="MaxRun"/>,
         /// <see cref="MaxEvents"/> and <see cref="MaxSteps"/> let it: where it stops; run out of things to do, as one with no $stop is, its last change
         /// and a tenth more; or, not stopped, there, <paramref name="stopped"/> false. Measured again as the testbench's PROGRAM
-        /// is chosen (Part 15h-6c), since each program stops at its own time.
+        /// is chosen (Part 15h-6c), since each program stops at its own time. Never past <see cref="LatestEnd"/>.
         /// </summary>
         internal static long RunEnd(Project project, Elaboration elaboration, out bool stopped)
         {
@@ -670,7 +678,7 @@ namespace BitSorter.Board
                     stopped = false;
                 }
             }
-            return Math.Max(1, end);
+            return Math.Min(LatestEnd, Math.Max(1, end));
         }
 
         /// <summary>

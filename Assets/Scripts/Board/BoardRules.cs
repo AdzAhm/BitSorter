@@ -781,8 +781,8 @@ namespace BitSorter.Board
                 {
                     if (step.Time < last)
                         Error($"{track.Port}'s steps go back in time, to {step.Time} after {last}.");
-                    if (step.Time > StimulusEdits.MaxTime)
-                        Error($"{track.Port} is given a value at {Moment(step.Time)}; a step comes by {Moment(StimulusEdits.MaxTime)} at the latest.");
+                    if (step.Time > ProjectImporter.LatestEnd)
+                        Error($"{track.Port} is given a value at {Moment(step.Time)}; a run is shown to {Moment(ProjectImporter.LatestEnd)} at the latest.");
                     if (port != null && step.Value.Width != port.Value.Width)
                         Error($"{track.Port} is {Bits(port.Value.Width)}, and is given {Bits(step.Value.Width)} at {step.Time}.");
                     last = Math.Max(last, step.Time);
@@ -792,10 +792,11 @@ namespace BitSorter.Board
             if (stimulus.End < 0)
                 Error("The run cannot end before it starts.");
 
-            // As late as an edit of the inputs puts anything (StimulusEdits.MaxTime): a run longer still is never made, and
-            // one to long's end threw as it was opened -- a time read from a save edited by hand (save-8).
-            if (stimulus.End > StimulusEdits.MaxTime)
-                Error($"The run ends at {Moment(stimulus.End)}; it ends by {Moment(StimulusEdits.MaxTime)} at the latest.");
+            // As late as a run is ever shown to (ProjectImporter.LatestEnd: an import's run that ran out just before MaxRun, a
+            // tenth past its last change; an edit of the inputs stops at MaxRun): a run longer still is never made, and one to
+            // long's end threw as it was opened -- a time read from a save edited by hand (save-8).
+            if (stimulus.End > ProjectImporter.LatestEnd)
+                Error($"The run ends at {Moment(stimulus.End)}; a run is shown to {Moment(ProjectImporter.LatestEnd)} at the latest.");
 
             // What an output must read (Part 15b): an output of the top, as wide as the value wanted, at a moment of the run.
             foreach (Check check in stimulus.Checks)
@@ -810,8 +811,8 @@ namespace BitSorter.Board
                     Error($"{check.Port} is {Bits(port.Value.Width)}, and the test wants {Bits(check.Expected.Width)} of it at {check.Time}.");
                 if (check.Time < 0)
                     Error($"The test checks {check.Port} at {check.Time}, before the run starts.");
-                else if (check.Time > StimulusEdits.MaxTime)
-                    Error($"The test checks {check.Port} at {Moment(check.Time)}; a check comes by {Moment(StimulusEdits.MaxTime)} at the latest.");
+                else if (check.Time > ProjectImporter.LatestEnd)
+                    Error($"The test checks {check.Port} at {Moment(check.Time)}; a run is shown to {Moment(ProjectImporter.LatestEnd)} at the latest.");
             }
         }
 

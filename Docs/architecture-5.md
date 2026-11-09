@@ -837,7 +837,9 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   no session and the rules' first error instead; the workbench leaves the document in the save as it is, shows the
   reference circuit in its place -- a sample, never kept over anything -- says why, and offers to START IT AGAIN, blank.
   The rules refuse what a saved document can hold that would stop them first: a count no part can have (no nets are built
-  past it), a wire id given twice, and a time past the latest an edit puts one at (`StimulusEdits.MaxTime`).
+  past it), a wire id given twice, and a time past the latest a run is ever shown to (`ProjectImporter.LatestEnd`: `MaxRun`
+  and a tenth more, where an import shows a testbench that runs out of things to do just before `MaxRun` -- its last
+  change and a tenth more; an edit of the inputs stops at `MaxRun` itself, `StimulusEdits.MaxTime`).
 
 ---
 
