@@ -291,6 +291,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(again.Folds.Parts && !again.Folds.Side && again.Folds.Dock, "opened again on the folds it had");
             Assert.IsFalse(Drawn(WorkbenchPanel.PartsPanelName));
             Assert.IsFalse(again.WavesWindow.gameObject.activeInHierarchy, "the waves folded away from the first frame");
+            Assert.IsFalse(GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>(false).Any(r => r.name == "legend"),
+                "and the legend with them: its words drew on the strip in a browser");
         }
 
         /// <summary>The guided tutorial opens every panel as it starts: its first step lights the NOT in PARTS, which a fold would hide.</summary>

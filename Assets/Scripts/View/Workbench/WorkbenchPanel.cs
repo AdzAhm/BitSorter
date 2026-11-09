@@ -2074,6 +2074,12 @@ namespace BitSorter.View
             StageLabel(words, LegendText, new Vector2(WorkbenchDrawing.LegendTextX, middle),
                 UiType.Micro, palette.TextDim, TextAlignmentOptions.MidlineLeft,
                 Mathf.Max(0f, legend.width - WorkbenchDrawing.LegendTextX - 16f - WavesRangeWidth - 8f)).overflowMode = TextOverflowModes.Ellipsis;
+
+            // The dock folded away as BitSorter opens, its folds kept from before (Part 16d): the waves and the legend are off from
+            // the first frame. Its words drew on the strip, since nothing showed the stage's first build the dock's tab.
+            bool wavesShown = !_folds.Dock && _dockTab == DockTab.Waves;
+            _wavesClip.gameObject.SetActive(wavesShown);
+            _legend.gameObject.SetActive(wavesShown);
             PlaceCodeView();
             PlaceListing();
         }
