@@ -4796,6 +4796,34 @@ pipelined processor's `pcpu_memory`).
   the refusals, the pointer and RESET SIZE), a Play Mode test dragging the full adder's h1 and the pipelined processor's
   data memory through the workbench's own pointer, and reference shot 75.
 
+**As built in Part 16d: the panels fold away** (Ahmad, 2026-11-08: "close the side panels and the bottom panel so we can
+have a larger view of the map"; his answers: an arrow on each panel and one key for all three, remembered, the key H).
+
+- **The rule is `ShellLayout`'s, Unity-free.** `ShellFolds` holds which of PARTS, the side panel and the dock are folded:
+  an arrow folds or opens its own (`Toggled`), and H (`WorkbenchCommand.TogglePanels`, under VIEW in the keyboard map)
+  folds all three while any is open and opens them once all are (`AllToggled`). `ShellLayout.Of(window, top, dock,
+  folds)` makes a folded side panel a strip 24 wide at the window's edge and the folded dock a strip 24 tall over the
+  status line, its header, waves and legend of no height, and the circuit's window takes the room; without folds it is
+  the open layout, unchanged. `ShellRegions` gives each arrow's place: in the gap on the edge facing the circuit, the
+  dock's on the splitter right of its grip, and folded, in the middle of its strip. `ShellLayoutTests` holds every one of
+  the eight foldings to tile the window, the arrows to their edges and clear of the grip, and H both ways.
+- **The view** (`WorkbenchPanel.Folds`): each arrow is a shell button, so a press on one is never the circuit's, its
+  chevron drawn by `Painter2D` in the dim text colour and pointing the way it moves its panel. Folded, a panel's shell
+  element is not drawn, and the drawings it frames are switched off with it -- the waves, the legend and the CODE tab's
+  listing with the dock (`ShowDockTab` asks the fold), the minimap with the side panel. The waves keep their width, so a
+  fold never builds the stage again; the circuit's window is made another size and a fitted circuit fitted again, as a
+  drag on the splitter does. The status line over an arrow says to hide or show its panel, and H for all.
+- **Kept**, as the dock's height is, in `Preferences` under `workbench.folds`: one number, a bit a panel
+  (`ShellFolds.Bits`); a machine that never folded one reads none, every panel open.
+- **Nothing needed folds away unasked.** The toolbar and its controls -- an exercise's GOAL and CHECK -- never fold. The
+  guided tutorial opens every panel as it starts, its first step lighting the NOT in PARTS; a CHECK that fails and a
+  comparison with ModelSim, which say why in the TRANSCRIPT, open the dock. Opening a circuit, an exercise or a sample
+  keeps the folds, which are the student's.
+- **Tests**: `ShellLayoutTests` and `KeyMapTests` under dotnet; in Play Mode (`WorkbenchDockPlayTests`) each arrow
+  folding and opening its panel through the fixture's own mouse, the minimap (shown first, zoomed in) going with the side
+  panel, H both ways, the folds kept across a reload, and the tutorial opening them; reference shot 76, the reference
+  circuit with all three folded.
+
 **As built in Part 16b: no sound** (Ahmad, 2026-11-03: "remove the music and anything related to it"). The 4.x game's
 effects went with it in Part 16a, which left the music as the only sound there was; now none is left. BitSorter is a
 simulator for a course, and the music was its largest single item in the download -- the two recordings alone were about

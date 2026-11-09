@@ -117,6 +117,7 @@ selected, to edit it in the inspector: its delays, its width, its name.
 | Left drag | Move the selection, or draw a box round parts |
 | Middle drag, or `Space` and a drag | Pan |
 | Wheel | Zoom; `F` fits the whole circuit |
+| The arrow on a panel's edge, `H` | Fold that panel away for room, or fold all three: PARTS, the side panel and the dock |
 | `Alt` while dragging or placing | Place freely, off the grid |
 | `Q`, `Shift`+`Q`, `V` | Turn a quarter, turn back, mirror |
 | `Ctrl`+`C`, `X`, `V` | Copy, cut, paste |

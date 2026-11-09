@@ -432,7 +432,14 @@ stretch that way.
   it, under the frame-rate counter; `ShellTheme`'s builders set every style from
   the palette and `UiType`; and there is no UXML or USS anywhere
   (`ShellRulesTests`, which also refuses a colour literal under View/Shell and a
-  value made by reflection anywhere the game runs). Its panels are docked
+  value made by reflection anywhere the game runs). **PARTS, the side panel and the
+  dock each fold away** (Part 16d; Ahmad, 2026-11-08, "a larger view of the map"):
+  an arrow on the edge facing the circuit folds its panel to a strip at the window's
+  edge holding the arrow, H folds all three while any is open and opens them once
+  all are, and the folds are kept between launches (`ShellFolds`, `FoldsKey`); a
+  folded panel's drawings -- the waves, the legend, the listing, the minimap -- are
+  switched off with it, the circuit's window takes the room, and the guided tutorial,
+  a failed CHECK and a comparison with ModelSim open what they need. Its panels are docked
   (`ShellLayout`, a view-model rule): the toolbar, the inspector's bar, PARTS
   and DESIGN, the circuit's window, the side panel's quick fields and minimap,
   the splitter, the dock with WAVES, INPUTS (Part 15g, `InputTable`: what the
@@ -579,7 +586,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-one states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-two states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -592,7 +599,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
