@@ -16,13 +16,14 @@ namespace BitSorter.SystemVerilog.Syntax
     /// - **It never throws and never hangs.** Every error is a diagnostic; after one, it skips to a
     ///   place it can carry on from (a <c>;</c>, a keyword that starts something, <c>endmodule</c>),
     ///   and every loop is guarded to make progress. Nesting deeper than <see cref="MaxDepth"/> stops
-    ///   the read rather than the stack, which in a browser is small.
+    ///   the read rather than the stack, which in a browser is small -- a run of operators or selects
+    ///   counting as nesting, each a level, since the tree it makes is as deep as it is long.
     /// - **Messages are for students**: what was expected, in the course's words, at the place a student
     ///   will look -- a missing <c>;</c> is reported on the line it is missing from, not the next one.
     /// </remarks>
     public sealed partial class Parser
     {
-        /// <summary>How deep expressions, statements and generate blocks may nest.</summary>
+        /// <summary>How deep expressions, statements, generate blocks and types may nest, a run of operators counting each one.</summary>
         public const int MaxDepth = 200;
 
         private readonly List<Token> _tokens;
@@ -117,7 +118,9 @@ namespace BitSorter.SystemVerilog.Syntax
         private void Error(SourceLocation at, string code, string message) => _diagnostics.Error(at, code, message);
 
         /// <summary>One level deeper; false, having stopped the read, if that is too deep.</summary>
-        private bool Enter()
+        private bool Enter() => Enter($"This nests more than {MaxDepth} levels deep; BitSorter stopped reading here.");
+
+        private bool Enter(string tooDeep)
         {
             if (_stopped)
                 return false;
@@ -125,10 +128,21 @@ namespace BitSorter.SystemVerilog.Syntax
             if (++_depth <= MaxDepth)
                 return true;
 
-            Error(Current.Location, DiagnosticCodes.TooDeep, $"This nests more than {MaxDepth} levels deep; BitSorter stopped reading here.");
+            Error(Current.Location, DiagnosticCodes.TooDeep, tooDeep);
             _stopped = true;
             return false;
         }
+
+        /// <summary>
+        /// One more operator in a run of them -- <c>a + b + c</c>, <c>a[0][1]</c>, <c>s.m().n()</c> -- which is read in a loop
+        /// but makes a tree one level deeper, walked by the printer and the elaborator a call a level: so it counts as a level,
+        /// as a bracket does (the 16d sweep). The first operator after a value is free, as it always was, so a bracket holding
+        /// one, <c>1 + (1 + (...))</c>, nests as deep as before; every one after it in the run is a level, left again with
+        /// the run.
+        /// </summary>
+        private bool EnterRun() =>
+            Enter($"This expression runs more than {MaxDepth} operators or selects in a row, counting the brackets around it; " +
+                  "BitSorter stopped reading here. Split it over a few assigns.");
 
         private void Leave() => _depth--;
 

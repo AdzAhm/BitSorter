@@ -101,6 +101,9 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
 
             Survives("module m; assign y = " + string.Concat(Enumerable.Repeat("~", 100_000)) + "a; endmodule", "a chain of unary operators");
             Survives("module m; assign y = " + new string('{', 50_000) + "a" + new string('}', 50_000) + "; endmodule", "nested braces");
+            Survives("module m; assign y = " + string.Concat(Enumerable.Repeat("a + ", 100_000)) + "a; endmodule", "a run of binary operators");
+            Survives("module m; assign y = a" + string.Concat(Enumerable.Repeat("[0]", 100_000)) + "; endmodule", "a run of selects");
+            Survives("module m; assign y = s" + string.Concat(Enumerable.Repeat(".m()", 100_000)) + "; endmodule", "a run of method calls");
         }
 
         /// <summary>

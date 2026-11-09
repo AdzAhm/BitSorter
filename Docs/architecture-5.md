@@ -653,7 +653,9 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   (Ahmad's choice, 2026-10-19). A name followed by a name is a declaration of a typedef's type or an instance, told apart by
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 stops the read with a message rather than
-  the browser's stack. A missing `;` is reported on the line it is missing from. Classes, an interface
+  the browser's stack -- and a run of operators or selects counts as nesting, each one a level, since
+  `a + a + ... + a` is read in a loop but makes a tree as deep as it is long, which the printer and the
+  elaborator walk a call a level (the 16d sweep: a hundred thousand terms overflowed the stack). A missing `;` is reported on the line it is missing from. Classes, an interface
   declared inside a module, `export`, concurrent and deferred assertions, `defparam`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace BitSorter.SystemVerilog.Syntax
@@ -73,31 +74,46 @@ namespace BitSorter.SystemVerilog.Syntax
         private Expression ParseBinary(int minimum)
         {
             Expression left = ParseUnary();
+            int run = 0;   // the operators folded in, each making the tree a level deeper (EnterRun)
 
-            while (true)
+            try
             {
-                if (Current.IsKeyword("inside") && InsidePrecedence >= minimum)
+                while (true)
                 {
-                    Next();
-                    left = ParseInsideSet(left);
-                    continue;
+                    if (Current.IsKeyword("inside") && InsidePrecedence >= minimum)
+                    {
+                        if (run > 0 && !EnterRun())
+                            return left;
+                        run++;
+                        Next();
+                        left = ParseInsideSet(left);
+                        continue;
+                    }
+
+                    int precedence = BinaryPrecedence(Current);
+                    if (precedence < minimum)
+                        return left;
+
+                    if (run > 0 && !EnterRun())
+                        return left;
+                    run++;
+
+                    Token op = Next();
+                    if (op.Text == "~&" || op.Text == "~|")
+                    {
+                        string plain = op.Text == "~&" ? "&" : "|";
+                        _diagnostics.Warning(op.Location, DiagnosticCodes.NonStandardOperator,
+                            $"'a {op.Text} b' is not standard SystemVerilog, where {op.Text} only reduces one value; " +
+                            $"BitSorter and some simulators read it as {(plain == "&" ? "NAND" : "NOR")}. ~(a {plain} b) is the same and works everywhere.");
+                    }
+
+                    Expression right = ParseBinary(precedence + 1);
+                    left = new BinaryExpression { Location = left.Location, Operator = op.Text, Left = left, Right = right };
                 }
-
-                int precedence = BinaryPrecedence(Current);
-                if (precedence < minimum)
-                    return left;
-
-                Token op = Next();
-                if (op.Text == "~&" || op.Text == "~|")
-                {
-                    string plain = op.Text == "~&" ? "&" : "|";
-                    _diagnostics.Warning(op.Location, DiagnosticCodes.NonStandardOperator,
-                        $"'a {op.Text} b' is not standard SystemVerilog, where {op.Text} only reduces one value; " +
-                        $"BitSorter and some simulators read it as {(plain == "&" ? "NAND" : "NOR")}. ~(a {plain} b) is the same and works everywhere.");
-                }
-
-                Expression right = ParseBinary(precedence + 1);
-                left = new BinaryExpression { Location = left.Location, Operator = op.Text, Left = left, Right = right };
+            }
+            finally
+            {
+                _depth -= Math.Max(0, run - 1);
             }
         }
 
@@ -362,8 +378,29 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private Expression ParsePostfix(Expression expression)
         {
+            int run = 0;   // the selects and members, each wrapping what came before a level deeper (EnterRun)
+
+            try
+            {
+                return ParsePostfixRun(expression, ref run);
+            }
+            finally
+            {
+                _depth -= Math.Max(0, run - 1);
+            }
+        }
+
+        private Expression ParsePostfixRun(Expression expression, ref int run)
+        {
             while (true)
             {
+                if (Current.Is("[") || (Current.Is(".") && Peek(1).Kind == TokenKind.Identifier))
+                {
+                    if (run > 0 && !EnterRun())
+                        return expression;
+                    run++;
+                }
+
                 if (Current.Is("["))
                 {
                     Next();

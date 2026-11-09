@@ -573,6 +573,21 @@ endmodule");
         }
 
         /// <summary>
+        /// The 16d sweep: a run of operators counts as levels of nesting, so the reader stops one too deep for the walks that
+        /// build it a call a level -- and one just inside that limit is built and run.
+        /// </summary>
+        [Test]
+        public void ARunOfOperatorsJustInsideTheReadersLimit_IsBuiltAndRun()
+        {
+            int terms = Parser.MaxDepth - 10;
+            string chain = string.Join(" ^ ", Enumerable.Range(0, terms).Select(i => $"a[{i}]"));
+            Design design = Clean($"module m (input logic [{terms - 1}:0] a, output logic y); assign y = {chain}; endmodule");
+
+            var ones = new string('1', terms - 1);
+            Assert.AreEqual((terms - 1) % 2 == 0 ? "0" : "1", Bits(Settle(design, ("a", B("0" + ones))), "y"), "the parity of the ones");
+        }
+
+        /// <summary>
         /// The 16d sweep: the messages are capped so nonsense gives a readable number of them, and the cap was one for every
         /// kind -- so six hundred copies of an instance, each with an input left unconnected and warned of, filled it, and the
         /// error after them was dropped: no error, and the design built and run without what failed.
