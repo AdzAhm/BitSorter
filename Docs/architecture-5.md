@@ -3403,7 +3403,10 @@ as code with its testbench, into a browser build. These are the fixes; the drawi
     - a line over the table says in full whose values they are and how to change them;
     - its cells are text.
   - A testbench CONVERT refuses has no rows and says why (`CannotConvert`).
-  - The conversion runs only while the tab is up, once per document change.
+  - The conversion runs only while the tab is up, and only when a document change could change what the testbench
+    applies: the same testbench, settings and end over the same design (`TimingView.SameDesign`) keep the table before's
+    rows. A part of the drawing moved, or the drawing arranged, ran the whole testbench again in that frame, beside the
+    session's own run of it -- 72 to 211 ms with 16,384 vectors, 11 to 15 after (the 16d sweep, waves-2).
 - **A click on the waves places the cursor, and Shift and a click moves the playhead.**
   - The waves are drawn only up to the playhead, so a click back in a finished run hid the rest of it.
   - A press within 6 px of the playhead's line still drags it.

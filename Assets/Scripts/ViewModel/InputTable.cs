@@ -101,10 +101,14 @@ namespace BitSorter.ViewModel
         private readonly List<long> _pending;
         private readonly Stimulus _stimulus;
 
+        /// <summary>The project whose written testbench the rows were read from a run of; null for a table of the stimulus's own.</summary>
+        private readonly Project _benchRead;
+
         private InputTable(Stimulus stimulus, List<InputColumn> columns, List<InputRow> rows, string why, long step,
             Dictionary<string, Radix> radixes, HashSet<string> chosen, List<long> pending, string appliedBy, string cannotConvert,
-            int leftOut)
+            int leftOut, Project benchRead)
         {
+            _benchRead = benchRead;
             _stimulus = stimulus;
             Columns = columns;
             Rows = rows;
@@ -148,19 +152,39 @@ namespace BitSorter.ViewModel
             string why = project.Settings?.Exercise != null ? BoardEditor.ExerciseDrivesTheInputs
                 : project.Bench != null ? BoardRules.BenchDrivesTheInputs(project) : null;
 
-            // A written testbench's stimulus is its code: what it applies, as CONVERT would record it from a run of it.
+            // A written testbench's stimulus is its code: what it applies, as CONVERT would record it from a run of it -- and as
+            // the table before read it, when nothing it applies can have changed since: a part moved, the drawing arranged. The
+            // table is made again at every change of the document while INPUTS is up, and ran the whole testbench again in that
+            // frame, beside the session's own run of it (the 16d sweep, waves-2).
             string appliedBy = null, cannotConvert = null;
+            Project benchRead = null;
             if (project.Settings?.Exercise == null && project.Bench != null)
             {
-                Conversion conversion = BenchConverter.Convert(project);
-                if (conversion.Succeeded)
+                benchRead = project;
+                if (before?._benchRead != null && AppliesAlike(before._benchRead, project))
                 {
-                    stimulus = Started(conversion.Project.Stimulus);
-                    appliedBy = project.Bench;
+                    if (before.AppliedBy != null)
+                    {
+                        stimulus = before._stimulus;
+                        appliedBy = before.AppliedBy;
+                    }
+                    else
+                    {
+                        cannotConvert = before.CannotConvert;
+                    }
                 }
                 else
                 {
-                    cannotConvert = conversion.Refusal;
+                    Conversion conversion = BenchConverter.Convert(project);
+                    if (conversion.Succeeded)
+                    {
+                        stimulus = Started(conversion.Project.Stimulus);
+                        appliedBy = project.Bench;
+                    }
+                    else
+                    {
+                        cannotConvert = conversion.Refusal;
+                    }
                 }
             }
 
@@ -214,8 +238,18 @@ namespace BitSorter.ViewModel
                 times.Add(time);
 
             return new InputTable(stimulus, columns, RowsOf(stimulus, columns, times, pending), why, step, radixes, chosen, pending,
-                appliedBy, cannotConvert, leftOut);
+                appliedBy, cannotConvert, leftOut, benchRead);
         }
+
+        /// <summary>
+        /// Whether a written testbench applies to <paramref name="b"/> what it applies to <paramref name="a"/>: the same testbench,
+        /// settings and end, and the same design, module by module (<see cref="TimingView.SameDesign"/>) -- where things are drawn
+        /// is no part of what a run of it applies. Reference checks nearly always, as an edit leaves what it did not touch.
+        /// </summary>
+        private static bool AppliesAlike(Project a, Project b) =>
+            ReferenceEquals(a, b)
+            || (a.Bench == b.Bench && Equals(a.Settings, b.Settings) && (a.Stimulus?.StopTime ?? 0) == (b.Stimulus?.StopTime ?? 0)
+                && TimingView.SameDesign(a, b));
 
         /// <summary>
         /// The top's inputs nothing drives: no testbench of the project's own, and no step, start or clock in the stimulus --
@@ -511,7 +545,7 @@ namespace BitSorter.ViewModel
                 times.Add(time);
 
             return new InputTable(_stimulus, columns, RowsOf(_stimulus, columns, times, pending), Why, step ?? Step, radixes, chosen, pending,
-                AppliedBy, CannotConvert, LeftOut);
+                AppliedBy, CannotConvert, LeftOut, _benchRead);
         }
 
         /// <summary>A row for each of <paramref name="times"/>: each column's value then, or nothing.</summary>
