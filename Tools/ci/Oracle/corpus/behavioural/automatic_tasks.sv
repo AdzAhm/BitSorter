@@ -1,8 +1,9 @@
 // Automatic tasks: each call with variables of its own (IEEE 1800, 13.3.1) -- two branches of a fork
 // running one at once, each keeping its own across its waits; a task that calls itself, twice in its
 // body, with a block's variable of its own and an output given back to a local of the call above;
-// and two tasks that call each other. Written for BitSorter's oracle; not taken from any course
-// material. Docs/oracle-notes.md, "Automatic tasks", says what both simulators print.
+// two tasks that call each other; and a named block disabled from deep inside the calls, which ends
+// every call within it, the outermost going on after it. Written for BitSorter's oracle; not taken
+// from any course material. Docs/oracle-notes.md, "Automatic tasks", says what both simulators print.
 
 module automatic_tasks_tb;
     // Two at once: each call's id, product and wait are its own.
@@ -48,6 +49,30 @@ module automatic_tasks_tb;
         end
     endtask
 
+    // A block disabled from the third call: the two calls under the first one's block end with it.
+    task automatic leave(input int n);
+        begin : body
+            if (n == 2) disable body;
+            #1 leave(n + 1);
+            $display("%0t leave back at %0d", $time, n);
+        end
+        $display("%0t leave after body at %0d", $time, n);
+    endtask
+
+    // The middle call outside the block: it runs within the first call's block all the same, and ends with it.
+    task automatic skip(input int n);
+        if (n == 1) begin
+            #1 skip(n + 1);
+            $display("%0t skip back at %0d", $time, n);
+        end
+        else begin : held
+            if (n == 2) disable held;
+            #1 skip(n + 1);
+            $display("%0t skip held back at %0d", $time, n);
+        end
+        $display("%0t skip after at %0d", $time, n);
+    endtask
+
     int s, p;
     initial begin
         fork
@@ -58,6 +83,8 @@ module automatic_tasks_tb;
         $display("%0t sum=%0d", $time, s);
         ping(6, p);
         $display("%0t ping=%0d", $time, p);
+        leave(0);
+        skip(0);
         $finish;
     end
 endmodule

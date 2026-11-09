@@ -534,6 +534,58 @@ endmodule", 100);
             CollectionAssert.AreEqual(new[] { "3 out at depth 3" }, Printed(disabled));
         }
 
+        /// <summary>
+        /// A <c>disable</c> of a named block inside an automatic task that has called itself ends every call of the block --
+        /// and every call made from inside one, which runs within it -- so only the outermost call inside it goes on, after
+        /// it, with its own variables (IEEE 1800, 9.6.2). Icarus 12 and ModelSim 2020.1 print just these lines, the second
+        /// task's middle call outside the block among them (corpus/behavioural/automatic_tasks.sv). Only the innermost call
+        /// left the block, and every call above it went on inside it (the review of the 16d engine batch).
+        /// </summary>
+        [Test]
+        public void ADisableOfABlockInsideACallingTask_EndsEveryCallInsideIt_TheOutermostGoingOnAfterIt()
+        {
+            Simulator sim = Run(@"
+module t;
+    int depth = 0, mid = 0;
+    task automatic r(input int n);
+        begin : body
+            depth = n;
+            if (n == 2) disable body;
+            #1 r(n + 1);
+            $display(""%0t back at %0d"", $time, n);
+        end
+        $display(""%0t after body at %0d"", $time, n);
+    endtask
+    task automatic s(input int n);
+        if (n == 1) begin
+            #1 s(n + 1);
+            $display(""%0t s back at %0d"", $time, n);
+        end
+        else begin : held
+            mid = n;
+            if (n == 2) disable held;
+            #1 s(n + 1);
+            $display(""%0t s held back at %0d"", $time, n);
+        end
+        $display(""%0t s after at %0d"", $time, n);
+    endtask
+    initial begin
+        r(0);
+        $display(""%0t out depth=%0d"", $time, depth);
+        #10 s(0);
+        $display(""%0t s out mid=%0d"", $time, mid);
+    end
+endmodule", 100);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "2 after body at 0",
+                "2 out depth=2",
+                "14 s after at 0",
+                "14 s out mid=2",
+            }, Printed(sim));
+        }
+
         [Test]
         public void ATaskWithANamedBlock_IsCalledAgain_AndFromAnotherProcess_SharingTheBlocksStatics()
         {
