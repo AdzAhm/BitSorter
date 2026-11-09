@@ -69,6 +69,33 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(import.Notes.Where(n => n.IsError), Notes(import));
         }
 
+        /// <summary>
+        /// A path through two instances, spaced round its dots, takes both their modules with it: what the import found with
+        /// a regex an instance, and finds with one read of each file now (Part 16d).
+        /// </summary>
+        [Test]
+        public void ATestbenchThatLooksTwoDeep_ThroughSpacedDots_HasBothWritten()
+        {
+            const string pair =
+                "module inv (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n" +
+                "module pair (input logic a, output logic y);\n    logic m;\n" +
+                "    inv first (.a(a), .y(m));\n    inv second (.a(m), .y(y));\nendmodule\n";
+            const string bench =
+                "module pair_tb;\n" +
+                "    logic a, y, peek;\n" +
+                "    pair dut (.a(a), .y(y));\n" +
+                "    assign peek = dut . first . y;\n" +
+                "    initial begin a = 0; #10 a = 1; #10 $stop; end\n" +
+                "endmodule\n";
+
+            ProjectImport import = Import(("pair.sv", pair), ("pair_tb.sv", bench));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.IsTrue(import.Project.Find("pair").IsWritten, "dut is looked inside");
+            Assert.IsTrue(import.Project.Find("inv").IsWritten, "and so is first, inside it");
+            Assert.IsEmpty(import.Notes.Where(n => n.IsError), Notes(import));
+        }
+
         [Test]
         public void ATestbenchThatMakesSeveralModules_TestsTheOneItCallsDut_OrElseTheOneWithMostPorts()
         {

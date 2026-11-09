@@ -4541,6 +4541,13 @@ something needed").
   first new error is about. The thousand gates make 11 MB in 0.07 s, and 4,000 make 38 MB; every one of 135 imports --
   each corpus folder, each corpus file alone and each of its modules drawn, and each exercise solution -- comes out
   identical, its notes included, compared old against new. Held by `ImportScaleTests`.
+- **A file is read once for the paths that look inside its instances** (`ProjectImporter.LookedInto`): a module a testbench
+  looks inside -- `dut.state` -- is written, and the importer found such paths with a regex made for each named instance,
+  cells included, run over the whole of its module's file, so the instances times the file. Each file's paths are found
+  by one regex now, kept by the name each starts with -- looked ahead at, so a name further along one, `dut . u1 . q`
+  spaced or not, is found as before -- and an escaped name that is no plain identifier keeps a regex of its own. Eight
+  thousand instances in a file of 3.5 MB took 12.8 s and take 1.6 s, the rest of the import
+  (`EightThousandInstances_InALargeFile_AreLookedForInOnePass`).
 
 **As built after Part 16a: blocks resized by their handles** (Ahmad, 2026-11-02, Part 16 paused for his features: "I want
 it to be resizeable when you drag the blue outline things (or the white ones you decide what is better)", on the

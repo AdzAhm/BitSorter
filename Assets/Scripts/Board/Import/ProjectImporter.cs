@@ -652,29 +652,58 @@ namespace BitSorter.Board
         }
 
         /// <summary>
+        /// A name with a path through dots after it -- <c>dut.state</c>, <c>dut . u1 . q</c> -- the name the first group and the
+        /// path the second, looked ahead at rather than taken, so a name further along a path is found as well.
+        /// </summary>
+        private static readonly Regex Hierarchical = new Regex(@"(?<![\w$.])([A-Za-z_][\w$]*)(?=((?:\s*\.\s*[A-Za-z_]\w*)+))",
+            RegexOptions.CultureInvariant);
+
+        private static readonly Regex Identifier = new Regex(@"^[A-Za-z_][\w$]*$", RegexOptions.CultureInvariant);
+
+        /// <summary>
         /// The modules something looks inside by a hierarchical name -- <c>dut.state</c>, <c>dut.u1.q</c> -- and so the ones a
         /// drawing would not keep the names of.
         /// </summary>
+        /// <remarks>
+        /// Each file is read for every such name once, kept by the name each starts with (Part 16d): a regex made for each
+        /// instance and run over the whole of its module's file cost the instances times the file.
+        /// </remarks>
         private static HashSet<string> LookedInto(List<ModuleDeclaration> modules, Dictionary<string, Dictionary<string, string>> instances,
             Dictionary<string, string> texts, Dictionary<string, ModuleDeclaration> byName)
         {
             var looked = new HashSet<string>(StringComparer.Ordinal);
+            var pathsIn = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.Ordinal);
             foreach (ModuleDeclaration module in modules)
             {
                 if (instances[module.Name].Count == 0)
                     continue;
-                texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string text);
+                string file = SourcePaths.Normalise(module.Location.File ?? "");
+                texts.TryGetValue(file, out string text);
                 if (string.IsNullOrEmpty(text))
                     continue;
 
+                if (!pathsIn.TryGetValue(file, out Dictionary<string, List<string>> paths))
+                {
+                    paths = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                    foreach (Match match in Hierarchical.Matches(text))
+                    {
+                        if (!paths.TryGetValue(match.Groups[1].Value, out List<string> after))
+                            paths[match.Groups[1].Value] = after = new List<string>();
+                        after.Add(match.Groups[2].Value);
+                    }
+
+                    pathsIn[file] = paths;
+                }
+
                 foreach (KeyValuePair<string, string> instance in instances[module.Name])
                 {
-                    var path = new Regex(@"(?<![\w$.])" + Regex.Escape(instance.Key) + @"((?:\s*\.\s*[A-Za-z_]\w*)+)", RegexOptions.CultureInvariant);
-                    foreach (Match match in path.Matches(text))
+                    if (!PathsAfter(instance.Key, text, paths, out List<string> found))
+                        continue;
+                    foreach (string path in found)
                     {
                         // Each name along the path that is an instance takes its module with it.
                         string inside = instance.Value;
-                        foreach (string part in match.Groups[1].Value.Split('.'))
+                        foreach (string part in path.Split('.'))
                         {
                             if (inside == null || !byName.ContainsKey(inside))
                                 break;
@@ -689,6 +718,22 @@ namespace BitSorter.Board
             }
 
             return looked;
+        }
+
+        /// <summary>
+        /// The paths after <paramref name="name"/> in <paramref name="text"/>: the ones read for it once, or for a name that is
+        /// no plain identifier, an escaped one, a regex of its own.
+        /// </summary>
+        private static bool PathsAfter(string name, string text, Dictionary<string, List<string>> paths, out List<string> found)
+        {
+            if (Identifier.IsMatch(name))
+                return paths.TryGetValue(name, out found);
+
+            found = new List<string>();
+            var after = new Regex(@"(?<![\w$.])" + Regex.Escape(name) + @"((?:\s*\.\s*[A-Za-z_]\w*)+)", RegexOptions.CultureInvariant);
+            foreach (Match match in after.Matches(text))
+                found.Add(match.Groups[1].Value);
+            return found.Count > 0;
         }
 
         /// <summary>When the run last changed anything: its last settled change, or the end of its last transition.</summary>
