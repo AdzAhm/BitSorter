@@ -358,12 +358,12 @@ endmodule
 
         /// <summary>
         /// A decoder whose case is on a signal the module works out itself -- the second of two chained decoders -- is held to the
-        /// row the circuit's own subject picks, which the netlist works out again from the inputs, not to one forced on it; and a
-        /// constant read wrong in it is still refused (the 16d sweep: the subject was forced, the netlist worked it out again
-        /// regardless, and the rows seldom matched, so such a table was never shown).
+        /// engine with its subject held at each row on its own net, whatever the inputs would work it out as; and a constant read
+        /// wrong in it is still refused (the 16d sweep: the subject was forced on its signal alone, the netlist worked it out
+        /// again regardless, and the rows seldom matched, so such a table was never shown).
         /// </summary>
         [Test]
-        public void ADecoderOnASignalTheModuleWorksOut_IsHeldToTheRowItsSubjectPicks()
+        public void ADecoderOnASignalTheModuleWorksOut_IsHeldToTheEngine()
         {
             (SyntaxTree tree, ControllerReading reading) = ReadText(Chained, "chain");
             Assert.AreEqual(2, reading.Tables.Count, "sanity: both decoders");

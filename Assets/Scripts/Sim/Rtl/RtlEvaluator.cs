@@ -36,7 +36,15 @@ namespace BitSorter.Sim
         /// netlist has been evaluated once, at any width up to 64 bits (the zero-GC pass, Part 16): the order its cells go in
         /// depends on the netlist alone, so it is worked out the first time and kept with it.
         /// </summary>
-        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values)
+        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values) => Evaluate(netlist, signals, values, -1, default);
+
+        /// <summary>
+        /// The same, with the net <paramref name="held"/> at <paramref name="value"/> whatever drives it, as if it were an input:
+        /// every cell reading it reads that, and the cell driving it is not worked out. How a decoder on a signal the module
+        /// works out itself is tried at each of its labels, however seldom its inputs bring the signal there
+        /// (<c>ControllerCheck</c>, the review of the 16d fixes). -1 holds none.
+        /// </summary>
+        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values, int held, LogicVec value)
         {
             if (netlist == null)
                 throw new ArgumentNullException(nameof(netlist));
@@ -48,6 +56,10 @@ namespace BitSorter.Sim
             IReadOnlyList<RtlNet> nets = netlist.Nets;
             if (values.Length < nets.Count)
                 throw new ArgumentException("a place is needed for each of the " + nets.Count + " nets", nameof(values));
+            if (held >= nets.Count)
+                throw new ArgumentOutOfRangeException(nameof(held), "there are " + nets.Count + " nets");
+            if (held >= 0 && value.Width != nets[held].Width)
+                throw new ArgumentException("the net held is " + nets[held].Width + " bits", nameof(value));
             Plan plan = netlist.EvaluationPlan ??= Plan.Of(netlist);
 
             // A net no cell writes reads as nothing, as in a new array.
@@ -59,19 +71,20 @@ namespace BitSorter.Sim
                 RtlCell driver = net.Driver >= 0 ? netlist.Cells[net.Driver] : null;
 
                 // A register of some of a signal's bits holds those bits of it.
-                values[net.Id] = net.Signal >= 0 ? signals[net.Signal]
+                values[net.Id] = net.Id == held ? value
+                    : net.Signal >= 0 ? signals[net.Signal]
                     : driver != null && driver.Kind == RtlKind.Register && driver.Signal >= 0 ? signals[driver.Signal].Slice(driver.Lowest, net.Width)
                     : LogicVec.AllX(net.Width);
             }
 
             // The cells in an order each one's inputs come first; those in a loop of logic, their outputs seeded first.
             foreach (int output in plan.Seeded)
-                values[output] = nets[output].Signal >= 0 ? signals[nets[output].Signal] : LogicVec.AllX(nets[output].Width);
+                values[output] = output == held ? value : nets[output].Signal >= 0 ? signals[nets[output].Signal] : LogicVec.AllX(nets[output].Width);
 
             foreach (RtlCell cell in plan.Order)
-                values[cell.Output] = Apply(cell, values, signals, nets, plan);
+                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan);
             foreach (RtlCell cell in plan.Looped)
-                values[cell.Output] = Apply(cell, values, signals, nets, plan);
+                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan);
         }
 
         /// <summary>

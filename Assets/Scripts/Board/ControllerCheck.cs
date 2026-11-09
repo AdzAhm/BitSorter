@@ -20,10 +20,10 @@ namespace BitSorter.Board
     /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
     /// (<see cref="MachineReading.LetGo"/>), and what its arms set held to what each register is about to take, its D.
     ///
-    /// A table's rows are tried at their labels' values, and its default at values no label takes; each trial holds the
-    /// constants of the row the circuit's own subject picks, which for a subject the module works out itself is whichever
-    /// the inputs make it. Not tried: a case on an expression (<c>case (instr[6:0])</c>), a row whose labels are worked out
-    /// rather than written, and a row the circuit never comes to -- nothing the circuit does bears those out or not.
+    /// A table's rows are tried at their labels' values, and its default at values no label takes, the subject held there --
+    /// on its own net too, so a subject the module works out itself, a decoder on another's output, is tried at every row,
+    /// however seldom or never the inputs bring it there. Not tried: a case on an expression (<c>case (instr[6:0])</c>) and a
+    /// row whose labels are worked out rather than written, which nothing the check can hold the subject at bears out or not.
     ///
     /// What it does not hold is the words: an arrow's condition and a cell's expression are the code's own, printed as written.
     /// The tests hold every corpus, exercise and sample controller to it (<c>ControllerEngine</c>).
@@ -175,26 +175,26 @@ namespace BitSorter.Board
                 int subject = Signal(table.Subject);
                 if (subject < 0)
                     continue;   // a case on an expression: its rows are not tried
+                // The subject held at the row's value, on its own net as well as its signal: a subject the module works out
+                // itself -- a decoder on another's output -- is worked out again from the inputs by the netlist, whatever its
+                // signal is given (the 16d sweep: such a table was never shown), and taking whichever row the inputs made it
+                // pick left a row they seldom bring it to all but untried (the review of the 16d fixes).
+                int width = design.Signals[subject].Width;
                 int subjectNet = NetOf(netlist, subject);
+                int heldNet = subjectNet >= 0 && netlist.Nets[subjectNet].Width == width ? subjectNet : -1;
                 for (int r = 0; r < table.Rows.Count; r++)
-                    foreach (LogicVec match in Tried(table, r, design.Signals[subject].Width, random))
+                    foreach (LogicVec match in Tried(table, r, width, random))
                     {
+                        LogicVec at = match.Resize(width);
                         for (int trial = 0; trial < RowTrials; trial++)
                         {
                             Randomise();
-                            values[subject] = match.Resize(design.Signals[subject].Width);
-                            RtlEvaluator.Evaluate(netlist, values, nets);
-
-                            // The row the circuit's own subject picks: the one forced where nothing in the module works the
-                            // subject out, else whichever the inputs make it -- the netlist works a driven subject out again
-                            // from them, whatever it is given (the 16d sweep: a decoder on another's output was never shown).
-                            int row = subjectNet >= 0 ? table.RowOf(nets[subjectNet]) : r;
-                            if (row < 0)
-                                continue;   // a value no row takes, nor a default
+                            values[subject] = at;
+                            RtlEvaluator.Evaluate(netlist, values, nets, heldNet, at);
                             for (int c = 0; c < table.Columns.Count; c++)
-                                if (table.Rows[row].Cells[c].Constant is LogicVec constant && NetOf(netlist, Signal(table.Columns[c])) is int net && net >= 0
+                                if (table.Rows[r].Cells[c].Constant is LogicVec constant && NetOf(netlist, Signal(table.Columns[c])) is int net && net >= 0
                                     && !Same(nets[net], constant))
-                                    return $"{table.Subject} = {table.Rows[row].Label} gives {table.Columns[c]} = {nets[net]}, where the table says {table.Rows[row].Cells[c].Text}.";
+                                    return $"{table.Subject} = {table.Rows[r].Label} gives {table.Columns[c]} = {nets[net]}, where the table says {table.Rows[r].Cells[c].Text}.";
                         }
                     }
             }

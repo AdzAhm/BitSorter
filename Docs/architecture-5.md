@@ -3959,9 +3959,11 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   two processes' next state never sees the reset, and what an arm sets is held to what its register is about to take,
   its D, not what it holds (the 16d sweep: no such machine with a reset or an output had ever passed); a memory's words
   are given values as every other signal the logic reads is. A table's rows are tried at their labels and its default at
-  values no label takes (16d: the default was never tried), each trial holding the row the circuit's own subject picks --
-  for a subject the module works out itself, a decoder on another's output, whichever the inputs make it. A case on an
-  expression, a row of worked-out labels and a row the circuit never comes to are not tried. A reading it does not bear out is not shown. The words are
+  values no label takes (16d: the default was never tried), the subject held there -- on its own net too
+  (`RtlEvaluator.Evaluate` with a net held), so a subject the module works out itself, a decoder on another's output, is
+  tried at every row however seldom or never the inputs bring it there (16d: such a table was never shown; the review of
+  its fixes: holding each trial to the row the inputs picked left a rare row all but untried). A case on an expression
+  and a row of worked-out labels are not tried. A reading it does not bear out is not shown. The words are
   the code's own and not checked. The tests hold every corpus, exercise and sample reading to it
   (`ControllerEngine`). Read: the three processors' controllers (11 states and the ALU decoder; two tables each), the
   traffic light (its counter left to the drawing), the multiplier's Mealy control, the sequence detector and the
