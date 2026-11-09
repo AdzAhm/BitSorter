@@ -2521,7 +2521,9 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   `-Wfloating-nets` says every net with no driver, the top's inputs included. The oracle's whole corpus raises none.
 - **Checked.** `DesignLintTests`: each warning raised by a design written to raise it, at its line, and not by the
   cases it leaves alone -- an interface's signal, a top's, two tri-state gates or two assignments that let go, bits of
-  their own, a sum, a number, a named constant, an int, a real -- and the corpus raising none; and, from the 14e
+  their own, a sum, a number, a named constant, an int, a real -- and the corpus raising none, each top of a file
+  its own design and an imported project's folder read whole (`CorpusTops`, Part 16d: named no top, `mcpu.sv`'s two
+  testbenches and `alu_tb.sv` alone stopped short of a design, and passed on nothing); and, from the 14e
   review, a bus driven through a tri-state block placed twice, through a net between and with a z replicated said
   nothing of, a mask read in a function an assignment calls read, a forced net set, a 2-state variable reading 0, and
   thirty thousand one-bit drivers of one bus checked in a moment. `LintTests` keeps the latch check's.

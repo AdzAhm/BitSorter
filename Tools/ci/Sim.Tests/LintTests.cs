@@ -109,20 +109,21 @@ always_comb for (int i = 0; i < 4; i++) y[i] = s[0] ^ a;")));
             foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 corpus.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
 
+            // Every top a file has, each its own design: mcpu.sv's two testbenches, named none, stopped at SV0301 and were linted
+            // never (the Part 16d sweep).
+            int linted = 0;
             foreach (string path in Directory.GetFiles(Path.Combine(root, "behavioural"), "*.sv").Concat(Directory.GetFiles(Path.Combine(root, "processor"), "*.sv")))
             {
                 string relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-                Elaboration e = Elaborator.Elaborate(SyntaxReader.Read(relative, corpus),
-                    Path.GetFileName(path) switch
-                    {
-                        "traffic_light.sv" => "traffic_light_tb",
-                        "multiplier.sv" => "multiplier_tb",
-                        _ => null,
-                    });
-
-                Assert.IsNotNull(e.Design, relative + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
-                Assert.IsEmpty(Latches(e), Path.GetFileName(path));
+                foreach ((string top, Elaboration e) in CorpusTops.Elaborated(SyntaxReader.Read(relative, corpus)))
+                {
+                    Assert.IsNotNull(e.Design, relative + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
+                    Assert.IsEmpty(Latches(e), relative + ", from " + top);
+                    linted++;
+                }
             }
+
+            Assert.Greater(linted, 16, "every behavioural file and every processor, each testbench of mcpu.sv among them");
         }
     }
 }

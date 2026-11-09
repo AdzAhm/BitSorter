@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BitSorter.SystemVerilog.Syntax;
@@ -229,17 +231,37 @@ endmodule");
             foreach (string path in Directory.GetFiles(root, "*.sv*", SearchOption.AllDirectories))
                 corpus.Add(Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText(path));
 
+            // Each file read alone, but an imported project's folder, whose files are read together as an import reads them:
+            // alu_tb.sv alone names an alu that is in alu.sv, and stopped at SV0302.
+            string imports = Path.Combine(root, "import");
+            var units = new List<(string Name, SyntaxTree Tree)>();
             foreach (string path in Directory.GetFiles(root, "*.sv", SearchOption.AllDirectories))
+                if (!path.StartsWith(imports + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    units.Add((Relative(root, path), SyntaxReader.Read(Relative(root, path), corpus)));
+            foreach (string folder in Directory.GetDirectories(imports))
             {
-                string relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-                SyntaxTree tree = SyntaxReader.Read(relative, corpus);
-                if (tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
-                    continue;
-                Elaboration e = Elaborator.Elaborate(tree);
-                Assert.IsNotNull(e.Design, relative + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
-                string[] said = e.Diagnostics.Where(d => DesignCodes.Contains(d.Code)).Select(d => d.Location.Line + ": " + d.Message).ToArray();
-                Assert.IsEmpty(said, relative);
+                IEnumerable<string> files = Directory.GetFiles(folder, "*.sv").Select(p => Relative(root, p)).OrderBy(p => p, StringComparer.Ordinal);
+                units.Add((Relative(root, folder), SyntaxReader.ReadAll(files, corpus)));
             }
+
+            // Every top each has, each its own design: mcpu.sv's two testbenches and a library of cells, named none, stopped at
+            // SV0301, and nothing was linted (the Part 16d sweep).
+            int linted = 0;
+            foreach ((string name, SyntaxTree tree) in units)
+            {
+                Assert.IsFalse(tree.HasErrors, name + " reads: " + string.Join("\n", tree.Diagnostics));
+                foreach ((string top, Elaboration e) in CorpusTops.Elaborated(tree))
+                {
+                    Assert.IsNotNull(e.Design, name + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
+                    string[] said = e.Diagnostics.Where(d => DesignCodes.Contains(d.Code)).Select(d => d.Location.Line + ": " + d.Message).ToArray();
+                    Assert.IsEmpty(said, name + ", from " + top);
+                    linted++;
+                }
+            }
+
+            Assert.Greater(linted, units.Count, "every file and folder linted, and the files with more than one top each of them");
         }
+
+        private static string Relative(string root, string path) => Path.GetRelativePath(root, path).Replace('\\', '/');
     }
 }

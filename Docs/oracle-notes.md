@@ -536,7 +536,8 @@ narrower (SV0405). Icarus 12 is a quieter judge, so the oracle checks the lint o
 | two `assign`s to one `wire` | silent; the bits resolve, x where they disagree | SV0404, unless every driver can let go: a tri-state gate, or a value that can be z |
 
 The corpus is held to none of the four (`DesignLintTests.TheCorpus_RaisesNone`): every one of its designs is
-driven, read, driven once and sized to fit, which is the course's style.
+driven, read, driven once and sized to fit, which is the course's style. Every design means each top a file has,
+each testbench of `mcpu.sv` and each cell of `cells.sv`, and each imported project read as a whole (Part 16d).
 
 ## The classic slips (Part 15i-2, probed 2026-11-02)
 
