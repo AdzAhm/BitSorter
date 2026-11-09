@@ -1492,7 +1492,7 @@ namespace BitSorter.ViewModel
             if (resized != null)
             {
                 overlay.Ghosts.Add(Stage(frame, resized, SelectedRoom, 0, 0));
-                GhostWires(overlay, frame, module, module.Layout.WithPart(_resizing, _resizeTo), new[] { _resizing });
+                GhostWires(overlay, frame, module, module.Layout.WithPart(_resizing, _resizeTo), new[] { _resizing }, null);
             }
 
             if (_start != null)
@@ -1507,7 +1507,7 @@ namespace BitSorter.ViewModel
                 _moved.Clear();
                 foreach (KeyValuePair<int, Placement> part in _start)
                     _moved[part.Key] = part.Value.Moved(_dx, _dy);
-                GhostWires(overlay, frame, module, module.Layout.WithParts(_moved), _start.Keys);
+                GhostWires(overlay, frame, module, module.Layout.WithParts(_moved), _start.Keys, (_dx, _dy));
 
                 foreach (Guide guide in _guides)
                 {
@@ -1566,12 +1566,18 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// The wires on <paramref name="parts"/>, routed to where <paramref name="moved"/> places them, as ghosts: those alone,
         /// round the rest where they are (Part 15g) -- every wire routed again at each step was a third of a second a step on a
-        /// 1,000-part drawing. What a drag of the selection and a drag of a block's handle (Part 16) both show.
+        /// 1,000-part drawing. What a drag of the selection and a drag of a block's handle (Part 16) both show. A drag of the
+        /// selection moves its parts <paramref name="by"/> an offset, so a wire between two of them is carried along with it
+        /// rather than routed (the 16d sweep); a resize moves the pins themselves, and has none.
         /// </summary>
-        private void GhostWires(CanvasOverlay overlay, SchematicLayout.Frame frame, Module module, Layout moved, ICollection<int> parts)
+        private void GhostWires(CanvasOverlay overlay, SchematicLayout.Frame frame, Module module, Layout moved, ICollection<int> parts,
+            (double X, double Y)? by)
         {
-            Dictionary<int, IReadOnlyList<BoardPoint>> routes = WireGeometry.Following(Drawn, module with { Layout = moved },
-                _session.RoutesOf(Drawn, module), parts);
+            Module ghost = module with { Layout = moved };
+            IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>> lying = _session.RoutesOf(Drawn, module);
+            Dictionary<int, IReadOnlyList<BoardPoint>> routes = by.HasValue
+                ? WireGeometry.Following(Drawn, ghost, lying, parts, by.Value.X, by.Value.Y)
+                : WireGeometry.Following(Drawn, ghost, lying, parts);
             foreach (Wire wire in module.Wires)
             {
                 bool follows = (!wire.From.IsTap && parts.Contains(wire.From.Pin.Part)) || (!wire.To.IsTap && parts.Contains(wire.To.Pin.Part));

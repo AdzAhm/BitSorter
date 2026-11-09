@@ -56,7 +56,7 @@ namespace BitSorter.Board
         public const double Stub = 0.5;
 
         /// <summary>Every wire's points, from its <see cref="Wire.From"/> end to its <see cref="Wire.To"/> end.</summary>
-        public static Dictionary<int, IReadOnlyList<Point>> Wires(Project project, Module module) => Route(project, module, null, null);
+        public static Dictionary<int, IReadOnlyList<Point>> Wires(Project project, Module module) => Route(project, module, null, null, null);
 
         /// <summary>
         /// The wires on <paramref name="moved"/> parts routed again, as <paramref name="module"/>'s layout now places them, and
@@ -73,13 +73,65 @@ namespace BitSorter.Board
             foreach (Wire wire in module.Wires)
                 if ((!wire.From.IsTap && moved.Contains(wire.From.Pin.Part)) || (!wire.To.IsTap && moved.Contains(wire.To.Pin.Part)))
                     again.Add(wire.Id);
-            return Route(project, module, kept, again);
+            return Route(project, module, kept, again, null);
         }
 
-        /// <summary>The routing itself: every wire, or only those <paramref name="again"/> names with the rest as <paramref name="kept"/> has them.</summary>
-        private static Dictionary<int, IReadOnlyList<Point>> Route(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
-            HashSet<int> again)
+        /// <summary>
+        /// The same for a drag of <paramref name="moved"/> parts, every one of them moved by (<paramref name="dx"/>,
+        /// <paramref name="dy"/>) and nothing else -- <paramref name="module"/>'s layout placing them so: a wire with both ends
+        /// on moved parts and no bends kept is carried along, its route where <paramref name="kept"/> has it moved with them,
+        /// rather than routed again round the rest. All of a 1,028-part drawing dragged routed every wire again at each step,
+        /// half a second a step (the 16d sweep). A wire with bends kept still runs through them, as the drop routes it, since
+        /// moving parts leaves a wire's bends where they are.
+        /// </summary>
+        public static Dictionary<int, IReadOnlyList<Point>> Following(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
+            ICollection<int> moved, double dx, double dy)
         {
+            var again = new HashSet<int>();
+            Dictionary<int, IReadOnlyList<Point>> carried = null;
+            foreach (Wire wire in module.Wires)
+            {
+                bool from = !wire.From.IsTap && moved.Contains(wire.From.Pin.Part), to = !wire.To.IsTap && moved.Contains(wire.To.Pin.Part);
+                if (!from && !to)
+                    continue;
+                if (from && to && kept != null && kept.TryGetValue(wire.Id, out IReadOnlyList<Point> lay)
+                    && !(module.Layout.Routes.TryGetValue(wire.Id, out Route route) && route.Bends.Count > 0))
+                {
+                    carried ??= new Dictionary<int, IReadOnlyList<Point>>();
+                    carried[wire.Id] = Moved(lay, dx, dy);
+                    continue;
+                }
+                again.Add(wire.Id);
+            }
+            return Route(project, module, kept, again, carried);
+        }
+
+        /// <summary><paramref name="points"/>, every one moved by (<paramref name="dx"/>, <paramref name="dy"/>).</summary>
+        private static Point[] Moved(IReadOnlyList<Point> points, double dx, double dy)
+        {
+            var moved = new Point[points.Count];
+            for (int i = 0; i < moved.Length; i++)
+                moved[i] = new Point(points[i].X + dx, points[i].Y + dy);
+            return moved;
+        }
+
+        /// <summary>
+        /// The routing itself: every wire, or only those <paramref name="again"/> names with the rest as <paramref name="kept"/>
+        /// has them -- or, for those <paramref name="carried"/> names, as it has them.
+        /// </summary>
+        private static Dictionary<int, IReadOnlyList<Point>> Route(Project project, Module module, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept,
+            HashSet<int> again, Dictionary<int, IReadOnlyList<Point>> carried)
+        {
+            // Nothing to route: the rest are where they lie, and no outline nor obstacle need be made for it.
+            if (again != null && again.Count == 0)
+            {
+                var lying = new Dictionary<int, IReadOnlyList<Point>>();
+                foreach (Wire wire in module.Wires)
+                    if (Lying(wire.Id, kept, carried, out IReadOnlyList<Point> points))
+                        lying[wire.Id] = points;
+                return lying;
+            }
+
             var outlines = new Dictionary<int, PartOutline>();
             foreach (Part part in module.Parts)
                 outlines[part.Id] = PartGeometry.Placed(project, part, module.Layout.PlacementOf(part.Id));
@@ -96,10 +148,10 @@ namespace BitSorter.Board
                 around.AddPart(outline);
             var own = new HashSet<int>();
 
-            // The wires kept where they are, in the way of those routed again from the start.
+            // The wires kept where they are, or carried along, in the way of those routed again from the start.
             if (again != null)
                 foreach (Wire wire in module.Wires)
-                    if (!again.Contains(wire.Id) && kept != null && kept.TryGetValue(wire.Id, out IReadOnlyList<Point> keep))
+                    if (!again.Contains(wire.Id) && Lying(wire.Id, kept, carried, out IReadOnlyList<Point> keep))
                     {
                         done[wire.Id] = keep;
                         around.AddWire(keep, nets[wire.Id]);
@@ -154,6 +206,16 @@ namespace BitSorter.Board
                 if (again == null || again.Contains(wire.Id))
                     RouteOf(wire);
             return done;
+        }
+
+        /// <summary>Where a wire not routed again lies: carried along, else kept where it was.</summary>
+        private static bool Lying(int wire, IReadOnlyDictionary<int, IReadOnlyList<Point>> kept, Dictionary<int, IReadOnlyList<Point>> carried,
+            out IReadOnlyList<Point> points)
+        {
+            if (carried != null && carried.TryGetValue(wire, out points))
+                return true;
+            points = null;
+            return kept != null && kept.TryGetValue(wire, out points);
         }
 
         /// <summary>Each net's paths from its driver to every load, through the wires and the taps between.</summary>

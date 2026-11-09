@@ -3307,6 +3307,7 @@ the slower of the two, and it was made more than once an edit.
 | routing every wire | 1,039 ms | about 300 ms |
 | times the drawing is routed an edit | 2, or 3 while a wire is drawn | 1 |
 | a step of a drag | 302 ms | under 1 ms |
+| a step of dragging all of it (the 16d sweep) | 491 ms, 186 MB made | about 19 ms, 0.8 MB |
 | the TIMING tab | 216 ms (the analysis 84) | about 80 ms, the analysis itself |
 
 - **The router asks only what is near** (`WireObstacles`): corners, pins and part bodies are kept by the square of the
@@ -3324,7 +3325,14 @@ the slower of the two, and it was made more than once an edit.
   the project's modules -- a block's outline is its module's -- so an input's steps edited route nothing.
 - **A drag routes only the wires that follow it** (`WireGeometry.Following`): the wires on the moved parts, round the
   others where they lie; routing every wire again at each step was what made a drag of a big drawing stutter. A preview:
-  the drop routes the whole module, and a following wire may then take another way round a wire that moved too.
+  the drop routes the whole module, and a following wire may then take another way round a wire that moved too. **A wire
+  between two moved parts is carried along** (the 16d sweep, canvas-6): with both its ends on the selection and no bends
+  kept, its route as it lay is moved by the drag's offset and not routed at all; with bends it still runs through them,
+  as the drop routes it, since a move leaves a wire's bends where they are; and with nothing left to route, no outline nor
+  obstacle is made. A resize moves pins rather than parts, and routes its block's wires as before. Ctrl+A on the
+  thousand-part adder dragged had routed every wire at each step, about half a second, since every wire follows. **The
+  moved layout is one copy** (`Layout.WithParts`, canvas-7): the overlay, and `BoardEditor.MoveParts` on the drop, copied
+  the whole layout once for each part moved, 65 MB of the 186 a step made.
 - **TIMING names each signal once**: two hundred paths listed, each look-alike, each signal along them named again, made
   the view two and a half times its analysis.
 - **Not sliced across frames**, though the plan said so: it was planned for the 1,159 ms the TIMING tab took when measured
@@ -3339,7 +3347,9 @@ the slower of the two, and it was made more than once an edit.
   is more than 0.3 s, the notice line says once a run of the game that the desktop version runs it faster -- one codebase,
   the same features in both builds (agreed with Ahmad, 2026-10-28). The slowest, not the last: an edit draws the document
   twice, the second time from the routes the first made, and the review found a 500 ms edit told as 6 ms.
-- **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; the
+- **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; a
+  drag by an offset carries the wires between its parts, runs a bent one through its bends and routes those out to the
+  rest; all of the thousand-part adder dragged takes a step within 50 ms and 4 MB, its wires carried end to end; the
   session routes a document once, an input's edit keeps the routes, and a move and its undo route afresh to what routing
   from nothing gives; the hit map and the drawing take the routes they are given; the hint's rule, the session keeping the
   slowest until asked, and a slow edit of the thousand-part adder heard as slow; and that adder drawn, timed and dragged

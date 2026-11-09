@@ -85,6 +85,63 @@ namespace BitSorter.ViewModel.Tests
             Assert.Greater(follow, 0, "sanity: some wires follow");
         }
 
+        /// <summary>
+        /// A drag of the selection by an offset (the 16d sweep): a wire between two parts of it, with no bends, is carried along
+        /// as it lay; one with bends still runs through them, as the drop routes it; one out to the rest is routed to where its
+        /// part has got to; and the rest lie where they lay.
+        /// </summary>
+        [Test]
+        public void ADragByAnOffset_CarriesTheWiresBetweenItsParts_AndRoutesThoseOutToTheRest()
+        {
+            Project project = Adder(4);
+            Module module = project.TopModule;
+            List<int> parts = module.Parts.Where(p => new[] { "x0", "y0", "p0", "q0", "r0" }.Contains(p.Name)).Select(p => p.Id).ToList();
+            Assert.AreEqual(5, parts.Count, "sanity: bit 0's five gates");
+            bool Moved(Endpoint end) => !end.IsTap && parts.Contains(end.Pin.Part);
+            Wire bent = module.Wires.First(w => Moved(w.From) && Moved(w.To));
+            module = module with { Layout = module.Layout.WithRoute(bent.Id, new Route { Bends = new[] { new Point(-3, -3), new Point(-3, 7) } }) };
+
+            Dictionary<int, IReadOnlyList<Point>> before = WireGeometry.Wires(project, module);
+            const double dx = 1, dy = 2;
+            Layout layout = module.Layout.WithParts(parts.ToDictionary(id => id, id => module.Layout.PlacementOf(id).Moved(dx, dy)));
+            Module moved = module with { Layout = layout };
+            Dictionary<int, IReadOnlyList<Point>> during = WireGeometry.Following(project, moved, before, parts, dx, dy);
+
+            int carried = 0, routed = 0;
+            foreach (Wire wire in module.Wires)
+            {
+                IReadOnlyList<Point> route = during[wire.Id];
+                if (wire.Id == bent.Id)
+                {
+                    CollectionAssert.AreEqual(WireGeometry.Wires(project, moved)[wire.Id], route, "through its bends, which a move leaves where they are, as the drop routes it");
+                    CollectionAssert.AreNotEqual(before[wire.Id].Select(p => new Point(p.X + dx, p.Y + dy)), route, "sanity: not carried");
+                }
+                else if (Moved(wire.From) && Moved(wire.To))
+                {
+                    carried++;
+                    CollectionAssert.AreEqual(before[wire.Id].Select(p => new Point(p.X + dx, p.Y + dy)), route, "carried along: wire " + wire.Id);
+                }
+                else if (Moved(wire.From) || Moved(wire.To))
+                {
+                    routed++;
+                    foreach ((Endpoint end, Point at) in new[] { (wire.From, route[0]), (wire.To, route[route.Count - 1]) })
+                    {
+                        if (!Moved(end))
+                            continue;
+                        PartOutline now = PartGeometry.Placed(project, moved.FindPart(end.Pin.Part), layout.PlacementOf(end.Pin.Part));
+                        Assert.IsTrue(now.TryPin(end.Pin.Pin, out PinSpot pin));
+                        Assert.AreEqual(pin.At, at, "routed to the pin where its part now is");
+                    }
+                }
+                else
+                {
+                    Assert.AreSame(before[wire.Id], route, "the rest lie where they lay");
+                }
+            }
+            Assert.Greater(carried, 0, "sanity: wires carried");
+            Assert.Greater(routed, 0, "sanity: wires routed");
+        }
+
         [Test]
         public void TheSession_RoutesADocumentOnce_AndAnInputsEditKeepsTheRoutes()
         {
