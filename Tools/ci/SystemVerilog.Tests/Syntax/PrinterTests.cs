@@ -171,6 +171,29 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
                 "endmodule\n");
         }
 
+        /// <summary>
+        /// A lifetime written on a variable in a block or a routine is printed as it was written (IEEE 1800, 6.21), after a
+        /// const as the grammar has it: it changes what the variable does, and the read dropped it (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AVariablesLifetime_IsPrintedAsWritten()
+        {
+            string printed = FixedPoint(
+                "module tb;\n" +
+                "task bump(output int r); automatic int c = 0; c++; r = c; endtask\n" +
+                "initial for (int i = 0; i < 3; i++) begin automatic int id = i; static int s = 5; const automatic int k = 2; " +
+                "automatic const int j = 3; int plain; s++; end\n" +
+                "endmodule\n");
+            StringAssert.Contains("automatic int c = 0;", printed);
+            StringAssert.Contains("automatic int id = i;", printed);
+            StringAssert.Contains("static int s = 5;", printed);
+            StringAssert.Contains("const automatic int k = 2;", printed);
+            StringAssert.Contains("const automatic int j = 3;", printed, "the two words in either order read the same");
+            StringAssert.Contains(" int plain;", printed);
+            StringAssert.DoesNotContain("automatic int plain", printed, "none written, none printed");
+            StringAssert.DoesNotContain("static int plain", printed, "none written, none printed");
+        }
+
         [Test]
         public void ADanglingElse_StaysWithTheNearestIf()
         {

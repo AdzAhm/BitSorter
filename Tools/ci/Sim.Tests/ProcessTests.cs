@@ -782,6 +782,44 @@ endmodule");
             CollectionAssert.AreEqual(new[] { "0 3", "1 2", "b 0 -6", "b 1 -5", "1 0 100" }, Printed(Run(e.Design, 10)), "ModelSim's lines, probed");
         }
 
+        /// <summary>
+        /// A variable declared <c>automatic</c> in a block is made afresh each time the block is entered (IEEE 1800, 6.21):
+        /// its initializer -- any expression, the loop's i among them -- worked out then, else its type's start, 0 for an
+        /// int and x for a logic. A static one, as a block's are by default in an initial, is set once before the run and
+        /// keeps its value. A fork's branch reads the one the block made. ModelSim's lines (probed); Icarus 12 reads no
+        /// lifetime written on a variable ("overriding the default variable lifetime is not yet supported"). BitSorter
+        /// dropped the word: id was refused, its initializer no constant, and n and l kept the last time round's value
+        /// (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AnAutomaticVariableInABlock_IsMadeAfresh_EachTimeTheBlockIsEntered()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    initial begin
+        for (int i = 0; i < 3; i++) begin
+            automatic int id = i * 2;
+            automatic int n;
+            automatic logic [3:0] l;
+            static int s = 5;
+            n++;
+            s++;
+            $display(""A %0d %0d %0d %b"", id, n, s, l);
+            l = 4'b1010;
+        end
+        for (int i = 0; i < 2; i++) begin
+            automatic int id = i + 10;
+            fork
+                #1 $display(""F %0d"", id);
+            join
+        end
+    end
+endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            CollectionAssert.AreEqual(new[] { "A 0 1 6 xxxx", "A 2 1 7 xxxx", "A 4 1 8 xxxx", "F 10", "F 11" }, Printed(Run(e.Design, 10)),
+                "ModelSim's lines, probed");
+        }
+
         [Test]
         public void ALoopsOwnVariable_IsNotRecorded_AndAVcdLeavesItOut()
         {

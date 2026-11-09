@@ -2,7 +2,9 @@
 // in an always_comb, one reading a module signal it is not given, one with a loop and locals, an
 // automatic one that calls itself, a static one that keeps a local between calls, the old style of
 // argument, a default argument; a task that waits on the clock and gives values back, called from two
-// places, and a void function that prints. Written for BitSorter; not taken from any course material.
+// places, and a void function that prints; and an automatic function and task whose locals start from
+// their arguments and whose blocks' variables start again each time round a loop. Written for
+// BitSorter; not taken from any course material.
 
 module checksum #(parameter WIDTH = 8) (
     input  logic [WIDTH-1:0] data,
@@ -77,6 +79,30 @@ module subroutines_tb;
         #1 seen = shown;
     endtask
 
+    // Everything an automatic function or task declares is made as it is entered: a local from an argument,
+    // and a block's own each time round the loop.
+    function automatic int doubled_sum(input int n);
+        int total = n * 2;
+        for (int k = 0; k < 3; k++) begin
+            int hits = 0;
+            hits++;
+            total += hits;
+        end
+        return total;
+    endfunction
+
+    task automatic tally(input int from, output int r);
+        int base = from + 1;
+        r = 0;
+        for (int k = 0; k < 2; k++) begin
+            int hits = base;
+            hits++;
+            r += hits;
+        end
+    endtask
+
+    int tally_a, tally_b;
+
     function void report(input logic [7:0] value, input logic [3:0] count);
         $display("%0t value %b has %0d ones, parity %b", $time, value, count, ^value);
     endfunction
@@ -100,6 +126,9 @@ module subroutines_tb;
         $display("factorials %0d %0d %0d", factorial(1), factorial(5), factorial(10));
         $display("tickets %0d %0d %0d", next_ticket(), next_ticket(), next_ticket());
         $display("scaled %0d %0d", scaled(8'd21), scaled(8'd21, 3));
+        tally(9, tally_a);
+        tally(4, tally_b);
+        $display("automatic %0d %0d %0d %0d", doubled_sum(4), doubled_sum(5), tally_a, tally_b);
         invert = 0;
         #1 $display("shown %b", shown);
         $finish;

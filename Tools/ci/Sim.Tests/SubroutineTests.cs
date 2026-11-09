@@ -391,6 +391,97 @@ endmodule", 1);
             CollectionAssert.AreEqual(new[] { "1 2 3 / 1 1" }, Printed(sim));
         }
 
+        /// <summary>
+        /// Everything an automatic function or task declares is made afresh as it is entered (IEEE 1800, 6.21): its own,
+        /// with an initializer that may read its arguments, and a block's inside it, each time round its loop. Icarus 12
+        /// and ModelSim print the line, and <c>corpus/behavioural/subroutines.sv</c> holds the same to both. BitSorter
+        /// refused <c>int total = n * 2</c>, its initializer no constant, and gave a block's hits the last time round's
+        /// value -- a block's variables were static wherever they were (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AnAutomaticRoutine_MakesWhatItDeclaresAfresh_ItsBlocksEachTimeRound()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    function automatic int doubled_sum(input int n);
+        int total = n * 2;
+        for (int k = 0; k < 3; k++) begin
+            int hits = 0;
+            hits++;
+            total += hits;
+        end
+        return total;
+    endfunction
+
+    task automatic tally(input int from, output int r);
+        int base = from + 1;
+        r = 0;
+        for (int k = 0; k < 2; k++) begin
+            int hits = base;
+            hits++;
+            r += hits;
+        end
+    endtask
+
+    int t1, t2;
+    initial begin
+        tally(9, t1);
+        tally(4, t2);
+        $display(""automatic %0d %0d %0d %0d"", doubled_sum(4), doubled_sum(5), t1, t2);
+    end
+endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            sim.RunTo(1);
+            CollectionAssert.AreEqual(new[] { "automatic 11 13 22 12" }, Printed(sim), "Icarus's and ModelSim's line");
+        }
+
+        /// <summary>
+        /// A lifetime written on a variable is its own, whatever its routine's (IEEE 1800, 6.21): <c>automatic</c> in a
+        /// static task starts each call afresh, and <c>static</c> in an automatic function or task keeps its value from
+        /// one call to the next -- called in an expression or as a statement. ModelSim's line (probed); Icarus 12 reads no
+        /// lifetime written on a variable. BitSorter dropped the word as it read it (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void ALifetimeWrittenOnAVariable_IsItsOwn_WhateverItsRoutinesIs()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    task bump(output int r);
+        automatic int c = 0;
+        c++;
+        r = c;
+    endtask
+
+    function automatic int counted();
+        static int calls = 0;
+        int mine = 0;
+        calls++;
+        mine++;
+        return calls * 10 + mine;
+    endfunction
+
+    task automatic counted_task(output int r);
+        static int calls = 0;
+        int mine = 0;
+        calls++;
+        mine++;
+        r = calls * 10 + mine;
+    endtask
+
+    int r1, r2, r3, r4;
+    initial begin
+        bump(r1); bump(r2);
+        counted_task(r3); counted_task(r4);
+        $display(""%0d %0d %0d %0d %0d %0d"", r1, r2, counted(), counted(), r3, r4);
+    end
+endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            sim.RunTo(1);
+            CollectionAssert.AreEqual(new[] { "1 1 11 21 11 21" }, Printed(sim), "ModelSim's line, probed");
+        }
+
         [Test]
         public void AFunctionCallingAFunction_AndOneGivingAnInt()
         {
