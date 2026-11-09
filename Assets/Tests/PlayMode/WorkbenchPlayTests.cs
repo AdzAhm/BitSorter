@@ -700,6 +700,44 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The playhead's time and the second cursor's are written apart, never over each other (the 16d sweep): a unit after
+        /// the playhead, and at the run's end, where both were held at the waves' right end on the same pixels.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheCursorsTimes_AreWrittenApart_AUnitApart_AndAtTheEnd()
+        {
+            yield return TestScene.Load();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(10.0);
+            workbench.PlaceSecond(11.0);
+            yield return null;
+            AssertTheCursorsTimesApart(workbench, "a unit after the playhead");
+
+            workbench.Seek(workbench.Model.End);
+            workbench.PlaceSecond(workbench.Model.End - 1);
+            yield return null;
+            AssertTheCursorsTimesApart(workbench, "a unit before the end, the playhead at it");
+        }
+
+        /// <summary>The playhead's time and C2's, along the top of the waves: their boxes of text do not meet.</summary>
+        private static void AssertTheCursorsTimesApart(WorkbenchPanel workbench, string where)
+        {
+            string second = workbench.SecondText;
+            Assert.IsNotNull(second, $"{where}: sanity, C2's time written");
+            SchematicPalette palette = SchematicPalette.Current;
+            TextMeshProUGUI c2 = workbench.GetComponentsInChildren<TextMeshProUGUI>(false).First(l => l.text == second && l.color == palette.Cursor);
+            float y = c2.rectTransform.anchoredPosition.y;
+            TextMeshProUGUI playhead = c2.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(false)
+                .Single(l => l != c2 && l.color == palette.Accent && Mathf.Abs(l.rectTransform.anchoredPosition.y - y) < 0.5f);
+            float a0 = playhead.rectTransform.anchoredPosition.x, a1 = a0 + playhead.preferredWidth;
+            float b0 = c2.rectTransform.anchoredPosition.x, b1 = b0 + c2.preferredWidth;
+            Assert.IsTrue(a1 <= b0 || b1 <= a0,
+                $"{where}: the playhead's {playhead.text} at {a0:0.#} to {a1:0.#} and C2's {c2.text} at {b0:0.#} to {b1:0.#}, written over each other");
+        }
+
+        /// <summary>
         /// A right-click on a row opens its menu; a radix chosen there rewrites the row's value, and X
         /// steps it to the next; REMOVE takes the row out.
         /// </summary>
