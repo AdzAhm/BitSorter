@@ -242,6 +242,30 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("Pan 48,0", Run(pointer, At(CanvasTarget.Nothing, space: true), moves: 48f));
         }
 
+        /// <summary>
+        /// Another button pressed while a press is held is that press's, and asks for nothing of its own: it let the press go
+        /// without the editor being told, so a drag's ghost stayed drawn, and neither the release nor Escape could end it (the
+        /// 16d sweep).
+        /// </summary>
+        [Test]
+        public void AnotherButtonPressed_WhileADragIsHeld_AsksForNothing_AndTheReleaseStillEndsTheDrag()
+        {
+            var pointer = new CanvasPointer();
+            var commands = new List<CanvasCommand>();
+            CanvasPress press = At(OnAnd);
+            pointer.Press(press, commands);
+            pointer.Move(press.Window + new Vec2(48, 0), new BoardPoint(5, 0), false, commands);
+
+            pointer.Press(At(OnAnd, button: 1), commands);
+            pointer.Press(At(CanvasTarget.Nothing, button: 2), commands);
+            Assert.IsTrue(pointer.Moving, "still the drag's");
+
+            pointer.Move(press.Window + new Vec2(96, 0), new BoardPoint(6, 0), false, commands);
+            pointer.Release(new BoardPoint(6, 0), OnAnd, false, commands);
+            Assert.AreEqual("Select part 3, BeginMove 4,0, MoveTo 5,0, MoveTo 6,0, EndMove 6,0", string.Join(", ", commands));
+            Assert.IsFalse(pointer.Held);
+        }
+
         [Test]
         public void WithAPartInHand_TheLeftPlacesIt_AndTheRightPutsItDown()
         {
