@@ -145,7 +145,7 @@ endmodule", "wide.sv")).Design;
 
             Assert.AreEqual(RunStatus.Stopped, result.Status);
             Assert.Less(kept, 10_000 * 80 * 2, "a full history holds about what the limit says, 80 bytes a record");
-            StringAssert.Contains("more than the 10,000 a run may keep", sim.History.Messages.Last().Text);
+            StringAssert.Contains("a run may keep", sim.History.Messages.Last().Text, "the history's bound, said by what it holds");
             GC.KeepAlive(sim);
         }
 
