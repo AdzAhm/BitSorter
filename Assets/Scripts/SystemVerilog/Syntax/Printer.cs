@@ -1088,7 +1088,16 @@ namespace BitSorter.SystemVerilog.Syntax
                     case '\t': text.Append("\\t"); break;
                     case '"': text.Append("\\\""); break;
                     case '\\': text.Append("\\\\"); break;
-                    default: text.Append(c); break;
+                    case '\v': text.Append("\\v"); break;
+                    case '\f': text.Append("\\f"); break;
+                    case '\a': text.Append("\\a"); break;
+                    default:
+                        // Any other control character as the octal escape that reads back as it (the 16d sweep: \033 was lost).
+                        if (c < ' ' || c == '\u007F')
+                            text.Append('\\').Append(System.Convert.ToString(c, 8).PadLeft(3, '0'));
+                        else
+                            text.Append(c);
+                        break;
                 }
             }
             return text.ToString();

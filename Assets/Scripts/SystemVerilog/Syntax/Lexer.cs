@@ -17,6 +17,8 @@ namespace BitSorter.SystemVerilog.Syntax
     /// - **Look-alike characters are read as what they look like, with a warning.** Code copied out of a
     ///   slide arrives with <c>’</c> for an apostrophe and <c>–</c> for a minus; failing on them would
     ///   be exact and unhelpful, and the warning still says which character it was.
+    /// - **A string reads every escape of the standard's table 5-1** -- octal and hex codes among them -- and a
+    ///   backslash before a line's end continues it onto the next (5.9); the printer writes each back.
     /// - It never throws: an unexpected character is an error and is skipped.
     /// </remarks>
     public static class Lexer
@@ -518,9 +520,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     if (c == '\\' && _at + 1 < _text.Length)
                     {
                         Advance();
-                        char escaped = _text[_at];
-                        value.Append(escaped == 'n' ? '\n' : escaped == 't' ? '\t' : escaped);
-                        Advance();
+                        ReadEscape(value);
                         continue;
                     }
 
@@ -531,6 +531,65 @@ namespace BitSorter.SystemVerilog.Syntax
                 _diagnostics.Error(start, DiagnosticCodes.UnterminatedString, "This string is never closed with a \" on the same line.");
                 Add(TokenKind.String, value.ToString(), start, logical);
             }
+
+            /// <summary>
+            /// What follows a backslash in a string, at the character after it: every escape of IEEE 1800's table 5-1 --
+            /// \n, \t, \\, \", \v, \f, \a, \ddd in octal and \xdd in hex -- and a backslash before a line's end, which drops
+            /// both (5.9); any other character is itself. Only \n and \t were read until the 16d sweep, so "\101" was the
+            /// text 101, where Icarus and ModelSim print A.
+            /// </summary>
+            private void ReadEscape(StringBuilder value)
+            {
+                char escaped = _text[_at];
+
+                if (escaped == '\n' || (escaped == '\r' && Peek(1) == '\n'))
+                {
+                    if (escaped == '\r')
+                        Advance();
+                    Advance();   // a continued line: the backslash and the line break are not part of the string
+                    return;
+                }
+
+                if (escaped >= '0' && escaped <= '7')
+                {
+                    int code = 0;
+                    for (int digits = 0; digits < 3 && _at < _text.Length && _text[_at] >= '0' && _text[_at] <= '7'; digits++)
+                    {
+                        code = code * 8 + (_text[_at] - '0');
+                        Advance();
+                    }
+                    value.Append((char)(code & 0xFF));
+                    return;
+                }
+
+                if (escaped == 'x' && IsHexDigit(Peek(1)))
+                {
+                    Advance();
+                    int code = 0;
+                    for (int digits = 0; digits < 2 && _at < _text.Length && IsHexDigit(_text[_at]); digits++)
+                    {
+                        code = code * 16 + HexValue(_text[_at]);
+                        Advance();
+                    }
+                    value.Append((char)code);
+                    return;
+                }
+
+                switch (escaped)
+                {
+                    case 'n': value.Append('\n'); break;
+                    case 't': value.Append('\t'); break;
+                    case 'v': value.Append('\v'); break;
+                    case 'f': value.Append('\f'); break;
+                    case 'a': value.Append('\a'); break;
+                    default: value.Append(escaped); break;
+                }
+                Advance();
+            }
+
+            private static bool IsHexDigit(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+
+            private static int HexValue(char c) => c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10;
 
             private static bool IsApostrophe(char c) => c == '\'' || c == '’' || c == '‘';
         }
