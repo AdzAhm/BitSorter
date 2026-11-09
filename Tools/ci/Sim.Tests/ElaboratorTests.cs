@@ -684,6 +684,29 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// A bound at either end of a long, in a declaration or a select, is too large or outside, said so: worked out as
+        /// Math.Abs(msb - lsb) before anything held the bounds, the difference wrapped to long.MinValue and Math.Abs threw out
+        /// of Elaborate (the Part 16d sweep).
+        /// </summary>
+        [TestCase("module m (output logic y); logic [64'sd9223372036854775807:-1] x; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); logic [64'sh8000000000000000:0] v; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); logic [64'sh8000000000000000:0][1:0] p; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (output logic y); logic [7:0] mem [64'sd9223372036854775807:-1]; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (input logic [7:0] a, output logic y); assign y = a[64'sd9223372036854775807:-1]; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m (input logic [7:0] a, output logic y); assign y = a[64'sh8000000000000000:0]; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m (input logic a, output logic [7:0] y); assign y[64'sd9223372036854775807:-1] = a; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m (input logic a, output logic [7:0] y); assign y[64'sd9223372036854775807 -: 2] = a; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m (input logic [3:0][3:0] a, output logic y); assign y = a[0 +: 64'd2305843009213693952]; endmodule", ElaborationCodes.TooLarge)]
+        [TestCase("module m (input logic a, output logic [3:0][3:0] y); assign y[0 +: 64'd2305843009213693952] = a; endmodule", ElaborationCodes.TooLarge)]
+        public void ABoundAtTheEndOfALong_IsSaid_NeverThrown(string text, string code)
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate(text));
+            CollectionAssert.Contains(Codes(e), code, string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
         /// What the parts limit leaves room for: a loop inside a loop of 65,536 rounds between them, an assign each, is built --
         /// the pair of the refusals above, so they cannot pass by refusing everything.
         /// </summary>
