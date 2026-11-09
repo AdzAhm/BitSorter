@@ -120,6 +120,7 @@ always_comb for (int i = 0; i < 4; i++) y[i] = s[0] ^ a;")));
                         _ => null,
                     });
 
+                Assert.IsNotNull(e.Design, relative + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
                 Assert.IsEmpty(Latches(e), Path.GetFileName(path));
             }
         }

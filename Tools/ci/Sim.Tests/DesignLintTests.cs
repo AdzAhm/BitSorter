@@ -236,6 +236,7 @@ endmodule");
                 if (tree.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
                     continue;
                 Elaboration e = Elaborator.Elaborate(tree);
+                Assert.IsNotNull(e.Design, relative + " was linted, not only read: " + string.Join("\n", e.Diagnostics));
                 string[] said = e.Diagnostics.Where(d => DesignCodes.Contains(d.Code)).Select(d => d.Location.Line + ": " + d.Message).ToArray();
                 Assert.IsEmpty(said, relative);
             }
