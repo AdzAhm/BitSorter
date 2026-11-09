@@ -263,6 +263,34 @@ endmodule", "t");
             Assert.AreEqual(0, points.Count);
         }
 
+        /// <summary>
+        /// Breakpoints followed onto another design's numbers (the 16d sweep): each on its signal as numbered there, a moment
+        /// as it was; one on a signal it has not, or on a value no longer the signal's width, taken away; two that land on
+        /// one signal made one.
+        /// </summary>
+        [Test]
+        public void Breakpoints_Followed_AreOnTheirSignalsAsNumberedNow()
+        {
+            var points = new Breakpoints();
+            points.Add(Breakpoint.OnX(3));
+            points.Add(Breakpoint.At(5));
+            points.Add(Breakpoint.OnValue(4, LogicVec.FromUInt64(2, 2)));
+            points.Add(Breakpoint.OnX(7));
+            points.Add(Breakpoint.OnValue(8, LogicVec.FromUInt64(1, 1)));
+            points.Add(Breakpoint.OnX(9));
+            int version = points.Version;
+
+            // 3 is 4 now and 4 is 5, 8 has gone 2 bits wide, 7 is gone, and 9 lands on 4 too.
+            var to = new Dictionary<int, int> { [3] = 4, [4] = 5, [8] = 8, [9] = 4 };
+            Assert.AreEqual(3, points.Follow(s => to.TryGetValue(s, out int now) ? now : -1, s => s == 5 || s == 8 ? 2 : 1));
+
+            CollectionAssert.AreEqual(new[] { Breakpoint.OnX(4), Breakpoint.At(5), Breakpoint.OnValue(5, LogicVec.FromUInt64(2, 2)) }, points.All);
+            Assert.AreNotEqual(version, points.Version);
+            version = points.Version;
+            Assert.AreEqual(0, points.Follow(s => s, s => s == 5 ? 2 : 1));
+            Assert.AreEqual(version, points.Version, "nothing moved, nothing changed");
+        }
+
         [Test]
         public void ABreakpointOnX_WaitsPastTimeZero_WhereEverythingStartsX()
         {

@@ -1291,7 +1291,11 @@ on an input's row, undo and redo -- is 9b-3b-2.
   and every finished transition. The latest edit wins over a replay still being made; undo and redo are
   replayed like edits; a change of unit is an edit too, since every time and delay on screen is written in
   it. RESTART takes a replay at once (`TakeReplay`), 0 being made already. `Playback.Switch` moves
-  playing onto the new run, keeping the speed, the breakpoints, RUN TO, whether it plays and where.
+  playing onto the new run, keeping the speed, the breakpoints, RUN TO, whether it plays and where. A
+  breakpoint on a signal follows it by its key (`Breakpoints.Follow`), as a row does, since the new design
+  may number its signals otherwise -- an input placed gives the testbench a signal ahead of the circuit's --
+  and one on a value the signal is no longer as wide as goes. Kept by its number, it fired on another signal
+  or was dropped without a word (the 16d sweep).
 - **Checked.** Under dotnet: `TimeUnitsTests` (22, the parser's warning included), `ProjectSettingsTests`
   (14: the rules, every printed file's first line, the import back, the save), `StimulusEditsTests` (13)
   and `WorkbenchSessionTests` (12). Nothing on screen changed: reference shots 1 to 32 identical.

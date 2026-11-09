@@ -188,6 +188,48 @@ namespace BitSorter.ViewModel
         /// </summary>
         public int KeepOnly(Func<int, bool> shown) => RemoveWhere(b => b.Kind != BreakKind.Time && !shown(b.Signal));
 
+        /// <summary>
+        /// Every breakpoint on a signal put on the signal <paramref name="follow"/> says it is now -- another design's number
+        /// for it, or -1 for one that design has not -- and taken away where there is none, or where a value's width is no
+        /// longer the signal's (<paramref name="widthOf"/>), which nothing could then fire. Returns how many went.
+        /// </summary>
+        public int Follow(Func<int, int> follow, Func<int, int> widthOf)
+        {
+            int removed = 0;
+            bool changed = false;
+            for (int i = _all.Count - 1; i >= 0; i--)
+            {
+                Breakpoint b = _all[i];
+                if (b.Kind == BreakKind.Time)
+                    continue;
+                int now = follow(b.Signal);
+                if (now < 0 || (b.Kind == BreakKind.Value && widthOf(now) != b.Value.Width))
+                {
+                    _all.RemoveAt(i);
+                    removed++;
+                    changed = true;
+                }
+                else if (now != b.Signal)
+                {
+                    _all[i] = b.Kind == BreakKind.Value ? Breakpoint.OnValue(now, b.Value) : Breakpoint.OnX(now);
+                    changed = true;
+                }
+            }
+
+            // Two that follow onto one signal are one.
+            for (int i = _all.Count - 1; i > 0; i--)
+                if (_all.IndexOf(_all[i]) < i)
+                {
+                    _all.RemoveAt(i);
+                    removed++;
+                    changed = true;
+                }
+
+            if (changed)
+                Version++;
+            return removed;
+        }
+
         /// <summary>Takes every breakpoint away.</summary>
         public void Clear()
         {

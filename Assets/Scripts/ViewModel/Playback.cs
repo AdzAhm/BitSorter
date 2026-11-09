@@ -207,7 +207,10 @@ namespace BitSorter.ViewModel
         /// (<see cref="WorkbenchSession"/>). The speed, the breakpoints, RUN TO and whether it is playing
         /// carry over, and the playhead stays where it was, as far as the new run is made. Why it last
         /// paused does not: it paused in a run that is gone. How far PLAY at the end runs it on stays the
-        /// first run's length, which an edit to an input does not change.
+        /// first run's length, which an edit to an input does not change. **A breakpoint on a signal follows
+        /// it by its key** (<see cref="SignalIndex.KeyOf"/>), as the rows do: the new design may number its
+        /// signals otherwise -- an input placed gives the testbench a signal ahead of the circuit's -- and one
+        /// kept by its number fired on another signal, or was dropped (the 16d sweep).
         /// </summary>
         public void Switch(RunSession run)
         {
@@ -217,6 +220,7 @@ namespace BitSorter.ViewModel
                 return;
 
             double at = Model.Time;
+            FollowBreakpoints(Model, run.Model);
             _run = run;
             _trackOf = run.Model.TrackOf;
             _break = null;
@@ -227,6 +231,18 @@ namespace BitSorter.ViewModel
             SetSpeed(Speed);
             ClearReason();
             Model.Seek(Math.Min(at, Made));
+        }
+
+        /// <summary>The breakpoints on signals of <paramref name="before"/>'s design put on the same signals of <paramref name="after"/>'s, by key.</summary>
+        private void FollowBreakpoints(WorkbenchModel before, WorkbenchModel after)
+        {
+            SignalIndex was = before.Signals, now = after.Signals;
+            if (was == null || now == null || ReferenceEquals(was, now))
+                return;
+            IReadOnlyList<SignalInfo> signals = after.Session.Design.Signals;
+            Breakpoints.Follow(
+                signal => now.TryFind(was.KeyOf(signal), out int found) ? found : -1,
+                signal => signal < signals.Count ? signals[signal].Width : -1);
         }
 
         /// <summary>
