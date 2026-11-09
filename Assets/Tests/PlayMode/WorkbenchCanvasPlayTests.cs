@@ -1393,6 +1393,32 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A selection made on the circuit from the keyboard is the one Delete takes away: Ctrl+A selected everything with the
+        /// circuit never clicked, and Delete went to the waveform's rows instead, as Ctrl+X, Q and V did not (the 16d sweep).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EverythingSelectedWithCtrlA_IsWhatDeleteTakesAway_TheCircuitNeverClicked()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference
+            yield return null;
+            yield return null;
+            int parts = workbench.Session.Project.TopModule.Parts.Count;
+            Assert.Greater(parts, 0, "sanity: the reference has parts");
+
+            Press(_keyboard.leftCtrlKey);
+            yield return Tap(_keyboard.aKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(parts, workbench.Editor.Selection.Parts.Count, "sanity: Ctrl+A selected every part");
+
+            yield return Tap(_keyboard.deleteKey);
+            yield return null;
+            Assert.AreEqual(0, workbench.Session.Project.TopModule.Parts.Count, "Delete took away what Ctrl+A selected");
+        }
+
+        /// <summary>
         /// A wire clicked is selected, its corners drawn as handles, and a drag on one of its pieces moves the piece
         /// across itself -- one step, layout only, nothing replayed (Part 10b-2).
         /// </summary>
