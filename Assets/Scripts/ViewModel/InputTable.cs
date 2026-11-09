@@ -385,9 +385,12 @@ namespace BitSorter.ViewModel
 
             if (at.Pending)
             {
+                // Moved onto another row, it is that row, which holds whatever it holds, as a row moved onto another is (the 16d
+                // sweep: kept twice, shown once, and the first DEL left it).
                 var pending = new List<long>(_pending);
                 pending.Remove(at.Time);
-                pending.Add(to);
+                if (!pending.Contains(to))
+                    pending.Add(to);
                 table = With(pending: pending);
                 return true;
             }
