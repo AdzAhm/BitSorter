@@ -326,6 +326,40 @@ namespace BitSorter.Board.Tests
             StringAssert.StartsWith("In types.svh, line 6:", fault.Message);
         }
 
+        // -----------------------------------------------------------------
+        // Two modules of one name (import-export-5)
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void TwoModulesOfOneName_TheFirstKept_IsTheOneDrawn()
+        {
+            const string alu = "module alu (input logic a, output logic y);\n    assign y = a;\nendmodule\n";
+            const string backup = "module alu (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n";
+
+            ProjectImport import = Import(("alu.sv", alu), ("alu_old.sv", backup));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            StringAssert.Contains("There are two modules called alu: the first is kept.", Notes(import));
+            Module kept = import.Project.Find("alu");
+            Assert.IsFalse(kept.IsWritten, "structural, so drawn");
+            Assert.IsEmpty(kept.Parts.OfType<GatePart>(), "drawn from alu.sv, the one kept -- a wire, not alu_old.sv's inverter");
+        }
+
+        [Test]
+        public void AModuleOfAFileThatDoesNotRead_IsNotTheOneDrawn()
+        {
+            // broken.sv does not read, so its alu is left out and alu.sv's is the project's: the drawing is alu.sv's too.
+            const string broken = "module alu (input logic a, output logic y);\n    assign y = ~a;\nendmodule\nmodule (;\n";
+            const string alu = "module alu (input logic a, output logic y);\n    assign y = a;\nendmodule\n";
+
+            ProjectImport import = Import(("broken.sv", broken), ("alu.sv", alu));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Module kept = import.Project.Find("alu");
+            Assert.IsFalse(kept.IsWritten, "structural, so drawn");
+            Assert.IsEmpty(kept.Parts.OfType<GatePart>(), "drawn from alu.sv, the one kept -- a wire, not broken.sv's inverter");
+        }
+
         [Test]
         public void AMemoryImage_IsFoundWhateverTheCaseItIsNamedIn()
         {
