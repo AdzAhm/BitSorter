@@ -895,6 +895,61 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(1, workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Count(), "and its mux drawn again");
         }
 
+        /// <summary>
+        /// The question asked by an edit of a block's drawing of code goes down with the edit it waits on (the review of the 16d
+        /// sweep's fixes): Alt+Up, which the workbench takes with the question up, steps out of the block and drops the edit, and
+        /// the question stayed up -- its EDIT THE DRAWING then said the drawing's refusal, of an edit there no longer was.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheQuestion_GoesDownWithTheEdit_WhenAltUpStepsOutOfTheBlock()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            const string code =
+                "// A chooser and a block round it, written for this test.\n" +
+                "module pick (input logic [1:0] a, b, input logic s, output logic [1:0] y);\n" +
+                "    always_comb y = s ? b : a;   // a process, so the importer keeps it written code\n" +
+                "endmodule\n" +
+                "\n" +
+                "module wrap (input logic [1:0] a, b, input logic s, output logic [1:0] y);\n" +
+                "    pick p1 (.a(a), .b(b), .s(s), .y(y));\n" +
+                "endmodule\n";
+            workbench.Import(new[] { new SourceFile("wrap.sv", code) });
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            if (workbench.Session.Locked)
+                yield return Click(WorkbenchPanel.LockButtonName);
+            Assert.IsFalse(workbench.Session.Locked, "sanity: unlocked");
+            Assert.AreEqual("wrap", workbench.Session.Module, "sanity: the block's module on top");
+
+            BlockPart p1 = workbench.Session.DrawnModule.Parts.OfType<BlockPart>().Single();
+            Assert.IsTrue(workbench.StepInto(p1.Id));
+            workbench.Session.Finish();
+            yield return null;
+            Assert.AreEqual("pick", workbench.Session.Module, "sanity: inside p1");
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "sanity: the drawing of its code");
+
+            MuxPart mux = workbench.Session.DrawnModule.Parts.OfType<MuxPart>().Single();
+            PartOutline box = PartGeometry.Placed(workbench.Session.DrawnProject, mux, workbench.Session.DrawnModule.Layout.PlacementOf(mux.Id));
+            yield return ClickAt(workbench, new BoardPoint((box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2));
+            Assert.IsTrue(workbench.Editor.Selection.Parts.Contains(mux.Id), "sanity: the mux selected");
+            yield return Tap(_keyboard.deleteKey);
+            yield return null;
+            Assert.IsTrue(workbench.Ask.IsOpen, "sanity: the first edit asks");
+            Assert.AreEqual(WorkbenchSession.RewriteQuestion, workbench.Ask.Question);
+
+            Press(_keyboard.leftAltKey);
+            yield return null;
+            yield return Tap(_keyboard.upArrowKey);
+            Release(_keyboard.leftAltKey);
+            yield return null;
+            Assert.IsEmpty(workbench.SteppedPath, "sanity: Alt+Up stepped out, the question up");
+            Assert.IsFalse(workbench.Session.AsksToRewrite, "sanity: the edit it waited on dropped");
+            Assert.IsFalse(workbench.Ask.IsOpen, "and the question gone with it");
+        }
+
         /// <summary>Whether every wire on <paramref name="part"/> meets the pin it is on, as the session routes the circuit.</summary>
         private static void WiresMeetThePinsOf(WorkbenchPanel workbench, Project project, Module module, int part, string when)
         {
