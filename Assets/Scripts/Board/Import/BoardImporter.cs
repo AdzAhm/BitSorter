@@ -781,17 +781,8 @@ namespace BitSorter.Board
 
                 foreach (ModuleInstance instance in instantiation.Instances)
                 {
-                    var byPort = new Dictionary<string, string>(StringComparer.Ordinal);
-                    int position = 0;
-                    foreach (PortConnection connection in instance.Connections)
-                    {
-                        string port = connection.Name ?? (position < inputs ? CellLibrary.Input(position) : CellLibrary.Output);
-                        position++;
-                        if (connection.Value is NameExpression net && net.Path.Count == 1)
-                            byPort[port] = net.Name;
-                        else if (connection.Value != null)
-                            Problem(instance, $".{port} is connected to something other than a net by name.");
-                    }
+                    if (!CellConnections(instantiation.Module, instance, inputs, out Dictionary<string, string> byPort))
+                        continue;
 
                     if (!byPort.TryGetValue(CellLibrary.Output, out string output))
                         output = Unconnected(instance.Name, "y");
@@ -803,6 +794,76 @@ namespace BitSorter.Board
                     Gate(kind, instance.Name, output, names, rise, fall, instance);
                 }
             }
+
+            /// <summary>
+            /// A cell's connections, each port to the net it is on: by name -- <c>.A(x)</c>, <c>.A()</c> left open -- or in order,
+            /// its inputs and then its output. Anything else is refused, saying what: <c>.A</c> and <c>.*</c>, which a block's
+            /// connections are not either; a port the cell has not; one given twice; more in order than it has ports.
+            /// </summary>
+            private bool CellConnections(string cell, ModuleInstance instance, int inputs, out Dictionary<string, string> byPort)
+            {
+                byPort = new Dictionary<string, string>(StringComparer.Ordinal);
+                var given = new HashSet<string>(StringComparer.Ordinal);
+                int position = 0;
+                foreach (PortConnection connection in instance.Connections)
+                {
+                    if (connection.IsShorthand || connection.IsWildcard)
+                    {
+                        Problem(instance, $"{instance.Name}'s connections by .name or .* are not drawn: give each of a cell's by name, .A(x), or in order.");
+                        return false;
+                    }
+
+                    string port;
+                    if (connection.Name != null)
+                    {
+                        port = connection.Name;
+                        if (!IsCellPort(port, inputs))
+                        {
+                            Problem(instance, $"{cell} has no port .{port}.");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        if (position > inputs)
+                        {
+                            Problem(instance, $"{instance.Name} is given {Count(instance.Connections.Count)} connections in order, and {cell} has {Count(inputs + 1)} ports.");
+                            return false;
+                        }
+
+                        port = position < inputs ? CellLibrary.Input(position) : CellLibrary.Output;
+                    }
+
+                    position++;
+                    if (!given.Add(port))
+                    {
+                        Problem(instance, $"{instance.Name}'s .{port} is connected twice.");
+                        return false;
+                    }
+
+                    if (connection.Value is NameExpression net && net.Path.Count == 1)
+                        byPort[port] = net.Name;
+                    else if (connection.Value != null)
+                        Problem(instance, $".{port} is connected to something other than a net by name.");
+                }
+
+                return true;
+            }
+
+            private static bool IsCellPort(string port, int inputs)
+            {
+                if (port == CellLibrary.Output)
+                    return true;
+                for (int i = 0; i < inputs; i++)
+                    if (port == CellLibrary.Input(i))
+                        return true;
+                return false;
+            }
+
+            private static string Count(int n) =>
+                n >= 0 && n < Numbers.Length ? Numbers[n] : n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            private static readonly string[] Numbers = { "no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" };
 
             /// <summary>A cell's own default delay, when the files read define it; the course's 1 otherwise.</summary>
             private long CellDefault(string cell, string parameter)
