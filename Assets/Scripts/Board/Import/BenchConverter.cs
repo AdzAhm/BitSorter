@@ -81,7 +81,7 @@ namespace BitSorter.Board
             // Run as written, to where the timeline ends.
             long end = project.Stimulus?.StopTime ?? 0;
             Design design = elaboration.Design;
-            var sim = new Simulator(design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
+            var sim = new Simulator(design, null, new SimOptions { Files = ProjectFiles.ForRun(project), RecordTransitions = false });
             sim.RunTo(end);
 
             var tracks = new List<Track>();
