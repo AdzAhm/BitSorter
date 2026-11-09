@@ -244,8 +244,31 @@ namespace BitSorter.Sim
             }
         }
 
+        /// <summary>
+        /// Whether it hears each update of the NBA region as it lands -- a variable, a select of one at a fixed place or a
+        /// concatenation of them, but no memory's word -- or is judged once they all have, on what the region left, as
+        /// ModelSim 2020.1 judges an operator, a cast and a word (<see cref="Expr.IsSelection"/>; Docs/oracle-notes.md).
+        /// </summary>
+        public bool HearsEachUpdate(IReadOnlyList<SignalInfo> signals)
+        {
+            if (_each == 0)
+            {
+                bool each = Value != null && Value.IsSelection;
+                if (each)
+                {
+                    var reads = new List<int>(2);
+                    Value.CollectReads(reads);
+                    foreach (int s in reads)
+                        each &= signals[s].Memory == null;
+                }
+                _each = each ? 1 : 2;
+            }
+            return _each == 1;
+        }
+
         private const int Unread = -2;
         private int _signal = Unread;
+        private int _each;
     }
 
     /// <summary>An event control's expressions: <c>@(posedge clk, posedge rst)</c> is two.</summary>

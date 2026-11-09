@@ -321,11 +321,13 @@ VCD           written for export, read for the oracle comparison
   the time step; `#0` waits for that moment too, and runs before the nonblocking writes (IEEE 1800, 4.4).
   `q <= #3 d` takes `d` now and writes it three units on; `a = #3 b` takes `b` now, waits, and writes.
   **The region's writes land in turn** (10.4.2; Ahmad's decision, 2026-11-03): those to bits apart together, one to
-  bits an earlier one of the region wrote in a delta of its own, so `a <= 0; a <= 1;` makes the fall between and
+  a bit an earlier one of the region wrote in a delta of its own, so `a <= 0; a <= 1;` makes the fall between and
   wakes a process waiting on it -- the history keeps the value between, the waves show what the step settled on.
-  Nothing they wake runs until every one has landed, so it reads the value the last one left, as Icarus and ModelSim
-  run it, and a continuous assignment never sees the value between, as ModelSim's does not (Icarus passes it on).
-  Those deltas are not counted as a zero-delay loop's. They all landed together until then, and the edge was lost.
+  Only a wait on a variable, a select of one at a fixed place or a concatenation of them hears a value between; a
+  wait on any other expression, a `wait` and a continuous assignment hear what the region left, as ModelSim runs it
+  (Icarus settles some otherwise; Docs/oracle-notes.md). Nothing they wake runs until every one has landed, so it reads
+  the value the last one left, as both run it. Those deltas are not counted as a zero-delay loop's. They all landed
+  together until then, and the edge was lost.
 - **Waiting.** Every wait's signals are known when the design is built, so a change wakes exactly the
   processes waiting on it, with no list that grows. An edge is the standard's on the lowest bit, x and z
   included; an event on an expression of several signals is judged once every change of the delta is in.

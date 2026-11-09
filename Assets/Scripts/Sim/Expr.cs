@@ -136,6 +136,15 @@ namespace BitSorter.Sim
         /// </summary>
         internal virtual bool IsWiring => false;
 
+        /// <summary>
+        /// Whether an event control on it hears each update of the NBA region as it lands, as ModelSim 2020.1 runs it (the
+        /// review of the 16d engine batch; Docs/oracle-notes.md): a signal read, a select of one at a fixed place, a
+        /// concatenation of them, a constant. An operator, a cast, a replication, a choice or a select by a signal is judged
+        /// once they have all landed, on what the region left -- and so is a memory's word, which the simulator asks of the
+        /// signals read.
+        /// </summary>
+        internal virtual bool IsSelection => false;
+
         /// <summary>Whether a constant is written in it (Part 14g): what a library that takes none refuses.</summary>
         internal virtual bool HasConstant => false;
 
@@ -420,6 +429,7 @@ namespace BitSorter.Sim
         private sealed class ReadExpr : Expr
         {
             internal override bool IsWiring => true;
+            internal override bool IsSelection => true;
 
             private readonly int _signal;
             private readonly int _width;
@@ -453,6 +463,7 @@ namespace BitSorter.Sim
         private sealed class ConstantExpr : Expr
         {
             internal override bool IsWiring => true;
+            internal override bool IsSelection => true;
             internal override bool HasConstant => true;
 
             private readonly LogicVec _value;
@@ -636,6 +647,7 @@ namespace BitSorter.Sim
         private sealed class ConcatExpr : Expr
         {
             internal override bool IsWiring => _high.IsWiring && _low.IsWiring;
+            internal override bool IsSelection => _high.IsSelection && _low.IsSelection;
             internal override bool HasConstant => _high.HasConstant || _low.HasConstant;
 
             private readonly Expr _high;
@@ -716,6 +728,7 @@ namespace BitSorter.Sim
         private sealed class SliceExpr : Expr
         {
             internal override bool IsWiring => _a.IsWiring;
+            internal override bool IsSelection => _a.IsSelection;
             internal override bool HasConstant => _a.HasConstant;
 
             private readonly Expr _a;
@@ -750,6 +763,7 @@ namespace BitSorter.Sim
         {
             // A bit chosen by a signal is a multiplexer; one chosen by a constant is a wire.
             internal override bool IsWiring => _a.IsWiring && _index.TryConstant(out _);
+            internal override bool IsSelection => _a.IsSelection && _index.TryConstant(out _);
             internal override bool HasConstant => _a.HasConstant;
 
             private readonly Expr _a;
@@ -794,6 +808,7 @@ namespace BitSorter.Sim
         private sealed class PartExpr : Expr
         {
             internal override bool IsWiring => _a.IsWiring && _offset.TryConstant(out _);
+            internal override bool IsSelection => _a.IsSelection && _offset.TryConstant(out _);
             internal override bool HasConstant => _a.HasConstant;
 
             private readonly Expr _a;
@@ -966,6 +981,7 @@ namespace BitSorter.Sim
         private sealed class ResizeExpr : Expr
         {
             internal override bool IsWiring => _a.IsWiring;
+            internal override bool IsSelection => _a.IsSelection;
             // Widened with 0s, its top bits are constants; widened by its sign, they are its top bit again.
             internal override bool HasConstant => _a.HasConstant || (_width > _a.Width && !_signExtend);
 

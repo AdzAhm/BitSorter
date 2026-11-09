@@ -118,8 +118,10 @@ namespace BitSorter.Sim
     /// <c>#0</c> run (the inactive region); once that is empty too, the nonblocking writes of the time
     /// step are applied (the NBA region), which may wake more. Only then does time move on. They land in
     /// turn (IEEE 1800, 10.4.2): one to bits an earlier one of the region wrote waits for a delta of its
-    /// own, so the value between is a change, and its edge wakes what waits on it; what they wake runs
-    /// once all have landed (<see cref="TakeNba"/>).
+    /// own, so the value between is a change, and a wait on a variable or a select of one hears it; a wait
+    /// on any other expression, and everything else a change sets going, hears only what the last one left,
+    /// as ModelSim runs it, and what they wake runs once all have landed (<see cref="TakeNba"/>,
+    /// <see cref="ChangedBetween"/>).
     ///
     /// **Inertial delay** (IEEE 1800, 28.16, confirmed against Icarus in Docs/oracle-notes.md): a
     /// driver has at most one change on its way. A new evaluation that gives the same value leaves it
@@ -298,6 +300,11 @@ namespace BitSorter.Sim
         private bool _nbaLanding;
         private int _nbaChunk;
         private readonly int[] _nbaStamp, _nbaLow, _nbaHigh;
+
+        // The signals the landing has changed while updates were still to come, each once, by the region it marked them in:
+        // what else their change sets going waits for the last update (ChangedBetween).
+        private readonly List<int> _landedChanged = new List<int>();
+        private readonly long[] _landedRegion;
         private List<int> _runnable = new List<int>();
         private List<int> _running = new List<int>();
         private readonly List<int> _inactive = new List<int>();
@@ -421,6 +428,7 @@ namespace BitSorter.Sim
             _nbaStamp = new int[signals];
             _nbaLow = new int[signals];
             _nbaHigh = new int[signals];
+            _landedRegion = new long[signals];
             _origin = new int[signals];
             _written0 = new int[signals];
             _originRegion = new long[signals];
@@ -823,9 +831,26 @@ namespace BitSorter.Sim
                 _dirty.Clear();
 
                 // Only once every value is in: an edge on an expression of several signals must not be
-                // seen half-made.
-                for (int i = 0; i < _changed.Count; i++)
-                    Changed(_changed[i]);
+                // seen half-made. While the NBA region is landing with updates still to come, only a wait on a variable or a
+                // select of one hears a change; everything else hears what the last update left, as ModelSim runs it.
+                if (_nbaLanding && _nbaAt < _nba.Count)
+                {
+                    for (int i = 0; i < _changed.Count; i++)
+                        ChangedBetween(_changed[i]);
+                }
+                else if (_landedChanged.Count > 0)
+                {
+                    for (int i = 0; i < _changed.Count; i++)
+                        Landed(_changed[i]);
+                    for (int i = 0; i < _landedChanged.Count; i++)
+                        Changed(_landedChanged[i]);
+                    _landedChanged.Clear();
+                }
+                else
+                {
+                    for (int i = 0; i < _changed.Count; i++)
+                        Changed(_changed[i]);
+                }
 
                 _changed.Clear();
 
@@ -838,7 +863,8 @@ namespace BitSorter.Sim
 
                 // The rest of the NBA region's updates land first, in the deltas after this one: what they wake -- drivers and
                 // processes alike -- waits until every one has, and then reads the value the last one left, as Icarus and
-                // ModelSim run it. A process waiting on the edge a value between makes has been woken by it all the same.
+                // ModelSim run it. A process waiting on the edge a value between makes on a variable has been woken by it all
+                // the same (ChangedBetween).
                 if (_nbaLanding && _nbaAt < _nba.Count)
                 {
                     TakeNba(_next);
@@ -932,21 +958,23 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// The NBA region's next updates, into <paramref name="into"/>: in order, as many as touch bits apart -- an update to
-        /// bits within those an earlier one of them wrote waits for a delta of its own, so the value between is a value of
-        /// its own, and an edge it makes wakes what waits on it (IEEE 1800, 10.4.2). Bits apart land together, as both
-        /// oracles land them: a wait on an expression of them sees no value between.
+        /// a bit an earlier one of them wrote waits for a delta of its own, so the value between is a value of its own, and
+        /// an edge it makes on a variable wakes what waits on it (IEEE 1800, 10.4.2; <see cref="ChangedBetween"/>). Bits
+        /// apart land together, whatever order they were written in, as both oracles land them.
         /// </summary>
         private void TakeNba(List<Event> into)
         {
             _nbaChunk++;
-            int at = _nbaAt;
+            int from = _nbaAt, at = _nbaAt;
             for (; at < _nba.Count; at++)
             {
                 Event e = _nba[at];
                 int s = e.Index, low = e.Lowest, high = e.Lowest + e.Value.Width;
                 if (_nbaStamp[s] == _nbaChunk)
                 {
-                    if (low < _nbaHigh[s] && high > _nbaLow[s])
+                    // Within the span this delta has written of the signal, and so perhaps on a bit it wrote: asked of
+                    // the updates themselves, so v[0], v[7] and then v[3] land together.
+                    if (low < _nbaHigh[s] && high > _nbaLow[s] && WritesAny(from, at, s, low, high))
                         break;
                     _nbaLow[s] = Math.Min(_nbaLow[s], low);
                     _nbaHigh[s] = Math.Max(_nbaHigh[s], high);
@@ -967,6 +995,19 @@ namespace BitSorter.Sim
                 _nba.Clear();
                 _nbaAt = 0;
             }
+        }
+
+        /// <summary>Whether an update of the NBA region from <paramref name="from"/> up to <paramref name="to"/> writes a bit of <paramref name="s"/> in [low, high).</summary>
+        private bool WritesAny(int from, int to, int s, int low, int high)
+        {
+            for (int i = from; i < to; i++)
+            {
+                Event e = _nba[i];
+                if (e.Index == s && low < e.Lowest + e.Value.Width && high > e.Lowest)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>The postponed region: the monitor, then every strobe, with the values the step settled on.</summary>
@@ -1321,25 +1362,53 @@ namespace BitSorter.Sim
             }
 
             foreach (Waiter w in _waitersOf[s])
-            {
-                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, out bool edge, out int by))
-                {
-                    _waitingAt[w.Process] = -1;
-                    _runnable.Add(w.Process);
+                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, false, out bool edge, out int by))
+                    Wake(w.Process, s, edge, by);
+        }
 
-                    // Woken by what fired, which need not be the change under way: a clock falling as a reset rises, the
-                    // two in one delta, wakes @(posedge clk, posedge rst) by the reset (the 15i-3 review's exercise).
-                    int trigger = by >= 0 ? by : s;
-                    int from = _originRegion[trigger] == _region ? _origin[trigger] : NoOrigin;
-                    _wokenRegion[w.Process] = _region;
-                    _wokenByEdge[w.Process] = edge;
-                    _wokenOrigin[w.Process] = from;
-                    _wokenSignal[w.Process] = trigger;
-                    _wakerOf[w.Process] = from;
-                    _wakerRegion[w.Process] = _region;
-                    _wokenWrote[w.Process] = from != NoOrigin ? _written0[trigger] : -1;
-                }
-            }
+        /// <summary>
+        /// A signal changed while the NBA region is landing, with more of its updates still to come: a wait on a variable, a
+        /// select of one or a concatenation of them hears it now, so the edge of a value between wakes it (IEEE 1800,
+        /// 10.4.2). Everything else the change sets going -- its readers, a force following it, a wait on any other
+        /// expression or a <c>wait</c> -- hears it once the last update has landed, and so judges what the region left
+        /// against what was there before it, as ModelSim 2020.1 does (Docs/oracle-notes.md): a <= 0; a <= 1; wakes
+        /// @(negedge a) and leaves @(a ^ b) asleep.
+        /// </summary>
+        private void ChangedBetween(int s)
+        {
+            Landed(s);
+            foreach (Waiter w in _waitersOf[s])
+                if (_waitingAt[w.Process] == w.Pc && Fired(w.Process, w.Pc, true, out bool edge, out int by))
+                    Wake(w.Process, s, edge, by);
+        }
+
+        /// <summary>Notes a signal the landing changed, once, for <see cref="Changed"/> once the last update is in.</summary>
+        private void Landed(int s)
+        {
+            if (_landedRegion[s] == _region)
+                return;
+
+            _landedRegion[s] = _region;
+            _landedChanged.Add(s);
+        }
+
+        /// <summary>Wakes a process a change of <paramref name="s"/> fired the wait of.</summary>
+        private void Wake(int p, int s, bool edge, int by)
+        {
+            _waitingAt[p] = -1;
+            _runnable.Add(p);
+
+            // Woken by what fired, which need not be the change under way: a clock falling as a reset rises, the
+            // two in one delta, wakes @(posedge clk, posedge rst) by the reset (the 15i-3 review's exercise).
+            int trigger = by >= 0 ? by : s;
+            int from = _originRegion[trigger] == _region ? _origin[trigger] : NoOrigin;
+            _wokenRegion[p] = _region;
+            _wokenByEdge[p] = edge;
+            _wokenOrigin[p] = from;
+            _wokenSignal[p] = trigger;
+            _wakerOf[p] = from;
+            _wakerRegion[p] = _region;
+            _wokenWrote[p] = from != NoOrigin ? _written0[trigger] : -1;
         }
 
         // -----------------------------------------------------------------
@@ -2198,15 +2267,19 @@ namespace BitSorter.Sim
         /// Whether what woke it is an edge from a known value to a known one -- a clock's, as a flip-flop waits on -- for the
         /// race warning. An edge out of x, as a clock's first at time 0, is no clock's edge yet.
         /// </param>
+        /// <param name="between">
+        /// Whether the NBA region is landing with updates still to come: only the items that hear each update are asked, and
+        /// the rest keep what they were before it, to be asked once it has landed (<see cref="ChangedBetween"/>).
+        /// </param>
         /// <param name="by">The signal of the item that fired, for the race warning; -1 when it is no one signal.</param>
-        private bool Fired(int p, int pc, out bool edge, out int by)
+        private bool Fired(int p, int pc, bool between, out bool edge, out int by)
         {
             ref Instruction ins = ref _processes[p].Code[pc];
             edge = false;
             by = -1;
 
             if (ins.Op == OpCode.WaitUntil)
-                return LogicVec.Truth(ins.Value.Evaluate(_values)) == Logic4.One;
+                return !between && LogicVec.Truth(ins.Value.Evaluate(_values)) == Logic4.One;
 
             EventItem[] items = ins.Wait.Items;
             LogicVec[] last = _last[p];
@@ -2214,6 +2287,9 @@ namespace BitSorter.Sim
 
             for (int i = 0; i < items.Length; i++)
             {
+                if (between && !items[i].HearsEachUpdate(_design.Signals))
+                    continue;
+
                 LogicVec now = items[i].Value.Evaluate(_values);
                 if (!fired && Matching.Fires(items[i].Edge, last[i], now))
                 {

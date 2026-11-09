@@ -177,17 +177,37 @@ of 2026-11-03 BitSorter landed the region's updates together and lost the edge.
 | What waits on it | Icarus 12 | ModelSim 2020.1 | BitSorter |
 | --- | --- | --- | --- |
 | `@(negedge a)`, `@(posedge a)`, `@(a)` | each woken once, and each reads 1 | the same | the same |
+| `@(s)`, `@(posedge s)` of a vector, `@({c, e})`, `@({1'b0, c})` | woken | woken | woken |
+| `@(s[3])`, `@(posedge s[3])`, `@(s[3:2])`, from `s <= 0; s[3] <= 1;` | not woken | woken | as ModelSim |
+| `@(a ^ b)`, `@(~c)`, `@(posedge e or (a ^ b))`, `wait (a == 0)` | not woken | not woken | not woken |
+| `@(count == 5)`, from `count <= 0; count <= 5;` | woken | not woken | as ModelSim |
+| `@(m[1])` and `@(m[i])`, a memory's word, from `m[1] <= 0; m[1] <= 3;` | woken | not woken | as ModelSim |
+| `@($signed(w))` | woken | not woken | as ModelSim |
+| `@({2{c}})` | woken | not woken | as ModelSim |
 | `assign y = a;` and `@(negedge y)` | y falls and rises: woken | y never moves | as ModelSim |
-| `v[0] <= 0; v[1] <= 1;` with `@(v[1] ^ v[0])`, from `01` | not woken | not woken | not woken |
+| `v[0] <= 0; v[7] <= 0; v[3] <= 1;` with `@(v[3] ^ v[0])`, from `00000001` | not woken | not woken | not woken |
 | A VCD of `a` | `1` at 10 | `0` then `1` at 10 | the history keeps both, in deltas apart; the waves and a VCD show `1` |
 
 Every update of the region lands before anything it wakes runs -- both simulators do that -- so a process woken by the
-fall reads the 1 the last write left. Whether a continuous assignment sees the value between the standard leaves open
-(it is an evaluation event like any other), and the two disagree; BitSorter evaluates its drivers once the region has
-landed, as ModelSim does. Writes to bits apart land together in both, so an expression of them shows no value between.
-`scheduling.sv`'s S10 holds the wake against both -- `a <= 1; a <= 0;` wakes `@(posedge a)` -- the rest was probed by
-hand, and
-`ProcessTests.TwoNonblockingWritesInOneStep_...` holds every row.
+fall reads the 1 the last write left. Which waits hear the value between the standard leaves open: an update event
+schedules an evaluation of whatever is sensitive to the variable (4.5), and whether a wait on an expression is judged
+before or after the next update of the region is any order the scheduler likes. The two simulators settle it
+differently, and BitSorter settles it as ModelSim, the course's own: a wait on a variable, a select of one at a fixed
+place, or a concatenation of them -- a constant among them -- hears each update as it lands; a wait on anything else --
+an operator, a cast, a replication, a memory's word, a `wait` -- and a continuous assignment are judged once the region
+has landed, on what it left against what was there before (`Simulator.ChangedBetween`, `Expr.IsSelection`). Icarus
+wakes no select and some expressions, which looks like how its functors happen to be built rather than a rule. Writes to
+bits apart land together in all three, whatever order they are written in: BitSorter splits the region only where an
+update writes a bit an earlier one of its delta wrote (`TakeNba`). Until the review of the 16d engine batch it judged
+every wait in every delta of the landing, which woke `@(a ^ b)` and `@(count == 5)`, and split by the span of bits
+written, which put `v[3]` in a delta after `v[0]` and `v[7]` and woke `@(v[3] ^ v[0])`.
+
+`corpus/behavioural/nba_landing.sv` holds eighteen waits through one landing to ModelSim on every signal and line
+(`BehaviouralOracleTests.TheNonblockingLanding_AgreesWithModelSim_OnEverySignal`), and Icarus's line to the table above
+(`Icarus12_WakesNoSelectOnANonblockingValueBetween_AndFourExpressions`); `scheduling.sv`'s S10 holds the wake both agree
+on -- `a <= 1; a <= 0;` wakes `@(posedge a)` -- against both; replication, a concatenation with a constant and the assign
+were probed by hand. `ProcessTests.TwoNonblockingWritesInOneStep_...` and `ProcessTests.NonblockingWritesLandingInTurn_...`
+hold BitSorter to every row.
 
 ### Automatic tasks (probed 2026-11-09)
 
