@@ -107,5 +107,53 @@ namespace BitSorter.Board.Tests
             Assert.Less(made, 64 * Megabyte, "it made 205 MB");
             Assert.Less(seconds, 3, "and took 7 s");
         }
+
+        /// <summary>What importing <paramref name="files"/> made, and how long it took; the import must succeed.</summary>
+        private static (long Made, double Seconds, ProjectImport Import) Imported(params SourceFile[] files)
+        {
+            ProjectImporter.Import(new[] { new SourceFile("warm.sv", Wide(4)) });   // the first import of a run pays for its code
+
+            var clock = Stopwatch.StartNew();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            ProjectImport import = ProjectImporter.Import(files);
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.IsTrue(import.Succeeded, "sanity: it is imported\n" + string.Join("\n", import.Notes));
+            TestContext.WriteLine($"{made / (double)Megabyte:F1} MB in {seconds:F2} s");
+            return (made, seconds, import);
+        }
+
+        /// <summary><paramref name="size"/> characters of comment lines.</summary>
+        private static string Comments(int size)
+        {
+            const string line = "// a note on the design, written for BitSorter's tests\n";
+            var text = new StringBuilder(size + line.Length);
+            while (text.Length < size)
+                text.Append(line);
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// A module something looks inside by a hierarchical name -- <c>dut.state</c> -- is written, so the importer looks
+        /// for each instance's name followed by a dot: it made a regex for every instance and ran it over the whole of its
+        /// module's file, the instances times the file. Eight thousand instances in a file of 3.5 MB took 12.8 s, in a generate
+        /// branch never made, so that the rest of the import costs next to nothing beside the looking.
+        /// </summary>
+        [Test]
+        public void EightThousandInstances_InALargeFile_AreLookedForInOnePass()
+        {
+            var text = new StringBuilder("module leaf (input logic a, output logic y);\n    always_comb y = ~a;\nendmodule\n");
+            text.Append(Comments(3_500_000));
+            text.Append("module top (input logic a, output logic y);\n    always_comb y = a;\n    if (0) begin : never\n");
+            for (int i = 0; i < 8000; i++)
+                text.Append("        leaf g").Append(i).Append(" (.a(a), .y());\n");
+            text.Append("    end\nendmodule\n");
+
+            (_, double seconds, ProjectImport import) = Imported(new SourceFile("top.sv", text.ToString()));
+
+            Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
+            Assert.Less(seconds, 4, "the instances were looked for one at a time over the whole file");
+        }
     }
 }
