@@ -103,6 +103,31 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Survives("module m; assign y = " + new string('{', 50_000) + "a" + new string('}', 50_000) + "; endmodule", "nested braces");
         }
 
+        /// <summary>
+        /// The 16d sweep: a run of operators -- a + a + ... + a, a[0][0]..., s.m().m()... -- is read in a loop, but makes a
+        /// tree as deep as it is long, and the printer and the elaborator walk it a call a level, so a long enough one
+        /// overflowed the stack, which nothing can catch. Each operator in a row counts as a level now, as a bracket does.
+        /// </summary>
+        [TestCase("a + ", "a", "")]
+        [TestCase("a | ", "a", "")]
+        [TestCase("", "a[0]", "[0]")]
+        [TestCase("", "s", ".m()")]
+        [TestCase("", "s[0]", ".f")]
+        public void ALongRunOfOperators_StopsWithAMessage(string before, string last, string after)
+        {
+            string chain = string.Concat(Enumerable.Repeat(before, 1_000)) + last + string.Concat(Enumerable.Repeat(after, 1_000));
+            SyntaxTree tree = SyntaxReader.ReadText("module m; assign y = " + chain + "; endmodule", "chain.sv");
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(tree));
+        }
+
+        [Test]
+        public void ARunOfOperatorsWithinTheLimit_IsRead()
+        {
+            string chain = string.Join(" ^ ", Enumerable.Range(0, Parser.MaxDepth - 10).Select(i => $"a[{i}]"));
+            SyntaxTree tree = Clean("module m (input logic [255:0] a, output logic y); assign y = " + chain + "; endmodule");
+            Assert.AreEqual(1, tree.Modules.Count);
+        }
+
         [Test]
         public void ALongFlatFile_IsReadQuickly()
         {
