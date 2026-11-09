@@ -258,6 +258,27 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(start, b.Start, "one step");
         }
 
+        /// <summary>A turn made while a handle is held is kept by the release, which resizes the block as the turn left it (the 16d sweep).</summary>
+        [Test]
+        public void ATurnMadeWhileAHandleIsHeld_IsKept_ByTheResize()
+        {
+            var b = new Bench();
+            b.Select(b.H1);
+            BoardPoint from = b.HandleAt(3);
+            b.Do(CanvasGesture.BeginResize, from: from, target: new CanvasTarget(CanvasTargetKind.Handle, part: b.H1, segment: 3));
+            b.Do(CanvasGesture.ResizeTo, new BoardPoint(from.X + 2, from.Y), from);
+
+            Assert.IsTrue(b.Editor.Turn(1).Done);
+            b.Editor.Relaid();
+            Placement turned = b.Start;
+            Assert.AreEqual(1, turned.QuarterTurns, "sanity");
+
+            EditResult? made = b.Do(CanvasGesture.EndResize, new BoardPoint(from.X + 2, from.Y), from);
+            Assert.IsTrue(made.HasValue && made.Value.Done, made?.Refusal);
+            Assert.AreEqual(BlockResize.Resized(b.Session.Project, b.Block, turned, 3, 2, 0), b.Start, "resized as turned");
+            Assert.AreEqual(1, b.Start.QuarterTurns);
+        }
+
         [Test]
         public void AHandleLetGoWhereItWasTaken_ChangesNothing_AndEscapeLetsADragGo()
         {

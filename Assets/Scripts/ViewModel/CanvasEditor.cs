@@ -205,18 +205,25 @@ namespace BitSorter.ViewModel
         {
             if (_session.StepVersion != _step)
                 Stepped(true);
+            else if (_session.LayoutVersion != _laid && Held)
+                Relaid();   // an edit made mid-drag, before the view has drawn it: found again now, for a release in the same frame
         }
 
-        private int _step;
+        private int _step, _laid;
+
+        /// <summary>Whether a drag of the selection, a block's handle or a wire's piece is held.</summary>
+        private bool Held => _start != null || _resizing >= 0 || _reshaping >= 0;
 
         /// <summary>The document drawn again (<see cref="WorkbenchSession.LayoutVersion"/>, or a replay taking over): found again, and the selection kept to what is still there.</summary>
         public void Relaid()
         {
             _step = _session.StepVersion;
+            _laid = _session.LayoutVersion;
             _layout = _session.Run.Model.Layout;
             Module module = Module;
             _hit = new CanvasHit(Drawn, module, module == null ? null : _session.RoutesOf(Drawn, module));
             Selection.Keep(Module);
+            FollowHeld();
 
             // A wire being drawn from something an undo took away has nowhere to start; and what it may end on is asked again.
             if (_draft != null && !StillThere(_draft.From))
@@ -226,8 +233,6 @@ namespace BitSorter.ViewModel
             // place, and every click would be refused (the 14g review).
             if (InHand != null && InHand.Kind == CatalogKind.Block && _session.Project.Find(InHand.Module) == null)
                 PutDown();
-            if (_resizing >= 0 && Module?.FindPart(_resizing) == null)
-                _resizing = -1;
             _draftAround = null;
             _endsFor = null;   // where it may end moved with the edit (the 15g-3 review)
             _checkedOver = CanvasTarget.Nothing;
@@ -645,6 +650,83 @@ namespace BitSorter.ViewModel
             Version++;
         }
 
+        // What a drag, a resize or a reshape was taken hold of on -- the module, and on the drawing of code its code -- and where
+        // the pointer last had it: what finds it again after an edit made while it is held.
+        private Module _heldOn;
+        private string _heldCode;
+        private BoardPoint _moveAt, _moveFrom;
+        private bool _moveFree;
+        private double _resizeDx, _resizeDy;
+
+        private void Hold()
+        {
+            _heldOn = Module;
+            _heldCode = _session.ShowsDrawingOfCode ? _session.Project.Find(_session.Module)?.Source : null;
+        }
+
+        /// <summary>
+        /// What is held -- a drag of the selection, a block's handle, a wire's piece -- found again on the document an edit
+        /// made while it is held has made: a turn, an undo or a delete, which the view takes from the keys mid-drag. The
+        /// release wrote back what was saved as the drag began, so the turn was undone by it, the undo undone, and a part
+        /// deleted refused as no part (the 16d sweep). A drag goes on from where the edit left its parts, less any it took
+        /// away; a resize from where it left the block; a reshape whose wire it moved or took away is let go. On the drawing
+        /// of code an edit of the code numbers its parts afresh, and what is held is let go rather than found by an id that
+        /// may now be another part's.
+        /// </summary>
+        private void FollowHeld()
+        {
+            Module module = Module;
+            if (!Held || ReferenceEquals(module, _heldOn))
+                return;
+            if (module == null || (_session.ShowsDrawingOfCode
+                                   && !string.Equals(_heldCode, _session.Project.Find(_session.Module)?.Source, StringComparison.Ordinal)))
+            {
+                Abandon();
+                return;
+            }
+            _heldOn = module;
+
+            if (_start != null)
+            {
+                var start = new Dictionary<int, Placement>();
+                foreach (int part in _start.Keys)
+                    if (module.FindPart(part) != null)
+                        start[part] = module.Layout.PlacementOf(part);
+                _start = start.Count > 0 ? start : null;
+                _guides.Clear();
+                if (_start != null)
+                {
+                    if (!_start.ContainsKey(_anchor))
+                        foreach (int part in _start.Keys)
+                        {
+                            _anchor = part;
+                            break;
+                        }
+                    MoveTo(_moveAt, _moveFrom, _moveFree);
+                }
+            }
+
+            if (_resizing >= 0)
+            {
+                if (module.FindPart(_resizing) is Part part)
+                {
+                    _resizeFrom = module.Layout.PlacementOf(_resizing);
+                    _resizeTo = BlockResize.Resized(Drawn, part, _resizeFrom, _resizeHandle, _resizeDx, _resizeDy);
+                }
+                else
+                {
+                    _resizing = -1;
+                }
+            }
+
+            if (_reshaping >= 0 && !SamePoints(_hit.WireOf(_reshaping), _reshapeFrom))
+            {
+                _reshaping = -1;
+                _reshaped = null;
+            }
+            Version++;
+        }
+
         // -----------------------------------------------------------------
         // A selected wire reshaped (Part 10b-2)
         // -----------------------------------------------------------------
@@ -656,6 +738,7 @@ namespace BitSorter.ViewModel
             IReadOnlyList<BoardPoint> points = _hit.WireOf(target.Wire);
             if (points == null || points.Count < 2)
                 return;
+            Hold();
             _reshaping = target.Wire;
             _reshapeFrom = points;
             _reshapeBy = target;
@@ -703,9 +786,11 @@ namespace BitSorter.ViewModel
         {
             if (target.Kind != CanvasTargetKind.Handle || target.Part != HandledPart)
                 return;
+            Hold();
             _resizing = target.Part;
             _resizeHandle = target.Segment;
             _resizeFrom = _resizeTo = Module.Layout.PlacementOf(target.Part);
+            _resizeDx = _resizeDy = 0;
             Version++;
         }
 
@@ -714,7 +799,9 @@ namespace BitSorter.ViewModel
         {
             if (_resizing < 0 || !(Module.FindPart(_resizing) is Part part))
                 return;
-            Placement to = BlockResize.Resized(Drawn, part, _resizeFrom, _resizeHandle, at.X - from.X, at.Y - from.Y);
+            _resizeDx = at.X - from.X;
+            _resizeDy = at.Y - from.Y;
+            Placement to = BlockResize.Resized(Drawn, part, _resizeFrom, _resizeHandle, _resizeDx, _resizeDy);
             if (to.Equals(_resizeTo))
                 return;
             _resizeTo = to;
@@ -737,6 +824,9 @@ namespace BitSorter.ViewModel
             if (module == null || Selection.Parts.Count == 0)
                 return;
 
+            Hold();
+            _moveAt = _moveFrom = from;
+            _moveFree = false;
             _start = new Dictionary<int, Placement>();
             _anchor = -1;
             foreach (int part in Selection.Parts)
@@ -756,6 +846,9 @@ namespace BitSorter.ViewModel
             if (_start == null)
                 return;
 
+            _moveAt = at;
+            _moveFrom = from;
+            _moveFree = free;
             (double dx, double dy) = CanvasSnap.Offset(_start[_anchor].Position, at.X - from.X, at.Y - from.Y, free);
 
             var moving = new List<PartOutline>();

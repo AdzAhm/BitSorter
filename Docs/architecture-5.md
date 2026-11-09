@@ -1399,6 +1399,13 @@ on an input's row, undo and redo -- is 9b-3b-2.
   a later one mends refuses nothing, and a group refused is refused with the first error new to the document it would
   end on, not the edit that made it -- no caller reads the rules' word in the middle of a group (the review of the 16d
   fixes looked at each). An input taken away takes its stimulus with it, or the delete would be refused.
+
+  (`BoardEditor.Group`). An input taken away takes its stimulus with it, or the delete would be refused.
+  **An edit made while a drag is held** -- Q, an undo or a delete, from the keys -- is the document's at once, and
+  the drag, a block's handle included, goes on from where the edit left its parts; a wire's piece the edit moved is
+  let go (`CanvasEditor.FollowHeld`). The release wrote back what the drag began with, and undid the turn (the 16d
+  sweep). Another button pressed while one is held is that press's, and asks for nothing (`CanvasPointer.Press`).
+)
 - **An edit is drawn at once.** A move, a turn or a mirror changes nothing the circuit does, so it is drawn again
   over the same run (`RunSession.Relayout`) and nothing replays. A part placed or taken away, an undo or a redo
   is drawn at once over the run there is -- a new gate shows no value for a frame or so -- and replayed as an
