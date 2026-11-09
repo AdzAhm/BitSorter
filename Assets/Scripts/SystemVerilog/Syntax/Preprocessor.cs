@@ -32,7 +32,9 @@ namespace BitSorter.SystemVerilog.Syntax
         /// as it is used: a token of it in a dropped stretch makes nothing, but is walked all the same (the 16d sweep). Depth alone does not bound
         /// it: macros that each use the one before twice, or files that each include the next twice, make two to the power
         /// of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course project makes a few thousand.
-        /// Charged before what it pays for is made, so nothing past it is ever allocated.
+        /// Charged before what it pays for is made, so nothing past it is ever allocated -- but for the one file whose include
+        /// spends it, which is lexed, a file's worth at most, before its tokens can be counted; once it is spent, no further
+        /// file is read at all (the 16d sweep).
         /// </summary>
         public const int MaxExpansion = 1_000_000;
 
@@ -282,6 +284,11 @@ namespace BitSorter.SystemVerilog.Syntax
             }
 
             string name = rest[0].Text;
+
+            // Past what an import may make, nothing more is read: said once already, by whatever spent it (the 16d sweep --
+            // every later include of a large file was lexed in full, only for its tokens to be refused).
+            if (_budget.Runaway)
+                return;
 
             if (depth >= MaxDepth)
             {

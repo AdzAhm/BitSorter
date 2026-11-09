@@ -2218,8 +2218,9 @@ and one browser build for Part 13's checks -- and Part 12f's.
     use, each token, each argument put in, each character a `` `"...`" `` spells, each token of a file included -- from one
     `ExpansionBudget` for the whole import, and stops at a million (`MaxExpansion`, SV0109), said once, at the use or the
     include. Its `` `` `` joins are made in one pass. (The 16d sweep: a use pays for its whole body as it is used, never
-    copied, since a token in a dropped stretch makes nothing but is walked all the same; and the rest of a line is copied
-    out only for a directive that reads it.)
+    copied, since a token in a dropped stretch makes nothing but is walked all the same; the rest of a line is copied
+    out only for a directive that reads it; and once the budget is spent no further file is read or lexed -- only the one
+    whose include spends it is, a file's worth at most, before its tokens can be counted.)
   - **A call with no way out.** A call from an expression runs on the machine's own stack, so a recursion with no base
     case -- a common slip, and one a student can type into the workbench -- overflowed it, which nothing can catch: the
     editor, a desktop build or a browser's page ended there. The calls under way now hold at most `FunctionRunner.MaxFrames`
