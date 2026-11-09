@@ -472,7 +472,9 @@ parts from the standard, BitSorter follows the standard, and `DataTypeTests` hol
 ## Expressions (Part L3, 2026-10-19)
 
 `corpus/behavioural/expressions.sv` runs in both and agrees on every line: `==?` and `!=?`, the bit
-counters, casts, an enum's methods, and `$random` with and without a seed. What was probed on the way:
+counters, casts, an enum's methods, `$random` with and without a seed, and -- since Part 16d -- a
+replication of 0 inside a concatenation, left out (11.4.12.1), in a parameterised extension at `W == N`.
+What was probed on the way:
 
 | Question | Icarus 12 | BitSorter |
 | --- | --- | --- |
@@ -487,6 +489,7 @@ counters, casts, an enum's methods, and `$random` with and without a seed. What 
 | `s.next().name()`, a method of a method | a syntax error | supported; the corpus writes `t = s.next(); t.name()` |
 | `.name()` of a value that is no member; `next()` from one | an empty string; x | the same; 0 for a 2-state enum, its default |
 | `$display("%s", e.name())`, `%10s`, `%-6s` | the name exactly; padded; padded left | the same |
+| `{0{a}}` alone, `{{0{a}}, {0{b}}}`, `{-1{a}}` (Part 16d; ModelSim alike) | errors: a zero repeat "in this context", a concatenation of zero width, a negative repeat | the same three refused (11.4.12.1) |
 
 ## Lint (Part 14e, probed 2026-10-27)
 

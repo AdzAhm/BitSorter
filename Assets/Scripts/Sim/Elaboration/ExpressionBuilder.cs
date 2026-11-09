@@ -247,7 +247,7 @@ namespace BitSorter.Sim
                 {
                     long width = 0;
                     foreach (Expression item in c.Items)
-                        width += TypeOf(item).Width;
+                        width += IsZeroReplication(item, out _) ? 0 : TypeOf(item).Width;
                     return new TypeInfo((int)Math.Min(width, LogicVec.MaxWidth), false);
                 }
 
@@ -503,10 +503,14 @@ namespace BitSorter.Sim
 
                 case ReplicationExpression r:
                 {
+                    // A replication of 0 inside a concatenation is left out before it gets here (BuildConcatenation).
                     long count = ConstantCount(r, report: true);
                     if (count < 1)
                     {
-                        Error(r.Location, ElaborationCodes.BadSelect, $"A replication count must be at least 1, and this one is {count}.");
+                        Error(r.Location, ElaborationCodes.BadSelect, count < 0
+                            ? $"A replication count cannot be negative, and this one is {count}."
+                            : "A replication of 0 has no bits, so it may stand only inside a concatenation that has bits of its own, as " +
+                              "{{(W-N){1'b0}}, a} does, where it is left out (IEEE 1800, 11.4.12.1).");
                         return Expr.Constant(LogicVec.AllX(1));
                     }
 
@@ -1476,9 +1480,19 @@ namespace BitSorter.Sim
         {
             var parts = new List<Expr>(c.Items.Count);
             long width = 0;
+            bool leftOut = false;
 
             foreach (Expression item in c.Items)
             {
+                // A replication of 0 adds nothing and is left out (IEEE 1800, 11.4.12.1): {{(W-N){1'b0}}, a} for W == N. What it
+                // would have replicated is still built, for what is wrong in it to be said, and dropped.
+                if (IsZeroReplication(item, out ReplicationExpression zero))
+                {
+                    BuildConcatenation(zero.Value);
+                    leftOut = true;
+                    continue;
+                }
+
                 Expression bare = item;
                 while (bare is ParenthesizedExpression p)
                     bare = p.Inner;
@@ -1502,7 +1516,32 @@ namespace BitSorter.Sim
                 return Expr.Constant(LogicVec.AllX(1));
             }
 
+            if (parts.Count == 0 && leftOut)
+            {
+                Error(c.Location, ElaborationCodes.BadSelect, $"{Printer.Print(c)} has no bits: a replication of 0 is left out of a concatenation, " +
+                    "so another of its items must have some (IEEE 1800, 11.4.12.1).");
+                return Expr.Constant(LogicVec.AllX(1));
+            }
+
             return Joined(parts) ?? Expr.Constant(LogicVec.AllX(1));
+        }
+
+        /// <summary>
+        /// Whether a concatenation's item is a replication whose count is the constant 0 -- in brackets or not -- which the
+        /// concatenation leaves out (IEEE 1800, 11.4.12.1); a count that is not a constant is said where the item is built.
+        /// </summary>
+        private bool IsZeroReplication(Expression item, out ReplicationExpression zero)
+        {
+            Expression bare = item;
+            while (bare is ParenthesizedExpression p)
+                bare = p.Inner;
+
+            zero = bare as ReplicationExpression;
+            if (zero == null || IsStringValued(zero.Value))
+                return false;
+
+            var quiet = new DiagnosticBag();
+            return TryInteger(zero.Count, _scope, quiet, "a replication count", out long count) && count == 0;
         }
 
         /// <summary>

@@ -4833,6 +4833,13 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   arm and the waves named the state IDLE. A value counted past the type, given too large or negative for it, repeated, an
   x in a 2-state enum, and a name counted on from an x are each refused, once, as Icarus 12 and ModelSim refuse them;
   the type is still declared, so what uses it is not said again.
+- **A replication of 0 inside a concatenation is left out** (IEEE 1800-2017, 11.4.12.1; `IsZeroReplication`): the
+  parameterised extension `{{(W-N){1'b0}}, a}` is written for its identity case, `W == N`, which was refused as "must be
+  at least 1" -- and its width counted as a bit. What it would have replicated is still built, so a fault in it is said.
+  Standing alone, in a concatenation of nothing else, or negative, it is still refused, in words that say which, as
+  Icarus 12 and ModelSim refuse them. The engine has no value of no bits, so `Expr.Replicate` and `LogicVec.Replicate`
+  still take a count of 1 or more: the elaborator never builds a replication of 0. `corpus/behavioural/expressions.sv`
+  holds it to both oracles.
 
 ---
 
