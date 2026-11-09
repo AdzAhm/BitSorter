@@ -644,8 +644,10 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   beside the including file and then as written, with cycles and depth caught; `` `define ``, with
   arguments and their defaults from Part L6 -- a use's arguments may run over lines, ``` `` ``` joins two
   tokens and `` `"...`" `` makes a string with the arguments put in -- `` `ifdef `` / `` `ifndef `` /
-  `` `elsif `` / `` `else `` / `` `endif `` (so include guards work), `` `undef ``, and `` `timescale ``,
-  noted for the tree and, from Part L7, given to every module after it.
+  `` `elsif `` / `` `else `` / `` `endif `` (so include guards work), `` `undef `` and `` `undefineall ``,
+  `` `__FILE__ `` and `` `__LINE__ `` -- the file as the read names it and the line of the use, of the
+  outermost use inside a macro and the first line of one over several (the 16d sweep) -- and
+  `` `timescale ``, noted for the tree and, from Part L7, given to every module after it.
 - **Syntax tree** (`SyntaxTree.cs`): modules with ANSI or non-ANSI ports, header and body parameters,
   declarations of any keyword type, net type or typedef name, enums, generate regions, for- and
   if-generate, primitives with delays, module instances by name or position, continuous assigns,

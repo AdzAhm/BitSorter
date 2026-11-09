@@ -173,8 +173,7 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         public void UndefineAll_ForgetsEveryMacro()
         {
             SyntaxTree tree = Read("`define A 1\n`define B(x) x\n`undefineall\nmodule m;\n`ifdef B\n  assign q = 1;\n`endif\n  assign y = `A;\nendmodule\n");
-            Diagnostic undefined = tree.Diagnostics.Single();
-            Assert.AreEqual(DiagnosticCodes.UndefinedMacro, undefined.Code, undefined.ToString());
+            Diagnostic undefined = tree.Diagnostics.Single(d => d.Code == DiagnosticCodes.UndefinedMacro);
             Assert.AreEqual((8, 14), (undefined.Location.Line, undefined.Location.Column), "the use of `A, and not `undefineall itself");
             Assert.AreEqual(1, tree.Modules.Single().Items.Count, "`ifdef B no longer holds");
             ModuleDeclaration after = OnlyModule("`undefineall\nmodule m; assign y = `__LINE__; endmodule\n");

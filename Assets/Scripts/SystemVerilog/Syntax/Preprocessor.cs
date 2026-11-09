@@ -144,7 +144,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     case "`ifndef":
                     {
                         Token name = NextOnLine(tokens, i);
-                        bool defined = name != null && _macros.ContainsKey(name.Text);
+                        bool defined = name != null && Defined(name.Text);
                         bool holds = token.Text == "`ifdef" ? defined : !defined;
                         bool parent = Active;
                         _conditionals.Push(new Conditional(token.Text, token.Location, parent && holds, holds, parent));
@@ -165,7 +165,7 @@ namespace BitSorter.SystemVerilog.Syntax
                         }
 
                         Conditional top = _conditionals.Pop();
-                        bool holds = !top.Taken && name != null && _macros.ContainsKey(name.Text);
+                        bool holds = !top.Taken && name != null && Defined(name.Text);
                         _conditionals.Push(new Conditional(top.Directive, top.Start, top.Parent && holds, top.Taken || holds, top.Parent));
                         break;
                     }
@@ -213,7 +213,13 @@ namespace BitSorter.SystemVerilog.Syntax
 
         private static bool IsBareDirective(string name) =>
             name == "`resetall" || name == "`celldefine" || name == "`endcelldefine" || name == "`nounconnected_drive" ||
-            name == "`end_keywords" || name == "`unconnected_drive";
+            name == "`end_keywords" || name == "`unconnected_drive" || name == "`undefineall";
+
+        /// <summary>
+        /// Whether <paramref name="name"/> is a macro here: one a `define made, or `__FILE__ or `__LINE__, which the standard
+        /// defines (IEEE 1800, 22.13) and an `ifdef finds, as Icarus's and ModelSim's do.
+        /// </summary>
+        private bool Defined(string name) => _macros.ContainsKey(name) || name == "__FILE__" || name == "__LINE__";
 
         private static bool IsLineDirective(string name) =>
             name == "`include" || name == "`define" || name == "`undef" || name == "`timescale" ||
@@ -243,6 +249,11 @@ namespace BitSorter.SystemVerilog.Syntax
                     if (rest.Count > 0)
                         _macros.Remove(rest[0].Text);
                     return rest.Count;
+
+                case "`undefineall":
+                    // Every macro a `define made (IEEE 1800, 22.5.3) -- not `__FILE__ and `__LINE__, which none did.
+                    _macros.Clear();
+                    return 0;
 
                 case "`timescale":
                 {
@@ -397,6 +408,17 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (!_macros.TryGetValue(name, out Macro macro))
             {
+                if (name == "__FILE__" || name == "__LINE__")
+                {
+                    // Where the text is in the file read (IEEE 1800, 22.13): inside a macro, its outermost use, as Icarus and
+                    // ModelSim give it -- and the first line of a use over several, as ModelSim does; Icarus gives the last.
+                    SourceLocation at = (macroDepth == 0 ? token : _outermostUse).Location;
+                    _output.Add(name == "__FILE__"
+                        ? new Token(TokenKind.String, at.File, token.Location, token.LogicalLine)
+                        : new Token(TokenKind.Number, at.Line.ToString(System.Globalization.CultureInfo.InvariantCulture), token.Location, token.LogicalLine));
+                    return 0;
+                }
+
                 _diagnostics.Error(token.Location, DiagnosticCodes.UndefinedMacro,
                     $"{token.Text} is not defined here. Is the `define above it, or in a file that is `included first?");
                 return 0;

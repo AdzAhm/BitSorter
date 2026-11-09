@@ -415,6 +415,8 @@ writes. Where Icarus 12 cannot run it, `LibraryTests` holds it to the standard:
 | `` `define M() `` with nothing in the brackets | "malformed `define directive" | read as a macro of no arguments (the standard's grammar wants at least one) |
 | A string variable in `$dumpvars` | left out of the dump | kept, and marked `IsString`; the corpus compares what is printed of it |
 | A second `$fopen` after a `$fclose` | the descriptor just freed | the same: the lowest free one |
+| `` `__LINE__ `` in a macro whose use runs over several lines | the use's last line | its first, as ModelSim gives it (the standard says only "the current line"; the 16d sweep, probed 2026-11-09) |
+| `` `undefineall `` | "macro undefineall undefined (and assumed null)", every macro kept | every macro a `` `define `` made forgotten (22.5.3), as ModelSim does; `PreprocessorTests` holds it |
 
 ## Testbench control (Part L5, 2026-10-19)
 
