@@ -29,7 +29,8 @@ namespace BitSorter.SystemVerilog.Syntax
         /// How much macros and includes may make in one import, every file read together (<see cref="ExpansionBudget"/>) --
         /// each use of a macro and each token of its body, each argument put in and each character a <c>`"...`"</c> spells out,
         /// and each token of a file included -- before the reader stops expanding them (Part 13f). A body is paid for whole,
-        /// as it is used: a token of it in a dropped stretch makes nothing, but is walked all the same (the 16d sweep). Depth alone does not bound
+        /// as it is used: a token of it in a dropped stretch makes nothing, but is walked all the same (the 16d sweep); and a
+        /// use inside a body is one of its tokens, paid for once. So each unit is a token walked or made. Depth alone does not bound
         /// it: macros that each use the one before twice, or files that each include the next twice, make two to the power
         /// of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course project makes a few thousand.
         /// Charged before what it pays for is made, so nothing past it is ever allocated -- but for the one file whose include
@@ -430,11 +431,13 @@ namespace BitSorter.SystemVerilog.Syntax
                 return 0;
             }
 
-            // The use and every token of its body, before the body is walked: one in a dropped stretch puts out nothing, but a
-            // macro doubling over a body that is mostly `ifdef'd away walked it a million times, charged for none (the 16d sweep).
+            // Every token of its body, before the body is walked: one in a dropped stretch puts out nothing, but a macro doubling
+            // over a body that is mostly `ifdef'd away walked it a million times, charged for none (the 16d sweep). The use
+            // itself is paid for where it stands -- here only at the outermost, since one inside a body is a token of that body,
+            // which its own use paid for: charged again, a doubling chain cost two thirds more than it walks (the sweep's review).
             if (macroDepth == 0)
                 _outermostUse = token;
-            if (!Spend(1 + macro.Body.Count, null))
+            if (!Spend((macroDepth == 0 ? 1 : 0) + macro.Body.Count, null))
                 return 0;
 
             List<Token> body = macro.Body;
