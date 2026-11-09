@@ -9,7 +9,8 @@
 // casts to the built-in types and to an enum, an enum's methods -- name() printed with %s, first(),
 // last(), num(), next() and prev() round the ends and from a value that is no member -- and $random with a
 // seed of the testbench's own and without one; and a replication of 0 inside a concatenation, which is left
-// out (IEEE 1800, 11.4.12.1), so a parameterised extension is written for its identity case too. inside and
+// out (IEEE 1800, 11.4.12.1), so a parameterised extension is written for its identity case too; and ** with
+// a negative exponent, as table 11-4 has it -- 0, 1, -1 or x by the base. inside and
 // case inside, which Icarus cannot read, are held by BitSorter's own tests. Written for BitSorter; not taken
 // from any course material.
 
@@ -47,6 +48,8 @@ module expressions_tb;
         $display("counting %0d %b %b %b %b", $countones(b), $onehot(8'b0001_0000), $onehot0(8'b0), $isunknown(b), $isunknown(v));
 
         $display("casts %0d %0d %0d %0d %0d %0d %0d", int'(8'hF0), 4'(8'h1F), 16'(-8'sd2), byte'(300), bit'(1'bx), int'(4'b1x01), shortint'(-1));
+
+        $display("powers %0d %0d %0d %0d %0d %0d %b", 2 ** -1, 1 ** -3, (-1) ** -3, (-1) ** -2, (-5) ** -1, 8'hFF ** -1, 0 ** -1);
 
         state = RUN;
         other = state.next();

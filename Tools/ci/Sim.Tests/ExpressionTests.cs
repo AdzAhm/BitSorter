@@ -190,6 +190,39 @@ module t;
 endmodule"));
         }
 
+        /// <summary>
+        /// An integer ** with a negative exponent is as the standard's table has it (IEEE 1800, 11.4.3, table 11-4): 0 for a
+        /// base past 1 either way, 1 for a base of 1, -1 or 1 for a base of -1 as the exponent is odd or even, and x only for
+        /// a base of 0 -- and an unsigned base of all ones is 255, not -1. Icarus 12 and ModelSim print the same lines, and
+        /// <c>corpus/behavioural/expressions.sv</c> holds them to Icarus. BitSorter gave x for every negative exponent, so a
+        /// range bound of one was refused for its x (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void APowerWithANegativeExponent_IsTheStandardsTable()
+        {
+            CollectionAssert.AreEqual(new[] { "0 1 -1 1 0 0 0 -1", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx xxxxxxxx", "3" }, Printed(@"
+module t;
+    int a, b, c, d, e, f;
+    logic [7:0] u;
+    logic signed [7:0] s;
+    localparam int P = 2 ** -1;
+    logic [P+2:0] w;
+    initial begin
+        a = 2 ** -1;
+        b = 1 ** -3;
+        c = (-1) ** -3;
+        d = (-1) ** -2;
+        e = (-5) ** -1;
+        f = 0 ** -1;
+        u = 8'hFF ** -1;
+        s = 8'shFF ** -1;
+        $display(""%0d %0d %0d %0d %0d %0d %0d %0d"", a, b, c, d, e, f, u, s);
+        $display(""%b %b"", 0 ** -1, 8'd0 ** -8'sd1);
+        $display(""%0d"", $bits(w));
+    end
+endmodule"));
+        }
+
         /// <summary>Where nothing else gives the concatenation a bit, a replication of 0 is an error, as both oracles say.</summary>
         [TestCase("module t; logic a; logic [3:0] y; assign y = {0{a}}; endmodule", "only inside a concatenation")]
         [TestCase("module t; logic a, b; logic [3:0] y; assign y = {{0{a}}, {0{b}}}; endmodule", "has no bits")]
