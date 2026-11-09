@@ -1182,15 +1182,18 @@ namespace BitSorter.Sim
                 }
                 else
                 {
-                    width = 0;
+                    // Added in a long: 4,097 members of the most an int adds to 2^32 + 2^20, which an int wraps to the most again.
+                    long total = 0;
                     foreach ((string _, PackedType memberType, SourceLocation _) in members)
-                        width += memberType.Width;
+                        total += memberType.Width;
 
-                    if (width > LogicVec.MaxWidth)
+                    if (total > LogicVec.MaxWidth)
                     {
                         Error(s.Location, ElaborationCodes.TooLarge, $"The struct is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                         return false;
                     }
+
+                    width = (int)total;
 
                     int lowest = width;
                     foreach ((string name, PackedType memberType, SourceLocation _) in members)
@@ -1240,9 +1243,16 @@ namespace BitSorter.Sim
                     bounds.Add(((int)msb, (int)lsb));
                 }
 
+                // Held as it is multiplied: every dimension is at least 1, so once past the most it stays past, and stopping there
+                // keeps the product inside a long -- the most times a dimension of an int is far short of one's end. Multiplied
+                // whole, four dimensions of 65,536 wrapped to 0 and passed.
                 long width = element?.Width ?? 1;
                 foreach ((int msb, int lsb) in bounds)
+                {
                     width *= Math.Abs((long)msb - lsb) + 1;
+                    if (width > LogicVec.MaxWidth)
+                        break;
+                }
 
                 if (width > LogicVec.MaxWidth)
                 {
