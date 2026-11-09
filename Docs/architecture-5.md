@@ -4811,6 +4811,9 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   a drawing of code draws it as before; an `inside` set's matches are joined by `||` half and half. A function giving one
   back is no longer stopped short by its frames. A flat chain of operators, `a + a + ... + a`, is as deep as it is long as
   the parser builds it: that is the parser's to bound (the sweep's sv-front-1), before any walk of it.
+- **A replication's count is held before it is multiplied**: its size check multiplied the count by its item's width in
+  a long, so 2^62 copies of four bits wrapped to nothing, passed, and threw. More copies than `LogicVec.MaxWidth` are too
+  wide whatever the item (SV0318), and below that the product fits.
 
 ---
 

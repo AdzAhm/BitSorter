@@ -245,7 +245,7 @@ namespace BitSorter.Sim
                 {
                     long count = ConstantCount(r, report: false);
                     int inner = TypeOf(r.Value).Width;
-                    return new TypeInfo((int)Math.Max(1, Math.Min(LogicVec.MaxWidth, count * inner)), false);
+                    return new TypeInfo((int)Math.Max(1, count > LogicVec.MaxWidth ? LogicVec.MaxWidth : Math.Min(LogicVec.MaxWidth, count * inner)), false);
                 }
 
                 case UnaryExpression u:
@@ -494,10 +494,13 @@ namespace BitSorter.Sim
                         return Expr.Constant(LogicVec.AllX(1));
                     }
 
+                    // The count held before it is multiplied: past MaxWidth copies it is too wide whatever its item, and below it the
+                    // product fits a long (the Part 16d sweep: 2^62 copies of four bits wrapped to nothing, and threw).
                     Expr inner = BuildConcatenation(r.Value);
-                    if (count * inner.Width > LogicVec.MaxWidth)
+                    if (count > LogicVec.MaxWidth || count * inner.Width > LogicVec.MaxWidth)
                     {
-                        Error(r.Location, ElaborationCodes.TooLarge, $"This replication is {count * inner.Width} bits wide, more than BitSorter allows ({LogicVec.MaxWidth}).");
+                        Error(r.Location, ElaborationCodes.TooLarge, $"This replication is {count} copies of {inner.Width} bit{(inner.Width == 1 ? "" : "s")}, " +
+                            $"wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                         return Expr.Constant(LogicVec.AllX(1));
                     }
 
