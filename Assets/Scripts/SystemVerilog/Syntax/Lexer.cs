@@ -19,7 +19,8 @@ namespace BitSorter.SystemVerilog.Syntax
     ///   slide arrives with <c>’</c> for an apostrophe and <c>–</c> for a minus; failing on them would
     ///   be exact and unhelpful, and the warning still says which character it was.
     /// - **A string reads every escape of the standard's table 5-1** -- octal and hex codes among them -- and a
-    ///   backslash before a line's end continues it onto the next (5.9); the printer writes each back.
+    ///   backslash before a line's end continues it onto the next (5.9); the printer writes each back, and any
+    ///   character from 0x80 to 0xFF as its octal escape, the one byte it ran as.
     /// - It never throws: an unexpected character is an error and is skipped.
     /// </remarks>
     public static class Lexer

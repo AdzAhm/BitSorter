@@ -1096,8 +1096,10 @@ namespace BitSorter.SystemVerilog.Syntax
                     case '\f': text.Append("\\f"); break;
                     case '\a': text.Append("\\a"); break;
                     default:
-                        // Any other control character as the octal escape that reads back as it (the 16d sweep: \033 was lost).
-                        if (c < ' ' || c == '\u007F')
+                        // Any other control character as the octal escape that reads back as it (the 16d sweep: \033 was lost),
+                        // and one from 0x80 to 0xFF as the byte it ran as: written as itself, an export in UTF-8 made it two
+                        // (its review). One past 0xFF is no byte of any escape, and is left as written.
+                        if (c < ' ' || (c >= '\u007F' && c <= '\u00FF'))
                             text.Append('\\').Append(System.Convert.ToString(c, 8).PadLeft(3, '0'));
                         else
                             text.Append(c);
