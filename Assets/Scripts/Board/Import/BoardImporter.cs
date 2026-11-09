@@ -521,9 +521,17 @@ namespace BitSorter.Board
                 Dimension range = type.Packed[0];
                 if (TryConstant(range.Left, out long left) && TryConstant(range.Right, out long right))
                 {
+                    // Bounds a board can count to, and a width it can hold: past them, refused, never wrapped round or thrown.
+                    if (left < int.MinValue || left > int.MaxValue || right < int.MinValue || right > int.MaxValue
+                        || Math.Abs(left - right) + 1 > LogicVec.MaxWidth)
+                    {
+                        Problem(at, $"a vector of [{left}:{right}] is wider than a board's nets, of at most {LogicVec.MaxWidth} bits; it comes in as written code (Part 12).");
+                        return 1;
+                    }
+
                     msb = left;
                     lsb = right;
-                    return (int)Math.Abs(left - right) + 1;
+                    return (int)(Math.Abs(left - right) + 1);
                 }
 
                 Problem(at, "a width that is not a plain number.");
@@ -1467,24 +1475,36 @@ namespace BitSorter.Board
                 return true;
             }
 
+            /// <summary>
+            /// A plain number: a literal, a parameter, or a sum, difference or product of them -- as a long, and none that a
+            /// long cannot hold, a literal past it or a sum that would wrap round, which is no plain number a board can use.
+            /// </summary>
             private bool TryConstant(Expression e, out long value)
             {
                 value = 0;
                 switch (Strip(e))
                 {
-                    case NumberLiteral n when n.Value.TryGetUInt64(out ulong v):
+                    case NumberLiteral n when n.Value.TryGetUInt64(out ulong v) && v <= long.MaxValue:
                         value = (long)v;
                         return true;
                     case NameExpression name when name.Path.Count == 1 && _parameters.TryGetValue(name.Name, out long p):
                         value = p;
                         return true;
                     case BinaryExpression b when TryConstant(b.Left, out long l) && TryConstant(b.Right, out long r):
-                        switch (b.Operator)
+                        try
                         {
-                            case "+": value = l + r; return true;
-                            case "-": value = l - r; return true;
-                            case "*": value = l * r; return true;
+                            switch (b.Operator)
+                            {
+                                case "+": value = checked(l + r); return true;
+                                case "-": value = checked(l - r); return true;
+                                case "*": value = checked(l * r); return true;
+                            }
                         }
+                        catch (OverflowException)
+                        {
+                        }
+
+                        value = 0;
                         return false;
                     default:
                         return false;
