@@ -669,6 +669,21 @@ endmodule", "top");
             Assert.IsTrue(e.HasErrors);
             Assert.IsNull(e.Design);
 
+        /// A replication counted past what a long holds once multiplied by its item is too large, said so -- never let through
+        /// a width the multiplication wrapped to nothing, which threw out of Elaborate (the Part 16d sweep).
+        /// </summary>
+        [TestCase("module m (output logic [3:0] y); assign y = {64'd4611686018427387904{4'b0}}; endmodule")]
+        [TestCase("module m (output logic [3:0] y); assign y = {64'h4000000000000000{2'b11}}; endmodule")]
+        [TestCase("module m (output logic [3:0] y); assign y = {{64'd2305843009213693952{4'b1010}}, 4'b0}; endmodule")]
+        public void AReplicationCountedPastALong_IsTooLarge_NeverThrown(string text)
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate(text));
+            CollectionAssert.Contains(Codes(e), ElaborationCodes.TooLarge, string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
         /// What the parts limit leaves room for: a loop inside a loop of 65,536 rounds between them, an assign each, is built --
         /// the pair of the refusals above, so they cannot pass by refusing everything.
         /// </summary>
