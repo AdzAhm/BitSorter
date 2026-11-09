@@ -28,7 +28,7 @@ namespace BitSorter.Board
     /// Structural SystemVerilog drawn as a board: the first importer (Part 7a). It reads what the
     /// printer writes and what the course writes by hand at gate level -- ports, nets, primitives, the
     /// course's cells (<c>NAND2 #(.Tpdlh(5), .Tpdhl(5)) g1 (...)</c>), instances of other modules, and
-    /// the continuous assignments and registers a board prints -- and builds the board through
+    /// the continuous assignments and registers a board prints -- and puts each module it draws on the board through
     /// <see cref="BoardEditor"/>, so what it makes has passed every rule a drawn board has.
     /// </summary>
     /// <remarks>
@@ -36,6 +36,11 @@ namespace BitSorter.Board
     /// drawable, and the import says what and where rather than drawing something else. A module like
     /// that will come in as written code (Part 12). Nets keep their names: each becomes the name of
     /// the wires that make it. Parts are laid out in columns by how far they are from the inputs.
+    ///
+    /// **A module is drawn whole, then checked once** (Part 16d): its parts and wires are made here, as
+    /// <see cref="BoardEditor.Add"/> and <see cref="BoardEditor.Connect"/> would make them -- the same ids, names and
+    /// order -- and the module goes on the board as one edit, held to the rules as every edit is. Made an edit at a time,
+    /// each edit checked the whole project again: a flat module of a thousand gates made 13.5 GB in 14 s, in one frame.
     /// </remarks>
     public static class BoardImporter
     {
@@ -209,6 +214,27 @@ namespace BitSorter.Board
             /// <summary>Each splitter made, by the bus it splits.</summary>
             private readonly Dictionary<string, int> _splitters = new Dictionary<string, int>(StringComparer.Ordinal);
 
+            // The module as it is drawn, made here and put on the board whole, as one edit, once it is (Part 16d).
+            private Module _start;
+            private int _nextId;
+            private readonly List<Part> _parts = new List<Part>();
+            private readonly Dictionary<int, Part> _byId = new Dictionary<int, Part>();
+            private readonly List<Wire> _wires = new List<Wire>();
+            private readonly Dictionary<int, Placement> _placements = new Dictionary<int, Placement>();
+
+            /// <summary>Each part's code, for where a refusal of it is.</summary>
+            private readonly Dictionary<int, SyntaxNode> _madeAt = new Dictionary<int, SyntaxNode>();
+
+            /// <summary>The names the module's parts and wires have, and for each kind's name the first number that may be free.</summary>
+            private readonly HashSet<string> _taken = new HashSet<string>(StringComparer.Ordinal);
+            private readonly Dictionary<string, int> _firstFree = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            /// <summary>Which pins the wires so far have joined: a union-find, every pin its own net until a wire joins it.</summary>
+            private readonly Dictionary<PinRef, PinRef> _joinedTo = new Dictionary<PinRef, PinRef>();
+
+            /// <summary>The names given the nets, each by the first wire of its net, given once the module is on the board.</summary>
+            private readonly List<(int Wire, string Name)> _wireNames = new List<(int, string)>();
+
             private sealed class NetFound
             {
                 public int Width = 1;
@@ -256,6 +282,26 @@ namespace BitSorter.Board
                     }
                 }
 
+                _start = _editor.Project.Find(_name);
+                _nextId = _start.NextId;
+                foreach (Part part in _start.Parts)
+                {
+                    _parts.Add(part);
+                    _byId[part.Id] = part;
+                    if (part.Name != null)
+                        _taken.Add(part.Name);
+                }
+
+                foreach (Wire wire in _start.Wires)
+                {
+                    _wires.Add(wire);
+                    if (wire.NetName != null)
+                        _taken.Add(wire.NetName);
+                }
+
+                foreach (KeyValuePair<int, Placement> placed in _start.Layout.Parts)
+                    _placements[placed.Key] = placed.Value;
+
                 if (_source.HeaderParameters.Count > 0 || _source.PortNames.Count > 0)
                 {
                     Problem(_source, _source.PortNames.Count > 0
@@ -293,6 +339,53 @@ namespace BitSorter.Board
 
                 Join();
                 Lay();
+                if (_problems.Count == before)
+                    PutOnTheBoard();
+            }
+
+            /// <summary>The module as drawn so far, wires unnamed.</summary>
+            private Module Drawn() => _start with
+            {
+                Parts = _parts.ToArray(),
+                Wires = _wires.ToArray(),
+                NextId = _nextId,
+                Layout = _start.Layout with { Parts = new Dictionary<int, Placement>(_placements) },
+            };
+
+            /// <summary>
+            /// The module drawn, put on the board as one edit, checked as every edit is; then its nets' names, as one more --
+            /// or, where that is refused, one at a time, each kept where it is not refused, as naming them always was.
+            /// </summary>
+            private void PutOnTheBoard()
+            {
+                Module drawn = Drawn();
+                EditResult made = _editor.ReplaceModule(drawn);
+                if (!made.Done)
+                {
+                    Problem(Refused(drawn), made.Refusal);
+                    return;
+                }
+
+                if (_wireNames.Count == 0)
+                    return;
+                var named = new Dictionary<int, string>();
+                foreach ((int wire, string name) in _wireNames)
+                    named[wire] = name;
+                var wires = new Wire[_wires.Count];
+                for (int i = 0; i < wires.Length; i++)
+                    wires[i] = named.TryGetValue(_wires[i].Id, out string name) ? _wires[i] with { NetName = name } : _wires[i];
+                if (_editor.ReplaceModule(drawn with { Wires = wires }).Done)
+                    return;
+                foreach ((int wire, string name) in _wireNames)
+                    _editor.NameWire(_name, wire, name);
+            }
+
+            /// <summary>Where a refusal of <paramref name="drawn"/> is: the code of the part its first new error is about, or the module.</summary>
+            private SyntaxNode Refused(Module drawn)
+            {
+                List<BoardDiagnostic> added = BoardRules.NewErrors(new List<BoardDiagnostic>(_editor.Diagnostics),
+                    BoardRules.Check(_editor.Project.WithModule(drawn)));
+                return added.Count > 0 && _madeAt.TryGetValue(added[0].Part, out SyntaxNode at) ? at : _source;
             }
 
             // -----------------------------------------------------------------
@@ -1137,26 +1230,58 @@ namespace BitSorter.Board
 
                     for (int i = 1; i < pins.Count; i++)
                     {
-                        EditResult wire = _editor.Connect(_name, pins[0], pins[i]);
-                        if (!wire.Done)
+                        string refused = Connect(pins[0], pins[i], out int wire);
+                        if (refused != null)
                         {
-                            Problem(_source, wire.Refusal);
+                            Problem(_source, refused);
                             return;
                         }
 
                         if (i == 1 && named != null && !IsMade(named, pins))
-                            _editor.NameWire(_name, wire.Id, named);
+                            _wireNames.Add((wire, named));
                     }
                 }
+            }
+
+            /// <summary>
+            /// A wire between two pins, as <see cref="BoardEditor.Connect"/> makes one -- the module's next id -- and refused as it
+            /// refuses one: of a pin to itself, or of two a wire already joins. Null, or why not.
+            /// </summary>
+            private string Connect(Endpoint from, Endpoint to, out int id)
+            {
+                id = 0;
+                if (from.Equals(to))
+                    return "A wire needs two different ends.";
+                PinRef a = Root(from.Pin), b = Root(to.Pin);
+                if (a.Equals(b))
+                    return "Those are already joined.";
+
+                _joinedTo[b] = a;
+                id = _nextId++;
+                _wires.Add(new Wire { Id = id, From = from, To = to });
+                return null;
+            }
+
+            private PinRef Root(PinRef pin)
+            {
+                PinRef root = pin;
+                while (_joinedTo.TryGetValue(root, out PinRef up))
+                    root = up;
+                while (_joinedTo.TryGetValue(pin, out PinRef up) && !up.Equals(root))
+                {
+                    _joinedTo[pin] = root;
+                    pin = up;
+                }
+
+                return root;
             }
 
             /// <summary>Whether a name is the one the board would make anyway -- <c>g1_y</c> -- so it need not be given.</summary>
             private bool IsMade(string name, List<Endpoint> pins)
             {
-                Module module = _editor.Project.Find(_name);
                 foreach (Endpoint pin in pins)
                 {
-                    Part part = module.FindPart(pin.Pin.Part);
+                    _byId.TryGetValue(pin.Pin.Part, out Part part);
                     if (part != null && part.TryPin(_editor.Project, pin.Pin.Pin, out Pin p) && p.Direction != PinDirection.In)
                         return name == part.Name + "_" + pin.Pin.Pin;
                 }
@@ -1167,7 +1292,7 @@ namespace BitSorter.Board
             /// <summary>Inputs in the first column, outputs in the last, everything else by how many parts lie between it and an input.</summary>
             private void Lay()
             {
-                Module module = _editor.Project.Find(_name);
+                Module module = Drawn();
                 Netlist nets = Netlist.Of(_editor.Project, module);
                 var depth = new Dictionary<int, int>();
                 foreach (Part part in module.Parts)
@@ -1210,7 +1335,7 @@ namespace BitSorter.Board
                     int column = part is PortPart port && port.Direction == PortDirection.Output ? last : depth[part.Id];
                     rows.TryGetValue(column, out int row);
                     rows[column] = row + 1;
-                    _editor.Move(_name, part.Id, new Placement(column * 3, -row * 2));
+                    _placements[part.Id] = new Placement(column * 3, -row * 2);
                 }
             }
 
@@ -1218,16 +1343,43 @@ namespace BitSorter.Board
             // Small things
             // -----------------------------------------------------------------
 
+            /// <summary>
+            /// Places <paramref name="part"/> as <see cref="BoardEditor.Add"/> places one -- the module's next id, a name of its
+            /// kind where it has none, a gate under a library at its cell's delays -- and keeps where in the code it is from.
+            /// </summary>
             private int Add(Part part, SyntaxNode at)
             {
-                EditResult added = _editor.Add(_name, part, default);
-                if (!added.Done)
-                {
-                    Problem(at, added.Refusal);
-                    return 0;
-                }
+                if (part is GatePart gate && _editor.Project.Settings?.Library?.CellFor(gate.Kind, gate.Inputs) is LibraryCell cell)
+                    part = gate with { Rise = cell.Rise, Fall = cell.Fall };
 
-                return added.Id;
+                int id = _nextId++;
+                Part placed = part with { Id = id, Name = part.Name ?? DefaultName(part) };
+                _parts.Add(placed);
+                _byId[id] = placed;
+                _taken.Add(placed.Name);
+                _placements[id] = default;
+                _madeAt[id] = at;
+                return id;
+            }
+
+            /// <summary>
+            /// The first free name of the part's kind, as <see cref="BoardEditor"/> gives one: a, b ... and y, z for a port, else
+            /// g1, r1 .... Names are only added while a module is read, so the search for each kind goes on from where it stopped.
+            /// </summary>
+            private string DefaultName(Part part)
+            {
+                if (part is PortPart port)
+                    foreach (string name in BoardEditor.FirstPortNames(port.Direction))
+                        if (!_taken.Contains(name) && BoardRules.IsValidName(name))
+                            return name;
+
+                string prefix = BoardEditor.NamePrefixOf(part);
+                _firstFree.TryGetValue(prefix, out int n);
+                n = Math.Max(n, 1);
+                while (_taken.Contains(prefix + n))
+                    n++;
+                _firstFree[prefix] = n;
+                return prefix + n;
             }
 
             private NetFound Net(string name)

@@ -4509,7 +4509,8 @@ something needed").
 - **Measured under dotnet, step by step**, with `GC.GetAllocatedBytesForCurrentThread` round each: of the 601 MB 15h-6d
   left, 484 MB was the sample's import, and 460 MB of that the importer trying to draw each module -- every one of the
   pipelined processor's comes in written -- with every module written so far handed to each attempt, and so checked
-  again on every edit of it (`BoardImporter.Import` builds the drawing an edit at a time, each checked as an edit is).
+  again on every edit of it (`BoardImporter.Import` built the drawing an edit at a time, each checked as an edit is --
+  until Part 16d's sweep, which draws a module whole and checks it once; see "the importer" there).
 - **A drawing is handed only the written modules it makes**, all the way down (`ProjectImporter`'s `WrittenUnder`): all
   it can place as blocks. The final check of the whole project is as it was. The import makes 15 MB; every module's
   decision, drawn or written, is the same, compared old against new across the oracle corpus's 38 imports and the
@@ -4520,6 +4521,19 @@ something needed").
 - **Held** by `ImportCostTests` (each processor's import under 64 MB) and `BrowserMemoryPlayTests` (the open under
   256 MB in any frame; it makes 107 MB in the editor). Opening TIMING, LOGIC or STATES on the processor works out its
   timing once, 124 MB, in the frame the tab opens: within what a page holds, and left as it is.
+
+**As built in Part 16d's sweep: the importer** (the findings of the sweep's import-export area, each a red test and its fix).
+
+- **A module is drawn whole, then checked once** (`BoardImporter`'s `ModuleReader`). It made its drawing an edit at a time
+  through `BoardEditor`, and every `Add`, `Connect` and `NameWire` checked the whole project again, so a flat module cost
+  the square of its size in one frame: a thousand NAND gates side by side made 13.5 GB in 14 s under dotnet. Its parts and
+  wires are now made as `Add` and `Connect` make them -- the same ids, the same names (`BoardEditor.NamePrefixOf`,
+  `FirstPortNames`), a pin joined to itself or to its own net refused as `Connect` refuses it -- and the module goes on the
+  board as one `ReplaceModule`, held to the rules as any edit is; the nets' names go on as one more, or one at a time where
+  that is refused, each kept where it is not, as naming them always was. A refusal is said at the code of the part its
+  first new error is about. The thousand gates make 11 MB in 0.07 s, and 4,000 make 38 MB; every one of 135 imports --
+  each corpus folder, each corpus file alone and each of its modules drawn, and each exercise solution -- comes out
+  identical, its notes included, compared old against new. Held by `ImportScaleTests`.
 
 **As built after Part 16a: blocks resized by their handles** (Ahmad, 2026-11-02, Part 16 paused for his features: "I want
 it to be resizeable when you drag the blue outline things (or the white ones you decide what is better)", on the

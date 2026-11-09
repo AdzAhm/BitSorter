@@ -1171,15 +1171,27 @@ namespace BitSorter.Board
 
             if (part is PortPart port)
             {
-                string[] first = port.Direction == PortDirection.Input
-                    ? new[] { "a", "b", "c", "d", "e", "f", "g", "h" }
-                    : new[] { "y", "z" };
-                foreach (string name in first)
+                foreach (string name in FirstPortNames(port.Direction))
                     if (Free(name) && BoardRules.IsValidName(name))
                         return name;
             }
 
-            string prefix = part switch
+            string prefix = NamePrefixOf(part);
+            for (int n = 1; ; n++)
+                if (Free(prefix + n))
+                    return prefix + n;
+        }
+
+        private static readonly string[] FirstInputNames = { "a", "b", "c", "d", "e", "f", "g", "h" };
+        private static readonly string[] FirstOutputNames = { "y", "z" };
+
+        /// <summary>The names a port of <paramref name="direction"/> is given first, while one is free: a, b, c ... and y, z.</summary>
+        internal static IReadOnlyList<string> FirstPortNames(PortDirection direction) =>
+            direction == PortDirection.Input ? FirstInputNames : FirstOutputNames;
+
+        /// <summary>What a part of its kind is named with a number after: g for a gate, r for a register, in and out for ports.</summary>
+        internal static string NamePrefixOf(Part part) =>
+            part switch
             {
                 PortPart p => p.Direction == PortDirection.Input ? "in" : "out",
                 GatePart _ => "g",
@@ -1193,11 +1205,6 @@ namespace BitSorter.Board
                 BlockPart _ => "u",
                 _ => "p",
             };
-
-            for (int n = 1; ; n++)
-                if (Free(prefix + n))
-                    return prefix + n;
-        }
 
         private static IReadOnlyList<T> Append<T>(IReadOnlyList<T> list, T item)
         {
