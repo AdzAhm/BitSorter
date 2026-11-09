@@ -82,5 +82,30 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(1, drawn.Wires.Count, "sanity: one net, a to y, one wire");
             Assert.Less(seconds, 3, "16,000 aliases took 2 s, and the time grew as their square");
         }
+
+        /// <summary><paramref name="gates"/> NAND gates in a ring through one register: a loop, as every state machine has.</summary>
+        private static string Ring(int gates)
+        {
+            var text = new StringBuilder("module ring (input logic clk, input logic b, output logic y);\n    logic w0, q;\n");
+            text.Append("    always_ff @(posedge clk) q <= w").Append(gates).Append(";\n    assign w0 = q;\n");
+            for (int i = 1; i <= gates; i++)
+                text.Append("    logic w").Append(i).Append(";\n    nand g").Append(i).Append(" (w").Append(i).Append(", w").Append(i - 1).Append(", b);\n");
+            return text.Append("    assign y = q;\nendmodule\n").ToString();
+        }
+
+        /// <summary>
+        /// A drawing's columns are found by relaxing every part's depth round after round, and a loop keeps them rising until
+        /// as many rounds as there are parts have run; each round looked every pin's part up by a walk of the parts. Two
+        /// thousand gates in a ring took 7 s and made 205 MB, once a module was drawn whole.
+        /// </summary>
+        [Test]
+        public void ARingOfTwoThousandGates_IsLaidOutInMoments()
+        {
+            (long made, double seconds, Module drawn) = Draw(Ring(2000), "ring");
+
+            Assert.AreEqual(2004, drawn.Parts.Count, "sanity: every gate, the register and the ports drawn");
+            Assert.Less(made, 64 * Megabyte, "it made 205 MB");
+            Assert.Less(seconds, 3, "and took 7 s");
+        }
     }
 }
