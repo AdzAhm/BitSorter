@@ -3928,7 +3928,8 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   where the STATES tab's search by running stops at four input bits:
   - *a state machine*: a register set in an `always_ff` whose next value is a variable an `always_comb` (or `always
     @(*)`) works out as one `case` on the register, after plain assignments of what holds unless an arm says otherwise,
-    or a `case` on the register in the `always_ff` itself; its states the register's enum's members, else the case's
+    or a `case` on the register in the `always_ff` itself (shown only where its arms set nothing but the state:
+    see the check below); its states the register's enum's members, else the case's
     labels, each a constant (the sequence detector's `localparam`s). Its start is the reset's value where the process
     is `if (reset) ... else ...`, else the value the register is declared with, else none -- never a guess. Each
     state's arm -- the first item one of whose labels names it or is its value, else `default`'s -- is followed down
@@ -3956,8 +3957,11 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   nets are written over in one array, so a check makes 2.2 MB for the multicycle controller where it made 16.9. A
   machine of one process -- the
   `case` in the `always_ff` -- is tried with its reset let go (`MachineReading.LetGo`: `rst` at 0, `!rst_n` at 1), as
-  two processes' next state never sees the reset, and what an arm sets is held to what its register is about to take,
-  its D, not what it holds (the 16d sweep: no such machine with a reset or an output had ever passed); a memory's words
+  two processes' next state never sees the reset (the 16d sweep: no such machine with a reset had ever passed). Whatever
+  else its arms set is a register too, set at the edge that leaves the state -- `busy <= 1'b1` in RUN's arm is 0 in RUN
+  and 1 wherever RUN goes -- so a box or an arrow showing it would be a clock early, and such a machine is not shown,
+  only its drawing (the review of the 16d fixes: held to the register's D, RUN's box said busy where the waves showed 0;
+  the diagram has no way yet to show an output a clock late). A memory's words
   are given values as every other signal the logic reads is. A table's rows are tried at their labels and its default at
   values no label takes (16d: the default was never tried), the subject held there -- on its own net too
   (`RtlEvaluator.Evaluate` with a net held), so a subject the module works out itself, a decoder on another's output, is

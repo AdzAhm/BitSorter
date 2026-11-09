@@ -17,7 +17,8 @@ namespace BitSorter.Board
     /// states the members of its enum type, or, with none, the case's labels, each a constant (<c>localparam ONE = 2'd1</c>,
     /// the sequence detector's) or a number, two at least; whose next value is either a variable set in an
     /// <c>always_comb</c> that is, after plain assignments of what holds unless an arm says otherwise, one <c>case</c> on the
-    /// register; or a <c>case</c> on the register in the <c>always_ff</c> itself. Each state's arm -- its own label's, else <c>default</c>'s -- is followed down every way through
+    /// register; or a <c>case</c> on the register in the <c>always_ff</c> itself, which <see cref="ControllerCheck"/> lets be
+    /// shown only where its arms set nothing but the state. Each state's arm -- its own label's, else <c>default</c>'s -- is followed down every way through
     /// it: an <c>if</c> and its <c>else</c>, a nested <c>case</c> on something else, a <c>?:</c> in the next value. A second
     /// <c>always_comb</c> that is a <c>case</c> on the register gives each state's outputs too, the three-process style.
     ///

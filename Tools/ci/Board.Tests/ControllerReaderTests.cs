@@ -315,9 +315,10 @@ endmodule
         [TestCase("arrow", "From IDLE to RUN, busy", TestName = "AOneProcessMachine_ThatSetsAnOutputOnAnArrow_IsNotShown")]
         public void AOneProcessMachine_ThatSetsAnythingButItsState_IsNotShown(string where, string said)
         {
-            string text = where == "box" ? OneProcess
-                : OneProcessAlone.Replace("input logic clk, rst, go)", "input logic clk, rst, go, output logic busy)")
-                    .Replace("IDLE: begin if (go) state <= RUN; end", "IDLE: begin busy <= 1'b0; if (go) begin busy <= 1'b1; state <= RUN; end end");
+            string text = OneProcessAlone.Replace("input logic clk, rst, go)", "input logic clk, rst, go, output logic busy)");
+            text = where == "box"
+                ? text.Replace("RUN: begin state <= DONE; end", "RUN: begin busy <= 1'b1; state <= DONE; end")
+                : text.Replace("IDLE: begin if (go) state <= RUN; end", "IDLE: begin busy <= 1'b0; if (go) begin busy <= 1'b1; state <= RUN; end end");
             (SyntaxTree tree, ControllerReading reading) = ReadText(text, "one");
             MachineReading machine = reading.Machine;
             Assert.AreEqual(machine.Register, machine.Next, "sanity: one process");
@@ -329,6 +330,37 @@ endmodule
             string why = Why(tree, "one", reading);
             Assert.IsNotNull(why, "busy shown where it is a clock later");
             StringAssert.StartsWith(said, why);
+        }
+
+        /// <summary>
+        /// A machine of one process with its outputs given by an always_comb's case on the state beside it is shown: what that
+        /// case gives is no register, and is held to the engine as a two-process machine's outputs are.
+        /// </summary>
+        [Test]
+        public void AOneProcessMachine_WithItsOutputsFromACaseBesideIt_IsHeldToTheEngine()
+        {
+            string text = OneProcessAlone.Replace("input logic clk, rst, go)", "input logic clk, rst, go, output logic busy)")
+                .Replace("endmodule", "    always_comb\n        case (state)\n            RUN: busy = 1'b1;\n            default: busy = 1'b0;\n        endcase\nendmodule");
+            (SyntaxTree tree, ControllerReading reading) = ReadText(text, "one");
+            MachineReading machine = reading.Machine;
+            Assert.AreEqual(machine.Register, machine.Next, "sanity: one process");
+            CollectionAssert.AreEqual(new[] { "busy = 1" }, Settings(machine, "RUN"), "sanity: RUN's box sets busy");
+            ControllerEngine.Hold(tree, "one", reading);
+            StringAssert.Contains("where it says", Why(tree, "one", WithSetting(reading, "RUN", LogicVec.FromUInt64(0, 1))),
+                "RUN's busy read as 0, where the case beside it gives 1");
+        }
+
+        /// <summary>The same reading with the first thing state <paramref name="state"/>'s box sets made <paramref name="constant"/>.</summary>
+        private static ControllerReading WithSetting(ControllerReading reading, string state, LogicVec constant)
+        {
+            MachineReading m = reading.Machine;
+            int s = m.States.ToList().IndexOf(state);
+            var settings = m.Settings.Select(x => (IReadOnlyList<ReadValue>)x.ToList()).ToList();
+            var box = settings[s].ToList();
+            box[0] = new ReadValue(box[0].Signal, constant.ToString(), constant, box[0].Width);
+            settings[s] = box;
+            var changed = new MachineReading(m.Register, m.Next, m.States, m.Codes, m.Start, m.Arrows, settings, m.LetGo);
+            return new ControllerReading(reading.Module, changed, reading.Tables, reading.Whole);
         }
 
         /// <summary>A machine beside a memory it reads -- a ROM looked up by the state -- with the memory's words in it.</summary>

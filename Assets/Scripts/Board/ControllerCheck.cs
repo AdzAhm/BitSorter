@@ -18,7 +18,8 @@ namespace BitSorter.Board
     /// every input at once at random among those -- an arrow two inputs take together, or a 16-bit compare's, was missed.
     ///
     /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
-    /// (<see cref="MachineReading.LetGo"/>), and what its arms set held to what each register is about to take, its D.
+    /// (<see cref="MachineReading.LetGo"/>). Whatever else its arms set is a register too, taking its value a clock after the
+    /// state the diagram would show it in, so such a machine is not shown at all.
     ///
     /// A table's rows are tried at their labels' values, and its default at values no label takes, the subject held there --
     /// on its own net too, so a subject the module works out itself, a decoder on another's output, is tried at every row,
@@ -98,17 +99,28 @@ namespace BitSorter.Board
                     return "Its state register " + machine.Register + " is not in the instance.";
                 // One process works out the next state and holds it (the case in the always_ff): its next state is the
                 // register's D, which the reset is folded into, so the arms are tried with the reset let go -- as two processes'
-                // next state never sees it -- and what an arm sets is what the register it sets is about to take, its D, not
-                // what it holds (the 16d sweep: no such machine with a reset or an output was ever shown).
+                // next state never sees it (the 16d sweep: no such machine with a reset was ever shown). What else an arm sets
+                // there is a register as well, set at the edge that leaves the state: busy <= 1 in RUN's arm is 0 in RUN and 1
+                // wherever RUN goes, so a box or an arrow showing it would be a clock early, and the machine is not shown (the
+                // review of the 16d fixes: held to the register's D, RUN's box said busy while the waves showed 0). What an
+                // always_comb's case on the state gives beside it is no register, and is held as any machine's output is.
                 bool oneProcess = machine.Next == machine.Register;
+                if (oneProcess)
+                    for (int s = 0; s < machine.States.Count; s++)
+                    {
+                        foreach (ReadValue set in machine.Settings[s])
+                            if (RegisterInput(netlist, Signal(set.Signal)) >= 0)
+                                return $"In {machine.States[s]}, {set.Signal} is set beside the state in its clocked process, so it is {set.Text} a clock after the diagram would show it.";
+                        foreach (MachineArrow arrow in machine.Arrows)
+                            if (arrow.From == s)
+                                foreach (ReadValue set in arrow.Outputs)
+                                    if (RegisterInput(netlist, Signal(set.Signal)) >= 0)
+                                        return $"From {machine.States[s]} to {machine.States[arrow.To]}, {set.Signal} is set beside the state in its clocked process, so it is {set.Text} a clock after the diagram would show it.";
+                    }
                 int letGo = machine.LetGo is ReadValue go ? Signal(go.Signal) : -1;
                 if (letGo >= 0)
                     inputs.Remove(letGo);
-                int Set(string name)
-                {
-                    int signal = Signal(name);
-                    return oneProcess && RegisterInput(netlist, signal) is int d && d >= 0 ? d : NetOf(netlist, signal);
-                }
+                int Set(string name) => NetOf(netlist, Signal(name));
 
                 int nextNet = !oneProcess ? NetOf(netlist, Signal(machine.Next)) : RegisterInput(netlist, register);
                 if (nextNet < 0)
