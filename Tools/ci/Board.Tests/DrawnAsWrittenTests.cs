@@ -281,6 +281,26 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("celled.sv:2", string.Join("\n", imported.Problems), "and where");
         }
 
+        // -----------------------------------------------------------------
+        // A width past what a board holds (import-export-2)
+        // -----------------------------------------------------------------
+
+        [TestCase("[9223372036854775808:0]")]   // 2^63: Math.Abs(long.MinValue) threw
+        [TestCase("[4294967296:0]")]           // 2^32 + 1 bits, cast to an int of 1
+        [TestCase("[2000000:0]")]              // past LogicVec.MaxWidth: its starting value's Extend threw
+        public void AWidthPastWhatABoardHolds_IsRefused_NeverThrown(string range)
+        {
+            string code = "module huge (input logic " + range + " a, output logic y);\n    logic " + range + " w = 1;\n    assign y = a[0];\nendmodule\n";
+
+            ImportResult imported = null;
+            Assert.DoesNotThrow(() => imported = BoardImporter.Import(SyntaxReader.ReadText(code, "huge.sv"), "huge"));
+            Assert.IsFalse(imported.Succeeded, "drawn with a width it has not");
+            StringAssert.Contains("huge.sv:1", string.Join("\n", imported.Problems), "said where");
+
+            // And as a project: it comes in written, or is refused, saying why -- never an exception out of FILE, IMPORT.
+            Assert.DoesNotThrow(() => ProjectImporter.Import(new[] { new SourceFile("huge.sv", code) }));
+        }
+
         [TestCase("input bit a", "bit")]
         [TestCase("input logic a [1:0]", "array")]
         [TestCase("input integer a", "integer")]
