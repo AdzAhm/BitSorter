@@ -503,6 +503,28 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.IsInstanceOf<DelayControl>(s.IntraAssignment);
         }
 
+        /// <summary>
+        /// The 16d sweep's review: a delay is a number alone (delay_value, IEEE 1800 A.2.2.3), so a based value after it is the
+        /// value, never the delay's base -- `DLY 'b0 with `define DLY #1, #`T 'hC, #2 'b1 on one line or on two, as Icarus and
+        /// ModelSim read them all. The join of a size and its base swallowed the delay into the value and left no value; in
+        /// brackets a delay is an expression, and 2 'b1 there is one literal in all three.
+        /// </summary>
+        [TestCase("`define DLY #1\n", "q = `DLY 'b0;", "1", "'b0")]
+        [TestCase("`define DLY #1\n", "q <= `DLY 'hA;", "1", "'hA")]
+        [TestCase("`define T 2\n", "q = #`T 'hC;", "2", "'hC")]
+        [TestCase("", "q = #2 'b1;", "2", "'b1")]
+        [TestCase("", "q = #2'b1;", "2", "'b1")]
+        [TestCase("", "q = #2\n        'b11;", "2", "'b11")]
+        [TestCase("", "q = #(2 'b1) 'b0;", "2'b1", "'b0")]
+        public void ADelaysNumber_IsNeverJoinedToTheValueAfterIt(string defines, string statement, string delay, string value)
+        {
+            SyntaxTree tree = Clean(defines + "module m;\n  initial begin\n    " + statement + "\n  end\nendmodule\n");
+            var block = (BlockStatement)((ProceduralBlock)tree.Modules.Single().Items.Single()).Body;
+            var assignment = (AssignmentStatement)block.Statements.Single();
+            Assert.AreEqual(delay, Printer.Print(((DelayControl)assignment.IntraAssignment).Values.Single()));
+            Assert.AreEqual(value, Printer.Print(assignment.Value));
+        }
+
         [Test]
         public void ABlockMayDeclareLocals_AndBeNamed()
         {
