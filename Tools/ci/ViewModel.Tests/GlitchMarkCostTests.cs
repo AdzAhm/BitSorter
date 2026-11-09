@@ -10,7 +10,8 @@ namespace BitSorter.ViewModel.Tests
     /// What a frame reads of a row's glitch marks -- the "glitch swallowed" labels and the crosses on the waves -- is what the
     /// view shows of the row, not every mark since the run began (the 16d sweep, waves-13). The marks are kept in time order
     /// for that, and the model says what it reads a frame does not grow with the run; but the waves took every mark up to the
-    /// playhead, from the start, at every redraw, and tested each against the view.
+    /// playhead, from the start, at every redraw, and tested each against the view. This times the model's read; that the
+    /// waves use it, dotnet cannot run, and <c>WaveFrameRulesTests</c> reads their source for it.
     /// </summary>
     public class GlitchMarkCostTests
     {

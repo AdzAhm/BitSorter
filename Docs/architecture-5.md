@@ -1062,7 +1062,10 @@ Precise, and no casing under the wires.
     was nine points on a line, and a straight wire 38 points); a ring is drawn round its radius from a
     table of unit circles rather than through a mitred stroke; a route's points keep their normals; a
     level or upright cap keeps its directions; each chunk finds its own changes from a list of their
-    nets; and a swallowed change's mark is indexed by signal once rather than found by walking the run.
+    nets; and a swallowed change's mark is indexed by signal once rather than found by walking the run,
+    and read as far as the view shows the row (`WorkbenchModel.RowSwallowedIn`, a binary search; the 16d sweep:
+    the waves' labels and crosses took every mark since the run began at each redraw) -- timed by
+    `GlitchMarkCostTests`, and the view held to it by `WaveFrameRulesTests`, which dotnet reads as source.
   - **Reduced motion is read once** (`ReducedMotion`): it was read from PlayerPrefs for every part on
     every frame, some five hundred reads, and a frame went from 22 ms to 13 in the editor, where
     PlayerPrefs is the registry, once it was kept.

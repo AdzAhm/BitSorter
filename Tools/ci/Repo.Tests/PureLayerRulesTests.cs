@@ -97,7 +97,7 @@ namespace BitSorter.Ci.Tests
             ("FileStream", "file access goes through an interface the host provides"),
         };
 
-        private static readonly Regex CommentsAndLiterals = new Regex(
+        internal static readonly Regex CommentsAndLiterals = new Regex(
             @"@""(?:[^""]|"""")*""|""(?:\\.|[^""\\\n])*""|'(?:\\.|[^'\\\n])+'|/\*.*?\*/|//[^\n]*",
             RegexOptions.Singleline | RegexOptions.Compiled);
 
