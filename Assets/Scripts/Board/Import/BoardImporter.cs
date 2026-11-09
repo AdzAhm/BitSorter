@@ -1372,31 +1372,48 @@ namespace BitSorter.Board
             {
                 Module module = Drawn();
                 Netlist nets = Netlist.Of(_editor.Project, module);
-                var depth = new Dictionary<int, int>();
-                foreach (Part part in module.Parts)
-                    depth[part.Id] = part is PortPart port && port.Direction == PortDirection.Input ? 0 : 1;
+                IReadOnlyList<Part> parts = module.Parts;
+                var at = new Dictionary<int, int>(parts.Count);
+                var depth = new int[parts.Count];
+                for (int p = 0; p < parts.Count; p++)
+                {
+                    at[parts[p].Id] = p;
+                    depth[p] = parts[p] is PortPart port && port.Direction == PortDirection.Input ? 0 : 1;
+                }
+
+                // Each net that has a driver, as the part its first driver is on and the parts that read it -- every other pin
+                // on it but a port's -- worked out once, by index, rather than looked up a pin at a time every round (Part 16d).
+                var drivers = new List<int>();
+                var firstReader = new List<int>();
+                var readers = new List<int>();
+                foreach (Net net in nets.Nets)
+                {
+                    if (net.Drivers.Count == 0)
+                        continue;
+                    PinRef driver = net.Drivers[0];
+                    drivers.Add(at[driver.Part]);
+                    firstReader.Add(readers.Count);
+                    foreach (PinRef pin in net.Pins)
+                        if (!pin.Equals(driver) && !(_byId[pin.Part] is PortPart))
+                            readers.Add(at[pin.Part]);
+                }
+
+                firstReader.Add(readers.Count);
 
                 // Relax: a part is one further than whatever drives its inputs. A loop (through a
                 // register) stops it after as many rounds as there are parts.
-                for (int round = 0; round < module.Parts.Count; round++)
+                for (int round = 0; round < parts.Count; round++)
                 {
                     bool moved = false;
-                    foreach (Net net in nets.Nets)
+                    for (int n = 0; n < drivers.Count; n++)
                     {
-                        if (net.Drivers.Count == 0)
-                            continue;
-                        int from = depth[net.Drivers[0].Part];
-                        foreach (PinRef pin in net.Pins)
-                        {
-                            Part reader = module.FindPart(pin.Part);
-                            if (pin.Equals(net.Drivers[0]) || reader is PortPart)
-                                continue;
-                            if (depth[pin.Part] < from + 1)
+                        int from = depth[drivers[n]];
+                        for (int r = firstReader[n]; r < firstReader[n + 1]; r++)
+                            if (depth[readers[r]] < from + 1)
                             {
-                                depth[pin.Part] = from + 1;
+                                depth[readers[r]] = from + 1;
                                 moved = true;
                             }
-                        }
                     }
 
                     if (!moved)
@@ -1404,16 +1421,16 @@ namespace BitSorter.Board
                 }
 
                 int last = 1;
-                foreach (int d in depth.Values)
+                foreach (int d in depth)
                     last = Math.Max(last, d + 1);
 
                 var rows = new Dictionary<int, int>();
-                foreach (Part part in module.Parts)
+                for (int p = 0; p < parts.Count; p++)
                 {
-                    int column = part is PortPart port && port.Direction == PortDirection.Output ? last : depth[part.Id];
+                    int column = parts[p] is PortPart port && port.Direction == PortDirection.Output ? last : depth[p];
                     rows.TryGetValue(column, out int row);
                     rows[column] = row + 1;
-                    _placements[part.Id] = new Placement(column * 3, -row * 2);
+                    _placements[parts[p].Id] = new Placement(column * 3, -row * 2);
                 }
             }
 
