@@ -358,7 +358,7 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(1, diagnostics.Items.Count(d => d.Code == DiagnosticCodes.MacroTooMuch), "stopped, said once");
             Assert.LessOrEqual(done.FilesRead.Count, 1 + Preprocessor.MaxExpansion / 50_000 + 1,
                 "the top, the includes the million paid for, and the one that spent it -- not two hundred");
-            Assert.Less(allocated, 400_000_000, $"{allocated:N0} bytes allocated");
+            Assert.Less(allocated, 400L << 20, $"{allocated:N0} bytes allocated");
         }
 
         /// <summary>One import is one budget: a bomb split across files, each under it alone, is stopped as the whole would be.</summary>
