@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using BitSorter.Board;
 using NUnit.Framework;
+using BoardPoint = BitSorter.Board.Point;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -324,6 +326,56 @@ namespace BitSorter.ViewModel.Tests
             Assert.Less(step - routing, 8_000_000, "a step of the drag, beyond the wires it routes");
             Assert.Less(move, 4_000_000, "MoveParts");
             Assert.Less(remove, 8_000_000, "RemoveParts");
+        }
+
+        /// <summary>
+        /// Ctrl+A on the 1,028-part adder, dragged: a step of the drag -- the overlay drawn again where the selection has got
+        /// to -- within a frame's budget. Every wire has both its ends on moved parts, so each is only carried along by the
+        /// drag, and needs no routing; and the moved layout is made once a step, not once a part. Measured before the 16d
+        /// sweep's fixes at about 300 ms and 60 MB a step (canvas-6, canvas-7): each wire routed again round the rest, and a
+        /// copy of the whole layout made for each part moved.
+        /// </summary>
+        [Test]
+        public void AThousandPartDrawing_AllOfItDragged_TakesAStepWithinAFrame()
+        {
+            var session = new WorkbenchSession(Adder(128), () => 0.0);
+            var editor = new CanvasEditor(session);
+            Module module = session.Project.TopModule;
+            editor.SelectAll();
+            Assert.AreEqual(module.Parts.Count, editor.Selection.Parts.Count, "sanity: everything selected");
+
+            Placement first = module.Layout.PlacementOf(module.Parts[0].Id);
+            var from = new BoardPoint(first.Position.X, first.Position.Y);
+            editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: from));
+            var overlay = new CanvasOverlay();
+            int step = 0;
+            void Step()
+            {
+                step++;
+                editor.Do(new CanvasCommand(CanvasGesture.MoveTo, new BoardPoint(from.X + step, from.Y + 2 * step), from));
+                editor.Overlay(overlay);
+            }
+
+            Step();   // warmed
+            Assert.AreEqual(module.Wires.Count, overlay.GhostWires.Count, "every wire follows the drag");
+            Assert.AreEqual(module.Parts.Count, overlay.Ghosts.Count, "and every part");
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Step();
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            double took = Fastest(Step);
+
+            // The wires are where the drop routes them from: each moved by the drag, end to end, as its parts were.
+            Dictionary<int, IReadOnlyList<Point>> lay = WireGeometry.Wires(session.Project, module);
+            Wire wire = module.Wires[0];
+            Vec2 ghost = overlay.GhostWires[0][0];
+            SchematicLayout.Frame frame = session.Run.Model.Layout.Board;
+            Vec2 now = frame.ToStage(new BoardPoint(lay[wire.Id][0].X + step, lay[wire.Id][0].Y + 2 * step));
+            Assert.AreEqual(now.x, ghost.x, 1e-3, "a wire carried along, its first end where its pin has got to");
+            Assert.AreEqual(now.y, ghost.y, 1e-3);
+
+            TestContext.WriteLine($"a step of dragging all of it: {took:F1} ms, {made / 1024.0:F0} KB");
+            Assert.Less(took, 50, "a step of the drag");
+            Assert.Less(made, 4 << 20, "what a step makes");
         }
 
         /// <summary>The fastest of three runs: what the work costs, without whatever else the machine was doing in one of them.</summary>
