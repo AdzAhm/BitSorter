@@ -294,6 +294,21 @@ namespace BitSorter.Sim
                 : new ConcatAllExpr(mostSignificantFirst);
         }
 
+        /// <summary>
+        /// <c>terms[0] || terms[1] || ...</c>, of two terms or more, worked out from the left as the operator groups (IEEE 1800,
+        /// 11.4.7): an <c>inside</c> set's matches. Of three or more it is one node, as deep as its deepest term however many
+        /// it has -- joined term on term, a set of tens of thousands overflowed the machine's stack, and joined half and half
+        /// it was drawn as a tree (the Part 16d sweep and its review). As a netlist it is the same cells as the terms joined
+        /// one on the next, so a drawing of code draws it as it always has.
+        /// </summary>
+        public static Expr AnyOf(IReadOnlyList<Expr> terms)
+        {
+            if (terms == null) throw new ArgumentNullException(nameof(terms));
+            if (terms.Count < 2)
+                throw new ArgumentException("A || of terms joins two or more.", nameof(terms));
+            return terms.Count == 2 ? new BinaryExpr(BinaryOp.LogicalOr, terms[0], terms[1]) : new AnyOfExpr(terms);
+        }
+
         /// <summary><c>{count{a}}</c>.</summary>
         public static Expr Replicate(Expr a, int count) => new ReplicateExpr(a, count);
 
@@ -861,6 +876,78 @@ namespace BitSorter.Sim
                 }
 
                 return low;
+            }
+        }
+
+        /// <summary>
+        /// A || of three terms or more, worked out as the terms joined one on the next by <see cref="BinaryExpr"/> were -- the
+        /// same value, the same reads in the same order, the same cells, the same timing -- with every walk a loop over the
+        /// terms rather than a recursion through them.
+        /// </summary>
+        private sealed class AnyOfExpr : Expr
+        {
+            private readonly Expr[] _terms;
+
+            public AnyOfExpr(IReadOnlyList<Expr> terms)
+            {
+                _terms = new Expr[terms.Count];
+                for (int i = 0; i < _terms.Length; i++)
+                    _terms[i] = terms[i] ?? throw new ArgumentNullException(nameof(terms), "A term of a || is null.");
+            }
+
+            public override int Width => 1;
+
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                LogicVec any = _terms[0].Evaluate(values);
+                for (int i = 1; i < _terms.Length; i++)
+                    any = Apply(BinaryOp.LogicalOr, any, _terms[i].Evaluate(values));
+                return any;
+            }
+
+            /// <summary>The cells of the terms joined one on the next, the first two first: a drawing of code draws it as it did.</summary>
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int any = b.Of(_terms[0]);
+                for (int i = 1; i < _terms.Length; i++)
+                    any = b.Binary(BinaryOp.LogicalOr, any, b.Of(_terms[i]), 1);
+                return any;
+            }
+
+            public override void CollectReads(ICollection<int> reads)
+            {
+                foreach (Expr term in _terms)
+                    term.CollectReads(reads);
+            }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                foreach (Expr term in _terms)
+                    term.CollectCalls(calls);
+            }
+
+            internal override int Height
+            {
+                get
+                {
+                    int height = 0;
+                    foreach (Expr term in _terms)
+                        height = Math.Max(height, HeightOf(term));
+                    return 1 + height;
+                }
+            }
+
+            /// <summary>As <see cref="BinaryExpr"/>'s || is, one term on the next: the value on every term, either way round.</summary>
+            internal override BitDeps Depends(int[] first)
+            {
+                BitDeps any = _terms[0].Depends(first);
+                for (int i = 1; i < _terms.Length; i++)
+                {
+                    BitDeps term = _terms[i].Depends(first);
+                    any = BitDeps.Uniform(1, SourceSet.Union((any.Union, Sense.Positive), (term.Union, Sense.Positive)));
+                }
+
+                return any;
             }
         }
 

@@ -2099,17 +2099,9 @@ namespace BitSorter.Sim
                     : Expr.Apply(BinaryOp.WildcardEqual, value, BuildAt(member, width, signed)));
             }
 
-            return matches.Count == 0 ? Expr.Constant(LogicVec.FromUInt64(0, 1)) : AnyOf(matches, 0, matches.Count);
+            // One node however many members, drawn as the matches joined one on the next (Expr.AnyOf, the Part 16d sweep).
+            return matches.Count == 0 ? Expr.Constant(LogicVec.FromUInt64(0, 1)) : matches.Count == 1 ? matches[0] : Expr.AnyOf(matches);
         }
-
-        /// <summary>
-        /// The matches from <paramref name="from"/>, <paramref name="count"/> of them, joined by <c>||</c> half and half, so a
-        /// set of any size is a tree as deep as its size's logarithm (the Part 16d sweep: joined one on the next, a set of tens
-        /// of thousands overflowed the stack). <c>||</c> gives the same however its operands are grouped (IEEE 1800, 11.4.7).
-        /// </summary>
-        private static Expr AnyOf(List<Expr> matches, int from, int count) =>
-            count == 1 ? matches[from]
-            : Expr.Apply(BinaryOp.LogicalOr, AnyOf(matches, from, count / 2), AnyOf(matches, from + count / 2, count - count / 2));
 
         /// <summary>
         /// The enum a value has, and whether its type is 2-state: a signal declared of an enum type, a cast to

@@ -4814,8 +4814,10 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   read, but it was joined item on item into a tree as deep as it was long, and so were a `'{...}`'s slots and an `inside`
   set's members -- every walk of them recursed once an item, and fifty thousand overflowed the stack, which nothing can
   catch. Three parts or more are one node now, as deep as its deepest part, and its netlist is the cells it always was, so
-  a drawing of code draws it as before; an `inside` set's matches are joined by `||` half and half. A function giving one
-  back is no longer stopped short by its frames. A flat chain of operators, `a + a + ... + a`, is as deep as it is long as
+  a drawing of code draws it as before; an `inside` set's matches likewise, a `||` of three or more one node
+  (`Expr.AnyOf`, `AnyOfExpr`) drawn as the `||` one on the next it always was. (The sweep's fix joined them half and half,
+  a tree as deep as the set's logarithm, which drew a set of four or more as another drawing; its review took that back.)
+  A function giving one back is no longer stopped short by its frames. A flat chain of operators, `a + a + ... + a`, is as deep as it is long as
   the parser builds it: that is the parser's to bound (the sweep's sv-front-1), before any walk of it.
 - **A replication's count is held before it is multiplied**: its size check multiplied the count by its item's width in
   a long, so 2^62 copies of four bits wrapped to nothing, passed, and threw. More copies than `LogicVec.MaxWidth` are too
