@@ -387,8 +387,10 @@ namespace BitSorter.ViewModel.Tests
 
             InputTable.Of(session.Project);   // warmed: a first call pays for compiling the code it runs
             var clock = System.Diagnostics.Stopwatch.StartNew();
+            long bytes = GC.GetAllocatedBytesForCurrentThread();
             InputTable table = InputTable.Of(session.Project);
             double first = clock.Elapsed.TotalMilliseconds;
+            long firstMade = GC.GetAllocatedBytesForCurrentThread() - bytes;
             Assert.AreEqual("add8_tb", table.AppliedBy, "sanity");
             Assert.AreEqual(16384 - InputTable.MostAppliedRows, table.LeftOut, "sanity: what it applies");
 
@@ -397,14 +399,18 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(moved.Done, moved.Refusal);
             Assert.AreNotSame(project, session.Project, "sanity: another document");
             clock.Restart();
+            bytes = GC.GetAllocatedBytesForCurrentThread();
             InputTable again = InputTable.Of(session.Project, table);
             double second = clock.Elapsed.TotalMilliseconds;
+            long secondMade = GC.GetAllocatedBytesForCurrentThread() - bytes;
             Assert.AreEqual("add8_tb", again.AppliedBy);
             Assert.AreEqual(table.LeftOut, again.LeftOut);
             CollectionAssert.AreEqual(table.Rows.Select(r => string.Join(" ", r.Cells)).ToArray(), again.Rows.Select(r => string.Join(" ", r.Cells)).ToArray(),
                 "the same rows");
-            TestContext.WriteLine($"the table made: {first:F0} ms, and again after a move: {second:F0} ms");
-            Assert.Less(second, first / 4, $"made again after a move in {second:F0} ms, where running the testbench took {first:F0}");
+            // Held by what each makes, which the machine's load does not move: the time is said, and a run's is a few times a
+            // table's alone, but under a full parallel test run the two came within a fourth of each other.
+            TestContext.WriteLine($"the table made: {first:F0} ms, {firstMade >> 10} KB; and again after a move: {second:F0} ms, {secondMade >> 10} KB");
+            Assert.Less(secondMade, firstMade / 4, $"made again after a move, {secondMade >> 10} KB, where running the testbench made {firstMade >> 10} KB");
 
             // The testbench's code edited: run again, and what it applies now.
             var editor = new BoardEditor(session.Project);
