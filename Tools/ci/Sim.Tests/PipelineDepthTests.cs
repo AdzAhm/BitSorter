@@ -236,6 +236,28 @@ namespace BitSorter.Sim.Tests
             Assert.AreEqual(1, straight.Most);
         }
 
+        /// <summary>
+        /// A register loaded when another register says so is sequenced however the saying is worked out (the 16d sweep): a
+        /// condition was asked only whether it is itself a register's bit, so a count decoded by an assign made a register
+        /// loaded every fourth clock a 1-stage pipeline, one result a period, where the same if on the count was sequenced.
+        /// </summary>
+        [Test]
+        public void ARegisterLoadedWhenAnotherSays_IsSequenced_ThroughTheLogicBetween()
+        {
+            const string Head = "module m (input logic clk, input logic [7:0] d, output logic [7:0] q); logic [1:0] cnt; logic tick; ";
+            Assert.IsTrue(Depth(Head + "always_ff @(posedge clk) begin cnt <= cnt + 1; if (cnt == 2'd3) q <= d; end endmodule\n").Sequenced,
+                "sanity: the count read by the if itself");
+
+            PipelineDepth decoded = Depth(Head + "assign tick = (cnt == 2'd3); always_ff @(posedge clk) begin cnt <= cnt + 1; if (tick) q <= d; end endmodule\n");
+            Assert.IsTrue(decoded.Sequenced, "the count decoded by an assign");
+            Assert.IsNull(decoded.Stages, "q is loaded every fourth clock: no pipeline");
+            Assert.IsTrue(Depth(Head + "always_comb tick = cnt[0] & cnt[1]; always_ff @(posedge clk) begin cnt <= cnt + 1; q <= tick ? d : q; end endmodule\n").Sequenced,
+                "through an always_comb, to a ?: enable");
+
+            Assert.AreEqual(1, Depth("module m (input logic clk, en, input logic [7:0] d, output logic [7:0] q); logic go; assign go = ~en; " +
+                "always_ff @(posedge clk) if (go) q <= d; endmodule\n").Stages, "an input's enable through logic is still one stage");
+        }
+
         [Test]
         public void ABlockingVariable_IsFollowedInTheOrderWritten()
         {
