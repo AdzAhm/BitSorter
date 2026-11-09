@@ -209,6 +209,33 @@ namespace BitSorter.Sim.Tests
             Assert.IsTrue(Depth(Machine + "if (phase) q <= d; end endmodule\n").Sequenced, "as through if");
         }
 
+        /// <summary>
+        /// An output an input reaches only by deciding what a register writes -- constants written under an if or a case -- is
+        /// as many registers on from it as a value would be (the 16d sweep): counted by values alone, a registered comparator
+        /// read as no register on any path, within the period, and a flag beside a value was left out of the count.
+        /// </summary>
+        [Test]
+        public void AnOutputReachedOnlyByDeciding_CountsTheRegistersOnItsWay()
+        {
+            Assert.AreEqual(1, Depth("module m (input logic clk, a, b, output logic eq); always_ff @(posedge clk) if (a == b) eq <= 1'b1; else eq <= 1'b0; endmodule\n").Stages,
+                "a registered comparator, its output one clock behind its inputs");
+            Assert.AreEqual(1, Depth("module m (input logic clk, input logic [1:0] d, output logic [3:0] y); always_ff @(posedge clk) " +
+                "case (d) 2'd0: y <= 4'b0001; 2'd1: y <= 4'b0010; 2'd2: y <= 4'b0100; default: y <= 4'b1000; endcase endmodule\n").Stages,
+                "a registered decoder writing constants");
+
+            PipelineDepth beside = Depth("module m (input logic clk, set, d, output logic flag, y); logic r; " +
+                "always_ff @(posedge clk) begin if (set) flag <= 1'b1; r <= d; y <= r; end endmodule\n");
+            Assert.IsNull(beside.Stages, "a flag one register on, beside a value two on");
+            Assert.AreEqual(1, beside.Fewest);
+            Assert.AreEqual(2, beside.Most);
+
+            PipelineDepth straight = Depth("module m (input logic clk, a, set, output logic y, flag); assign y = a; " +
+                "always_ff @(posedge clk) if (set) flag <= 1'b1; endmodule\n");
+            Assert.IsNull(straight.Stages, "y straight through, the flag one register on");
+            Assert.AreEqual(0, straight.Fewest);
+            Assert.AreEqual(1, straight.Most);
+        }
+
         [Test]
         public void ABlockingVariable_IsFollowedInTheOrderWritten()
         {
