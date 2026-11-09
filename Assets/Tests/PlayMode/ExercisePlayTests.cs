@@ -367,9 +367,17 @@ namespace BitSorter.PlayMode.Tests
             EditResult wrong = session.SetSource(swapped);
             Assert.IsTrue(wrong.Done, wrong.Refusal);
 
+            // The wrong answer applied, as the pause would apply it once typed, and a frame for the editor to show it: an editor
+            // the document has moved under sets aside what it holds (CodeDocument.Behind), so text typed into it before that
+            // frame is not what the student sees, and is not graded (the review of Part 16d's sweep: typed with no frame
+            // between, this test found nothing pending once Behind existed).
+            yield return null;
+            CodeDocument code = session.Code;
+            Assert.AreEqual(swapped, code.Text, "sanity: the editor shows the wrong answer that applied");
+            Assert.IsFalse(code.Behind, "sanity: and has followed the document");
+
             // The answer typed, and CHECK pressed inside the pause: graded as it is on screen. Typed on the code editor's clock,
             // in milliseconds (CodeEditorView), or the view would find the pause long over and apply it itself.
-            CodeDocument code = session.Code;
             code.Type(solved, Time.timeAsDouble * 1000.0);
             Assert.IsTrue(code.Pending, "sanity: typed and not applied");
             yield return Click(WorkbenchPanel.CheckButton);
