@@ -237,8 +237,11 @@ namespace BitSorter.PlayMode.Tests
             other.Load();
             Assert.IsTrue(other.MarkComplete("half-adder"));
 
+            yield return null;
+            yield return null;
             Assert.IsTrue(workbench.TakeFromStrip("and"));
-            yield return ClickAt(workbench, new BoardPoint(4, 2));
+            yield return ClickAt(workbench, new BoardPoint(10, -2));   // beside the XOR: below it is under the dock at this zoom
+            Assert.AreEqual(2, Top(workbench).Parts.Count, "sanity: placed, an edit to keep");
             workbench.SendMessage("OnApplicationFocus", false, SendMessageOptions.DontRequireReceiver);
             yield return null;
             yield return null;
