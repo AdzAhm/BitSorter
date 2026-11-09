@@ -223,6 +223,32 @@ module t;
 endmodule"));
         }
 
+        /// <summary>
+        /// An integer ** with an exponent past 4,096 is its whole power, at the result's width: (-1) ** 5001 is -1 and
+        /// 3 ** 5001 is 1696419555 in an int, as Icarus 12 and ModelSim print. BitSorter multiplied the base in at most 4,096
+        /// times, so an odd power of -1 came out 1 and a power of 3 another number (found beside the Part 16d sweep's
+        /// elaborator-19). 2 ** (2^63 - 1) in 1,024 bits is 0, worked out in as many squarings as the exponent has bits.
+        /// ModelSim 2020.1 gives -1 for an even power of -1 from 2^32 up (Docs/oracle-notes.md); Icarus and the standard, 1.
+        /// </summary>
+        [Test]
+        public void APowerPast4096_IsTheWholePower()
+        {
+            CollectionAssert.AreEqual(new[] { "1696419555 -1 1 -9223372036854775808 0" }, Printed(@"
+module t;
+    int g, h, k;
+    longint m;
+    logic [1023:0] wide;
+    initial begin
+        g = 3 ** 5001;
+        h = (-1) ** 5001;
+        k = (-1) ** 5002;
+        m = 64'sd2 ** 63;
+        wide = 1024'd2 ** 64'd9223372036854775807;
+        $display(""%0d %0d %0d %0d %0d"", g, h, k, m, wide);
+    end
+endmodule"));
+        }
+
         /// <summary>Where nothing else gives the concatenation a bit, a replication of 0 is an error, as both oracles say.</summary>
         [TestCase("module t; logic a; logic [3:0] y; assign y = {0{a}}; endmodule", "only inside a concatenation")]
         [TestCase("module t; logic a, b; logic [3:0] y; assign y = {{0{a}}, {0{b}}}; endmodule", "has no bits")]

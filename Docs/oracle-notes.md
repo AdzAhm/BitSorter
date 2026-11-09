@@ -652,6 +652,11 @@ Two things the harness learned:
 - It dumps a module's vector input one variable a bit, `a [7]` to `a [0]`. `VcdReader` read them as eight signals
   called `a`, the last of them, bit 0, standing for the whole. It reads them back whole now.
 
+**Where ModelSim departs from the standard, probed and kept out of the corpus** (Part 16d): an even power of -1 whose
+exponent is 2^32 or more, or an unsigned 32-bit one past 2^31 -- `(-1) ** 40'd1000000000000`, `(-1) ** 32'd4294967294`
+-- is -1 in ModelSim 2020.1, and 1 in Icarus 12, in BitSorter and by table 11-4. Below that the three agree, `(-1) **
+5002` among them, and `ExpressionTests.APowerPast4096_IsTheWholePower` keeps to it.
+
 **And one bug it found in BitSorter**: an exported run.do gave a chosen program as `-GPROGRAM=1`, which sets every
 parameter called PROGRAM in the design, a processor's memory's image name among them -- ModelSim opened "" and the
 program never ran. It gives `-G/<testbench>/PROGRAM=1` now (Part 15h-6c's export, fixed in 15i-4 with a red test first).
