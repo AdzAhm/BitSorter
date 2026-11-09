@@ -386,6 +386,9 @@ namespace BitSorter.Sim
         private readonly int[] _startOrder;
         private bool _finishing;
         private long _now;
+
+        /// <summary>The instructions the run has taken: its processes', and its functions' as each call from an expression ends.</summary>
+        private long _steps;
         private int _delta;
 
         /// <summary>The processes a <c>$stop</c> has suspended, which the next call to <see cref="RunTo"/> carries on.</summary>
@@ -606,14 +609,22 @@ namespace BitSorter.Sim
         public LogicVec Value(SignalId signal) => _values[signal.Index];
 
         /// <summary>
+        /// The instructions the run has taken so far: its processes', and the functions' its processes and its logic call,
+        /// each call's as it ends. What a run costs besides its events: a process may take up to
+        /// <see cref="SimOptions.MaxProcessSteps"/> between two waits, and an event is one wait.
+        /// </summary>
+        public long Steps => _steps;
+
+        /// <summary>
         /// Runs every event up to and including <paramref name="time"/>, unless
-        /// <paramref name="maxEvents"/> runs out first or a <c>$stop</c> suspends the run. A budget only
+        /// <paramref name="maxEvents"/> or <paramref name="maxSteps"/> -- the instructions this call may take, processes'
+        /// and functions' together (<see cref="Steps"/>) -- runs out first or a <c>$stop</c> suspends the run. A budget only
         /// pauses between time steps, so one time step always finishes; the next call carries on exactly
         /// where this one stopped, a suspended process included.
         /// </summary>
-        public RunResult RunTo(long time, long maxEvents = long.MaxValue)
+        public RunResult RunTo(long time, long maxEvents = long.MaxValue, long maxSteps = long.MaxValue)
         {
-            RunResult result = Run(time, maxEvents);
+            RunResult result = Run(time, maxEvents, maxSteps);
 
             // A line $write began and nothing ended is shown whenever the run hands back but paused by its budget -- stopped, at
             // a $stop, or at the time it was run to, with more to come or not -- as a simulator shows what was written (the 16d
@@ -630,12 +641,14 @@ namespace BitSorter.Sim
             return result;
         }
 
-        private RunResult Run(long time, long maxEvents)
+        private RunResult Run(long time, long maxEvents, long maxSteps)
         {
             if (time < 0)
                 throw new ArgumentOutOfRangeException(nameof(time), time, "Time starts at 0.");
 
             long processed = 0;
+            long stepsBefore = _steps;
+            long spent = FunctionRunner.Spent;
 
             if (Suspended && !Stopped)
                 CarryOn();
@@ -650,10 +663,14 @@ namespace BitSorter.Sim
                     return new RunResult(RunStatus.ReachedTime, _now, processed);
                 }
 
-                if (processed >= maxEvents)
+                if (processed >= maxEvents || _steps - stepsBefore >= maxSteps)
                     return new RunResult(RunStatus.Paused, _now, processed);
 
                 processed += RunTimeStep(next);
+
+                // What the functions it called took: none of another run's, since one runs at a time.
+                _steps += FunctionRunner.Spent - spent;
+                spent = FunctionRunner.Spent;
 
                 if (!Stopped && HistoryFull)
                     StopOnFullHistory();
@@ -1474,7 +1491,7 @@ namespace BitSorter.Sim
             _wokenRegion[p] = 0;
             try
             {
-                RunSteps(p);
+                _steps += RunSteps(p);
             }
             finally
             {
@@ -1483,7 +1500,8 @@ namespace BitSorter.Sim
             }
         }
 
-        private void RunSteps(int p)
+        /// <summary>Runs a process until it waits, ends or stops; the instructions it took.</summary>
+        private long RunSteps(int p)
         {
             Instruction[] code = _processes[p].Code;
             int pc = _pc[p];
@@ -1495,7 +1513,7 @@ namespace BitSorter.Sim
                 {
                     _pc[p] = pc;
                     StopOnRunaway(p);
-                    return;
+                    return steps;
                 }
 
                 ref Instruction ins = ref code[pc];
@@ -1537,14 +1555,14 @@ namespace BitSorter.Sim
                             _inactive.Add(p);
                         else
                             _heap.Push(new Event { Time = _now + delay, Seq = ++_seq, Kind = EventKind.Resume, Index = p, Token = _generation[p] });
-                        return;
+                        return steps;
                     }
 
                     case OpCode.WaitEvent:
                         _pc[p] = pc + 1;
                         _blockedAt[p] = pc;
                         StartWaiting(p, pc);
-                        return;
+                        return steps;
 
                     case OpCode.WaitUntil:
                         if (LogicVec.Truth(ins.Value.Evaluate(_values)) == Logic4.One)
@@ -1556,7 +1574,7 @@ namespace BitSorter.Sim
                         _pc[p] = pc;
                         _blockedAt[p] = pc;
                         StartWaiting(p, pc);
-                        return;
+                        return steps;
 
                     case OpCode.Fork:
                     {
@@ -1567,7 +1585,7 @@ namespace BitSorter.Sim
                             {
                                 _pc[p] = pc;
                                 StopOnForkAgain(p, branch.Index);
-                                return;
+                                return steps;
                             }
                         }
 
@@ -1595,7 +1613,7 @@ namespace BitSorter.Sim
                         _pc[p] = pc + 1;
                         _blockedAt[p] = pc;
                         _joinPc[p] = pc;
-                        return;
+                        return steps;
                     }
 
                     case OpCode.WaitFork:
@@ -1608,7 +1626,7 @@ namespace BitSorter.Sim
                         _pc[p] = pc + 1;
                         _blockedAt[p] = pc;
                         _joinPc[p] = JoiningAll;
-                        return;
+                        return steps;
 
                     case OpCode.DisableFork:
                         foreach (int child in _children[p])
@@ -1619,7 +1637,7 @@ namespace BitSorter.Sim
                     case OpCode.Disable:
                         pc = RunDisable(p, pc, ins.Disable);
                         if (_done[p])
-                            return;   // it was inside what it disabled: a branch of a fork in the block
+                            return steps;   // it was inside what it disabled: a branch of a fork in the block
                         break;
 
                     case OpCode.Call:
@@ -1630,7 +1648,7 @@ namespace BitSorter.Sim
                         {
                             _pc[p] = pc;
                             StopOnDeepCall(p, call);
-                            return;
+                            return steps;
                         }
 
                         // The arguments in the caller's values, then its signals aside, the task's started afresh, and the inputs in.
@@ -1729,7 +1747,7 @@ namespace BitSorter.Sim
                         _done[p] = true;
                         _finishing = true;
                         _history.Message(_now, Severity.Info, $"{ins.Text} at t = {_now}: the run ends here.");
-                        return;
+                        return steps;
 
                     case OpCode.Stop:
                         // Suspended, not ended: it waits at the next statement for the run to carry on.
@@ -1738,14 +1756,14 @@ namespace BitSorter.Sim
                         _suspended.Add(p);
                         _suspending = true;
                         _history.Message(_now, Severity.Info, $"{ins.Text} at t = {_now}: the run is suspended here, and carries on when run again.");
-                        return;
+                        return steps;
 
                     default:
                         _pc[p] = pc;
                         _done[p] = true;
                         _blockedAt[p] = -1;
                         Ended(p);
-                        return;
+                        return steps;
                 }
             }
         }

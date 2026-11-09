@@ -2044,8 +2044,8 @@ template is imported, then exported filled.
   is refused, since which instance is the design is then the elaborator's to say.
 - **The run's end is where the testbench stops**: the import runs it once -- to its `$stop` or `$finish`; to its last
   change and a tenth more when it simply runs out, as nine of the course's fifteen testbenches do
-  (`Simulator.NextEventTime`, null once nothing is left to happen); or as far as `MaxRun` and `MaxEvents` let it, with
-  a note -- and keeps that as the stimulus's `End`, with no tracks, so the timeline and the run's horizon are unchanged
+  (`Simulator.NextEventTime`, null once nothing is left to happen); or as far as `MaxRun`, `MaxEvents` and, since Part
+  16d, `MaxSteps` let it, with a note -- and keeps that as the stimulus's `End`, with no tracks, so the timeline and the run's horizon are unchanged
   code. **While it drives the inputs, SET and invert are refused** with where to change them; CONVERT (13c) is the way
   to editable stimulus. Renaming the testbench takes it along; taking it out gives the inputs back to the stimulus.
   Without a testbench the design is the module nothing instantiates, and has no stimulus.
@@ -2276,7 +2276,11 @@ and one browser build for Part 13's checks -- and Part 12f's.
   What held already: the parser's nesting (200), includes nesting and cycles, the elaborator's depth, instances and
   generate loops -- each loop alone: a loop inside another was held by nothing until Part 16d's `MaxParts` -- the engine's delta cycles, a process that never waits, what a run keeps (`MaxRecorded`, which counts
   lines printed too), the importer's own run (`MaxRun`, `MaxEvents`), names a file can have, and `$fopen`, which writes
-  only through the host and so nowhere in an import's run.
+  only through the host and so nowhere in an import's run. **The importer's run had not held** (Part 16d's sweep): an
+  event is one wait, and a process may take a million instructions between two, so a testbench working that hard between
+  its waits ran some 10^12 of them in one frame. It is held to `MaxSteps` now as well, 20 million instructions, its
+  processes' and its functions' together (`Simulator.Steps`, `RunTo`'s `maxSteps`), where the corpus's hardest-working
+  testbench takes 365,775; `ATestbenchThatWorksHardBetweenItsWaits_IsRunOnlySoFar_InMoments` went from 10 s to under one.
 - **Checked.** `ImportLimitsTests`; `FileImportTests` in Edit Mode, on a scratch folder; the red tests and their fixes
   in `PreprocessorTests`, `SubroutineTests` and `ElaboratorTests`. `ImportHostileTests` takes each attack the review tried
   through a whole import and a run, as the workbench runs it -- each back in under a third of a second, saying why.

@@ -150,6 +150,35 @@ endmodule", "wide.sv")).Design;
             GC.KeepAlive(sim);
         }
 
+        /// <remarks>
+        /// An event is one wait, and between two a process may take up to <see cref="SimOptions.MaxProcessSteps"/> and a call
+        /// from an expression ten million more, so so many events says little of what a run costs: what the import's run is
+        /// held to besides (Part 16d sweep). Each wake here is two instructions of the process and some three thousand of
+        /// the function's.
+        /// </remarks>
+        [Test]
+        public void ARunGivenSoManySteps_PausesOnceItHasTakenThem_FunctionsIncluded_AndCarriesOn()
+        {
+            Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.ReadText(@"
+module busy_tb;
+    integer k = 0;
+    function automatic integer spin(input integer n);
+        integer i;
+        for (i = 0; i < n; i++) spin = i;
+    endfunction
+    initial forever begin k = spin(1000); #1; end
+endmodule", "busy.sv")).Design;
+            var sim = new Simulator(design);
+
+            RunResult first = sim.RunTo(1_000_000, maxSteps: 100_000);
+
+            Assert.AreEqual(RunStatus.Paused, first.Status);
+            Assert.Less(first.Time, 100, "the function's steps counted, not the process's two a wake alone");
+            Assert.That(sim.Steps, Is.InRange(100_000, 110_000), "paused between time steps once it had taken them");
+            Assert.AreEqual(RunStatus.ReachedTime, sim.RunTo(first.Time + 10).Status, "and carries on where it was");
+            Assert.Greater(sim.Steps, 110_000);
+        }
+
         [Test]
         public void ALoopWithADelay_OscillatesForAsLongAsItIsRun()
         {

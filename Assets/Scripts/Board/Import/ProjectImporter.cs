@@ -96,7 +96,7 @@ namespace BitSorter.Board
     /// design** is what it instantiates -- of several, the one its instance calls dut or uut, else the one with the most
     /// ports. With no testbench, the design is the module nothing instantiates. **The run's end** is where the testbench
     /// stops: the project is run once here, to its <c>$stop</c> or <c>$finish</c>, or to when nothing is left to happen,
-    /// or as far as <see cref="MaxRun"/> and <see cref="MaxEvents"/> let it go, and the time kept as the stimulus's end,
+    /// or as far as <see cref="MaxRun"/>, <see cref="MaxEvents"/> and <see cref="MaxSteps"/> let it go, and the time kept as the stimulus's end,
     /// which the timeline shows to.
     ///
     /// **A written module is its own text**, cut from its file by <see cref="ModuleCutter"/>. **A module a testbench looks
@@ -111,6 +111,13 @@ namespace BitSorter.Board
 
         /// <summary>How many events that run may take: a testbench with a free-running clock and no <c>$stop</c> ends here.</summary>
         public const long MaxEvents = 2_000_000;
+
+        /// <summary>
+        /// How many instructions that run may take, its processes' and its functions' together (<see cref="Simulator.Steps"/>):
+        /// an event is one wait, and a testbench that works hard between its waits ends here (Part 16d). The corpus's
+        /// hardest-working, the multicycle processor's, takes 365,775; this is about a second of the engine on a desktop.
+        /// </summary>
+        public const long MaxSteps = 20_000_000;
 
         /// <summary>
         /// How many files one import takes (Part 13f). An import is untrusted text, and the wrong folder -- one holding a
@@ -588,15 +595,15 @@ namespace BitSorter.Board
         }
 
         /// <summary>
-        /// Where a written testbench's run is shown to, <paramref name="elaboration"/> run as far as <see cref="MaxRun"/> and
-        /// <see cref="MaxEvents"/> let it: where it stops; run out of things to do, as one with no $stop is, its last change
+        /// Where a written testbench's run is shown to, <paramref name="elaboration"/> run as far as <see cref="MaxRun"/>,
+        /// <see cref="MaxEvents"/> and <see cref="MaxSteps"/> let it: where it stops; run out of things to do, as one with no $stop is, its last change
         /// and a tenth more; or, not stopped, there, <paramref name="stopped"/> false. Measured again as the testbench's PROGRAM
         /// is chosen (Part 15h-6c), since each program stops at its own time.
         /// </summary>
         internal static long RunEnd(Project project, Elaboration elaboration, out bool stopped)
         {
             var sim = new Simulator(elaboration.Design, null, new SimOptions { Files = ProjectFiles.ForRun(project) });
-            RunResult run = sim.RunTo(MaxRun, MaxEvents);
+            RunResult run = sim.RunTo(MaxRun, MaxEvents, MaxSteps);
             long end = run.Time;
             stopped = true;
             if (run.Status != RunStatus.Suspended && run.Status != RunStatus.Finished)

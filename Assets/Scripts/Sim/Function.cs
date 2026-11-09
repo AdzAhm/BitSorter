@@ -156,6 +156,12 @@ namespace BitSorter.Sim
         private static int _frames;
         private static long _steps;
 
+        /// <summary>
+        /// The instructions every call from an expression has taken, the calls under it included, added as each ends: what a
+        /// run counts in <see cref="Simulator.Steps"/>, by what it grew while the run ran.
+        /// </summary>
+        internal static long Spent { get; private set; }
+
         /// <summary>Why a call stopped short since this was last taken, in the run's words; null when none did.</summary>
         internal static string Stopped { get; private set; }
 
@@ -226,6 +232,8 @@ namespace BitSorter.Sim
                 f.Depth--;
                 _nesting--;
                 _frames -= frames;
+                if (_nesting == 0)
+                    Spent += _steps;
             }
 
             LogicVec result = f.Result >= 0 ? values[f.Result] : LogicVec.AllX(width);
