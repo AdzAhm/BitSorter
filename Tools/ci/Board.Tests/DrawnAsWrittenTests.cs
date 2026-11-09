@@ -120,5 +120,74 @@ namespace BitSorter.Board.Tests
                 "    assign y = 4'sb1000;\n" +
                 "endmodule\n", "widened", mustDraw: true);
         }
+
+        // -----------------------------------------------------------------
+        // What a declaration says of its net (import-export-3)
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ASupplyNet_IsDrivenWithItsLevel()
+        {
+            AssertDrawnRunsAsWritten(
+                "module supplied (input logic a, output logic y, output logic z);\n" +
+                "    supply1 vdd;\n" +
+                "    supply0 gnd;\n" +
+                "    and g1 (y, a, vdd);\n" +
+                "    or g2 (z, a, gnd);\n" +
+                "endmodule\n", "supplied", mustDraw: true);
+        }
+
+        [Test]
+        public void ANetsDeclarationAssignment_DrivesIt()
+        {
+            // wire one = 1'b1; is a continuous assignment (IEEE 1800, 10.3.1), not a starting value.
+            AssertDrawnRunsAsWritten(
+                "module declared (input logic a, output logic y, output logic [3:0] w);\n" +
+                "    wire one = 1'b1;\n" +
+                "    wire [3:0] five = 4'd5;\n" +
+                "    and g1 (y, a, one);\n" +
+                "    assign w = five;\n" +
+                "endmodule\n", "declared", mustDraw: true);
+        }
+
+        [Test]
+        public void AVariablesStartingValue_HoldsWhereNothingElseWritesIt()
+        {
+            AssertDrawnRunsAsWritten(
+                "module started (input logic a, output logic y);\n" +
+                "    logic k = 1'b1;\n" +
+                "    and g1 (y, a, k);\n" +
+                "endmodule\n", "started", mustDraw: true);
+        }
+
+        [Test]
+        public void ANetsDeclarationAssignment_WithADelay_IsNotDrawnWithout()
+        {
+            AssertDrawnRunsAsWritten(
+                "module late (input logic a, output logic y);\n" +
+                "    wire #2 one = 1'b1;\n" +
+                "    and g1 (y, a, one);\n" +
+                "endmodule\n", "late");
+        }
+
+        [TestCase("wire #3 n;", "a delay")]
+        [TestCase("tri0 n;", "tri0")]
+        [TestCase("wand n;", "wand")]
+        [TestCase("trireg n;", "trireg")]
+        public void ANetTheBoardCannotMean_IsNotDrawn(string declaration, string said)
+        {
+            // The engine refuses these too (Elaborator.CheckNetType, and a net delay off an assign); a drawing silently
+            // without them would be a circuit the code is not.
+            ImportResult imported = BoardImporter.Import(SyntaxReader.ReadText(
+                "module netty (input logic a, input logic b, output logic y);\n" +
+                "    " + declaration + "\n" +
+                "    and g1 (n, a, b);\n" +
+                "    assign y = n;\n" +
+                "endmodule\n", "netty.sv"), "netty");
+
+            Assert.IsFalse(imported.Succeeded, "drawn without what its declaration says");
+            StringAssert.Contains(said, string.Join("\n", imported.Problems));
+            StringAssert.Contains("netty.sv:2", string.Join("\n", imported.Problems), "and where");
+        }
     }
 }
