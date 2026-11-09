@@ -461,9 +461,17 @@ namespace BitSorter.ViewModel
         {
             bool grew = false;
 
-            foreach (SignalTrack track in _tracks)
-                if (track != null && track.Grow())
-                    grew = true;
+            for (int signal = 0; signal < _tracks.Length; signal++)
+            {
+                SignalTrack track = _tracks[signal];
+                if (track == null || !track.Grow())
+                    continue;
+                grew = true;
+
+                // A step a $stop suspended, carried on: the texts kept by the places it gave other values go with them.
+                if (track.RewroteFrom >= 0)
+                    _texts.Forget(signal, track.RewroteFrom);
+            }
 
             // Transitions on their way last time, which may have arrived or been cancelled since.
             for (int p = _pending.Count - 1; p >= 0; p--)

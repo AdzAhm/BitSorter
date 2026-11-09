@@ -20,8 +20,9 @@ namespace BitSorter.ViewModel
     ///
     /// **A key is one signal of one run.** What is kept is keyed by (key, change index, radix), and
     /// the cache trusts that the index-th change of a key always holds the same value, with the same
-    /// enum -- which is true of a run's history, where a settled change is never rewritten
-    /// (<see cref="SignalTrack"/>). It does not hold the values to check: they are the history's, and a
+    /// enum -- which is true of a run's history, where a settled change is rewritten only when a step a
+    /// <c>$stop</c> suspended is carried on, and the owner then forgets the places it gave other values
+    /// (<see cref="Forget"/>, <see cref="SignalTrack.RewroteFrom"/>; the 16d sweep found them kept). It does not hold the values to check: they are the history's, and a
     /// second copy of a run's every value would cost as much as the history keeps. **A run made again**
     /// -- every edit is a replay from time 0 (ADR-6) -- **is a new set of values under the same
     /// indexes**, so whatever owns the cache calls <see cref="Clear"/> then, or makes a new one with
@@ -80,6 +81,19 @@ namespace BitSorter.ViewModel
             }
 
             return text;
+        }
+
+        /// <summary>
+        /// Forgets <paramref name="key"/>'s texts from change <paramref name="from"/> on, in every radix: for a step a <c>$stop</c>
+        /// suspended, carried on, which gives those places other values (<see cref="SignalTrack.RewroteFrom"/>).
+        /// </summary>
+        public void Forget(int key, int from)
+        {
+            if (from < 0 || !_byKey.TryGetValue(key, out string[][] radixes))
+                return;
+            foreach (string[] texts in radixes)
+                if (texts != null && from < texts.Length)
+                    Array.Clear(texts, from, texts.Length - from);
         }
 
         /// <summary>Forgets every text: for a run made again, whose changes are new values under the same indexes.</summary>

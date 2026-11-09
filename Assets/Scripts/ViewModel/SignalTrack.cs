@@ -51,11 +51,19 @@ namespace BitSorter.ViewModel
         public string Text(int index) => _texts[index];
 
         /// <summary>
+        /// The first place the last <see cref="Grow"/> gave another change than it had -- a step a <c>$stop</c> suspended,
+        /// carried on -- or -1 when it only added: what a text kept by a change's place (<see cref="TextCache"/>) has to be
+        /// made again from (the 16d sweep).
+        /// </summary>
+        public int RewroteFrom { get; private set; } = -1;
+
+        /// <summary>
         /// Takes in whatever the history recorded since the last call. Only between slices of a run:
         /// see the remarks. True when the settled changes are different.
         /// </summary>
         public bool Grow()
         {
+            RewroteFrom = -1;
             int count = _history.ChangeCount(_signal);
             if (count == _read)
                 return false;
@@ -79,6 +87,8 @@ namespace BitSorter.ViewModel
                     _settled.RemoveAt(last);
                     _texts.RemoveAt(last);
                     changed = true;
+                    if (RewroteFrom < 0 || last < RewroteFrom)
+                        RewroteFrom = last;
                 }
 
                 if (_settled.Count > 0 && _settled[_settled.Count - 1].Value.Equals(change.Value))
