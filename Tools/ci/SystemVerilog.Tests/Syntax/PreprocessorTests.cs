@@ -312,6 +312,30 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             StringAssert.EndsWith(".svh", stopped.Location.File, "at an include");
         }
 
+        /// <summary>
+        /// The 16d sweep: an included file was read and lexed whole before it was charged, and nothing asked whether the
+        /// budget was already spent -- so once it was, every later include of a large file was still lexed in full, only for
+        /// its tokens to be refused.
+        /// </summary>
+        [Test]
+        public void IncludesAfterTheBudgetIsSpent_AreNotReadAtAll()
+        {
+            var files = new MemorySourceFiles();
+            files.Add("big.svh", string.Concat(Enumerable.Repeat("a ", 50_000)));
+            string top = string.Concat(Enumerable.Repeat("`include \"big.svh\"\n", 200));
+            Preprocessor.Run("top.sv", "`include \"big.svh\"\n", files, new DiagnosticBag(), out _);
+
+            var diagnostics = new DiagnosticBag();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Preprocessor.Run("top.sv", top, files, diagnostics, out Preprocessor done);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(1, diagnostics.Items.Count(d => d.Code == DiagnosticCodes.MacroTooMuch), "stopped, said once");
+            Assert.LessOrEqual(done.FilesRead.Count, 1 + Preprocessor.MaxExpansion / 50_000 + 1,
+                "the top, the includes the million paid for, and the one that spent it -- not two hundred");
+            Assert.Less(allocated, 400_000_000, $"{allocated:N0} bytes allocated");
+        }
+
         /// <summary>One import is one budget: a bomb split across files, each under it alone, is stopped as the whole would be.</summary>
         [Test]
         public void ABombSplitAcrossTheFilesOfOneImport_IsStoppedAsOne()
