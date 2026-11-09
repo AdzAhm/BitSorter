@@ -171,10 +171,10 @@ namespace BitSorter.ViewModel
             }
             if (analysis.Graph.Registers.Count == 0)
             {
-                // LOGIC is named only where it can table the circuit: a 64-bit ALU was told LOGIC tables it, beside a LOGIC that
-                // could not (the 15h browser test).
+                // LOGIC is named only where it can table the circuit, by its own refusals: a 64-bit ALU was told LOGIC tables it,
+                // beside a LOGIC that could not (the 15h browser test), and a latch of two gates the same (the 16d sweep).
                 why = "The state diagram is for circuits with registers: one without has no states"
-                    + (StepTests.InputsOf(project).Count <= StepTests.MostInputBits ? ", and LOGIC tables it." : ".");
+                    + (LogicTable.Refusal(project, analysis) == null ? ", and LOGIC tables it." : ".");
                 return null;
             }
 

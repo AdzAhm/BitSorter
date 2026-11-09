@@ -3313,7 +3313,9 @@ as code with its testbench, into a browser build. These are the fixes; the drawi
   - The count in it was wrong: "131 input bits are 8 rows". A 64-bit 1 shifted 131 places wraps round to one shifted
     3, and STATES capped its own counts at 2^30 and 2^62. `LogicTable.PowerOfTwo` writes the number itself below 63
     bits, and 2^131 past it. It was a red test, then the fix.
-  - STATES says "and LOGIC tables it" only where LOGIC can.
+  - STATES says "and LOGIC tables it" only where LOGIC can -- asked of LOGIC's own refusals (`LogicTable.Refusal`) since
+    the 16d sweep, which found it asked only the input bits: a latch of two gates, which LOGIC refuses as a loop, was sent
+    there, and sent back.
 - **Tests**:
   - `TimingFoldTests`, `InputTableTests` (a testbench's rows, and one CONVERT refuses), `CursorTests` and
     `WaveViewTests`, all under dotnet;

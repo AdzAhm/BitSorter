@@ -117,56 +117,53 @@ namespace BitSorter.ViewModel
             : "2^" + bits.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>
+        /// Why <paramref name="project"/> is not tabled, in the tab's words, as far as is known before it is run; null where it
+        /// is. What STATES asks before it names LOGIC, so the one never sends a student to the other where it refuses (the 16d
+        /// sweep: a latch of two gates was sent to a LOGIC that refuses a loop of logic).
+        /// </summary>
+        internal static string Refusal(Project project, TimingAnalysis analysis) => Refusal(project, analysis, out _, out _);
+
+        private static string Refusal(Project project, TimingAnalysis analysis, out IReadOnlyList<InputBit> inputs,
+            out List<(string Name, string Port, int Bit)> outputs)
+        {
+            inputs = null;
+            outputs = null;
+            if (project == null || analysis == null || !analysis.Succeeded)
+                return "No truth table: the circuit has to build first.";
+            if (analysis.Graph.Registers.Count > 0)
+                return "The truth table is for logic without registers: what a circuit with them gives depends on what it holds as well.";
+            if (analysis.Graph.Loops.Count > 0)
+                return "No truth table: a loop of logic need never settle, so no row can be read once it has.";
+            if (analysis.Graph.Latches.Count > 0)
+            {
+                // A latch's rows would read what the row before them left: what it holds as well as what it is given (the 16d sweep).
+                return "No truth table: a latch keeps its value on some ways through it -- an always_latch, or an always_comb that "
+                    + "does not give everything it writes a value every time -- so a row would read what the row before it left.";
+            }
+            if (analysis.Graph.UnknownDelays)
+                return "No truth table: a delay here is worked out as the circuit runs, so no hold is known to be long enough.";
+
+            inputs = StepTests.InputsOf(project);
+            outputs = OutputsOf(project);
+            if (inputs.Count == 0 || outputs.Count == 0)
+                return "No truth table yet: the circuit needs an input and an output.";
+            if (inputs.Count > StepTests.MostInputBits)
+                return inputs.Count.ToString(CultureInfo.InvariantCulture) + " input bits are " + PowerOfTwo(inputs.Count)
+                    + " rows; the truth table goes to " + StepTests.MostInputBits.ToString(CultureInfo.InvariantCulture) + " bits, "
+                    + (1 << StepTests.MostInputBits).ToString("N0", CultureInfo.InvariantCulture) + " rows.";
+            return null;
+        }
+
+        /// <summary>
         /// The truth table of <paramref name="project"/>, its run's first slice made, each combination held longer than
         /// <paramref name="timing"/>'s slowest path -- or null, and why in <paramref name="why"/>.
         /// </summary>
         public static LogicTable Start(Project project, TimingView timing, Func<double> nowMilliseconds, out string why,
             double budgetMilliseconds = StepMeasure.BudgetMilliseconds)
         {
-            why = null;
-            TimingAnalysis analysis = timing?.Analysis;
-            if (project == null || analysis == null || !analysis.Succeeded)
-            {
-                why = "No truth table: the circuit has to build first.";
+            why = Refusal(project, timing?.Analysis, out IReadOnlyList<InputBit> inputs, out List<(string Name, string Port, int Bit)> outputs);
+            if (why != null)
                 return null;
-            }
-            if (analysis.Graph.Registers.Count > 0)
-            {
-                why = "The truth table is for logic without registers: what a circuit with them gives depends on what it holds as well.";
-                return null;
-            }
-            if (analysis.Graph.Loops.Count > 0)
-            {
-                why = "No truth table: a loop of logic need never settle, so no row can be read once it has.";
-                return null;
-            }
-            if (analysis.Graph.Latches.Count > 0)
-            {
-                // A latch's rows would read what the row before them left: what it holds as well as what it is given (the 16d sweep).
-                why = "No truth table: a latch keeps its value on some ways through it -- an always_latch, or an always_comb that "
-                    + "does not give everything it writes a value every time -- so a row would read what the row before it left.";
-                return null;
-            }
-            if (analysis.Graph.UnknownDelays)
-            {
-                why = "No truth table: a delay here is worked out as the circuit runs, so no hold is known to be long enough.";
-                return null;
-            }
-
-            IReadOnlyList<InputBit> inputs = StepTests.InputsOf(project);
-            List<(string Name, string Port, int Bit)> outputs = OutputsOf(project);
-            if (inputs.Count == 0 || outputs.Count == 0)
-            {
-                why = "No truth table yet: the circuit needs an input and an output.";
-                return null;
-            }
-            if (inputs.Count > StepTests.MostInputBits)
-            {
-                why = inputs.Count.ToString(CultureInfo.InvariantCulture) + " input bits are " + PowerOfTwo(inputs.Count)
-                    + " rows; the truth table goes to " + StepTests.MostInputBits.ToString(CultureInfo.InvariantCulture) + " bits, "
-                    + (1 << StepTests.MostInputBits).ToString("N0", CultureInfo.InvariantCulture) + " rows.";
-                return null;
-            }
 
             StepPlan plan = StepTests.Combinations(project, StepTests.SettleFor(timing.Slowest));
             Project copy = project with { Stimulus = plan.Stimulus, Bench = null };
