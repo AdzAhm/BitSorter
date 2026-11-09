@@ -128,10 +128,20 @@ namespace BitSorter.View
             ShowSample(0);
             if (_session != null && _session.Project.TopModule?.IsWritten == true)
                 _session.ShowCodeOf(_session.Project.Top);   // an answer written in code reopens on its code (the review of #111)
-            GameAnalytics.ExerciseStarted(exercise.Id);
+            ReportStarted(exercise);
             OpenGoal();
             if (_exerciseNote != null)
                 Notice(_exerciseNote);
+        }
+
+        /// <summary>
+        /// <paramref name="exercise"/> reported started, if it is what opened: an answer the save keeps that cannot open leaves
+        /// the exercise for the reference circuit (save-1), and was reported started all the same (the save-1 fix's review).
+        /// </summary>
+        private void ReportStarted(Exercise exercise)
+        {
+            if (_exercise == exercise)
+                GameAnalytics.ExerciseStarted(exercise.Id);
         }
 
         /// <summary>

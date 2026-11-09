@@ -216,7 +216,7 @@ namespace BitSorter.View
                     _exerciseNote = null;
                     _launchSample = 0;
                     Open();
-                    GameAnalytics.ExerciseStarted(exercise.Id);
+                    ReportStarted(exercise);
                     if (_exerciseNote != null)
                         Notice(_exerciseNote);   // a kept circuit moved aside as it opened
                     return;
