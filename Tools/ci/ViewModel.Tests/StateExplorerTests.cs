@@ -41,6 +41,27 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.Contains("64 register bits are up to 2^64 states", why);
         }
 
+        /// <summary>
+        /// A machine too big to draw is told so from the timing's own graph, testbench or not (the 16d sweep): with a testbench
+        /// the count waited until a copy had been compiled, elaborated and timed again -- 77 MB and 145 ms for the single-cycle
+        /// processor in the frame STATES opened -- though the timing reckons the design alone, never its testbench.
+        /// </summary>
+        [Test]
+        public void AMachineTooBigToDraw_IsToldSoBeforeAnythingIsCompiled_TestbenchOrNot()
+        {
+            Project processor = WorkbenchSamples.All.Single(s => s.Name == "Single-cycle RISC-V").Build();
+            Assert.IsNotNull(processor.Bench, "sanity: run by a testbench of its own");
+            TimingView timing = TimingView.Of(processor);
+            StateExplorer.Start(processor, timing, () => 0, out string why);
+
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            Assert.IsNull(StateExplorer.Start(processor, timing, () => 0, out why));
+            long bytes = System.GC.GetAllocatedBytesForCurrentThread() - before;
+            TestContext.WriteLine($"{bytes / 1024} KB: {why}");
+            StringAssert.Contains("register bits are up to 2^", why);
+            Assert.Less(bytes, 1L << 20, "counted on the graph the timing already has");
+        }
+
         private static StateMachine Exercise(string id)
         {
             Exercise exercise = ExerciseFiles.Load(id);
