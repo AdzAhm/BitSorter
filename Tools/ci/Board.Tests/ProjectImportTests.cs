@@ -307,6 +307,32 @@ namespace BitSorter.Board.Tests
             Assert.LessOrEqual(import.Project.Stimulus.End, ProjectImporter.MaxRun);
         }
 
+        /// <summary>
+        /// A testbench that runs out of things to do late, with no $stop, is shown to its last change and a tenth more -- past
+        /// <see cref="ProjectImporter.MaxRun"/> -- and the rules take the project the import made: they refused every run
+        /// that ended past MaxRun, so an import that succeeded opened as the reference circuit, saying it could not be opened
+        /// (the save-8 fix's review).
+        /// </summary>
+        [Test]
+        public void ATestbenchThatRunsOutLate_IsShownPastItsLastChange_AndTheRulesTakeIt()
+        {
+            const string bench =
+                "module late_tb;\n" +
+                "    logic a, b, s, y;\n" +
+                "    mux2 dut (.a(a), .b(b), .s(s), .y(y));\n" +
+                "    initial begin\n" +
+                "        a = 0; b = 1; s = 0;\n" +
+                "        #9500000 a = 1;\n" +
+                "    end\n" +
+                "endmodule\n";
+
+            ProjectImport import = Import(("mux2.sv", Mux), ("late_tb.sv", bench));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.Greater(import.Project.Stimulus.End, ProjectImporter.MaxRun, "sanity: shown past MaxRun, a tenth past its last change");
+            Assert.IsEmpty(BoardRules.Check(import.Project).Where(d => d.IsError), "the rules take what the import made");
+        }
+
         [Test]
         public void AnImportedProject_IsSavedWithItsTestbenchAndFiles_AndReadBack()
         {
