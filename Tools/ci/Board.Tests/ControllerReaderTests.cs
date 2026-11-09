@@ -247,7 +247,10 @@ endmodule
         [Test]
         public void TheMachineAlone_IsWhole() => Assert.IsTrue(ReadText(Nested, "nested").Reading.Whole);
 
-        /// <summary>A state machine in one process -- the case on the state in the always_ff itself -- with a reset and a registered output.</summary>
+        /// <summary>
+        /// A state machine in one process -- the case on the state in the always_ff itself -- with a reset, and an output it sets
+        /// beside the state, a register too.
+        /// </summary>
         private const string OneProcess = @"
 module one (input logic clk, rst, go, output logic busy);
     typedef enum logic [1:0] {IDLE, RUN, DONE} st_t;
@@ -265,24 +268,31 @@ module one (input logic clk, rst, go, output logic busy);
 endmodule
 ";
 
+        /// <summary>The same machine setting nothing but its state.</summary>
+        private static readonly string OneProcessAlone = OneProcess
+            .Replace(", output logic busy", "")
+            .Replace("            busy <= 1'b0;\n", "")
+            .Replace("busy <= 1'b0; ", "")
+            .Replace("busy <= 1'b1; ", "");
+
         /// <summary>
-        /// A machine written in one process is held to the engine as one in two is: its arms read with the reset let go, and an
-        /// output it sets compared with what it is about to take, not what it holds -- whatever the reset's edge or its sense.
-        /// And the check still refuses such a reading that the engine does not bear out (the 16d sweep: the reset, folded into
-        /// the register's next value, took every state to IDLE where no arrow went, so no such diagram was ever shown).
+        /// A machine written in one process is held to the engine as one in two is, its arms read with the reset let go --
+        /// whatever the reset's edge or its sense. And the check still refuses such a reading that the engine does not bear out
+        /// (the 16d sweep: the reset, folded into the register's next value, took every state to IDLE where no arrow went, so no
+        /// such diagram was ever shown).
         /// </summary>
         [TestCase("@(posedge clk)", "rst", "rst", TestName = "AOneProcessMachine_WithASynchronousReset_IsHeldToTheEngine")]
         [TestCase("@(posedge clk, posedge rst)", "rst", "rst", TestName = "AOneProcessMachine_WithAnAsynchronousReset_IsHeldToTheEngine")]
         [TestCase("@(posedge clk, negedge rst_n)", "rst_n", "!rst_n", TestName = "AOneProcessMachine_WithAnActiveLowReset_IsHeldToTheEngine")]
         public void AOneProcessMachine_IsHeldToTheEngine(string events, string reset, string condition)
         {
-            string text = OneProcess.Replace("@(posedge clk)", events).Replace("input logic clk, rst,", "input logic clk, " + reset + ",")
+            string text = OneProcessAlone.Replace("@(posedge clk)", events).Replace("input logic clk, rst,", "input logic clk, " + reset + ",")
                 .Replace("if (rst) begin", "if (" + condition + ") begin");
             (SyntaxTree tree, ControllerReading reading) = ReadText(text, "one");
             MachineReading machine = reading.Machine;
             Assert.AreEqual(machine.Register, machine.Next, "sanity: one process");
             CollectionAssert.AreEqual(new[] { "RUN: go", "IDLE: otherwise" }, Out(machine, "IDLE").Select(a => a.To + ": " + a.Condition).ToArray());
-            CollectionAssert.AreEqual(new[] { "busy = 1" }, Settings(machine, "RUN"));
+            StringAssert.DoesNotContain("busy", text, "sanity: it sets nothing but its state");
             Assert.IsTrue(reading.Whole);
             ControllerEngine.Hold(tree, "one", reading);
 
@@ -293,6 +303,32 @@ endmodule
                 machine.Arrows.Skip(1).ToList(), machine.Settings);
             StringAssert.Contains("no arrow", ControllerCheck.Why(new ControllerReading(reading.Module, fewer, reading.Tables, reading.Whole), design,
                 RtlExtractor.Of(design, top), top), "an arrow taken away is still refused");
+        }
+
+        /// <summary>
+        /// What a machine of one process sets beside its state is a register as well, so it takes its value a clock after the
+        /// state the diagram would show it in -- busy, set in RUN's arm, is 1 in DONE and 0 in RUN -- and such a reading is not
+        /// shown, whether what it sets is a box's or an arrow's (the review of the 16d fixes: held to the register's D, RUN's box
+        /// said busy while the waves showed it 0 there, a cycle early).
+        /// </summary>
+        [TestCase("box", "In RUN, busy", TestName = "AOneProcessMachine_ThatSetsAnOutputInAState_IsNotShown")]
+        [TestCase("arrow", "From IDLE to RUN, busy", TestName = "AOneProcessMachine_ThatSetsAnOutputOnAnArrow_IsNotShown")]
+        public void AOneProcessMachine_ThatSetsAnythingButItsState_IsNotShown(string where, string said)
+        {
+            string text = where == "box" ? OneProcess
+                : OneProcessAlone.Replace("input logic clk, rst, go)", "input logic clk, rst, go, output logic busy)")
+                    .Replace("IDLE: begin if (go) state <= RUN; end", "IDLE: begin busy <= 1'b0; if (go) begin busy <= 1'b1; state <= RUN; end end");
+            (SyntaxTree tree, ControllerReading reading) = ReadText(text, "one");
+            MachineReading machine = reading.Machine;
+            Assert.AreEqual(machine.Register, machine.Next, "sanity: one process");
+            if (where == "box")
+                CollectionAssert.AreEqual(new[] { "busy = 1" }, Settings(machine, "RUN"), "sanity: RUN's box sets busy");
+            else
+                Assert.IsTrue(machine.Arrows.Any(a => a.Outputs.Count > 0), "sanity: an arrow sets busy");
+
+            string why = Why(tree, "one", reading);
+            Assert.IsNotNull(why, "busy shown where it is a clock later");
+            StringAssert.StartsWith(said, why);
         }
 
         /// <summary>A machine beside a memory it reads -- a ROM looked up by the state -- with the memory's words in it.</summary>
