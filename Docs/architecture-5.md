@@ -3953,7 +3953,11 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   `default: a = 2'bxx;`, bit for bit, x for x (the review of the 16d fixes: it never matched). A state with an arrow not yet taken
   is looked at again first (16d sweep: `data == 8'd200 && valid` passed or failed by the seed, and a 16-bit compare's
   arrow was all but never taken): a wide input at the netlist's constants, each pair of inputs at every pair of their
-  values where there are 1,024 or fewer, every input at once at random among those, 16,384 trials at most. A trial's
+  values where there are 1,024 or fewer, every input at once at random among those -- 16,384 trials in all, every
+  state's second look together, and a state with an arrow still not taken after its own ends the check, since only a
+  trial in that state takes it (the review of the 16d fixes: the cap was each state's, and sixteen states each with an
+  arrow no input takes, `count == 5'd20` on a 4-bit count, made 76,136 trials and 0.4 to 0.6 s where they make 5,040 and
+  under 0.06; `ControllerCheckCostTests` holds it in trials, through `Why`'s cost). A trial's
   nets are written over in one array, so a check makes 2.2 MB for the multicycle controller where it made 16.9. A
   machine of one process -- the
   `case` in the `always_ff` -- is tried with its reset let go (`MachineReading.LetGo`: `rst` at 0, `!rst_n` at 1), as
@@ -3962,7 +3966,10 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   and 1 wherever RUN goes -- so a box or an arrow showing it would be a clock early, and such a machine is not shown,
   only its drawing (the review of the 16d fixes: held to the register's D, RUN's box said busy where the waves showed 0;
   the diagram has no way yet to show an output a clock late). A memory's words
-  are given values as every other signal the logic reads is. A table's rows are tried at their labels and its default at
+  are given values as every other signal the logic reads is (16d: left with none, the first word read threw) -- every
+  word once, and each trial all of a memory of 64 words or fewer again but only 64 of a bigger one's, at random
+  (`WordsATrial`; the review of the 16d fixes: every word of 16,384 each trial was 18 million values and a third of a
+  second beside a machine, on every edit, where it is 98,000 and 0.02 s). A table's rows are tried at their labels and its default at
   values no label takes (16d: the default was never tried), the subject held there -- on its own net too
   (`RtlEvaluator.Evaluate` with a net held), so a subject the module works out itself, a decoder on another's output, is
   tried at every row however seldom or never the inputs bring it there (16d: such a table was never shown; the review of

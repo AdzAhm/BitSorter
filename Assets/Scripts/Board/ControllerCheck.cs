@@ -16,6 +16,8 @@ namespace BitSorter.Board
     /// A state with an arrow not yet taken after that is looked at again before the arrow is said never taken: a wide input at
     /// the constants the logic compares with, each pair of inputs at every pair of their values where they are few enough, and
     /// every input at once at random among those -- an arrow two inputs take together, or a 16-bit compare's, was missed.
+    /// Every state's second look draws on one budget, <see cref="SecondLookTrials"/>, and an arrow still not taken after its
+    /// state's ends the check; a memory's words are given values once, and a few of them again each trial.
     ///
     /// A machine of one process -- the <c>case</c> in the <c>always_ff</c> -- is tried with its reset let go
     /// (<see cref="MachineReading.LetGo"/>). Whatever else its arms set is a register too, taking its value a clock after the
@@ -88,6 +90,7 @@ namespace BitSorter.Board
                 if (net.Signal >= 0)
                     read.Add(net.Signal);
             var held = new HashSet<int>();
+            var memories = new List<MemoryInfo>();
             foreach (RtlCell cell in netlist.Cells)
             {
                 if (cell.Kind == RtlKind.Register && cell.Signal >= 0)
@@ -95,18 +98,37 @@ namespace BitSorter.Board
                     read.Add(cell.Signal);
                     held.Add(cell.Signal);
                 }
-                if (cell.Kind == RtlKind.Word && cell.Memory != null)
-                    for (int word = 0; word < cell.Memory.Depth; word++)
-                        read.Add(cell.Memory.First.Index + word);
+                if (cell.Kind == RtlKind.Word && cell.Memory != null && !memories.Contains(cell.Memory))
+                    memories.Add(cell.Memory);
             }
             var values = new LogicVec[design.Signals.Count];
             var nets = new LogicVec[netlist.Nets.Count];   // every trial's, written over: none of it is kept past the trial
             var random = new Random(7919);
+
+            // A memory's words are given values once, and a trial gives all of a small one's again but only WordsATrial of a
+            // bigger one's, at random: every word of 16,384 made again every trial was 18 million values and a third of a
+            // second for a machine beside one, on every edit (the review of the 16d fixes).
+            foreach (MemoryInfo memory in memories)
+            {
+                for (int word = 0; word < memory.Depth; word++)
+                    values[memory.First.Index + word] = Random(random, design.Signals[memory.First.Index + word].Width);
+                tally.Values += memory.Depth;
+            }
             void Randomise()
             {
                 foreach (int s in read)
                     values[s] = Random(random, design.Signals[s].Width);
                 tally.Values += read.Count;
+                foreach (MemoryInfo memory in memories)
+                {
+                    int words = Math.Min(memory.Depth, WordsATrial);
+                    for (int k = 0; k < words; k++)
+                    {
+                        int word = memory.First.Index + (memory.Depth <= WordsATrial ? k : random.Next(memory.Depth));
+                        values[word] = Random(random, design.Signals[word].Width);
+                    }
+                    tally.Values += words;
+                }
             }
 
             // What the logic reads that nothing in it works out: the inputs, and what registers hold, but the state's.
@@ -117,6 +139,7 @@ namespace BitSorter.Board
                 if (design.Signals[i].Scope == scope && (design.Signals[i].Port == BitSorter.SystemVerilog.Syntax.PortDirection.Input || held.Contains(i)))
                     inputs.Add(i);
 
+            int left = SecondLookTrials;   // every second look's together, the whole check's (the review of the 16d fixes)
             if (reading.Machine is MachineReading machine)
             {
                 if (register < 0)
@@ -199,12 +222,17 @@ namespace BitSorter.Board
                                 return why;
                         }
                     }
-                    if (!AllTaken(s) && SecondLook(s, inputs, Constants(netlist), Trial, AllTaken) is string missed)
+                    if (AllTaken(s))
+                        continue;
+                    if (SecondLook(s, inputs, Constants(netlist), Trial, AllTaken) is string missed)
                         return missed;
+
+                    // Only a trial in s takes an arrow out of it, so one still not taken never will be, and the states after it
+                    // are not looked at (the review of the 16d fixes: each was, sixteen states five times the trials).
+                    foreach (MachineArrow arrow in machine.Arrows)
+                        if (arrow.From == s && !taken.Contains((arrow.From, arrow.To)))
+                            return $"No input takes {machine.States[arrow.From]} to {machine.States[arrow.To]}.";
                 }
-                foreach (MachineArrow arrow in machine.Arrows)
-                    if (!taken.Contains((arrow.From, arrow.To)))
-                        return $"No input takes {machine.States[arrow.From]} to {machine.States[arrow.To]}.";
             }
 
             foreach (TableReading table in reading.Tables)
@@ -245,7 +273,8 @@ namespace BitSorter.Board
             // every pair of their values where they are few enough, and every input at once at random among them.
             string SecondLook(int s, List<int> tried, List<ulong> constants, Func<int, string> trial, Func<int, bool> allTaken)
             {
-                int left = SecondLookTrials;
+                if (left <= 0)
+                    return null;
                 var candidates = new List<LogicVec>[tried.Count];
                 for (int i = 0; i < tried.Count; i++)
                     candidates[i] = Candidates(design.Signals[tried[i]].Width, constants);
@@ -294,9 +323,13 @@ namespace BitSorter.Board
 
         /// <summary>
         /// How many pairs of values two inputs are tried at together, how many tries every input at once has, and the most trials
-        /// a second look at a state makes in all -- a reading worked out once, as its module opens, in a frame.
+        /// the second looks make in all, every state's together -- a reading worked out again as its module is drawn again, in a
+        /// frame.
         /// </summary>
         public const int PairTrials = 1024, LooseTrials = 256, SecondLookTrials = 16384;
+
+        /// <summary>How many words of a memory a trial gives values again: all of one this size or smaller, else this many at random.</summary>
+        public const int WordsATrial = 64;
 
         /// <summary>Every value written as a constant in <paramref name="netlist"/>, as a number, each once: what its logic compares with.</summary>
         private static List<ulong> Constants(RtlNetlist netlist)
