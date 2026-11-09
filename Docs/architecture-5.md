@@ -4804,6 +4804,13 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   loop was held to 65,536 rounds, but never a loop inside another, and a round that declared nothing was counted by
   nothing: two loops of 65,536 made 4.3 thousand million blocks. A hundred times the corpus's largest design (the 64-bit
   ALU's 2,627 parts), and a loop inside a loop of 65,536 rounds between them, an assign each, is still built.
+- **A long concatenation is one node** (`Expr.Concat` of a list, `ConcatAllExpr`): a concatenation is a flat list as it is
+  read, but it was joined item on item into a tree as deep as it was long, and so were a `'{...}`'s slots and an `inside`
+  set's members -- every walk of them recursed once an item, and fifty thousand overflowed the stack, which nothing can
+  catch. Three parts or more are one node now, as deep as its deepest part, and its netlist is the cells it always was, so
+  a drawing of code draws it as before; an `inside` set's matches are joined by `||` half and half. A function giving one
+  back is no longer stopped short by its frames. A flat chain of operators, `a + a + ... + a`, is as deep as it is long as
+  the parser builds it: that is the parser's to bound (the sweep's sv-front-1), before any walk of it.
 
 ---
 

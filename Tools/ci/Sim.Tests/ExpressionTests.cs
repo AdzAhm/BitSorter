@@ -166,5 +166,23 @@ module t;
     initial #1 $display(""%0d %0d %0d %b"", $countones(joined(a)), $countones(filled(a)), $countones({{{items}}}), found(1000));
 endmodule"));
         }
+
+        /// <summary>The same at the size that overflowed the stack: fifty thousand items and members, built and run.</summary>
+        [Test]
+        public void FiftyThousandItems_AreBuiltAndRun()
+        {
+            string items = string.Join(", ", Enumerable.Repeat("a", 50_000));
+            string set = string.Join(", ", Enumerable.Range(0, 50_000).Select(i => (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            CollectionAssert.AreEqual(new[] { "50000 1" }, Printed($@"
+module t;
+    logic a = 1'b1;
+    logic [49999:0] y;
+    logic hit;
+    int n = 50000;
+    assign y = {{{items}}};
+    assign hit = n inside {{{set}}};
+    initial #1 $display(""%0d %b"", $countones(y), hit);
+endmodule"));
+        }
     }
 }

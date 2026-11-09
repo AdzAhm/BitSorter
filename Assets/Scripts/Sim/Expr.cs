@@ -278,6 +278,22 @@ namespace BitSorter.Sim
         /// <summary><c>{high, low}</c>.</summary>
         public static Expr Concat(Expr high, Expr low) => new ConcatExpr(high, low);
 
+        /// <summary>
+        /// <c>{parts[0], parts[1], ...}</c>, the first the most significant, of two parts or more. Of three or more it is one
+        /// node, as deep as its deepest part however many it has: joined part on part, a concatenation of tens of thousands
+        /// was as deep as it was long, and every walk of it overflowed the machine's stack (the Part 16d sweep). As a netlist
+        /// it is the same cells as the parts joined one on the next, so a drawing of code draws it as it always has.
+        /// </summary>
+        public static Expr Concat(IReadOnlyList<Expr> mostSignificantFirst)
+        {
+            if (mostSignificantFirst == null) throw new ArgumentNullException(nameof(mostSignificantFirst));
+            if (mostSignificantFirst.Count < 2)
+                throw new ArgumentException("A concatenation of parts joins two or more.", nameof(mostSignificantFirst));
+            return mostSignificantFirst.Count == 2
+                ? new ConcatExpr(mostSignificantFirst[0], mostSignificantFirst[1])
+                : new ConcatAllExpr(mostSignificantFirst);
+        }
+
         /// <summary><c>{count{a}}</c>.</summary>
         public static Expr Replicate(Expr a, int count) => new ReplicateExpr(a, count);
 
@@ -689,6 +705,162 @@ namespace BitSorter.Sim
                 BitDeps high = _high.Depends(first), low = _low.Depends(first);
                 int below = _low.Width;
                 return BitDeps.Bits(Width, high.Routing && low.Routing, i => i < below ? low.Of(i) : high.Of(i - below));
+            }
+        }
+
+        /// <summary>
+        /// A concatenation of three parts or more as one node (<see cref="Concat(IReadOnlyList{Expr})"/>): what the parts joined
+        /// one on the next would give, every walk of it a loop over its parts rather than a recursion through them.
+        /// </summary>
+        private sealed class ConcatAllExpr : Expr
+        {
+            /// <summary>The parts, the most significant first.</summary>
+            private readonly Expr[] _parts;
+
+            /// <summary>Each part's lowest bit in the whole: falling, the first part's the highest.</summary>
+            private readonly int[] _lowest;
+
+            private readonly int _width;
+
+            public ConcatAllExpr(IReadOnlyList<Expr> mostSignificantFirst)
+            {
+                _parts = new Expr[mostSignificantFirst.Count];
+                long width = 0;
+                for (int i = 0; i < _parts.Length; i++)
+                {
+                    _parts[i] = mostSignificantFirst[i] ?? throw new ArgumentNullException(nameof(mostSignificantFirst), "A part of a concatenation is null.");
+                    width += _parts[i].Width;
+                }
+
+                if (width > LogicVec.MaxWidth)
+                    throw new ArgumentOutOfRangeException(nameof(mostSignificantFirst), width, $"A concatenation is at most {LogicVec.MaxWidth} bits.");
+                _width = (int)width;
+
+                _lowest = new int[_parts.Length];
+                int lowest = _width;
+                for (int i = 0; i < _parts.Length; i++)
+                    _lowest[i] = lowest -= _parts[i].Width;
+            }
+
+            internal override bool IsWiring
+            {
+                get
+                {
+                    foreach (Expr part in _parts)
+                        if (!part.IsWiring)
+                            return false;
+                    return true;
+                }
+            }
+
+            internal override bool HasConstant
+            {
+                get
+                {
+                    foreach (Expr part in _parts)
+                        if (part.HasConstant)
+                            return true;
+                    return false;
+                }
+            }
+
+            public override int Width => _width;
+
+            public override LogicVec Evaluate(LogicVec[] values)
+            {
+                // Narrow, joined in place as the parts joined one on the next were, and nothing allocated; wide, every part
+                // written once into the whole.
+                if (_width <= 64)
+                {
+                    LogicVec joined = _parts[0].Evaluate(values);
+                    for (int i = 1; i < _parts.Length; i++)
+                        joined = LogicVec.Concat(joined, _parts[i].Evaluate(values));
+                    return joined;
+                }
+
+                var all = new LogicVec[_parts.Length];
+                for (int i = 0; i < _parts.Length; i++)
+                    all[i] = _parts[i].Evaluate(values);
+                return LogicVec.Concat(all);
+            }
+
+            /// <summary>The cells of the parts joined one on the next, the first two first: a drawing of code draws it as it did.</summary>
+            internal override int ToRtl(RtlBuilder b)
+            {
+                int joined = b.Of(_parts[0]);
+                int width = _parts[0].Width;
+                for (int i = 1; i < _parts.Length; i++)
+                {
+                    int low = b.Of(_parts[i]);
+                    width += _parts[i].Width;
+                    joined = b.Concat(joined, low, width);
+                }
+
+                return joined;
+            }
+
+            internal override bool CanFloat(Func<int, bool> floats)
+            {
+                foreach (Expr part in _parts)
+                    if (part.CanFloat(floats))
+                        return true;
+                return false;
+            }
+
+            public override void CollectReads(ICollection<int> reads)
+            {
+                foreach (Expr part in _parts)
+                    part.CollectReads(reads);
+            }
+
+            internal override void CollectCalls(ICollection<FunctionInfo> calls)
+            {
+                foreach (Expr part in _parts)
+                    part.CollectCalls(calls);
+            }
+
+            internal override int Height
+            {
+                get
+                {
+                    int height = 0;
+                    foreach (Expr part in _parts)
+                        height = Math.Max(height, HeightOf(part));
+                    return 1 + height;
+                }
+            }
+
+            internal override BitDeps Depends(int[] first)
+            {
+                var parts = new BitDeps[_parts.Length];
+                bool routing = true;
+                for (int i = 0; i < _parts.Length; i++)
+                {
+                    parts[i] = _parts[i].Depends(first);
+                    routing &= parts[i].Routing;
+                }
+
+                return BitDeps.Bits(_width, routing, i =>
+                {
+                    int k = PartAt(i);
+                    return parts[k].Of(i - _lowest[k]);
+                });
+            }
+
+            /// <summary>Which part bit <paramref name="bit"/> of the whole is in.</summary>
+            private int PartAt(int bit)
+            {
+                int low = 0, high = _parts.Length - 1;
+                while (low < high)
+                {
+                    int middle = (low + high) / 2;
+                    if (_lowest[middle] <= bit)
+                        high = middle;
+                    else
+                        low = middle + 1;
+                }
+
+                return low;
             }
         }
 

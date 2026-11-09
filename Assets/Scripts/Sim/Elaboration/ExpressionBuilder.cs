@@ -235,10 +235,10 @@ namespace BitSorter.Sim
 
                 case ConcatenationExpression c:
                 {
-                    int width = 0;
+                    long width = 0;
                     foreach (Expression item in c.Items)
                         width += TypeOf(item).Width;
-                    return new TypeInfo(width, false);
+                    return new TypeInfo((int)Math.Min(width, LogicVec.MaxWidth), false);
                 }
 
                 case ReplicationExpression r:
@@ -1438,7 +1438,8 @@ namespace BitSorter.Sim
 
         private Expr BuildConcatenation(ConcatenationExpression c)
         {
-            Expr result = null;
+            var parts = new List<Expr>(c.Items.Count);
+            long width = 0;
 
             foreach (Expression item in c.Items)
             {
@@ -1455,17 +1456,25 @@ namespace BitSorter.Sim
                 }
 
                 Expr built = BuildSelf(item);
-                result = result == null ? built : Expr.Concat(result, built);
+                parts.Add(built);
+                width += built.Width;
             }
 
-            if (result != null && result.Width > LogicVec.MaxWidth)
+            if (width > LogicVec.MaxWidth)
             {
                 Error(c.Location, ElaborationCodes.TooLarge, $"This concatenation is wider than BitSorter allows ({LogicVec.MaxWidth}).");
                 return Expr.Constant(LogicVec.AllX(1));
             }
 
-            return result ?? Expr.Constant(LogicVec.AllX(1));
+            return Joined(parts) ?? Expr.Constant(LogicVec.AllX(1));
         }
+
+        /// <summary>
+        /// Parts joined into one value, the first the most significant: null for none, a part alone as itself, and two or more
+        /// one concatenation, as deep as its deepest part (<see cref="Expr.Concat(IReadOnlyList{Expr})"/>, the Part 16d sweep).
+        /// </summary>
+        private static Expr Joined(List<Expr> parts) =>
+            parts.Count == 0 ? null : parts.Count == 1 ? parts[0] : Expr.Concat(parts);
 
         private Expr BuildBinary(BinaryExpression b, int width, bool signed)
         {
@@ -1951,21 +1960,28 @@ namespace BitSorter.Sim
             }
 
             Expr value = BuildAt(inside.Value, width, signed);
-            Expr result = null;
+            var matches = new List<Expr>(inside.Set.Count);
 
             foreach (Expression member in inside.Set)
             {
-                Expr match = member is ValueRange range
+                matches.Add(member is ValueRange range
                     ? Expr.Apply(BinaryOp.LogicalAnd,
                         Expr.Apply(BinaryOp.GreaterOrEqual, value, BuildAt(range.Low, width, signed)),
                         Expr.Apply(BinaryOp.LessOrEqual, value, BuildAt(range.High, width, signed)))
-                    : Expr.Apply(BinaryOp.WildcardEqual, value, BuildAt(member, width, signed));
-
-                result = result == null ? match : Expr.Apply(BinaryOp.LogicalOr, result, match);
+                    : Expr.Apply(BinaryOp.WildcardEqual, value, BuildAt(member, width, signed)));
             }
 
-            return result ?? Expr.Constant(LogicVec.FromUInt64(0, 1));
+            return matches.Count == 0 ? Expr.Constant(LogicVec.FromUInt64(0, 1)) : AnyOf(matches, 0, matches.Count);
         }
+
+        /// <summary>
+        /// The matches from <paramref name="from"/>, <paramref name="count"/> of them, joined by <c>||</c> half and half, so a
+        /// set of any size is a tree as deep as its size's logarithm (the Part 16d sweep: joined one on the next, a set of tens
+        /// of thousands overflowed the stack). <c>||</c> gives the same however its operands are grouped (IEEE 1800, 11.4.7).
+        /// </summary>
+        private static Expr AnyOf(List<Expr> matches, int from, int count) =>
+            count == 1 ? matches[from]
+            : Expr.Apply(BinaryOp.LogicalOr, AnyOf(matches, from, count / 2), AnyOf(matches, from + count / 2, count - count / 2));
 
         /// <summary>
         /// The enum a value has, and whether its type is 2-state: a signal declared of an enum type, a cast to
@@ -2644,7 +2660,7 @@ namespace BitSorter.Sim
                 return Expr.Constant(LogicVec.AllX(type.Width));
             }
 
-            Expr result = null;
+            var slots = new List<Expr>(count);
             for (int slot = 0; slot < count; slot++)
             {
                 PackedType part = layout != null ? layout.Fields[slot].Type : type.Element ?? PackedType.Bit;
@@ -2662,10 +2678,10 @@ namespace BitSorter.Sim
                     built = BuildAssigned(value, part, part.Width);
                 }
 
-                result = result == null ? built : Expr.Concat(result, built);
+                slots.Add(built);
             }
 
-            return AsSigned(result ?? Expr.Constant(LogicVec.AllX(type.Width)), type.Signed);
+            return AsSigned(Joined(slots) ?? Expr.Constant(LogicVec.AllX(type.Width)), type.Signed);
         }
 
         /// <summary>Which member or element a key in a <c>'{...}</c> names, counted from the first; -1 having said why it names none.</summary>
