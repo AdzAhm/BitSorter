@@ -347,7 +347,7 @@ namespace BitSorter.View
             painter.Line(new Vector2(x, y), new Vector2(x + length, y), SchematicStyle.OneWidth, palette.One, roundCaps: true);
 
             x = LegendSwatchX(2);
-            HatchedRect(painter, palette, x, y - 4f, x + length, y + 4f);
+            HatchedRect(painter, palette, x, y - 4f, x + length, y + 4f, palette.BareHatchBar);
 
             x = LegendSwatchX(3);
             DashedLine(painter, x, x + length, y, SchematicStyle.HighZWidth, palette.HighZ);
@@ -1119,7 +1119,7 @@ namespace BitSorter.View
                 switch (value[0])
                 {
                     case Logic4.X:
-                        HatchedRect(painter, palette, x0, high, x1, low);
+                        HatchedRect(painter, palette, x0, high, x1, low, palette.BareHatchBar);
                         previous = null;
                         break;
 
@@ -1191,7 +1191,7 @@ namespace BitSorter.View
                     Shape.Add(new Vector2(x0 + left, low));
 
                 if (!value.IsKnown)
-                    HatchedRect(painter, palette, x0 + left, high, x1 - right, low);
+                    HatchedRect(painter, palette, x0 + left, high, x1 - right, low, palette.HatchBar);   // its value is written over it
 
                 painter.Outline(Shape, 1.1f, palette.Of(value));
             }
@@ -1211,7 +1211,7 @@ namespace BitSorter.View
             {
                 if (!_track[i].Value.IsKnown)
                 {
-                    HatchedRect(painter, palette, x0, high, Mathf.Max(x1, x0 + 0.5f), low);
+                    HatchedRect(painter, palette, x0, high, Mathf.Max(x1, x0 + 0.5f), low, palette.BareHatchBar);
                     return;
                 }
             }
@@ -1221,8 +1221,12 @@ namespace BitSorter.View
             painter.Line(new Vector2(x0, low), new Vector2(x1, low), 1.1f, colour);
         }
 
-        /// <summary>A stretch of unknown on the waveform: a faint red box crossed by diagonal bars.</summary>
-        private static void HatchedRect(VectorPainter painter, SchematicPalette palette, float x0, float top, float x1, float bottom)
+        /// <summary>
+        /// A stretch of unknown on the waveform: a faint red box crossed by diagonal bars in <paramref name="bar"/> -- a bus's
+        /// lighter (<see cref="SchematicPalette.HatchBar"/>), since its value is written over them, and the rest at 80%
+        /// (<see cref="SchematicPalette.BareHatchBar"/>).
+        /// </summary>
+        private static void HatchedRect(VectorPainter painter, SchematicPalette palette, float x0, float top, float x1, float bottom, Color bar)
         {
             if (x1 - x0 < 0.5f)
                 return;
@@ -1230,7 +1234,6 @@ namespace BitSorter.View
             painter.Rect(x0, top, x1, bottom, palette.HatchFill);
 
             float height = bottom - top;
-            Color bar = palette.HatchBar;
 
             for (float c = x0 - height; c < x1; c += 6f)
             {

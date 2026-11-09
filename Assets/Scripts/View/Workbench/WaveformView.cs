@@ -270,8 +270,8 @@ namespace BitSorter.View
         /// Worked out again only when the value's colour or what is under it has changed since the last time, which is
         /// rarely: a frame that changes neither compares two colours a row.
         ///
-        /// A bus's labels are not lifted: they are the text's colour (<see cref="BusLabelColour"/>), which reads on either, an
-        /// x's on its hatched box too.
+        /// A bus's labels are not lifted here: a known value's is the text's colour, which reads on either, and an x's is made
+        /// legible over its hatched box, on the ground or a band, once for the palette (<see cref="BusLabelColour"/>).
         /// </remarks>
         private void WriteLegibly(int row, SchematicPalette palette)
         {
@@ -519,11 +519,10 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// The colour a bus's value is written in over its box: the text's, an x's as a known one's -- the box's hatch says it
-        /// is x, and its bars are kept as light as a word over them needs (<see cref="SchematicPalette.HatchBar"/>). In the x's
-        /// red it was 3.6:1 on the box and about 1.4:1 over a bar (the 16d sweep).
+        /// The colour a bus's value is written in over its box: the text's for a known value, and for one with an x in it the
+        /// x's red made legible over its hatched box (<see cref="SchematicPalette.XBoxWord"/>), as a readout's is on its row.
         /// </summary>
-        public static Color BusLabelColour(LogicVec value, SchematicPalette palette) => palette.Text;
+        public static Color BusLabelColour(LogicVec value, SchematicPalette palette) => value.IsKnown ? palette.Text : palette.XBoxWord;
 
         /// <summary>A bus row's values written over its boxes, up to the moment: a box too narrow for its value has none.</summary>
         private void PlaceBusLabels(int row, float middle, SchematicPalette palette)

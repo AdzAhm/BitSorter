@@ -185,7 +185,7 @@ namespace BitSorter.View
             var copy = (SchematicPalette)MemberwiseClone();
             copy.Name = name;
             copy._words = null;   // worked out from this palette's colours, which the copy may change
-            copy._selectedBand = copy._pathBand = copy._hatchBar = null;
+            copy._selectedBand = copy._pathBand = copy._hatchBar = copy._xBoxWord = null;
             change?.Invoke(copy);
             return copy;
         }
@@ -298,23 +298,78 @@ namespace BitSorter.View
         public Color HatchFill => Over(Unknown, 0.18f);
 
         /// <summary>
-        /// An x's box on the waves: the bars across it, at 80% where a value written over them in the text's colour still reads
-        /// at <see cref="WordContrast"/>, and as much less as it must where it does not -- 4.29:1 over a bar on Schematic Light's
-        /// paper, 3.89 in Classic (the 16d sweep). Schematic's are as they were.
+        /// An x's bars where nothing is written over them -- a bit's x, a stretch too busy to write in, the legend's swatch: at
+        /// 80%, all a bit's x has to show it by, having no outline.
+        /// </summary>
+        public Color BareHatchBar => Over(Unknown, BareHatchOpacity);
+
+        private const float BareHatchOpacity = 0.8f;
+
+        /// <summary>
+        /// An x's bars on a bus's box, which its value is written over (<see cref="XBoxWord"/>): as opaque as lets the text read
+        /// at <see cref="WordContrast"/> over them as they are drawn -- over the box's fill, on the ground or on a selected
+        /// row's band -- up to <see cref="BareHatchBar"/>'s 80%; the box keeps the x's outline. Measured over the bare ground
+        /// instead, the 16d sweep's first answer left 4.03:1 over a bar on a selected row in Schematic Light, and 4.16 in
+        /// Classic (the sweep's review).
         /// </summary>
         public Color HatchBar => _hatchBar ??= Over(Unknown, HatchOpacity());
 
-        private Color? _hatchBar;
+        private Color? _hatchBar, _xBoxWord;
 
         private float HatchOpacity()
         {
             for (int step = 0; step <= ClearSteps; step++)
             {
-                float t = Mathf.Lerp(0.8f, 0.3f, step / (float)ClearSteps);
-                if (Contrast(Text, Color.LerpUnclamped(Ground, Unknown, t)) >= WordContrast * 1.01f)
+                float t = Mathf.Lerp(BareHatchOpacity, 0.3f, step / (float)ClearSteps);
+                if (Contrast(Text, LeastLegibleOverAnX(Over(Unknown, t))) >= WordContrast * 1.01f)
                     return t;
             }
             return 0.3f;
+        }
+
+        /// <summary>
+        /// A bus's value with an x in it, as it is written over its box: the x's red made legible (<see cref="Legible"/>) on
+        /// what under it it reads least on, as a row's readout is on its row. Over bars as opaque as the text allows that is
+        /// all the way to the text. In the x's own red it was 3.6:1 on the box and about 1.4:1 over a bar (the 16d sweep).
+        /// </summary>
+        public Color XBoxWord => _xBoxWord ??= Legible(Unknown, LeastLegibleOverAnX(HatchBar));
+
+        /// <summary>
+        /// Of what is under a word written over an x's box -- the box's fill, and <paramref name="bar"/> across it, on the
+        /// ground or on a selected row's band, a row lit by its wire being a band between the two -- what the text reads least on.
+        /// </summary>
+        private Color LeastLegibleOverAnX(Color bar)
+        {
+            Color least = Ground;
+            float lowest = float.MaxValue;
+            for (int i = 0; i < 2; i++)
+            {
+                Color box = Blended(HatchFill, i == 0 ? Ground : Selection);
+                Color crossed = Blended(bar, box);
+                float onBox = Contrast(Text, box), onBar = Contrast(Text, crossed);
+                if (onBox < lowest)
+                {
+                    lowest = onBox;
+                    least = box;
+                }
+                if (onBar < lowest)
+                {
+                    lowest = onBar;
+                    least = crossed;
+                }
+            }
+            return least;
+        }
+
+        /// <summary>
+        /// <paramref name="colour"/> drawn at its alpha over <paramref name="under"/>, as the renderer blends it -- in linear,
+        /// the project's colour space (<see cref="Over"/>) -- and what that comes to, opaque.
+        /// </summary>
+        public static Color Blended(Color colour, Color under)
+        {
+            Color seen = Color.Lerp(under.linear, colour.linear, colour.a).gamma;
+            seen.a = 1f;
+            return seen;
         }
 
         /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>

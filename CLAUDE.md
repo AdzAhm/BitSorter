@@ -558,7 +558,8 @@ stretch that way.
   accessibility review, 2026-11-03) -- and a row's readout and a ring's digit,
   written in their value's colour, taken toward the text as far as they must to
   read at 4.5:1 on the ground or a row's band (`SchematicPalette.Legible`, and
-  `WordOf` for a digit): the value colours are held to a wire's
+  `WordOf` for a digit) -- a bus's x over its hatched box too, its bars as they
+  are drawn (`XBoxWord`, `HatchBar`): the value colours are held to a wire's
   3:1 and no more, since Schematic Light's z darkened to read came out its
   outline's grey. A 0 and a 1 apart by weight
   as well as colour, an undriven wire apart from both and from an outline and a
