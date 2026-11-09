@@ -60,10 +60,14 @@ namespace BitSorter.Board.Tests
 
             Simulator Run(Design design)
             {
+                // Each value at the width the design gives the input, so a drawing that has it narrower still runs, and differs.
                 var stimulus = new EngineStimulus();
                 foreach ((string name, LogicVec[] values) in inputs)
+                {
+                    SignalId signal = design.Find(top + "." + name);
                     for (int i = 0; i < Steps; i++)
-                        stimulus.Set(i * 10L, design.Find(top + "." + name), values[i]);
+                        stimulus.Set(i * 10L, signal, values[i].Extend(design[signal].Width, false));
+                }
                 var sim = new Simulator(design, stimulus);
                 sim.RunTo(Steps * 10L + 50);
                 return sim;
@@ -188,6 +192,38 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(imported.Succeeded, "drawn without what its declaration says");
             StringAssert.Contains(said, string.Join("\n", imported.Problems));
             StringAssert.Contains("netty.sv:2", string.Join("\n", imported.Problems), "and where");
+        }
+
+        // -----------------------------------------------------------------
+        // A type a board's nets are not (import-export-4)
+        // -----------------------------------------------------------------
+
+        [TestCase("typedef logic [7:0] word_t;\n", "word_t")]
+        [TestCase("", "byte")]
+        [TestCase("", "int")]
+        [TestCase("typedef enum logic [1:0] { IDLE, RUN, DONE } state_t;\n", "state_t")]
+        [TestCase("typedef struct packed { logic [3:0] hi; logic [3:0] lo; } pair_t;\n", "pair_t")]
+        public void APortOfAType_IsDrawnAtItsWidth_OrNotAtAll(string unit, string type)
+        {
+            AssertDrawnRunsAsWritten(unit +
+                "module typed (input logic clk, input " + type + " d, output " + type + " q, output " + type + " w);\n" +
+                "    always_ff @(posedge clk) q <= d;\n" +
+                "    assign w = d;\n" +
+                "endmodule\n", "typed");
+        }
+
+        [TestCase("input bit a", "bit")]
+        [TestCase("input logic a [1:0]", "array")]
+        [TestCase("input integer a", "integer")]
+        public void APortABoardsNetIsNot_IsNotDrawn(string port, string said)
+        {
+            // bit is 2-state, an x read as 0; an unpacked port is an array; neither is a net of a board, a logic vector.
+            ImportResult imported = BoardImporter.Import(SyntaxReader.ReadText(
+                "module odd (\n    " + port + ",\n    output logic y);\n    assign y = 1'b0;\nendmodule\n", "odd.sv"), "odd");
+
+            Assert.IsFalse(imported.Succeeded, "drawn as a net it is not");
+            StringAssert.Contains(said, string.Join("\n", imported.Problems));
+            StringAssert.Contains("odd.sv:2", string.Join("\n", imported.Problems), "and where");
         }
     }
 }
