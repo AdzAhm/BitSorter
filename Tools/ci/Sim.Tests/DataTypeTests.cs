@@ -373,7 +373,7 @@ endmodule");
         [TestCase("typedef enum logic [1:0] {X = 0, Y = 1, Z = 1} state_t;", ElaborationCodes.Duplicate, "Y's too")]
         [TestCase("typedef enum logic [1:0] {P = 5} state_t;", ElaborationCodes.WidthMismatch, "P is given 5")]
         [TestCase("typedef enum logic [1:0] {Q = -1} state_t;", ElaborationCodes.WidthMismatch, "Q is given -1")]
-        [TestCase("typedef enum logic signed [1:0] {M = -2, N, O, R} state_t;", ElaborationCodes.WidthMismatch, "R would be 2")]
+        [TestCase("typedef enum logic signed [1:0] {M = -2, N, O, P, R} state_t;", ElaborationCodes.WidthMismatch, "R would be 2")]
         [TestCase("typedef enum logic signed [1:0] {S = 2} state_t;", ElaborationCodes.WidthMismatch, "S is given 2")]
         [TestCase("typedef enum logic [1:0] {U = 2'b1x, V} state_t;", ElaborationCodes.NotConstant, "V follows U")]
         [TestCase("typedef enum bit [1:0] {W = 2'b1x} state_t;", ElaborationCodes.NotConstant, "only 0 and 1")]

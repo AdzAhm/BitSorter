@@ -4828,6 +4828,11 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   in. A task is written into its caller wherever it is called, so 25 tasks each calling the one below twice wrote 33
   million copies, and a generate loop compiles its processes again every round; nothing counted either. The corpus's most
   is 350, and a 65,536-word ROM written as a case some 131,000.
+- **An enum's names each hold a value of their own its type can hold** (IEEE 1800, 6.19; `TryEnum`): a name counted on
+  past the type -- a fifth state in two bits -- wrapped onto the first's, so `case (s) IDLE: ... D:` never reached D's
+  arm and the waves named the state IDLE. A value counted past the type, given too large or negative for it, repeated, an
+  x in a 2-state enum, and a name counted on from an x are each refused, once, as Icarus 12 and ModelSim refuse them;
+  the type is still declared, so what uses it is not said again.
 
 ---
 

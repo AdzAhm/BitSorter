@@ -1285,33 +1285,118 @@ namespace BitSorter.Sim
                 // Marked before the members are worked out, so a member that fails says so once.
                 _enumsDeclared[(scope, e)] = null;
 
-                LogicVec next = LogicVec.FromInt64(0, shape.Width, shape.Signed);
-                LogicVec one = LogicVec.FromInt64(1, shape.Width, shape.Signed);
+                int width = shape.Width;
+                bool signed = shape.Signed;
                 var members = new List<EnumMemberInfo>(e.Members.Count);
+
+                // Each name a value of its own that the type can hold (IEEE 1800, 6.19), as Icarus and ModelSim refuse otherwise:
+                // counted on past the type, it wrapped onto the first name's (the Part 16d sweep).
+                var named = new Dictionary<LogicVec, string>();
+                EnumMember before = null;
+                LogicVec previous = default;
 
                 foreach (EnumMember member in e.Members)
                 {
-                    LogicVec value = next;
+                    LogicVec value;
+                    bool valid = true;
                     if (member.Value != null)
                     {
                         if (!ExpressionBuilder.TryConstant(member.Value, scope, _diagnostics, out LogicVec given))
                             return false;
-                        value = given.Extend(shape.Width, given.IsSigned);
-                        value = shape.Signed ? value.AsSigned() : value.AsUnsigned();
+
+                        if (shape.TwoState && !given.IsKnown)
+                        {
+                            Error(member.Location, ElaborationCodes.NotConstant, $"{member.Name} is given {Printer.Print(member.Value)}, which has x or z bits, " +
+                                "and the enum's type holds only 0 and 1: give it a known value, or give the enum a 4-state type, as logic [1:0].");
+                            valid = false;
+                        }
+                        else if (!Holds(given, width, signed))
+                        {
+                            Error(member.Location, ElaborationCodes.WidthMismatch, $"{member.Name} is given {Printer.Print(member.Value)}, and the enum's " +
+                                $"{Bits(width)} hold {Range(width, signed)}: widen its type, or give {member.Name} a value it holds.");
+                            valid = false;
+                        }
+
+                        value = given.Extend(width, given.IsSigned);
+                        value = signed ? value.AsSigned() : value.AsUnsigned();
+                    }
+                    else if (before == null)
+                    {
+                        value = LogicVec.FromInt64(0, width, signed);
+                    }
+                    else if (!previous.IsKnown)
+                    {
+                        Error(member.Location, ElaborationCodes.NotConstant, $"{member.Name} follows {before.Name}, whose value has x or z bits, so it " +
+                            $"counts on from nothing: give {member.Name} a value of its own.");
+                        valid = false;
+                        value = LogicVec.AllX(width, signed);
+                    }
+                    else
+                    {
+                        // One past the name before, worked out a bit wider, so it cannot wrap round to the type's first value.
+                        LogicVec onward = LogicVec.Add(previous.Extend(width + 1, signed), LogicVec.FromInt64(1, width + 1, signed));
+                        if (!Holds(onward, width, signed))
+                        {
+                            Error(member.Location, ElaborationCodes.WidthMismatch, $"{member.Name} would be {onward.Format(signed ? Radix.Signed : Radix.Unsigned)}, " +
+                                $"one past {before.Name}, and the enum's {Bits(width)} hold {Range(width, signed)}: widen its type -- " +
+                                $"{(signed ? "logic signed" : "logic")} [{width}:0] -- or give {member.Name} a value of its own.");
+                            valid = false;
+                        }
+
+                        value = onward.Extend(width, signed);
+                        value = signed ? value.AsSigned() : value.AsUnsigned();
+                    }
+
+                    // A value refused already is not said again as another's.
+                    if (valid && named.TryGetValue(value, out string same))
+                    {
+                        string written = value.IsKnown ? value.Format(signed ? Radix.Signed : Radix.Unsigned) : $"{width}'b{value.Format(Radix.Binary)}";
+                        Error(member.Location, ElaborationCodes.Duplicate, $"{member.Name}'s value, {written}, is {same}'s too: an enum's names each " +
+                            "stand for a value of their own (IEEE 1800, 6.19).");
+                    }
+                    else if (valid)
+                    {
+                        named[value] = member.Name;
                     }
 
                     if (!scope.TryDeclare(member.Name, new ConstantEntry { Value = value, Declared = member.Location }))
                         Error(member.Location, ElaborationCodes.Duplicate, $"{member.Name} is declared twice here.");
 
                     members.Add(new EnumMemberInfo(member.Name, value));
-                    next = LogicVec.Add(value, one);
+                    before = member;
+                    previous = value;
                 }
+
+                // A value refused is said, and the enum is still declared, so what uses it is not said again as unknown: the error
+                // keeps the design from being built.
 
                 // The base type's own enum, if it named one, is not this one: the shape carries only this.
                 var info = new EnumInfo(typedefName, shape.Width, members);
                 _enumsDeclared[(scope, e)] = info;
                 shape = new Shape(shape.Msb, shape.Lsb, shape.Signed, info, shape.TwoState);
                 return true;
+            }
+
+            /// <summary>
+            /// Whether <paramref name="value"/>, read as its own signedness says, is a number <paramref name="width"/> bits of that
+            /// <paramref name="signed"/>ness hold: cut to them and read back, it is the same at a width wider than both.
+            /// </summary>
+            private static bool Holds(LogicVec value, int width, bool signed)
+            {
+                int wider = Math.Max(value.Width, width) + 1;
+                LogicVec whole = value.Extend(wider, value.IsSigned).AsUnsigned();
+                LogicVec back = value.Extend(width, value.IsSigned).Extend(wider, signed).AsUnsigned();
+                return whole == back;
+            }
+
+            private static string Bits(int width) => width == 1 ? "1 bit" : $"{width} bits";
+
+            /// <summary>What <paramref name="width"/> bits hold, as numbers: 0 to 3, -2 to 1.</summary>
+            private static string Range(int width, bool signed)
+            {
+                if (width > 62)
+                    return signed ? "signed numbers of that many bits" : "numbers of that many bits";
+                return signed ? $"{-(1L << (width - 1))} to {(1L << (width - 1)) - 1}" : $"0 to {(1L << width) - 1}";
             }
 
             // -----------------------------------------------------------------
