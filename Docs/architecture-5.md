@@ -2124,8 +2124,13 @@ template is imported, then exported filled.
   and kept with the circuit; code that cannot apply asks before anything is left (`WorkbenchPanel.MayLeave`), the chip
   saying what is wrong with it, and LEAVE IT does the whole of what was asked for -- an import made, a program chosen, the
   tutorial started -- once the circuit is left. A sample keeps nothing of its own and never asks; a circuit deleted takes
-  its code with it. As BitSorter closes, and in a build as it is put behind another window, typed code is applied before
-  the keep; code that cannot apply is lost then, since nothing can be asked as a window closes. The leave is asked once,
+  its code with it. As the desktop build closes or is put behind another window, typed code is applied before the keep;
+  code that cannot apply is lost then, since nothing can be asked as a window closes. Not in a browser
+  (`CodeDocument.AppliedAsTheFocusGoes`, the review of the sweep): its code editor is a box laid over the canvas, and if
+  Unity takes the focus going to it for the focus lost -- nothing here settles it -- every click into it would have
+  applied code typed a moment before, or put a refusal on the chip. A hidden tab draws no frame, so code typed just before
+  it applies once the tab is shown again; and a browser runs nothing as a tab closes, so code typed inside the pause, or
+  an edit inside the half second before its keep, is lost with it. The leave is asked once,
   by what was asked for, before the key the stage keeps under changes, and the circuit is then opened past it. RESET
   PROGRESS never asks: it lets an exercise go as it is, having made MY CIRCUIT that key already, and the exercise's code
   applied on the way was written over MY CIRCUIT (the review of the sweep). Play Mode,

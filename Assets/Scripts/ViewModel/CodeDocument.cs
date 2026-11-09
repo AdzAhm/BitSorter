@@ -64,10 +64,18 @@ namespace BitSorter.ViewModel
 
         /// <summary>
         /// Whether code typed and not yet applied is applied as BitSorter loses the focus, before the circuit is kept (Part
-        /// 16d's sweep): put behind another window, no frame may come to end the pause. Not in the editor, whose focus comes
-        /// and goes under a test run, where a test typing inside the pause would find its code applied by a click elsewhere.
+        /// 16d's sweep): in a desktop build put behind another window, or closed, no frame may come to end the pause.
         /// </summary>
-        public static bool AppliedAsTheFocusGoes(bool inEditor, bool inBrowser) => !inEditor;
+        /// <remarks>
+        /// Not in the editor, whose focus comes and goes under a test run, where a test typing inside the pause would find its
+        /// code applied by a click elsewhere. And not in a browser (the review of the sweep): the code editor there is a box
+        /// the page lays over the canvas, and if Unity takes the focus going to it for the focus lost -- which nothing here
+        /// settles -- every click into it would apply code typed a moment before, or put a refusal on the chip. A browser
+        /// draws no frame in a hidden tab, so code typed just before it is hidden applies on the first frame it is shown
+        /// again, and is kept half a second later; nothing runs as a tab closes, so code typed inside the pause before it is
+        /// closed is lost, as an edit is inside the half second before its keep.
+        /// </remarks>
+        public static bool AppliedAsTheFocusGoes(bool inEditor, bool inBrowser) => !inEditor && !inBrowser;
 
         private readonly WorkbenchSession _session;
         private readonly List<CodeMark> _marks = new List<CodeMark>();

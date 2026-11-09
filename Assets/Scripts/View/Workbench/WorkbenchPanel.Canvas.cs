@@ -256,8 +256,9 @@ namespace BitSorter.View
 
         /// <summary>
         /// Code typed inside the editor's pause applied, so the keep that follows writes it (Part 16d's sweep): as BitSorter
-        /// closes, or is put behind another window, where no frame may come to end the pause. Code that cannot apply cannot
-        /// be kept, and nothing can be asked as a window closes; a sample keeps nothing.
+        /// closes, or as a desktop build is put behind another window (<see cref="CodeDocument.AppliedAsTheFocusGoes"/>), where
+        /// no frame may come to end the pause. Code that cannot apply cannot be kept, and nothing can be asked as a window
+        /// closes; a sample keeps nothing. A browser runs nothing as its tab closes.
         /// </summary>
         private void KeepTheTypedCode()
         {
