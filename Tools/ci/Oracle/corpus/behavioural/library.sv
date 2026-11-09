@@ -1,6 +1,7 @@
 // Part L6 as Icarus can run it as well: a package of a parameter, an enum, a struct, a function and a
 // task, imported whole, by name and in a module's header, and named as pkg::name, one package importing
-// another; macros with arguments -- a default, one use inside another, a use over two lines, `` and `"`";
+// another; macros with arguments -- a default, one use inside another, a use over two lines, `` and `"`",
+// and `__LINE__, written and in a macro;
 // strings joined, measured, cut, compared and turned to numbers and back, $sformatf and $sformat; and a
 // file written with $fopen, $fdisplay, $fwrite and $fstrobe, a channel of a multichannel descriptor with
 // the transcript beside it, and a file added to after it is closed. Where Icarus 12 cannot -- a string's
@@ -10,6 +11,7 @@
 `define MAX(a, b = 0) ((a) > (b) ? (a) : (b))
 `define REG(name, w = 4) logic [w-1:0] name``_q;
 `define SHOW(x) $display(`"x = %0d`", x)
+`define HERE `__LINE__
 
 package sizes;
     parameter int WORD = 8;
@@ -72,6 +74,7 @@ module library_tb;
         `SHOW(count_q);
         `SHOW(wide_q);
         $display("%0d %0d", `MAX(`MAX(1, 2), 3), `MAX(5));
+        $display("lines %0d %0d", `__LINE__, `HERE);
 
         s = {name, "_", "test"};
         $display("%s %0d", s, s.len());

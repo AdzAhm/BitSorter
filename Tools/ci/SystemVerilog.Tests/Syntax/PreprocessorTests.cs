@@ -129,6 +129,58 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.Contains(DiagnosticCodes.MacroArguments, Codes(tree), string.Join("\n", tree.Diagnostics));
         }
 
+        /// <summary>
+        /// The 16d sweep: `__FILE__ and `__LINE__ (IEEE 1800, 22.13) and `undefineall (22.5.3) were read as macros never
+        /// defined, and the read blamed a missing `define. `__FILE__ is the file as the read names it, and `__LINE__ the line
+        /// of the use in it -- of the outermost use, in a macro, as Icarus and ModelSim give it, and of its first line where a
+        /// use runs over several, as ModelSim does (Icarus gives the last; Docs/oracle-notes.md). Both count as defined.
+        /// </summary>
+        [Test]
+        public void TheFileAndTheLine_AreTheUsesOwn()
+        {
+            var files = new MemorySourceFiles()
+                .Add("lib/where.svh", "\n`define WHERE `__LINE__\nlocalparam string INCLUDED = `__FILE__;\nlocalparam INCLUDED_AT = `__LINE__;\n")
+                .Add("lib/top.sv",
+                    "module m;\n" +
+                    "  `include \"where.svh\"\n" +
+                    "  `define AT(v) v + `__LINE__\n" +
+                    "  initial $display(\"%s %0d\", `__FILE__, `__LINE__);\n" +
+                    "  assign y = `WHERE;\n" +
+                    "  assign z = `AT(\n    1);\n" +
+                    "`ifdef __LINE__\n  `ifdef __FILE__\n  assign w = 1;\n  `endif\n`endif\n" +
+                    "endmodule\n");
+
+            SyntaxTree tree = SyntaxReader.Read("lib/top.sv", files);
+            Assert.IsEmpty(tree.Diagnostics, string.Join("\n", tree.Diagnostics));
+            List<ModuleItem> items = tree.Modules.Single().Items;
+            string Value(int item) => Printer.Print(items[item] is ContinuousAssign a ? a.Assignments[0].Value : ((ParameterDeclaration)items[item]).Value);
+
+            Assert.AreEqual("\"lib/where.svh\"", Value(0), "`__FILE__ in an included file is that file");
+            Assert.AreEqual("4", Value(1), "and `__LINE__ its line");
+            var say = (CallStatement)((ProceduralBlock)items[2]).Body;
+            Assert.AreEqual("lib/top.sv", ((StringLiteral)say.Arguments[1]).Value);
+            Assert.AreEqual("4", Printer.Print(say.Arguments[2]));
+            Assert.AreEqual("5", Value(3), "in a macro, the line it is used on, not the line it was defined on");
+            Assert.AreEqual("1 + 6", Value(4), "a use over two lines: its first");
+            Assert.AreEqual(6, items.Count, "`ifdef __LINE__ and `ifdef __FILE__ hold");
+        }
+
+        /// <summary>
+        /// `undefineall forgets every macro a `define made (IEEE 1800, 22.5.3), as ModelSim does; Icarus 12 does not know it,
+        /// and reads it as an undefined macro standing for nothing (Docs/oracle-notes.md).
+        /// </summary>
+        [Test]
+        public void UndefineAll_ForgetsEveryMacro()
+        {
+            SyntaxTree tree = Read("`define A 1\n`define B(x) x\n`undefineall\nmodule m;\n`ifdef B\n  assign q = 1;\n`endif\n  assign y = `A;\nendmodule\n");
+            Diagnostic undefined = tree.Diagnostics.Single();
+            Assert.AreEqual(DiagnosticCodes.UndefinedMacro, undefined.Code, undefined.ToString());
+            Assert.AreEqual((8, 14), (undefined.Location.Line, undefined.Location.Column), "the use of `A, and not `undefineall itself");
+            Assert.AreEqual(1, tree.Modules.Single().Items.Count, "`ifdef B no longer holds");
+            ModuleDeclaration after = OnlyModule("`undefineall\nmodule m; assign y = `__LINE__; endmodule\n");
+            Assert.AreEqual("2", Printer.Print(((ContinuousAssign)after.Items.Single()).Assignments[0].Value), "but not `__LINE__, which no `define made");
+        }
+
         [Test]
         public void AnUndefinedMacro_IsReported()
         {
