@@ -999,15 +999,37 @@ namespace BitSorter.Sim
                     p.Patch(end, p.Here);
             }
 
+            /// <summary>
+            /// The type a for's initializer <paramref name="k"/> declares its variable with, or null for an assignment: its own,
+            /// else the one before it once the list has begun declaring -- for (int i = 0, j = 7; ...) declares j an int too (IEEE
+            /// 1800, 12.7.1). The reader gives j none, since it starts at "j =" (the Part 16d sweep).
+            /// </summary>
+            internal static DataType DeclaredType(ForStatement f, int k)
+            {
+                for (int i = k; i >= 0; i--)
+                    if (f.Initializers[i].Type != null)
+                        return f.Initializers[i].Type;
+                return null;
+            }
+
             private void For(Proc p, Scope scope, ForStatement f)
             {
                 var inner = new Scope(scope.Path, scope, scope.Module);
 
-                foreach (ForInitializer init in f.Initializers)
+                for (int k = 0; k < f.Initializers.Count; k++)
                 {
-                    if (init.Type != null)
+                    ForInitializer init = f.Initializers[k];
+                    DataType type = DeclaredType(f, k);
+                    if (type != null)
                     {
-                        if (!(init.Target is NameExpression name) || name.Path.Count != 1 || !TryShape(init.Type, inner, out Shape shape))
+                        if (!(init.Target is NameExpression name) || name.Path.Count != 1)
+                        {
+                            Error(init.Location, ElaborationCodes.BadLValue, $"A loop declares a variable by its name alone, as int i = 0, and this is {Printer.Print(init.Target)}.");
+                            p.Failed = true;
+                            continue;
+                        }
+
+                        if (!TryShape(type, inner, out Shape shape))
                         {
                             p.Failed = true;
                             continue;

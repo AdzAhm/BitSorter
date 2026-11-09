@@ -429,8 +429,8 @@ namespace BitSorter.Sim
                             Declared(item.Body, into);
                         break;
                     case ForStatement f:
-                        foreach (ForInitializer init in f.Initializers)
-                            if (init.Type != null && init.Target is NameExpression n)
+                        for (int k = 0; k < f.Initializers.Count; k++)
+                            if (DeclaredType(f, k) != null && f.Initializers[k].Target is NameExpression n)
                                 into.Add(n.Name);
                         Declared(f.Body, into);
                         break;

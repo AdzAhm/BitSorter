@@ -4840,6 +4840,11 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   Icarus 12 and ModelSim refuse them. The engine has no value of no bits, so `Expr.Replicate` and `LogicVec.Replicate`
   still take a count of 1 or more: the elaborator never builds a replication of 0. `corpus/behavioural/expressions.sv`
   holds it to both oracles.
+- **A `for`'s declarations declare every variable in the list** (IEEE 1800, 12.7.1; `DeclaredType`): in
+  `for (int i = 0, j = 7; ...)` the reader gives `j` no type, since it starts at `j =`, and `For` declared only `i` -- `j`
+  was looked up outside the loop, refused where there was none and a module's own `j` written over where there was. Each
+  variable after the first takes the type before it now, and the lint's walk of what a block declares asks the same.
+  Icarus 12 cannot read the list; ModelSim runs it so (`Docs/oracle-notes.md`).
 
 ---
 

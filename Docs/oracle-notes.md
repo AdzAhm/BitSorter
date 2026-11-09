@@ -88,6 +88,20 @@ which moved its random cases onto exactly that combination; the test now allows 
 an x here against a z there, on an ambiguous `?:` -- and nothing else, and holds the standard's answer
 with a case of its own.
 
+### A `for` that declares more than one variable
+
+```systemverilog
+for (int i = 0, j = 7; i < j; i++, j--) ...
+```
+
+The standard (IEEE 1800, 12.7.1, `for_variable_declaration`) declares every variable of the list, each
+after the first with the type before it, so `j` is an `int` of the loop's own, as `byte b` would be one
+of its own after `int i = 0,`. Icarus 12 cannot read such a list at all ("Incomprehensible for loop").
+ModelSim runs it as the standard has it, and so does BitSorter since Part 16d -- which until then declared
+`i` alone and wrote `j` wherever a `j` was found: refused, or a module's own `j` written over without a
+word. `ProcessTests.AForsDeclarations_DeclareEveryVariable_EachWithTheTypeBeforeIt` holds ModelSim's
+lines; the corpus keeps out of it, since Icarus would refuse the file.
+
 ## Two drivers
 
 | Declaration | Two continuous drivers, 0 against 1 |
