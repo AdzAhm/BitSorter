@@ -306,5 +306,90 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNotNull(session.Code);
             Assert.IsEmpty(session.Run.Model.Layout.Parts, "the text again, nothing drawn");
         }
+
+        /// <summary>
+        /// A word of a memory read by its address, <c>mem[addr]</c>, on the drawing of code reads the word the address names --
+        /// and the model reads that word and no other: every word of the memory was a signal it followed, a track each made with
+        /// every model and every one of them read again at each new step, though the drawing shows one. A 65,536-word memory
+        /// made 49 MB with each model, 37 MB past one of the module shown as its code, and took 0.8 to 1.3 milliseconds a frame
+        /// playing (the 16d sweep, waves-14).
+        /// </summary>
+        [Test]
+        public void AWordOfABigMemory_OnTheDrawingOfCode_IsReadAloneByItsAddress()
+        {
+            ProjectImport import = ProjectImporter.Import(new List<SourceFile>
+            {
+                new SourceFile("rom.sv", "module rom (input logic [15:0] addr, output logic [7:0] q);\n" +
+                                         "    logic [7:0] mem [0:65535];\n" +
+                                         "    assign q = ~mem[addr];\n" +
+                                         "endmodule\n"),
+                new SourceFile("rom_tb.sv", "module rom_tb;\n" +
+                                            "    logic [15:0] addr; logic [7:0] q;\n" +
+                                            "    rom dut (.addr(addr), .q(q));\n" +
+                                            "    initial begin\n" +
+                                            "        dut.mem[3] = 8'h5A;\n" +
+                                            "        for (int i = 0; i < 100; i++) #1 addr = i;\n" +
+                                            "        #1 dut.mem[3] = 8'hC3;\n" +
+                                            "        #1 addr = 3;\n" +
+                                            "        #1 $finish;\n" +
+                                            "    end\n" +
+                                            "endmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            var session = new WorkbenchSession(import.Project, () => 0.0);
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the written top drawn");
+            WorkbenchModel model = session.Run.Model;
+            SchematicLayout layout = model.Layout;
+            int read = layout.Parts.Single(p => p.Name.StartsWith("mem[", StringComparison.Ordinal)).Part.Id;
+            int word = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Source.Part == read);
+            Assert.IsTrue(layout.Drawn.Has(word), "sanity: mem[addr] is no signal");
+
+            LogicVec At(WorkbenchModel m, double time)
+            {
+                m.Seek(time);
+                return m.NetValue(word);
+            }
+            ulong Known(LogicVec value)
+            {
+                Assert.IsTrue(value.TryGetUInt64(out ulong bits), "a known word: " + value);
+                return bits;
+            }
+            Assert.AreEqual(0x5AUL, Known(At(model, 4.5)), "addr = 3: the word written there");
+            Assert.IsFalse(At(model, 5.5).IsKnown, "addr = 4: a word never written, x");
+            Assert.AreEqual(0xC3UL, Known(At(model, 102.5)), "the word written again, read where the address comes back to it");
+            Assert.AreEqual(0x5AUL, Known(At(model, 4.5)), "and as it was, back at 4");
+
+            // What a model of the drawing makes, and a frame of it playing, a new step each frame.
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var again = new WorkbenchModel(model.Session, model.Layout, model.End);
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            double time = 1;
+            void Frame()
+            {
+                again.Seek(time = time >= 90 ? 1 : time + 1);
+                for (int i = 0; i < again.Layout.Nets.Count; i++)
+                    _ = again.NetValue(i);
+            }
+            Frame();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int f = 0; f < 200; f++)
+                Frame();
+            double frame = watch.Elapsed.TotalMilliseconds / 200;
+            Assert.AreEqual(0x5AUL, Known(At(again, 4.5)), "and it reads the word all the same");
+
+            // What a model of the same run makes with the module shown as its code: a model's own for so many signals.
+            session.DrawCode(false);
+            session.Finish();
+            WorkbenchModel code = session.Run.Model;
+            Assert.IsNull(code.Layout.Drawn, "sanity: its code, nothing worked out");
+            before = GC.GetAllocatedBytesForCurrentThread();
+            _ = new WorkbenchModel(code.Session, code.Layout, code.End);
+            long asCode = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            TestContext.WriteLine($"a model made: {made / 1024} KB, {asCode / 1024} KB as code; a frame at a new step: {frame * 1000:F1} us");
+            Assert.Less(made, asCode + (1 << 20), "what a model of the drawing makes, past what one of its code does");
+            Assert.Less(frame, 0.25, "a frame of it playing, in milliseconds");
+        }
     }
 }
