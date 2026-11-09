@@ -1425,6 +1425,11 @@ on an input's row, undo and redo -- is 9b-3b-2.
   let go (`CanvasEditor.FollowHeld`). The release wrote back what the drag began with, and undid the turn (the 16d
   sweep). Another button pressed while one is held is that press's, and asks for nothing (`CanvasPointer.Press`).
 )
+
+  sweep). Another button pressed while one is held is that press's, and asks for nothing (`CanvasPointer.Press`) --
+  but only while the held button is still down (`CanvasPress.Down`): one let go of in a frame a page or Escape took the
+  pointer from the canvas is let go of unmade (`CanvasGesture.LetGo`, as Escape does), and the press is its own, so no
+  release later drops the selection where the pointer has got to (the sweep's review).
 - **An edit is drawn at once.** A move, a turn or a mirror changes nothing the circuit does, so it is drawn again
   over the same run (`RunSession.Relayout`) and nothing replays. A part placed or taken away, an undo or a redo
   is drawn at once over the run there is -- a new gate shows no value for a frame or so -- and replayed as an

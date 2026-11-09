@@ -516,6 +516,10 @@ namespace BitSorter.ViewModel
                     AbandonWire();
                     return null;
 
+                case CanvasGesture.LetGo:
+                    Abandon();
+                    return null;
+
                 case CanvasGesture.BeginWire:
                     BeginWire(command.Target, command.At);
                     return null;

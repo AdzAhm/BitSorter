@@ -301,6 +301,7 @@ namespace BitSorter.View
                     Ctrl = ctrl,
                     Alt = alt,
                     Space = space,
+                    Down = (mouse.leftButton.isPressed ? 1 : 0) | (mouse.rightButton.isPressed ? 2 : 0) | (mouse.middleButton.isPressed ? 4 : 0),
                 };
 
                 _canvasPointer.Press(press, _canvasCommands);

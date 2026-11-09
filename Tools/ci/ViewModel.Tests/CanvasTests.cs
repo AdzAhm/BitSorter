@@ -181,10 +181,10 @@ namespace BitSorter.ViewModel.Tests
         // -----------------------------------------------------------------
 
         private static CanvasPress At(CanvasTarget target, int button = 0, bool selected = false, bool hand = false, bool shift = false, bool ctrl = false,
-            bool alt = false, bool space = false, bool drafting = false) => new CanvasPress
+            bool alt = false, bool space = false, bool drafting = false, int down = 0) => new CanvasPress
         {
             Button = button, Window = new Vec2(100, 100), Board = new BoardPoint(4, 0), Target = target, OnSelected = selected, InHand = hand,
-            Shift = shift, Ctrl = ctrl, Alt = alt, Space = space, Drafting = drafting,
+            Shift = shift, Ctrl = ctrl, Alt = alt, Space = space, Drafting = drafting, Down = down,
         };
 
         /// <summary>A press, moves to <paramref name="moves"/> pixels right of it (a cell each 48), and the release -- over <paramref name="release"/> -- as the commands they made.</summary>
@@ -256,8 +256,8 @@ namespace BitSorter.ViewModel.Tests
             pointer.Press(press, commands);
             pointer.Move(press.Window + new Vec2(48, 0), new BoardPoint(5, 0), false, commands);
 
-            pointer.Press(At(OnAnd, button: 1), commands);
-            pointer.Press(At(CanvasTarget.Nothing, button: 2), commands);
+            pointer.Press(At(OnAnd, button: 1, down: 1 | 2), commands);   // the left still down
+            pointer.Press(At(CanvasTarget.Nothing, button: 2, down: 1 | 2 | 4), commands);
             Assert.IsTrue(pointer.Moving, "still the drag's");
 
             pointer.Move(press.Window + new Vec2(96, 0), new BoardPoint(6, 0), false, commands);
@@ -481,6 +481,29 @@ namespace BitSorter.ViewModel.Tests
         /// with: a turn made mid-drag was undone by it, an undo was undone, and a part deleted was refused as no part at all
         /// (the 16d sweep).
         /// </summary>
+        /// <summary>A drag let go of unseen (<see cref="CanvasGesture.LetGo"/>): nothing moved, and no ghost of it left drawn.</summary>
+        [Test]
+        public void ADragLetGoOf_MovesNothing_AndLeavesNoGhost()
+        {
+            (WorkbenchSession session, CanvasEditor editor, int _, int _, int and, int _) = Editing();
+            var overlay = new CanvasOverlay();
+            Project before = session.Project;
+
+            editor.Do(new CanvasCommand(CanvasGesture.Select, target: new CanvasTarget(CanvasTargetKind.Part, part: and)));
+            editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: new BoardPoint(4, 0)));
+            editor.Do(new CanvasCommand(CanvasGesture.MoveTo, new BoardPoint(6, 0), new BoardPoint(4, 0)));
+            editor.Overlay(overlay);
+            Assert.AreEqual(1, overlay.Ghosts.Count, "sanity: the drag drawn where it is going");
+
+            Assert.IsNull(editor.Do(new CanvasCommand(CanvasGesture.LetGo)));
+            editor.Overlay(overlay);
+            Assert.IsFalse(editor.Moving);
+            Assert.AreEqual(0, overlay.Ghosts.Count, "no ghost left");
+            Assert.AreEqual(0, overlay.GhostWires.Count);
+            Assert.AreSame(before, session.Project, "nothing moved");
+            Assert.IsTrue(editor.Selection.Has(new CanvasTarget(CanvasTargetKind.Part, part: and)), "and the selection kept");
+        }
+
         [Test]
         public void AnEditMadeWhileADragIsHeld_IsKept_AndTheDragGoesOnFromWhereItLeftTheParts()
         {

@@ -68,6 +68,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>The handle let go at <see cref="CanvasCommand.At"/>: the block is resized.</summary>
         EndResize,
+
+        /// <summary>
+        /// A press held let go of without its release being seen: the drag, box, reshape or resize it began is let go of,
+        /// not made, as Escape lets one go.
+        /// </summary>
+        LetGo,
     }
 
     /// <summary>One thing a gesture on the canvas asks for.</summary>
@@ -154,6 +160,12 @@ namespace BitSorter.ViewModel
 
         /// <summary>Whether Space is held: a press with it pans.</summary>
         public bool Space;
+
+        /// <summary>
+        /// The buttons down as it is made, a bit each -- 1 the left, 2 the right, 4 the middle: whether a press already held is
+        /// still held, or was let go of unseen (<see cref="CanvasPointer.Press"/>).
+        /// </summary>
+        public int Down;
     }
 
     /// <summary>
@@ -215,13 +227,21 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// A button pressed: what it asks for, added to <paramref name="into"/>. **Another button pressed while a press is held
         /// is that press's**, and asks for nothing: it let the press go with the editor never told, so a drag's ghost stayed
-        /// drawn, and neither its release nor Escape could end it (the 16d sweep). The held button pressed again is a release
-        /// that was never seen, and starts afresh.
+        /// drawn, and neither its release nor Escape could end it (the 16d sweep). **But a press held whose button is up**
+        /// (<see cref="CanvasPress.Down"/>) was let go of unseen -- in a frame a page or Escape took the pointer from the
+        /// canvas -- so it is let go of, not made (<see cref="CanvasGesture.LetGo"/>), and this press is its own: taken for
+        /// the drag's, a right press was eaten and the release after it dropped the selection where the pointer had got to,
+        /// and the held button pressed again started afresh with the editor's drag still alive (the sweep's review).
         /// </summary>
         public void Press(CanvasPress press, List<CanvasCommand> into)
         {
-            if (_hold != Hold.None && press.Button != _press.Button)
-                return;
+            if (_hold != Hold.None)
+            {
+                bool stillDown = press.Button != _press.Button && (press.Down & (1 << _press.Button)) != 0;
+                if (stillDown)
+                    return;
+                into.Add(new CanvasCommand(CanvasGesture.LetGo));
+            }
             _hold = Hold.None;
             _press = press;
             _last = press.Window;
