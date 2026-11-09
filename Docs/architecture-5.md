@@ -831,7 +831,10 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   one as BitSorter opens, and copied beside itself as it was, `progress.json.newer-version-<date>`, before this one first
   writes over it; a copy that cannot be made leaves the save unwritten. `JsonUtility` passes over an unknown key without a
   word, so `SaveFile.NotKept` sets the keys read beside the keys of the same save written back; the 4.x game's are an
-  older save's, never a newer one's.
+  older save's, never a newer one's. It is read in the first frame, so its scanner passes over every string where it lies
+  and makes a key's path only the first time it is met: building them all made 105 MB for a 5 MB save, and a save from
+  before stamps read for one made 40 MB (`SaveFileTests`; `BrowserMemoryPlayTests` holds the store's whole read to the
+  save written back once more than Unity's reader).
 - **A document the save keeps that cannot open** -- one the rules refuse, edited by hand or written by a newer BitSorter --
   threw from the workbench's Start on every launch that opened it (the sweep's save-1). `WorkbenchSession.TryOpen` gives
   no session and the rules' first error instead; the workbench leaves the document in the save as it is, shows the

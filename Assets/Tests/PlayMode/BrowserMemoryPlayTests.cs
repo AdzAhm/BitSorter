@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.IO;
+using BitSorter.Board;
 using BitSorter.View;
 using BitSorter.ViewModel;
 using NUnit.Framework;
@@ -74,6 +76,80 @@ namespace BitSorter.PlayMode.Tests
                 TestContext.WriteLine($"the worst frame opening the pipelined processor made {worst / 1_000_000} MB");
                 Assert.Less(worst, Cap,
                     $"the frames opening it made up to {worst / 1_000_000} MB; a browser holds all of a frame's at once");
+            }
+        }
+
+        /// <summary>
+        /// Reading a large save makes little more in its frame than Unity's reader makes of it (the newer-save review). The
+        /// save is read in the first frame, beside the launch's open, for its stamp and for what of it this BitSorter does not
+        /// know as well, and that reading built again every string the save held and every key's path each time it was met:
+        /// 105 MB more for a 5 MB save, in the scanner alone (<c>SaveFileTests</c>, under dotnet). What is left is the save
+        /// written back once in memory to set what it read beside -- a string no longer than the file, as every write makes.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ReadingALargeSave_MakesLittleMoreInItsFrameThanUnitysReaderDoes()
+        {
+            string folder = Path.Combine(Application.temporaryCachePath, "large-save-" + Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(folder, "progress.json");
+            try
+            {
+                Project processor = null;
+                for (int i = 0; i < WorkbenchSamples.All.Count; i++)
+                    if (WorkbenchSamples.All[i].Name == "Pipelined RISC-V")
+                        processor = WorkbenchSamples.All[i].Build();
+                Assert.IsNotNull(processor, "sanity: the pipelined processor to fill a save with");
+                var writer = new ProgressStore(path);
+                for (int i = 0; i < 60; i++)
+                    writer.SetProject(Documents.Prefix + "large " + i, processor);
+                writer.Save();
+                Assert.IsNull(writer.LastError, "sanity: the large save written");
+                long chars = File.ReadAllText(path).Length;
+                Assert.Greater(chars, 3_000_000L, "sanity: a save of megabytes, sixty processors in it");
+
+                using (var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame"))
+                {
+                    yield return null;
+                    yield return null;
+
+                    // What Unity's reader makes of it, as the store's read made before it read the save's own text too.
+                    ProgressFile read = JsonUtility.FromJson<ProgressFile>(File.ReadAllText(path));
+                    long reader = 0;
+                    for (int f = 0; f < 3; f++)
+                    {
+                        yield return null;
+                        reader = Math.Max(reader, recorder.LastValue);
+                    }
+
+                    var store = new ProgressStore(path);
+                    store.Load();
+                    long load = 0;
+                    for (int f = 0; f < 3; f++)
+                    {
+                        yield return null;
+                        load = Math.Max(load, recorder.LastValue);
+                    }
+
+                    Assert.IsTrue(recorder.Valid, "sanity: the editor counts what a frame allocates");
+                    Assert.IsNotNull(read, "sanity: Unity's reader read it");
+                    Assert.IsNull(store.LastError, "sanity: the store read it");
+                    Assert.IsNull(store.FromANewerVersion, "sanity: this BitSorter's own save, nothing in it unknown");
+                    Assert.AreEqual(60, store.ProjectKeys().Length, "sanity: every circuit read");
+                    Assert.Greater(reader, 2 * chars, "sanity: the counter saw the read -- its text alone is two bytes a character");
+                    TestContext.WriteLine($"a save of {chars:N0} characters: Unity's reader made {reader:N0} bytes in its frame, the store's read {load:N0}");
+                    Assert.Less(load - reader, 3L * sizeof(char) * chars,
+                        $"the store's read of a save of {chars:N0} characters made {load - reader:N0} bytes more than Unity's reader did");
+                }
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(folder, true);
+                }
+                catch (IOException)
+                {
+                    // A scratch folder of the editor's own; left for the next to clear.
+                }
             }
         }
     }

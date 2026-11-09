@@ -396,7 +396,9 @@ namespace BitSorter.View
                 LoadedFormat = file.format;
 
                 // A newer BitSorter's -- its format past this one's, or a key this one would drop as it writes -- is said as
-                // it opens, and copied aside before this one first writes over it (Ahmad's decision, 2026-11-03).
+                // it opens, and copied aside before this one first writes over it (Ahmad's decision, 2026-11-03). In the first
+                // frame, beside the launch's open: the scanner makes nothing for each value or key the save holds, and the save
+                // written back is one string no longer than the file, as every write makes (BrowserMemoryPlayTests).
                 FromANewerVersion = BitSorter.ViewModel.SaveFile.Newer(file.format, ProjectRecord.Format, json, JsonUtility.ToJson(file));
                 _newerFrom = FromANewerVersion != null ? source : null;
 

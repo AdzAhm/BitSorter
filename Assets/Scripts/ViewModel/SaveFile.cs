@@ -16,6 +16,11 @@ namespace BitSorter.ViewModel
     /// fills the save's own fields and passes over every key it has none for, without a word, so what it leaves out can only
     /// be found by setting what it read beside what it writes back. Nothing here throws, whatever the text: a save is the one
     /// file a crash truncates and a student edits by hand, and its reader already says what it could not read.
+    ///
+    /// **It makes nothing for a value or a key it meets, only for each kind of key** (the newer-save review): the save is
+    /// read in the first frame, beside the launch's open, and a browser frees memory only between frames. A string is passed
+    /// over where it lies, never built; a key is matched where it lies against the keys met before at its place, and made
+    /// only the first time. A 5 MB save made 105 MB when every string was built again and every key's path made each time.
     /// </remarks>
     public static class SaveFile
     {
@@ -60,16 +65,16 @@ namespace BitSorter.ViewModel
                     scan.Next();
                     continue;
                 }
-                string key = scan.String();
+                bool key = scan.Key(out int start, out int length, out string escaped);
                 scan.Space();
-                if (key == null || scan.End || scan.Peek != ':')
+                if (!key || scan.End || scan.Peek != ':')
                 {
                     sure = !scan.End;   // cut short where the text ended; no save of BitSorter's where it did not
                     return null;
                 }
                 scan.Next();
                 scan.Space();
-                if (key == StampKey)
+                if (scan.Is(StampKey, start, length, escaped))
                 {
                     if (scan.End)
                     {
@@ -97,14 +102,19 @@ namespace BitSorter.ViewModel
         /// </summary>
         public static List<string> NotKept(string read, string written)
         {
+            List<KeyNode> writes = Keys(written);
             var kept = new HashSet<string>(StringComparer.Ordinal);
-            foreach (string path in Keys(written))
-                kept.Add(path);
+            for (int i = 0; i < writes.Count; i++)
+                kept.Add(writes[i].Path);
 
+            List<KeyNode> reads = Keys(read);
             var dropped = new List<string>();
-            foreach (string path in Keys(read))
+            for (int i = 0; i < reads.Count; i++)
+            {
+                string path = reads[i].Path;
                 if (!kept.Contains(path) && !IsRetired(path) && !dropped.Contains(path))
                     dropped.Add(path);
+            }
             return dropped;
         }
 
@@ -130,25 +140,27 @@ namespace BitSorter.ViewModel
 
         private static bool IsRetired(string path)
         {
-            foreach (string retired in Retired)
+            for (int i = 0; i < Retired.Count; i++)
+            {
+                string retired = Retired[i];
                 if (path == retired || path.StartsWith(retired + ".", StringComparison.Ordinal) || path.StartsWith(retired + "[]", StringComparison.Ordinal))
                     return true;
+            }
             return false;
         }
 
-        /// <summary>Every key of <paramref name="text"/>, as a path from its top, each once.</summary>
-        private static List<string> Keys(string text)
+        /// <summary>Every key of <paramref name="text"/>, each place once, in the order first met.</summary>
+        private static List<KeyNode> Keys(string text)
         {
-            var keys = new List<string>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var met = new List<KeyNode>();
             var scan = new Scanner(text ?? "");
             scan.Space();
-            Walk(scan, "", keys, seen, 0);
-            return keys;
+            Walk(scan, new KeyNode("", ""), met, 0);
+            return met;
         }
 
-        /// <summary>Names the keys of the value at the scanner, under <paramref name="path"/>; false where the text gives out.</summary>
-        private static bool Walk(Scanner scan, string path, List<string> keys, HashSet<string> seen, int depth)
+        /// <summary>Names the keys of the value at the scanner, under <paramref name="node"/>; false where the text gives out.</summary>
+        private static bool Walk(Scanner scan, KeyNode node, List<KeyNode> met, int depth)
         {
             scan.Space();
             if (scan.End)
@@ -175,15 +187,12 @@ namespace BitSorter.ViewModel
                         scan.Next();
                         continue;
                     }
-                    string key = scan.String();
+                    bool key = scan.Key(out int start, out int length, out string escaped);
                     scan.Space();
-                    if (key == null || scan.End || scan.Peek != ':')
+                    if (!key || scan.End || scan.Peek != ':')
                         return false;
                     scan.Next();
-                    string at = path.Length == 0 ? key : path + "." + key;
-                    if (seen.Add(at))
-                        keys.Add(at);
-                    if (!Walk(scan, at, keys, seen, depth + 1))
+                    if (!Walk(scan, node.Child(scan, start, length, escaped, met), met, depth + 1))
                         return false;
                 }
             }
@@ -191,6 +200,7 @@ namespace BitSorter.ViewModel
             if (first == '[')
             {
                 scan.Next();
+                KeyNode element = node.Element();
                 while (true)
                 {
                     scan.Space();
@@ -206,12 +216,56 @@ namespace BitSorter.ViewModel
                         scan.Next();
                         continue;
                     }
-                    if (!Walk(scan, path + "[]", keys, seen, depth + 1))
+                    if (!Walk(scan, element, met, depth + 1))
                         return false;
                 }
             }
 
             return scan.Skip();
+        }
+
+        /// <summary>
+        /// A place keys are met at, by its path from the top: a key, or every element of an array (<see cref="Element"/>). Made
+        /// once for each place, however many times the save has it.
+        /// </summary>
+        private sealed class KeyNode
+        {
+            /// <summary>The path from the top: <c>projects[].project.modules</c>.</summary>
+            public readonly string Path;
+
+            /// <summary>The key, as the save names it once its escapes are undone; empty for the top and an array's element.</summary>
+            private readonly string _name;
+
+            private List<KeyNode> _keys;
+            private KeyNode _element;
+
+            public KeyNode(string path, string name)
+            {
+                Path = path;
+                _name = name;
+            }
+
+            /// <summary>
+            /// The key under this place that <paramref name="scan"/>'s text has at <paramref name="start"/> for
+            /// <paramref name="length"/> characters -- or, for one with an escape in it, <paramref name="escaped"/> -- found
+            /// among those met before, by index, or made and added to <paramref name="met"/> the first time.
+            /// </summary>
+            public KeyNode Child(Scanner scan, int start, int length, string escaped, List<KeyNode> met)
+            {
+                if (_keys != null)
+                    for (int i = 0; i < _keys.Count; i++)
+                        if (scan.Is(_keys[i]._name, start, length, escaped))
+                            return _keys[i];
+
+                string name = escaped ?? scan.Cut(start, length);
+                var made = new KeyNode(Path.Length == 0 ? name : Path + "." + name, name);
+                (_keys ??= new List<KeyNode>()).Add(made);
+                met.Add(made);
+                return made;
+            }
+
+            /// <summary>Every element of an array at this place: one place, made the first time and never itself a key.</summary>
+            public KeyNode Element() => _element ??= new KeyNode(Path + "[]", "");
         }
 
         /// <summary>A place in JSON text, read forward.</summary>
@@ -232,6 +286,50 @@ namespace BitSorter.ViewModel
             {
                 while (_at < _text.Length && char.IsWhiteSpace(_text[_at]))
                     _at++;
+            }
+
+            /// <summary>The text from <paramref name="start"/>, <paramref name="length"/> characters long.</summary>
+            public string Cut(int start, int length) => _text.Substring(start, length);
+
+            /// <summary>
+            /// Whether the key at <paramref name="start"/> for <paramref name="length"/> characters -- or
+            /// <paramref name="escaped"/>, one with an escape in it -- is <paramref name="name"/>, compared where it lies.
+            /// </summary>
+            public bool Is(string name, int start, int length, string escaped) =>
+                escaped != null
+                    ? string.Equals(name, escaped, StringComparison.Ordinal)
+                    : name.Length == length && string.CompareOrdinal(name, 0, _text, start, length) == 0;
+
+            /// <summary>
+            /// Past the key at the scanner: where its text lies, <paramref name="start"/> for <paramref name="length"/>
+            /// characters, or for one with an escape in it -- seldom -- the key itself, <paramref name="escaped"/>, its escapes
+            /// undone; false where there is none, or it never ends, the scanner left where <see cref="String"/> leaves it.
+            /// </summary>
+            public bool Key(out int start, out int length, out string escaped)
+            {
+                start = 0;
+                length = 0;
+                escaped = null;
+                if (End || Peek != '"')
+                    return false;
+                for (int at = _at + 1; at < _text.Length; at++)
+                {
+                    char c = _text[at];
+                    if (c == '"')
+                    {
+                        start = _at + 1;
+                        length = at - start;
+                        _at = at + 1;
+                        return true;
+                    }
+                    if (c == '\\')
+                    {
+                        escaped = String();
+                        return escaped != null;
+                    }
+                }
+                _at = _text.Length;   // it never ends
+                return false;
             }
 
             /// <summary>The string at the scanner, its escapes undone; null where there is none, or it never ends.</summary>
@@ -262,8 +360,7 @@ namespace BitSorter.ViewModel
                         case 'r': made.Append('\r'); break;
                         case 't': made.Append('\t'); break;
                         case 'u':
-                            if (_at + 4 > _text.Length ||
-                                !int.TryParse(_text.Substring(_at, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int code))
+                            if (!Hex4(out int code))
                                 return null;
                             made.Append((char)code);
                             _at += 4;
@@ -276,8 +373,57 @@ namespace BitSorter.ViewModel
             }
 
             /// <summary>
-            /// Past the value at the scanner, however deep, without a call for each level; false where the text gives out
-            /// before the value ends.
+            /// Past the string at the scanner as <see cref="String"/> reads it, without making it; false where there is none,
+            /// or it never ends.
+            /// </summary>
+            public bool SkipString()
+            {
+                if (End || Peek != '"')
+                    return false;
+                _at++;
+                while (_at < _text.Length)
+                {
+                    char c = _text[_at++];
+                    if (c == '"')
+                        return true;
+                    if (c != '\\')
+                        continue;
+                    if (_at >= _text.Length)
+                        return false;
+                    if (_text[_at++] == 'u')
+                    {
+                        if (!Hex4(out _))
+                            return false;
+                        _at += 4;
+                    }
+                }
+
+                return false;
+            }
+
+            /// <summary>The four hex digits of a <c>\u</c> escape at the scanner, read where they lie; false where there are not four.</summary>
+            private bool Hex4(out int code)
+            {
+                code = 0;
+                if (_at + 4 > _text.Length)
+                    return false;
+                for (int i = 0; i < 4; i++)
+                {
+                    char h = _text[_at + i];
+                    int digit = h >= '0' && h <= '9' ? h - '0'
+                        : h >= 'a' && h <= 'f' ? h - 'a' + 10
+                        : h >= 'A' && h <= 'F' ? h - 'A' + 10
+                        : -1;
+                    if (digit < 0)
+                        return false;
+                    code = code * 16 + digit;
+                }
+                return true;
+            }
+
+            /// <summary>
+            /// Past the value at the scanner, however deep, without a call for each level and without making any of it; false
+            /// where the text gives out before the value ends.
             /// </summary>
             public bool Skip()
             {
@@ -285,7 +431,7 @@ namespace BitSorter.ViewModel
                 if (End)
                     return false;
                 if (Peek == '"')
-                    return String() != null;
+                    return SkipString();
                 if (Peek != '{' && Peek != '[')
                 {
                     // A number, true, false or null: up to what ends it.
@@ -300,7 +446,7 @@ namespace BitSorter.ViewModel
                     char c = _text[_at];
                     if (c == '"')
                     {
-                        if (String() == null)
+                        if (!SkipString())
                             return false;
                         continue;
                     }
