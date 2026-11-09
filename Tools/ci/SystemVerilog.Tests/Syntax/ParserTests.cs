@@ -128,6 +128,24 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(2, gates[4].Instances.Count);
         }
 
+        /// <summary>
+        /// The 16d sweep: a delay that is a name was read as any value is, and a name followed by '(' is a call -- so in
+        /// and #D (y, a, b), with no instance name, the gate's terminals were taken for D's arguments, and the read refused
+        /// valid code Icarus runs. A delay is a number or a name (IEEE 1800, delay_value), never a call.
+        /// </summary>
+        [TestCase("and #D (y, a, b);", "and")]
+        [TestCase("not #D (y, a);", "not")]
+        [TestCase("bufif1 #D (y, a, b);", "bufif1")]
+        [TestCase("or #p::D (y, a, b);", "or")]
+        public void AnUnnamedGate_WithANamedDelay_IsRead(string item, string primitive)
+        {
+            var gate = Items(item).Cast<PrimitiveInstantiation>().Single();
+            Assert.AreEqual(primitive, gate.Primitive);
+            Assert.AreEqual("D", ((NameExpression)gate.Delay.Values.Single()).Path.Single());
+            Assert.IsNull(gate.Instances.Single().Name);
+            Assert.AreEqual(primitive == "not" ? 2 : 3, gate.Instances.Single().Terminals.Count);
+        }
+
         [Test]
         public void Instances_ByNameAndByPosition_WithParameters()
         {
