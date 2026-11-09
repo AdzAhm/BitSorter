@@ -5074,11 +5074,12 @@ exercises, each fixed with a test that failed first.
   redo as they were, a drag's last move alone, and the canvas inside the instance it was in, which the design refused had
   stepped out of as it was drawn (the review of the sweep's fixes: the take-back left the redo cleared). An undo or a redo
   to one is not taken.
-- **CHECK grades what the student typed** (`WorkbenchPanel.Check`). It graded the document alone, the last code that applied:
+- **CHECK grades what the student typed** (`ExerciseRun.Check`). It graded the document alone, the last code that applied:
   pressed within the pause it graded the code before the last keystrokes, and over text with an error it could mark the
   exercise solved, keep its best and report its solve for code that was not what the editor showed. It now applies what is
-  typed first, as EXPORT, the hand-in and the lock do (`ApplyTypedCode`, through `WorkbenchSession.ApplyTyping`), and checks
-  nothing that does not apply, the chip saying why.
+  typed first, as EXPORT, the hand-in and the lock do (`WorkbenchSession.WhyTypingStops`, through `ApplyTyping`), and grades
+  nothing that does not apply, the chip saying why and whose. Both are the view-model's, held under dotnet
+  (`ExerciseRunTests`), so the workbench's CHECK and `ApplyTypedCode` only say what they answer.
 - **A part whose pins cannot be made leaves no netlist to make** (`BoardRules.PinsCanBeMade`). A gate's or a mux's inputs, or a
   splitter's or a joiner's width, typed out of range in the inspector was said by `CheckPart` -- and then the module's netlist
   was made anyway: a count below 0 threw out of the edit with no refusal shown, and a width in the hundreds of millions was a

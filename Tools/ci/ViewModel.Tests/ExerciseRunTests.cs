@@ -128,5 +128,75 @@ namespace BitSorter.ViewModel.Tests
             string verdict = ExerciseRun.Verdict(exercise, grade, "ns");
             StringAssert.Contains("every value is right, but it settles in " + grade.Settle + " ns, and must within " + exercise.SettleBy, verdict);
         }
+
+        private const string HalfAdder =
+            "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
+            "    xor #1 g1 (sum, a, b);\n" +
+            "    and #1 g2 (carry, a, b);\n" +
+            "endmodule\n";
+
+        /// <summary>The half adder answered in code, as WRITE IT leaves it -- its ports and no body -- its code shown, to be typed into.</summary>
+        private static (WorkbenchSession Session, Exercise Exercise, string Brief) WrittenHalfAdder()
+        {
+            Exercise exercise = Run.Single(e => e.Id == "half-adder");
+            var editor = new BoardEditor(exercise.ToProject(new List<string>()));
+            Module written = exercise.Written(editor.Project);
+            EditResult wrote = editor.ReplaceModule(written);
+            Assert.IsTrue(wrote.Done, wrote.Refusal);
+            double now = 0;
+            var session = new WorkbenchSession(editor.Project, () => now += 0.01);
+            session.Finish();
+            session.ShowCodeOf(session.Project.Top);
+            Assert.IsTrue(session.ShowsCode, "sanity: its code on screen");
+            return (session, exercise, written.Source.Substring(0, written.Source.IndexOf("module ", System.StringComparison.Ordinal)));
+        }
+
+        /// <summary>
+        /// CHECK grades what the student typed (the 16d sweep): code typed and still within the editor's pause is applied, then
+        /// graded -- solved, where the document held only the ports -- and code with an error is not graded at all, the refusal
+        /// saying it is not checked and why, the last code that applied left as it was. It graded the document alone, and under
+        /// text with an error could mark the code before it solved.
+        /// </summary>
+        [Test]
+        public void ACheck_GradesTheCodeTyped_AndGradesNothingThatDoesNotApply()
+        {
+            (WorkbenchSession session, Exercise exercise, string brief) = WrittenHalfAdder();
+            Assert.IsFalse(ExerciseGrader.Grade(exercise, session.Project).Solved, "sanity: the ports alone are no answer");
+
+            string answer = brief + HalfAdder;
+            session.Code.Type(answer, 0);   // the pause never runs out: no frame is made
+            Assert.AreNotEqual(answer, session.Project.TopModule.Source, "sanity: typed, not yet applied");
+            Grade solved = ExerciseRun.Check(session, exercise, out string refused);
+            Assert.IsNull(refused, refused);
+            Assert.IsNotNull(solved);
+            Assert.IsTrue(solved.Solved, "the code typed, graded");
+            Assert.AreEqual(answer, session.Project.TopModule.Source, "and applied");
+
+            string broken = answer.Replace("and #1 g2 (carry, a, b);", "and #1 g2 (carry, a, b)");
+            session.Code.Type(broken, 0);
+            Grade none = ExerciseRun.Check(session, exercise, out refused);
+            Assert.IsNull(none, "nothing graded: the code on screen is not what would be");
+            StringAssert.StartsWith("half_adder's code on screen does not apply, so it is not checked: ", refused);
+            Assert.AreEqual(answer, session.Project.TopModule.Source, "the last code that applied as it was");
+            Assert.AreEqual(broken, session.Code.Text, "and the code typed still on screen");
+        }
+
+        /// <summary>
+        /// What EXPORT, the hand-in, the lock and CHECK are told of text that does not apply, kept for a module whose code is
+        /// not on screen (Ahmad, 2026-11-03: kept as a draft): whose it is, and how to reach it; and nothing with nothing typed.
+        /// </summary>
+        [Test]
+        public void TypingThatStopsAnExport_IsSaidWithWhoseItIs_AndHowToReachIt()
+        {
+            (WorkbenchSession session, _, string brief) = WrittenHalfAdder();
+            Assert.IsNull(session.WhyTypingStops("exported"), "nothing typed: nothing in the way");
+
+            session.Code.Type(brief + HalfAdder.Replace("endmodule", "endmodul"), 0);
+            session.DrawCode(true);
+            Assert.IsFalse(session.ShowsCode, "sanity: its drawing up, the code typed kept behind it");
+            string said = session.WhyTypingStops("exported");
+            StringAssert.StartsWith("half_adder's code, typed and not applied, does not apply, so it is not exported -- open its code to mend it or REVERT it: ",
+                said);
+        }
     }
 }

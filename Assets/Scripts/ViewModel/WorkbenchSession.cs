@@ -653,6 +653,23 @@ namespace BitSorter.ViewModel
             return EditResult.Ok();
         }
 
+        /// <summary>
+        /// <see cref="ApplyTyping"/> for what takes the document as it is -- EXPORT, the hand-in, the lock, CHECK -- in the chip's
+        /// words: null once nothing typed is left; else why <paramref name="outcome"/> ("exported", "handed in", "locked",
+        /// "checked") did not happen, naming the module whose text does not apply, and, where that text is not on screen --
+        /// kept since its module was stepped out of, or while its drawing is up -- how to reach it.
+        /// </summary>
+        public string WhyTypingStops(string outcome)
+        {
+            EditResult applied = ApplyTyping(out string module);
+            if (applied.Done)
+                return null;
+            return module == Module && ShowsCode
+                ? module + "'s code on screen does not apply, so it is not " + outcome + ": " + applied.Refusal
+                : module + "'s code, typed and not applied, does not apply, so it is not " + outcome + " -- open its code to mend it or REVERT it: "
+                  + applied.Refusal;
+        }
+
         /// <summary>Whether the module shown is written and its text is shown: CODE chosen for it, or no drawing of it could be made.</summary>
         public bool ShowsCode => ShowsWritten && !ShowsDrawingOfCode;
 

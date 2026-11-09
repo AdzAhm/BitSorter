@@ -196,6 +196,19 @@ namespace BitSorter.ViewModel
             return took;
         }
 
+        /// <summary>
+        /// CHECK: <paramref name="exercise"/> graded on what the student typed -- code typed into <paramref name="session"/> and
+        /// not applied applied first, as EXPORT applies it (<see cref="WorkbenchSession.WhyTypingStops"/>) -- or, where any of
+        /// it does not apply, no grade at all, and <paramref name="refused"/> saying why and whose. It graded the document alone,
+        /// the last code that applied: pressed within the editor's pause it graded the code before the last keystrokes, and
+        /// under text with an error it could mark that code solved (the 16d sweep).
+        /// </summary>
+        public static Grade Check(WorkbenchSession session, Exercise exercise, out string refused)
+        {
+            refused = session.WhyTypingStops("checked");
+            return refused == null ? ExerciseGrader.Grade(exercise, session.Project) : null;
+        }
+
         /// <summary>The one line the chip says after a CHECK: solved, or the first reason it is not.</summary>
         public static string Verdict(Exercise exercise, Grade grade, string unit)
         {

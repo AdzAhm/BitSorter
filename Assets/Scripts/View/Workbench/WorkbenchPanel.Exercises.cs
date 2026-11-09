@@ -319,18 +319,21 @@ namespace BitSorter.View
         /// Grades the exercise open: the verdict on the chip, every reason it is not solved at the head of the TRANSCRIPT --
         /// a failed check at its moment, and the run taken to the first -- or, solved, the solved card. **What it grades is
         /// what the student typed**: code typed and not yet applied is applied first, as EXPORT applies it, and code that does
-        /// not apply is not checked, the chip saying why (<see cref="ApplyTypedCode"/>) -- it graded the document alone, the
+        /// not apply is not checked, the chip saying why (<see cref="ExerciseRun.Check"/>) -- it graded the document alone, the
         /// last code that applied, and could mark that solved under broken code (the 16d sweep).
         /// </summary>
         public void Check()
         {
             if (_session == null || _exercise == null || _sample != 0)
                 return;
-            if (!ApplyTypedCode("checked"))
+            Grade grade = ExerciseRun.Check(_session, _exercise, out string refused);
+            if (grade == null)
+            {
+                Notice(refused);
                 return;
+            }
 
             KeepMyCircuit(now: true);
-            Grade grade = ExerciseGrader.Grade(_exercise, _session.Project);
             LastGrade = grade;
             string unit = _session.Unit;
 

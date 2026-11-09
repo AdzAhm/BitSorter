@@ -377,22 +377,19 @@ namespace BitSorter.View
         /// <summary>
         /// Code typed into a written module and not yet applied -- on screen, kept while its drawing is up (the review of #111),
         /// or kept since it was stepped out of (the 16d sweep) -- applied now as its editor would after the pause, so that what
-        /// an export holds, or CHECK grades, is what the student typed (<see cref="WorkbenchSession.ApplyTyping"/>). The editor
-        /// keeps typed text as its own until the pause or Ctrl+Enter, and text with an error as its own for good, while the
-        /// document holds the last text that applied: exporting the document alone hands over older code without a word. Code
-        /// that cannot apply is refused with what is wrong with it, <paramref name="outcome"/> saying what then does not happen
-        /// ("exported", "handed in", "checked"), and false is returned: the export stops. True when nothing typed is left.
+        /// an export holds, or the lock keeps, is what the student typed (<see cref="WorkbenchSession.WhyTypingStops"/>; CHECK
+        /// asks it through <see cref="ExerciseRun.Check"/>). The editor keeps typed text as its own until the pause or
+        /// Ctrl+Enter, and text with an error as its own for good, while the document holds the last text that applied:
+        /// exporting the document alone hands over older code without a word. Code that cannot apply is refused on the chip with
+        /// what is wrong with it, <paramref name="outcome"/> saying what then does not happen ("exported", "handed in",
+        /// "locked"), and false is returned: the export stops. True when nothing typed is left.
         /// </summary>
         private bool ApplyTypedCode(string outcome)
         {
-            EditResult applied = _session.ApplyTyping(out string module);
-            if (applied.Done)
+            string refused = _session.WhyTypingStops(outcome);
+            if (refused == null)
                 return true;
-
-            Notice(module == _session.Module && _session.ShowsCode
-                ? module + "'s code on screen does not apply, so it is not " + outcome + ": " + applied.Refusal
-                : module + "'s code, typed and not applied, does not apply, so it is not " + outcome + " -- open its code to mend it or REVERT it: "
-                  + applied.Refusal);
+            Notice(refused);
             return false;
         }
 
