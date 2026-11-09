@@ -179,6 +179,44 @@ endmodule", "counter.sv")).Design;
             Assert.AreNotEqual(counted, sim.Value(design.Find("counter.q")), "and it really ran: 4,500 more edges");
         }
 
+        /// <summary>
+        /// A function calling itself costs each call what it puts aside of the call under way -- an array of its input and its
+        /// result -- and no more (the review of the 16d engine batch). 595cf504 kept a call busy for the whole of the function,
+        /// not only while its arguments were worked out, so every call made through it from inside took an argument array
+        /// of its own: 968,000 bytes over two thousand evaluations became 1,472,000. Measured once the runtime has compiled
+        /// what runs, on a simulator of its own, as <see cref="RecordingAllocationTests"/> is.
+        /// </summary>
+        [Test]
+        public void AFunctionCallingItself_CostsEachCallWhatItPutsAside_AndNoArgumentArray()
+        {
+            const string Text = @"
+module t;
+    function automatic int fact(input int n);
+        if (n <= 1) return 1;
+        else return n * fact(n - 1);
+    endfunction
+    int a = 3, y;
+    always @(a) y = fact(a);
+    initial forever #1 a = (a == 3) ? 10 : 3;
+endmodule";
+            Design design = Elaborator.Elaborate(SyntaxReader.ReadText(Text, "t.sv"), "t").Design;
+            var options = new SimOptions { RecordChanges = false, RecordTransitions = false };
+            new Simulator(design, null, options).RunTo(4000);
+
+            var sim = new Simulator(design, null, options);
+            sim.RunTo(2000);
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            sim.RunTo(4000);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            // Two thousand evaluations, fact(10) and fact(3) by turns: nine calls and two from inside, a thousand times over.
+            const int calls = 11_000;
+            long aside = 3 * IntPtr.Size + 2 * System.Runtime.CompilerServices.Unsafe.SizeOf<LogicVec>();
+            Assert.AreEqual("6", sim.Value(design.Find("t.y")).Format(Radix.Unsigned), "and it really ran");
+            Assert.LessOrEqual(allocated, calls * aside + 16 * 1024,
+                $"{allocated:N0} bytes, {allocated / (double)calls:F1} a call, where what a call puts aside is {aside}");
+        }
+
         [Test]
         public void TheCounter_SeesRecordingAllocate()
         {
