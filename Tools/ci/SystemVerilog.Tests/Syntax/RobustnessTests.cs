@@ -104,6 +104,9 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Survives("module m; assign y = " + string.Concat(Enumerable.Repeat("a + ", 100_000)) + "a; endmodule", "a run of binary operators");
             Survives("module m; assign y = a" + string.Concat(Enumerable.Repeat("[0]", 100_000)) + "; endmodule", "a run of selects");
             Survives("module m; assign y = s" + string.Concat(Enumerable.Repeat(".m()", 100_000)) + "; endmodule", "a run of method calls");
+            Survives("module m; " + string.Concat(Enumerable.Repeat("generate ", 100_000)) + " endmodule", "generate regions inside each other");
+            Survives("module m; typedef " + string.Concat(Enumerable.Repeat("enum ", 100_000)) + "{A} t; endmodule", "an enum based on an enum, over and over");
+            Survives("module m; typedef " + string.Concat(Enumerable.Repeat("struct { ", 50_000)) + "logic a;" + string.Concat(Enumerable.Repeat(" } s;", 50_000)) + " t; endmodule", "structs inside structs");
         }
 
         /// <summary>

@@ -803,15 +803,34 @@ namespace BitSorter.SystemVerilog.Syntax
             var type = new DataType { Location = Current.Location };
             AcceptKeyword("var");
 
+            // An enum's base and a struct's members are types themselves, each a level deeper (the 16d sweep).
             if (Current.IsKeyword("enum"))
             {
-                type.Enum = ParseEnum();
+                if (!Enter())
+                    return type;
+                try
+                {
+                    type.Enum = ParseEnum();
+                }
+                finally
+                {
+                    Leave();
+                }
                 return type;
             }
 
             if (Current.IsKeyword("struct") || Current.IsKeyword("union"))
             {
-                type.Struct = ParseStruct();
+                if (!Enter())
+                    return type;
+                try
+                {
+                    type.Struct = ParseStruct();
+                }
+                finally
+                {
+                    Leave();
+                }
             }
             else if (IsDataTypeStart(Current))
             {
@@ -1052,7 +1071,16 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     var region = new GenerateRegion { Location = t.Location };
                     Next();
-                    ParseItems(region.Items, "endgenerate");
+                    if (!Enter())   // a region inside another is a level deeper, as a generate block is (the 16d sweep)
+                        return;
+                    try
+                    {
+                        ParseItems(region.Items, "endgenerate");
+                    }
+                    finally
+                    {
+                        Leave();
+                    }
                     ExpectKeyword("endgenerate", "to close 'generate'");
                     into.Add(region);
                     return;
