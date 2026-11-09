@@ -114,9 +114,9 @@ namespace BitSorter.View
         /// Set while a launch opens what was open last, until it has stayed up <see cref="SurvivedFrames"/> frames (Part 16b):
         /// <see cref="OpeningMyCircuit"/> while that is MY CIRCUIT -- the start page's launch builds it under the page too --
         /// and <see cref="OpeningOther"/> while it is anything else. Found still set, the last launch stopped while opening it
-        /// -- a browser out of memory stops the page -- and this one opens the start page over the reference circuit instead:
-        /// BitSorter opens on the last thing open, so it would stop again on every launch, as the pipelined processor once did
-        /// (15h-6d).
+        /// -- a browser out of memory stops the page -- and this one opens the start page instead, over MY CIRCUIT or, where MY
+        /// CIRCUIT was opening, over the reference circuit: BitSorter opens on the last thing open, so it would stop again on
+        /// every launch, as the pipelined processor once did (15h-6d).
         /// </summary>
         public const string OpeningKey = "BitSorter.Launch.Opening";
 
@@ -184,15 +184,19 @@ namespace BitSorter.View
             int stopped = Preferences.GetInt(OpeningKey, 0);
             if (stopped != 0)
             {
-                // The start page over the reference circuit: never over MY CIRCUIT, which may be what stopped the last launch,
-                // so a recovery that built it first stopped too, every launch (save-6). After MY CIRCUIT stopped it, the
-                // reference is what opens next, rather than the start page over MY CIRCUIT, until it is opened on purpose.
+                // The start page over MY CIRCUIT, as any launch with nothing open last -- but where MY CIRCUIT is what stopped
+                // the last launch, over the reference circuit, since a recovery that built it first stopped too, every launch
+                // (save-6); and then the reference is what opens next, rather than the start page over MY CIRCUIT, until it is
+                // opened on purpose. Only that stop puts the reference under the page (the save-6 fix's review: every one did).
+                // A page closed within SurvivedFrames of a launch onto the start page reads as such a stop too -- in a browser
+                // nothing runs as a tab closes to take the mark off -- and costs the reference opening once in its place.
                 Preferences.SetInt(OpeningKey, 0);
+                bool myCircuit = stopped == OpeningMyCircuit;
                 _documentKey = WorkbenchSamples.MyCircuitKey;
-                _launchSample = ReferenceSample;
+                _launchSample = myCircuit ? ReferenceSample : 0;
                 Open();
                 ShowHome();
-                if (stopped == OpeningMyCircuit)
+                if (myCircuit)
                     RememberWhatIsOpen(Documents.SampleKey(WorkbenchSamples.Chip[ReferenceSample].Name));
                 Notice(StoppedOpening);
                 return;
