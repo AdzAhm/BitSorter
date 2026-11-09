@@ -4143,10 +4143,13 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
 **As built in Part 15i-1: latency and throughput in TIMING** (Ahmad, 2026-11-02: "a latency/throughput readout as a tiny
 extra", beside the course read, which gives both for a K-stage pipeline).
 - **`Sim/Timing/PipelineDepth`** counts the registers on every path from an input to an output, over the timing graph's
-  bits, and never claims a pipeline that is not one. Each register's process is followed in the order it is written:
-  each bit it writes takes its next value from the bits its value reads, through a blocking temporary as it stands at
-  that point, one register crossed (`Write`, `Land`). So a shift register is a chain of stages, `acc = acc + x` kept from
-  edge to edge a loop, and `y = r; r = a;` two stages. A bit written on some ways only keeps its value on the others,
+  bits, and never claims a pipeline that is not one. Each register's process is followed along the ways its code runs
+  (`CodeFlow`, until nothing more is learned): each bit it writes takes its next value from the bits its value reads,
+  through a blocking temporary as it stands at that point -- what every way there wrote it, where ways meet, and its own
+  last value too where some way did not -- one register crossed (`FollowRun.Write`). The 16d sweep found it followed in
+  the order written, every statement a jump passed over taken as on some ways only: `if (sel) t = a; else t = b; y <= t;`
+  read as 1 to 2 registers, and `t = y;` before them, written over on every way, as a loop. So a shift register is a
+  chain of stages, `acc = acc + x` kept from edge to edge a loop, and `y = r; r = a;` two stages. A bit written on some ways only keeps its value on the others,
   and one given its own value back (`q <= q`) is kept too: an enable's register is a stage. Kept through `en ? d : q`,
   it was read as a loop until Ahmad's morning decision of 2026-11-02 (M2): a `?:` arm that reads the register whole is
   its hold now (`Expr.DependsHolding`), nested or on either arm, while `en ? d : q + 1` or `~q` still goes round; and the
