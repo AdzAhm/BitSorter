@@ -252,6 +252,35 @@ namespace BitSorter.Board.Tests
                 "endmodule\n", "flips");
         }
 
+        // -----------------------------------------------------------------
+        // A cell's connections (import-export-14)
+        // -----------------------------------------------------------------
+
+        [TestCase("NAND2 g1 (.A, .B, .Z);")]
+        [TestCase("NAND2 g1 (.*);")]
+        public void ACellsConnectionsByShorthand_AreMadeOrNotDrawn(string cell)
+        {
+            // .A is .A(A), and .* every port to the net of its name (IEEE 1800, 23.3.2.3 and 23.3.2.4).
+            AssertDrawnRunsAsWritten(
+                "module celled (input logic A, input logic B, output logic Z);\n" +
+                "    " + cell + "\n" +
+                "endmodule\n", "celled", false, "NAND2");
+        }
+
+        [TestCase("NAND2 g1 (.A(a), .B(b), .Q(y));", ".Q")]
+        [TestCase("NAND2 g1 (a, b, y, y2);", "four")]
+        public void ACellConnectedToPortsItHasNot_IsNotDrawn(string cell, string said)
+        {
+            ImportResult imported = BoardImporter.Import(SyntaxReader.ReadText(
+                "module celled (input logic a, input logic b, output logic y, output logic y2);\n" +
+                "    " + cell + "\n" +
+                "endmodule\n", "celled.sv"), "celled");
+
+            Assert.IsFalse(imported.Succeeded, "drawn with a connection the cell has no port for");
+            StringAssert.Contains(said, string.Join("\n", imported.Problems));
+            StringAssert.Contains("celled.sv:2", string.Join("\n", imported.Problems), "and where");
+        }
+
         [TestCase("input bit a", "bit")]
         [TestCase("input logic a [1:0]", "array")]
         [TestCase("input integer a", "integer")]
