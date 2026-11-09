@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using NUnit.Framework;
 
 namespace BitSorter.SystemVerilog.Tests
@@ -77,6 +79,51 @@ namespace BitSorter.SystemVerilog.Tests
             LiteralResult result = Literal.Parse(text);
             Assert.IsFalse(result.Ok, $"'{text}' read as {result.Value}");
             Assert.IsNotEmpty(result.Error);
+        }
+
+        /// <summary>
+        /// The 16d sweep: a decimal literal was read with BigInteger.Parse and its bits counted by shifting it one bit at a
+        /// time, a new number each shift, before its width was checked -- a hundred thousand digits made 6.9 GB and took
+        /// 1.5 seconds under .NET 10 (worse on Unity's runtimes, whose Parse multiplies by ten a digit), in one frame, and
+        /// again on every edit. A browser frees memory only between frames.
+        /// </summary>
+        [TestCase("")]
+        [TestCase("'d")]
+        [TestCase("8'd")]
+        [TestCase("400'sd")]
+        public void ALongDecimalLiteral_IsReadInLittleMoreThanItsOwnSize(string prefix)
+        {
+            string text = prefix + new string('9', 100_000);
+            Literal.Parse(prefix + "99");
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var timer = Stopwatch.StartNew();
+            LiteralResult result = Literal.Parse(text);
+            timer.Stop();
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.IsTrue(result.Ok, result.Error);
+            Assert.Less(allocated, 2_000_000, $"{allocated:N0} bytes allocated reading 100,000 digits");
+            Assert.Less(timer.ElapsedMilliseconds, 1000, "100,000 digits read in well under a second");
+        }
+
+        [TestCase("")]
+        [TestCase("'d")]
+        [TestCase("8'd")]
+        public void ADecimalLiteralTooWideForAnyValue_IsRefusedAtOnce(string prefix)
+        {
+            string text = prefix + new string('9', 320_000);   // more than a million bits
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var timer = Stopwatch.StartNew();
+            LiteralResult result = Literal.Parse(text);
+            timer.Stop();
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.IsFalse(result.Ok);
+            StringAssert.Contains("wider than BitSorter allows", result.Error);
+            Assert.Less(allocated, 2_000_000, $"{allocated:N0} bytes allocated refusing it");
+            Assert.Less(timer.ElapsedMilliseconds, 200, "refused before anything is worked out");
         }
 
         // -----------------------------------------------------------------
