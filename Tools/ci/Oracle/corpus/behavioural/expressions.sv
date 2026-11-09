@@ -1,8 +1,10 @@
 // The expressions of Part L3 that Icarus can run as well: ==? and !=?, the bit-counting system functions,
 // casts to the built-in types and to an enum, an enum's methods -- name() printed with %s, first(),
 // last(), num(), next() and prev() round the ends and from a value that is no member -- and $random with a
-// seed of the testbench's own and without one. inside and case inside, which Icarus cannot read, are held
-// by BitSorter's own tests. Written for BitSorter; not taken from any course material.
+// seed of the testbench's own and without one, moving the seed on only where it is worked out: not in a ?:
+// arm passed over or the right of a decided && or ||, and in both arms of an x condition. inside and case
+// inside, which Icarus cannot read, are held by BitSorter's own tests. Written for BitSorter; not taken from
+// any course material.
 
 module expressions_tb;
     typedef enum logic [1:0] {IDLE, RUN, DONE} state_t;
@@ -14,6 +16,8 @@ module expressions_tb;
     logic [7:0] b;
     integer seed, r;
     int i;
+    int a, c, d, e, f, x;
+    logic on = 1, off = 0, unknown = 1'bx;
 
     initial begin
         v = 4'b0101;
@@ -53,6 +57,16 @@ module expressions_tb;
 
         seed = 3;
         $display("in an expression %0d %0d", $random(seed) % 10, seed);
+
+        seed = 7;
+        a = off ? $random(seed) : 5;
+        c = on ? 6 : $random(seed);
+        d = (off && $random(seed)) ? 1 : 2;
+        e = (on || $random(seed)) ? 3 : 4;
+        f = on ? $random(seed) : 9;
+        $display("passed over %0d %0d %0d %0d %0d %0d", a, c, d, e, f, seed);
+        x = unknown ? $random(seed) : 1;
+        $display("both arms of x %0d %0d", x, seed);
         #1 $finish;
     end
 endmodule

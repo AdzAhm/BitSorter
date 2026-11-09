@@ -172,6 +172,48 @@ endmodule", 1);
         }
 
         /// <summary>
+        /// The same of a <c>?:</c> of reals, and of <c>$random(seed)</c> in an operand passed over (the review of the 16d engine
+        /// batch). A real ?: was built without the context's signedness, so it worked out both arms and its recursion ran
+        /// down to the nesting guard, saying so; and <c>$random</c>, worked out just before its statement, moved the seed on
+        /// in an arm not chosen and in the right of a decided <c>&amp;&amp;</c> or <c>||</c>. Icarus 12 and ModelSim 2020.1 print
+        /// these lines: the seed moves on only where the call is worked out -- in both arms of an x condition, too.
+        /// </summary>
+        [Test]
+        public void ARealConditional_AndARandomInAnOperandPassedOver_WorkOutOnlyWhatTheyNeed()
+        {
+            Simulator sim = Run(@"
+module t;
+    int seed = 7, a, b, c, d, e, f, g, x;
+    real r;
+    logic on = 1, off = 0, unk = 1'bx;
+    function automatic real pw(input int n);
+        return (n == 0) ? 1.0 : 2.0 * pw(n - 1);
+    endfunction
+    initial begin
+        a = off ? $random(seed) : 5;
+        b = $random(seed);
+        c = on ? 6 : $random(seed);
+        d = (off && $random(seed)) ? 1 : 2;
+        e = (on || $random(seed)) ? 3 : 4;
+        f = on ? $random(seed) : 9;
+        g = $random(seed);
+        r = pw(5);
+        $display(""a=%0d b=%0d c=%0d d=%0d e=%0d f=%0d g=%0d r=%0.1f"", a, b, c, d, e, f, g, r);
+        seed = 7;
+        x = unk ? $random(seed) : 1;
+        $display(""x=%0d seed=%0d"", x, seed);
+    end
+endmodule", 1);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "a=5 b=-2146999808 c=6 d=2 e=3 f=1181502348 g=760705370 r=32.0",
+                "x=0 seed=483484",
+            }, Printed(sim));
+            CollectionAssert.IsEmpty(sim.History.Messages.Where(m => m.Severity == Severity.Error).Select(m => m.Text));
+        }
+
+        /// <summary>
         /// A call whose later argument comes back into the same call gives each call its own arguments (the 16d sweep,
         /// engine-1): Ackermann's <c>ack(m - 1, ack(m, n - 1))</c> works out its second argument through the same call, and
         /// one array of arguments for the call let the inner call put its m where the outer one's was -- ack(0, 3) ran for
