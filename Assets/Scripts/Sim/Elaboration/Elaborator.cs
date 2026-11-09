@@ -1644,8 +1644,27 @@ namespace BitSorter.Sim
                 });
             }
 
+            /// <summary>The port declarations found inside a generate block, so one in a loop is said once, not once a round.</summary>
+            private readonly HashSet<PortItemDeclaration> _portsMisplaced = new HashSet<PortItemDeclaration>();
+
             private void DeclarePortItem(Scope scope, PortItemDeclaration p, ModuleDeclaration module, bool isTop)
             {
+                // Inside a generate block, which is declared with no module: a port is the module's, declared outside any block
+                // (IEEE 1800, 27.2) -- most often a line misplaced, or an end missing above it (the Part 16d sweep: it threw).
+                if (module == null)
+                {
+                    if (_portsMisplaced.Add(p))
+                    {
+                        var names = new List<string>(p.Declarators.Count);
+                        foreach (Declarator declarator in p.Declarators)
+                            names.Add(declarator.Name);
+                        Error(p.Location, ElaborationCodes.Misplaced, $"{p.Direction.ToString().ToLowerInvariant()} {string.Join(", ", names)} is declared inside a " +
+                            "generate block, and a port belongs to the module itself, outside every block. Is an end missing above it?");
+                    }
+
+                    return;
+                }
+
                 if (!CheckNetType(p.NetType, p.Location))
                     return;
 
