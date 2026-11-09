@@ -164,6 +164,31 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual("1ns/1ps", Clean("`timescale 1ns/1ps\nmodule m; endmodule").Timescale);
         }
 
+        /// <summary>
+        /// The 16d sweep: a backslash ending a // comment continued the line whatever the line was, so a `timescale or an
+        /// `include whose comment ended in a Windows path's backslash took the next line into its arguments, and a module
+        /// written there was gone without a word. Icarus and ModelSim continue only a `define through such a comment -- its
+        /// body goes on -- and that one still does.
+        /// </summary>
+        [Test]
+        public void ABackslashEndingAComment_ContinuesOnlyADefine()
+        {
+            SyntaxTree timescale = Clean("`timescale 1ns/1ps // C:\\work\\\nmodule m; endmodule\n");
+            Assert.AreEqual(new[] { "m" }, timescale.Modules.Select(m => m.Name).ToArray(), "the module after a `timescale");
+            Assert.AreEqual("1ns/1ps", timescale.Timescale);
+
+            var files = new MemorySourceFiles()
+                .Add("cells.sv", "module inv; endmodule\n")
+                .Add("top.sv", "`include \"cells.sv\" // from C:\\work\\\r\nmodule top; endmodule\r\n");
+            SyntaxTree include = SyntaxReader.Read("top.sv", files);
+            Assert.IsEmpty(include.Diagnostics, string.Join("\n", include.Diagnostics));
+            Assert.AreEqual(new[] { "inv", "top" }, include.Modules.Select(m => m.Name).ToArray(), "the module after an `include");
+
+            ModuleDeclaration define = OnlyModule("`define X 1 // goes on \\\n+ 2\nmodule m; assign y = `X; endmodule\n");
+            Assert.AreEqual("1 + 2", Printer.Print(((ContinuousAssign)define.Items.Single()).Assignments[0].Value),
+                "a `define's body goes on, as Icarus and ModelSim read it");
+        }
+
         [Test]
         public void AMacroThatExpandsIntoItself_StopsWithAMessage()
         {
