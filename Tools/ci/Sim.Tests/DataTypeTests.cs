@@ -398,5 +398,29 @@ endmodule");
             Elaboration e = Elaborate($"module t; {declaration} state_t s; endmodule");
             Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
         }
+
+        /// <summary>
+        /// A name's value is what it is given cast to the enum's type (IEEE 1800, 6.19): refused only where the cast cuts off bits
+        /// that are not 0 for an unsigned type, or not the sign bit for a signed one -- never because the value read as its own
+        /// signedness is a number the type does not hold. Icarus 12 and ModelSim print each of the first six so; the last is the
+        /// standard's, a signed value sign-extended as an assignment extends it (6.24.1), where Icarus refuses it as negative and
+        /// ModelSim extends it by zeros, to 15 (Docs/oracle-notes.md). The review of the Part 16d sweep's enum fix found them refused.
+        /// </summary>
+        [TestCase("typedef enum {A = 32'hFFFF_FFFF, B = 0} e_t;", "-1 A")]
+        [TestCase("typedef enum int {A = 32'h8000_0000, B = 0} e_t;", "-2147483648 A")]
+        [TestCase("typedef enum logic signed [3:0] {A = 4'b1000, B = 0} e_t;", "-8 A")]
+        [TestCase("typedef enum logic [31:0] {A = -1, B = 0} e_t;", "4294967295 A")]
+        [TestCase("typedef enum logic [7:0] {A = 8'sb1111_1111, B = 0} e_t;", "255 A")]
+        [TestCase("typedef enum logic [3:0] {A = 4'sb1000, B = 0} e_t;", "8 A")]
+        [TestCase("localparam logic signed [3:0] P = -1; typedef enum logic [7:0] {A = P, B = 0} e_t;", "255 A")]
+        public void AnEnumsValue_IsWhatItIsGiven_CastToItsType(string declaration, string printed)
+        {
+            CollectionAssert.AreEqual(new[] { printed }, Printed($@"
+module t;
+    {declaration}
+    e_t v;
+    initial begin v = A; $display(""%0d %s"", v, v.name()); end
+endmodule"));
+        }
     }
 }
