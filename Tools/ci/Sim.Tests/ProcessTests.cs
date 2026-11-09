@@ -178,6 +178,34 @@ endmodule"), 40);
             CollectionAssert.AreEqual(new[] { "0 1" }, Changes(sim, "a"));
         }
 
+        /// <summary>
+        /// What sees the NBA region's updates one at a time, and what sees only what they leave, as ModelSim 2020.1 has it
+        /// (the review of the 16d engine batch; corpus/behavioural/nba_landing.sv, held to ModelSim on every signal by the
+        /// oracle; Docs/oracle-notes.md): a wait on a variable, a select of one by constant bounds or a concatenation of them
+        /// is woken by a value between; one on any other expression -- an operator, a cast, a word of a memory -- and a
+        /// <c>wait</c> are judged once every update has landed, against what they were before, so a value they came back
+        /// from wakes none of them. Writes to bits apart land together, however they are ordered. The landing made an
+        /// expression's value between a change, and split bits apart wherever a later write fell between two earlier ones.
+        /// An expression changed through the landing is woken all the same (pr), as each wait on a variable is.
+        /// </summary>
+        [Test]
+        public void NonblockingWritesLandingInTurn_WakeAWaitOnAVariableOrASelect_AndAnExpressionSeesWhatTheyLeft()
+        {
+            string path = Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus/behavioural/nba_landing.sv");
+            Simulator sim = Run(Clean(File.ReadAllText(path), "nba_landing_tb"), 100);
+            string[] lines = sim.History.Messages.Where(m => m.Severity == Severity.Info).Select(m => m.Text).ToArray();
+
+            string all = string.Join(" | ", lines);
+            CollectionAssert.Contains(lines, "between: sel=1 selpos=1 part=1 whole=1 lsb=1 cat=1 qany=1 qneg=1", all);
+            CollectionAssert.Contains(lines, "left: vx=0 ab=0 eq=0 word=0 wordi=0 mixed=0 cast=0 inv=0 waited=0 pr=1", all);
+            CollectionAssert.Contains(lines, "v=00001000 s=08 w=08 u=01 count=5 m1=3");
+
+            // v[0], v[7] and v[3] are bits apart, and land in one delta: no value between, in the history either.
+            SignalId v = sim.Design.Find("nba_landing_tb.v");
+            Assert.AreEqual(1, Enumerable.Range(0, sim.History.ChangeCount(v)).Count(k => sim.History.Change(v, k).Time == 10),
+                "bits apart land together, whatever order they were written in");
+        }
+
         [Test]
         public void AlwaysComb_RunsOnceAtTimeZero_ButAlwaysStar_WaitsForAChange()
         {

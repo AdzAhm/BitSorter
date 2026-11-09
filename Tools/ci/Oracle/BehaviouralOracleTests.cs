@@ -112,6 +112,28 @@ namespace BitSorter.Ci.Oracle
             CollectionAssert.Contains(lines, "2 follows a: y=3", "Icarus 12 does not follow a; BitSorter and ModelSim give y=7");
         }
 
+        /// <summary>
+        /// The NBA region's updates landing in turn (Ahmad's decision of 2026-11-03), held to ModelSim on every signal and every
+        /// printed line: which waits a value between wakes the standard leaves open, and Icarus 12 settles seven of the
+        /// design's otherwise (Docs/oracle-notes.md, "Two nonblocking writes to one variable in one moment").
+        /// </summary>
+        [Test]
+        public void TheNonblockingLanding_AgreesWithModelSim_OnEverySignal() =>
+            Agrees("ModelSim", "behavioural/nba_landing.sv", "nba_landing_tb", null, null, null);
+
+        /// <summary>
+        /// Icarus 12's way with the same design, held so that a later Icarus that settles it as ModelSim does is noticed: no
+        /// select is woken by a value between, and four expressions are -- a comparison, a memory's word by a constant and by
+        /// a variable, and a cast. Where both agree, BitSorter's own run is held to both.
+        /// </summary>
+        [Test]
+        public void Icarus12_WakesNoSelectOnANonblockingValueBetween_AndFourExpressions()
+        {
+            (_, string[] lines, _) = RunIcarus(Icarus.Require(), "behavioural/nba_landing.sv", "nba_landing_tb", null, new string[0], null);
+            CollectionAssert.Contains(lines, "between: sel=0 selpos=0 part=0 whole=1 lsb=1 cat=1 qany=1 qneg=1", string.Join("\n", lines));
+            CollectionAssert.Contains(lines, "left: vx=0 ab=0 eq=1 word=1 wordi=1 mixed=0 cast=1 inv=0 waited=0 pr=1", string.Join("\n", lines));
+        }
+
         /// <summary>The images every processor's program needs: all three programs', each with what it should leave, and the data.</summary>
         private const string Programs =
             "processor/rv_sum.hex,processor/rv_sum_expected.hex,processor/rv_fib.hex,processor/rv_fib_expected.hex," +
