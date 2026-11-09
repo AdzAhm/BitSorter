@@ -4200,7 +4200,8 @@ extra", beside the course read, which gives both for a K-stage pipeline).
   both edges; an asynchronous reset listed first; no outputs. `TimingViewTests` -- a written 3-stage pipeline's lines and
   numbers, both pipelining exercises two stages, `keep-in-step`'s start none single, the sequence detector and the
   counter claiming none, a multicycle machine never one result a period, a processor's no outputs, the full adder
-  showing neither.
+  showing neither. The 16d sweep added an output reached only by deciding, a register loaded by a count decoded in an
+  assign, a RAM written with `=` held to what `<=` costs, and a temporary written in an if and its else.
 
 **As built in Part 15i-2: the classic slips answered in a student's words** (Ahmad, 2026-11-02: "yeah do these 2", with
 "make sure there is no bugs with it / wrong errors"). Every answer rewords a refusal or a warning BitSorter already gave
