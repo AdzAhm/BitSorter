@@ -609,23 +609,72 @@ namespace BitSorter.Board.Tests
             Assert.AreSame(after, b.Project);
         }
 
-        /// <summary>An edit no run can be made of, taken back by the workbench's session (the 16d sweep): gone, and nothing to redo.</summary>
+        /// <summary>
+        /// An edit no run can be made of, taken back by the workbench's session (the 16d sweep), as if it had never been made --
+        /// as an edit the rules refuse leaves no step: the document before it, the steps to undo, and the step undone before it
+        /// still there to redo (the review of the sweep's fixes: the edit had cleared it, and the take-back left it cleared). A
+        /// drag's last move alone, the drag before it still one step; a group's edits together; and at the history's cap, the
+        /// oldest step the edit pushed out back again.
+        /// </summary>
         [Test]
-        public void TakeBack_GivesBackTheDocumentBefore_AndLeavesNothingToRedo()
+        public void TakeBack_PutsTheHistoryBackAsItWasBeforeTheEdit()
         {
             Bench b = Bench.HalfAdder();
             Project before = b.Project;
             b.Gate(GateKind.Nor);
-            b.Gate(GateKind.And);
-            Assert.IsTrue(b.Editor.Undo());
             Project middle = b.Project;
+            b.Gate(GateKind.And);
+            Project undone = b.Project;
+            Assert.IsTrue(b.Editor.Undo());
             b.Gate(GateKind.Or);
 
             Assert.IsTrue(b.Editor.TakeBack());
             Assert.AreSame(middle, b.Project);
-            Assert.IsFalse(b.Editor.CanRedo, "the step taken back is no step to redo, and the one undone before it went with the edit");
-            Assert.IsTrue(b.Editor.Undo(), "the steps before it are as they were");
-            Assert.AreSame(before, b.Project);
+            Assert.IsTrue(b.Editor.CanRedo, "the step undone before it is still there to redo");
+            Assert.AreSame(undone, b.Editor.RedoTarget);
+            Assert.AreSame(before, b.Editor.UndoTarget, "and the steps before it as they were");
+            Assert.IsFalse(b.Editor.TakeBack(), "taken back once, and nothing more");
+            Assert.IsTrue(b.Editor.Redo());
+            Assert.AreSame(undone, b.Project);
+
+            // A drag: its last move taken back alone, and the next move still the same step.
+            int g = b.Gate(GateKind.Buf);
+            Project placed = b.Project;
+            Bench.Must(b.Editor.Move(b.Module, g, new Placement(1, 0), continuing: true));
+            Project moved = b.Project;
+            Bench.Must(b.Editor.Move(b.Module, g, new Placement(2, 0), continuing: true));
+            Assert.IsTrue(b.Editor.TakeBack());
+            Assert.AreSame(moved, b.Project, "the drag's last move taken back alone");
+            Bench.Must(b.Editor.Move(b.Module, g, new Placement(3, 0), continuing: true));
+            Assert.IsTrue(b.Editor.Undo());
+            Assert.AreSame(placed, b.Project, "and the drag still one step");
+
+            // A group, after an undo: taken back whole, the step undone still to redo.
+            Project grouped = b.Project;
+            Assert.IsTrue(b.Editor.Undo());
+            Project ungrouped = b.Project;
+            Bench.Must(b.Editor.Group(() =>
+            {
+                b.Gate(GateKind.Xor);
+                b.Gate(GateKind.Xnor);
+                return EditResult.Ok();
+            }));
+            Assert.IsTrue(b.Editor.TakeBack());
+            Assert.AreSame(ungrouped, b.Project, "the group's edits together");
+            Assert.AreSame(grouped, b.Editor.RedoTarget);
+
+            // At the cap: the oldest step, pushed out by the edit, back.
+            var capped = new Bench();
+            Project first = capped.Project;
+            for (int i = 0; i < BoardEditor.HistoryLimit; i++)
+                capped.Gate(GateKind.Buf);
+            capped.Gate(GateKind.Buf);
+            Assert.IsTrue(capped.Editor.TakeBack());
+            int steps = 0;
+            while (capped.Editor.Undo())
+                steps++;
+            Assert.AreEqual(BoardEditor.HistoryLimit, steps);
+            Assert.AreSame(first, capped.Project, "the oldest step back again");
 
             Assert.IsFalse(new BoardEditor(Project.New("top")).TakeBack(), "nothing to take back");
         }

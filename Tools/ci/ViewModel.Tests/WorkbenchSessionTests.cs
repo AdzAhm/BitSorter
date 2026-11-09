@@ -349,5 +349,54 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(1, session.Run.Model.Session.Design.Scopes.Count(s => s.Kind == ScopeKind.Instance && s.Module == "big"),
                 "the run the one block's");
         }
+
+        /// <summary><see cref="Big"/> with a memory of one word: two of it fit, until it is given its 33,000 again.</summary>
+        private static readonly string Small = Big.Replace("[0:32999]", "[0:0]");
+
+        /// <summary>A written module of one instance of <c>big</c>: two blocks of it are two of <c>big</c>.</summary>
+        private const string OneBig =
+            "module one (input logic a, output logic y);\n" +
+            "    big u1 (.a(a), .y(y));\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// An edit refused for its whole design and taken back leaves everything as a refused edit does (the review of the 16d
+        /// sweep's fixes): the step undone before it still there to redo -- the edit had cleared it -- and the canvas still
+        /// inside the instance it was in, though the design the edit made, which elaborates to nothing, stepped out of it as it
+        /// was drawn round the edit.
+        /// </summary>
+        [Test]
+        public void AnEditRefusedForItsDesign_LeavesTheRedoAndTheStepsAsTheyWere()
+        {
+            var editor = new BoardEditor(Project.New("top"));
+            Bench(editor.AddWrittenModule("big", Small));
+            Bench(editor.AddWrittenModule("one", OneBig));
+            Bench(editor.Add("top", new BlockPart { Name = "b1", Module = "one" }, new Placement(5, 0)));
+            Bench(editor.Add("top", new BlockPart { Name = "b2", Module = "one" }, new Placement(5, 6)));
+            var session = new WorkbenchSession(editor.Project, Ticking(0.01));
+            session.Finish();
+            Assert.IsTrue(session.StepInto(session.Project.TopModule.Parts.OfType<BlockPart>().Single(b => b.Name == "b1").Id));
+            session.DrawCode(true);
+            Assert.IsTrue(session.StepInto(session.Run.Model.Layout.Parts.Single(p => p.Part is BlockPart b && b.Name == "u1").Part.Id));
+            CollectionAssert.AreEqual(new[] { "b1", "u1" }, session.Path, "sanity: inside b1's u1, through its code");
+            Assert.AreEqual("big", session.Module);
+
+            Bench(session.SetSource(Small.Replace("assign y = a;", "assign y = !a;")));
+            session.Finish();
+            Assert.IsTrue(session.Undo());
+            session.Finish();
+            Project before = session.Project, redo = session.Editor.RedoTarget;
+            Assert.IsNotNull(redo, "sanity: a step to redo");
+
+            EditResult refused = session.SetSource(Big);
+            Assert.IsFalse(refused.Done, "two of it are past what BitSorter simulates");
+            StringAssert.Contains("million bits", refused.Refusal);
+            Assert.AreSame(before, session.Project, "taken back");
+            Assert.AreSame(redo, session.Editor.RedoTarget, "the step undone before it still there to redo");
+            CollectionAssert.AreEqual(new[] { "b1", "u1" }, session.Path, "and the canvas still inside b1's u1");
+            Assert.AreEqual("big", session.Module);
+            Assert.IsTrue(session.Redo());
+            StringAssert.Contains("!a", session.Project.Find("big").Source, "redone");
+        }
     }
 }
