@@ -62,6 +62,13 @@ namespace BitSorter.ViewModel
         /// <summary>How many steps of the typing are kept.</summary>
         public const int TypingHistory = 200;
 
+        /// <summary>
+        /// Whether code typed and not yet applied is applied as BitSorter loses the focus, before the circuit is kept (Part
+        /// 16d's sweep): put behind another window, no frame may come to end the pause. Not in the editor, whose focus comes
+        /// and goes under a test run, where a test typing inside the pause would find its code applied by a click elsewhere.
+        /// </summary>
+        public static bool AppliedAsTheFocusGoes(bool inEditor, bool inBrowser) => !inEditor;
+
         private readonly WorkbenchSession _session;
         private readonly List<CodeMark> _marks = new List<CodeMark>();
         private readonly List<string> _elsewhere = new List<string>();

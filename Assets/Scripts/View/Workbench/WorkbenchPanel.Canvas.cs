@@ -249,9 +249,7 @@ namespace BitSorter.View
         {
             if (focus)
                 return;
-            // Not in the editor, whose focus comes and goes under a test run: a test typing inside the pause would find its
-            // code applied by a click on another window.
-            if (!Application.isEditor)
+            if (CodeDocument.AppliedAsTheFocusGoes(Application.isEditor, Application.platform == RuntimePlatform.WebGLPlayer))
                 KeepTheTypedCode();
             KeepMyCircuit(now: true);
         }

@@ -350,5 +350,19 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsNull(session.Project.Find("code1"), "two steps: the module, then its block");
             Assert.IsFalse(session.AddWrittenModule("full_adder").Done, "a name taken");
         }
+
+        /// <summary>
+        /// Typed code is applied as BitSorter loses the focus in a desktop build alone (the review of Part 16d's sweep): in the
+        /// editor a test run's focus comes and goes, and in a browser the focus may go to the code editor's own box over the
+        /// canvas, so a click into it would have applied code typed a moment before, or put a refusal on the chip.
+        /// </summary>
+        [Test]
+        public void TypedCode_IsAppliedAsTheFocusGoes_InADesktopBuildAlone()
+        {
+            Assert.IsTrue(CodeDocument.AppliedAsTheFocusGoes(inEditor: false, inBrowser: false), "a desktop build put behind another window");
+            Assert.IsFalse(CodeDocument.AppliedAsTheFocusGoes(inEditor: true, inBrowser: false), "the editor");
+            Assert.IsFalse(CodeDocument.AppliedAsTheFocusGoes(inEditor: true, inBrowser: true), "the editor, a browser build chosen");
+            Assert.IsFalse(CodeDocument.AppliedAsTheFocusGoes(inEditor: false, inBrowser: true), "a browser build");
+        }
     }
 }
