@@ -441,10 +441,12 @@ namespace BitSorter.ViewModel
     /// - The slider's readout is a UI Toolkit label, which takes only a string, so a tenth not shown before makes that one
     ///   string -- at most one a frame, 56 bytes for a run as long as INPUTS can make -- and it is kept, so a tenth shown
     ///   before makes none: the words of the last <see cref="Kept"/> tenths written, by tenth, while the unit is the same.
-    ///   That is 1,638.4 units of run, longer than any sample's (the multicycle processor's, the longest, is 1,350 units) or
-    ///   exercise's (look-ahead's, 832), so playing one again, dragging the playhead back over it or making it again after
-    ///   an edit makes nothing; a longer run makes a tenth's string again once it has gone that far past it. What is kept
-    ///   holds about 1 MB at most, 256 KB of it the two arrays made with the panel.
+    ///   That is 1,638.4 units of run: longer than every exercise's (look-ahead's, the longest, is 832 units) and every
+    ///   sample's on the program it opens on (the multicycle processor's SUM, 1,350), so playing one of them again, dragging
+    ///   the playhead back over it or making it again after an edit makes nothing. The processors' other programs run
+    ///   longer -- FIBONACCI to 2,470 units on the multicycle one, ISA to 3,160, 12,040 and 3,460 on the single-cycle,
+    ///   multicycle and pipelined ones -- and a run that long makes a tenth's string again once it has gone 1,638.4 units
+    ///   past it. What is kept holds about 1 MB at most, 256 KB of it the two arrays made with the panel.
     ///
     /// <c>FrameAllocationTests</c> holds a tenth shown before and a moment standing to 0 bytes, and <c>TextTests</c> a tenth
     /// not shown before to its one string.

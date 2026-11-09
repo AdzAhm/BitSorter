@@ -1116,8 +1116,9 @@ Precise, and no casing under the wires.
   in one frame whenever a run opened, was replayed or grew -- 158 MB for a run of 100,000 units, and INPUTS lets END go to
   10,000,000 -- and an `int` of tenths wrapped for RUN TO 1 ms in a ps project. Now the playhead's are characters handed
   to TextMeshPro only as they change, and the slider's -- a UI Toolkit label, which takes only a string -- a string
-  made the first time the moment reaches its tenth and kept, the last 16,384 tenths' by tenth: longer than any sample's
-  or exercise's run, so playing one again makes nothing (see the zero-GC pass in Part 16).
+  made the first time the moment reaches its tenth and kept, the last 16,384 tenths' by tenth: longer than any
+  exercise's run and any sample's on the program it opens on, so playing one of them again makes nothing (see the
+  zero-GC pass in Part 16).
 - **Only the window is drawn.** Zoomed in, a run can be millions of pixels long, so the rows are drawn
   for the time in view and drawn again when it moves, and nothing of the schematic is. Changes closer than
   a pixel and a half are one busy block, hatched if any of them is x, so what is drawn is bounded by the
@@ -5076,8 +5077,10 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   a label takes only a string. So the first time playing reaches a tenth of a unit, it makes one -- 56 bytes for a run as
   long as INPUTS allows, at most one a frame -- and keeps it (`MomentWords`, the last 16,384 tenths' by tenth). Once a
   tenth has been shown, it makes nothing: the moment standing, the run played again, the playhead dragged back, or the
-  run made again after an edit. A replay of any sample or exercise is fully warm, since the longest, the multicycle
-  processor's, is 1,350 units. The playhead's own `12.5 ns` makes nothing: it is characters handed to TextMeshPro
+  run made again after an edit. A replay of any exercise, or of any sample on the program it opens on, is fully warm:
+  the longest, the multicycle processor's SUM, is 1,350 units. The processors' FIBONACCI and ISA programs run longer, up
+  to 12,040 units (the multicycle processor's ISA), and make a tenth's string again each time a replay passes it. The
+  playhead's own `12.5 ns` makes nothing: it is characters handed to TextMeshPro
   (`SetCharArray`). The other way, making every tenth's words ahead, made none a frame but 158 MB in one for a
   100,000-unit run (the review of the sweep, 2026-11-09). `TextTests` holds a new tenth to its one string, and
   `FrameAllocationTests` a tenth shown before to 0.
