@@ -140,6 +140,13 @@ namespace BitSorter.ViewModel
                 why = "No truth table: a loop of logic need never settle, so no row can be read once it has.";
                 return null;
             }
+            if (analysis.Graph.Latches.Count > 0)
+            {
+                // A latch's rows would read what the row before them left: what it holds as well as what it is given (the 16d sweep).
+                why = "No truth table: a latch keeps its value on some ways through it -- an always_latch, or an always_comb that "
+                    + "does not give everything it writes a value every time -- so a row would read what the row before it left.";
+                return null;
+            }
             if (analysis.Graph.UnknownDelays)
             {
                 why = "No truth table: a delay here is worked out as the circuit runs, so no hold is known to be long enough.";

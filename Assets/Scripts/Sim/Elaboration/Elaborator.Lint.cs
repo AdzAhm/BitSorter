@@ -240,7 +240,11 @@ namespace BitSorter.Sim
                 public static Paths None => new Paths(new HashSet<string>(StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal));
             }
 
-            private void LintLatches(Scope scope, ProceduralBlock block)
+            /// <summary>
+            /// Warns where an <c>always_comb</c> or an <c>always @*</c> assigns something on some paths only, which keeps its old
+            /// value on the others; whether it does, so the process is known to hold a value (<see cref="ProcessInfo.Holds"/>).
+            /// </summary>
+            private bool LintLatches(Scope scope, ProceduralBlock block)
             {
                 Statement body = block.Body;
 
@@ -248,12 +252,12 @@ namespace BitSorter.Sim
                 {
                     // always @* is combinational by intent; an always with a list may be anything.
                     if (!(body is TimedStatement timed && timed.Control is EventControl events && events.Implicit))
-                        return;
+                        return false;
                     body = timed.Body;
                 }
                 else if (block.Kind != ProcessKind.AlwaysComb)
                 {
-                    return;
+                    return false;
                 }
 
                 Paths paths = Walk(body, scope);
@@ -266,7 +270,7 @@ namespace BitSorter.Sim
                         latches.Add(name);
 
                 if (latches.Count == 0)
-                    return;
+                    return false;
 
                 latches.Sort(StringComparer.Ordinal);
                 string names = latches.Count == 1 ? latches[0] : string.Join(", ", latches.GetRange(0, latches.Count - 1)) + " and " + latches[latches.Count - 1];
@@ -276,6 +280,7 @@ namespace BitSorter.Sim
                     $"This {kind} assigns {names} on some paths and not on others, so {(latches.Count == 1 ? "it keeps its" : "they keep their")} " +
                     "old value on those: a latch, not combinational logic. Give " + (latches.Count == 1 ? "it" : "each") +
                     " a value at the top of the block, before the if or case.");
+                return true;
             }
 
             private Paths Walk(Statement statement, Scope scope)

@@ -219,8 +219,10 @@ namespace BitSorter.Sim
                 if (p.Failed)
                     return null;
 
-                LintLatches(scope, block);
+                // A latch keeps a value from one run to the next: an always_latch, or logic that assigns on some paths only.
+                bool latched = LintLatches(scope, block) || block.Kind == ProcessKind.AlwaysLatch;
                 List<ProcessInfo> made = Made(p, kind);
+                made[0].Holds = latched;
                 foreach (ProcessInfo info in made)
                     _instructions += info.Code.Length;   // the process and its forks' branches
                 return made;

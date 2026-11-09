@@ -3122,7 +3122,11 @@ is built (2026-10-28).
   again -- on a copy, a slice a frame while the tab is up. Each output bit is read at the end of each hold; an x, a z, or a
   row the run did not reach reads x. Rows count up with the first input most significant: ports in order, a bus's highest
   bit first, each bit named as the design declares it (`VariableNames`: an `input [7:6] a`'s are a[7] and a[6]). Refused with the reason, as the measured worst is, for registers, a loop of logic, a delay the run works
-  out, no input or output, or more than ten input bits -- saying how many rows that would be.
+  out, no input or output, or more than ten input bits -- saying how many rows that would be. **And for a latch**
+  (`TimingGraph.Latches`, from `ProcessInfo.Holds`): an `always_latch`, or an `always_comb` or `always @*` that assigns
+  something on some paths only (the elaborator's SV0401), keeps its value on the others, so a row there would read what
+  the Gray-order row before it left -- the 16d sweep found `always_latch if (en) q = d;` tabled, that accident given as
+  its function, where the same latch of two gates is refused as a loop.
 - **Each output a minimal sum of products** (`Minimizer`, up to eight variables): Quine and McCluskey's prime implicants,
   then an exact cover -- the fewest products, then the fewest literals -- searched with the row fewest primes cover first,
   bounded at `MostTried` tries: an eight-input lookup with no pattern to it reaches that, and keeps the best found,

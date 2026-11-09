@@ -170,6 +170,13 @@ namespace BitSorter.Sim
         public IReadOnlyList<IReadOnlyList<string>> Loops { get; private set; } = Array.Empty<IReadOnlyList<string>>();
 
         /// <summary>
+        /// Each process that waits on no edge and still keeps a value from one run to the next, by name: a latch -- an
+        /// <c>always_latch</c>, or an <c>always_comb</c> that assigns something on some paths only. Its timing is reckoned as
+        /// logic's, but what it holds is state, which a truth table cannot show (the 16d sweep).
+        /// </summary>
+        public IReadOnlyList<string> Latches { get; private set; } = Array.Empty<string>();
+
+        /// <summary>
         /// Whether a delay on some path is the run's to know -- a process's <c>#</c> that reads a signal or calls a function --
         /// so the path may take longer than reckoned, which a measuring run must not trust its settle time to (the 14c review).
         /// </summary>
@@ -377,6 +384,7 @@ namespace BitSorter.Sim
         private void AddProcesses(IReadOnlyDictionary<string, RegisterTiming> given)
         {
             var registers = new List<TimingRegister>();
+            var latches = new List<string>();
             var reads = new HashSet<int>();
             var edges = new HashSet<int>();
             foreach (ProcessInfo process in Design.Processes)
@@ -427,6 +435,8 @@ namespace BitSorter.Sim
 
                 if (!edgeTriggered)
                 {
+                    if (process.Holds)
+                        latches.Add(process.Name);
                     AddLogic(process, writes, waited + later, unknown);
                     continue;
                 }
@@ -458,6 +468,7 @@ namespace BitSorter.Sim
             }
 
             Registers = registers;
+            Latches = latches;
         }
 
         /// <summary>

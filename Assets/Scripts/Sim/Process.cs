@@ -396,6 +396,12 @@ namespace BitSorter.Sim
         internal int MaxItems { get; }
 
         /// <summary>
+        /// Whether it keeps a value from one run to the next though it waits on no edge: a latch -- an <c>always_latch</c>, or
+        /// an <c>always_comb</c> or <c>always @*</c> that assigns something on some paths and not others (SV0401).
+        /// </summary>
+        internal bool Holds { get; set; }
+
+        /// <summary>
         /// A <c>fork</c>'s branch (Part L5): it starts when its fork runs, not at time 0, and may run again
         /// each time the fork does once it has ended.
         /// </summary>
