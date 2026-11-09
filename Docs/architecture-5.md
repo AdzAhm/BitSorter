@@ -2466,7 +2466,10 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   editing overlay and the second cursor's colour -- a band along each of its wires, wider than a selection's, and an
   outline round each part and port further out than a selection's, so a part both selected and on the path shows both.
   Dimming would draw every chunk of the wires and parts again in a second set of colours on every pick, and leave the
-  values of the wires off the path harder to read while the run plays; the band reads at once without it.
+  values of the wires off the path harder to read while the run plays; the band reads at once without it. **The band,
+  and a selected wire's, stand 3:1 off the ground** (`SchematicPalette.PathBand`, `SelectedWireBand`, `LookBriefTests`):
+  as faint as that allows, and fainter in no look -- at a fixed 40% and 45% they were 1.71 and 1.99:1 on paper, and a
+  straight wire, with no corners, had nothing else to show it selected (the 16d sweep).
 - **A register's clock to Q and setup in its inspector**, in the bar and as quick fields beside its values, with a line
   saying what each is: CLOCK TO Q (Tcq) and SETUP (Tsetup), times in the project's unit, never below 0, set together as
   one step. Typed into, the TIMING tab's period follows.

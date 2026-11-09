@@ -185,6 +185,7 @@ namespace BitSorter.View
             var copy = (SchematicPalette)MemberwiseClone();
             copy.Name = name;
             copy._words = null;   // worked out from this palette's colours, which the copy may change
+            copy._selectedBand = copy._pathBand = null;
             change?.Invoke(copy);
             return copy;
         }
@@ -257,11 +258,41 @@ namespace BitSorter.View
             return new Color(colour.r, colour.g, colour.b, alpha);
         }
 
-        /// <summary>The band along a selected wire, over the drawing: the accent, faint enough for the wire's own colour to show through it.</summary>
-        public Color SelectedWireBand => Over(Accent, 0.45f);
+        /// <summary>
+        /// The band along a selected wire, over the drawing: the accent, faint enough for the wire's own colour to show through
+        /// it, and no fainter than stands <see cref="GraphicContrast"/> off the ground (<see cref="AtLeastClear"/>) -- all a
+        /// straight wire shows of being selected. At 45% everywhere it was 1.99:1 on Schematic Light's paper (the 16d sweep).
+        /// </summary>
+        public Color SelectedWireBand => _selectedBand ??= Over(Accent, AtLeastClear(Accent, 0.45f));
 
-        /// <summary>The band along the timing path's wires (Part 14b), in the second cursor's colour.</summary>
-        public Color PathBand => Over(Cursor, 0.4f);
+        /// <summary>The band along the timing path's wires (Part 14b), in the second cursor's colour: held as a selected wire's is (1.71:1 on paper at 40%).</summary>
+        public Color PathBand => _pathBand ??= Over(Cursor, AtLeastClear(Cursor, 0.4f));
+
+        // The bands, worked out the first time each is asked: a palette is never changed in place, and Derive gives its copy none.
+        private Color? _selectedBand, _pathBand;
+
+        /// <summary>What WCAG 2 asks of a mark -- a line, a band, an outline -- against what it is drawn on: 3 to 1.</summary>
+        public const float GraphicContrast = 3f;
+
+        /// <summary>How finely <see cref="AtLeastClear"/> steps an opacity up.</summary>
+        private const int ClearSteps = 64;
+
+        /// <summary>
+        /// The least opacity of <paramref name="colour"/>, from <paramref name="opacity"/> up, at which it stands
+        /// <see cref="GraphicContrast"/> off <see cref="Ground"/> as <see cref="Over"/> blends it -- a hair over, so the blend the
+        /// renderer makes is not under it by a rounding -- or 1 where none does.
+        /// </summary>
+        public float AtLeastClear(Color colour, float opacity)
+        {
+            opacity = Mathf.Clamp01(opacity);
+            for (int step = 0; step <= ClearSteps; step++)
+            {
+                float t = Mathf.Lerp(opacity, 1f, step / (float)ClearSteps);
+                if (Contrast(Color.LerpUnclamped(Ground, colour, t), Ground) >= GraphicContrast * 1.01f)
+                    return t;
+            }
+            return 1f;
+        }
 
         /// <summary>An x's box on the waves: its faint fill.</summary>
         public Color HatchFill => Over(Unknown, 0.18f);
