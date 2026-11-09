@@ -234,6 +234,43 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// What a paste on the drawing of code makes is not selected by the numbers the paste gave it: the code is written from
+        /// the drawing and the drawing made again, its parts numbered afresh, and those numbers were other parts of it -- which
+        /// a Delete straight after took out of the code (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void APasteOnTheDrawingOfCode_SelectsNoneOfTheDrawingsOtherParts()
+        {
+            // More parts than the drawing has wires, so the numbers the paste gives them reach the drawing's own parts.
+            var source = new BoardEditor(Project.New("from"));
+            var gates = new List<int>();
+            for (int i = 0; i < 6; i++)
+                gates.Add(source.Add("from", new GatePart { Kind = BitSorter.Sim.GateKind.And }, new Placement(4 * i, 0)).Id);
+            Assert.IsTrue(source.Connect("from", Endpoint.At(gates[0], "y"), Endpoint.At(gates[1], "a")).Done);
+            Clip clip = Clipboard.Copy(source.Project, "from", gates);
+            Assert.IsNotNull(clip, "sanity: six ANDs and a wire to paste");
+
+            WorkbenchSession session = Written(Chooser, "pick");
+            session.Remove(new int[0], new int[0]);
+            session.AnswerRewrite(true);   // the question out of the way
+            var editor = new CanvasEditor(session);
+            EditResult pasted = editor.Paste(clip);
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+            editor.Relaid();
+
+            Module drawn = session.DrawnModule;
+            bool IsAnd(int part) => drawn.FindPart(part) is GatePart and && and.Kind == BitSorter.Sim.GateKind.And;
+            foreach (int part in editor.Selection.Parts)
+                Assert.IsTrue(IsAnd(part), $"selected: {drawn.FindPart(part)?.GetType().Name ?? "nothing"} {part}, which the paste did not make");
+            foreach (int id in editor.Selection.Wires)
+            {
+                Wire wire = drawn.FindWire(id);
+                Assert.IsTrue(wire != null && !wire.From.IsTap && !wire.To.IsTap && IsAnd(wire.From.Pin.Part) && IsAnd(wire.To.Pin.Part),
+                    $"selected: wire {id}, from {wire?.From} to {wire?.To}, which the paste did not make");
+            }
+        }
+
+        /// <summary>
         /// A clock's period set in the inspector on the drawing changes the stimulus, which code written from the drawing does
         /// not carry: refused, saying where it is set, rather than reported done and lost (the review of #117).
         /// </summary>
