@@ -205,5 +205,75 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(100, import.Project.Modules.Count);
             StringAssert.Contains("`define OP999 ", import.Project.Find("m99").Source, "every define it saw above it");
         }
+
+        /// <summary>
+        /// A leaf and a top that makes <paramref name="count"/> of it, named <paramref name="prefix"/> and a number, in a
+        /// generate branch never made -- so that the rest of the import costs little beside looking for paths into them -- with
+        /// <paramref name="between"/> between the two modules.
+        /// </summary>
+        private static string Instances(int count, string prefix, string between)
+        {
+            var text = new StringBuilder("module leaf (input logic a, output logic y);\n    always_comb y = ~a;\nendmodule\n");
+            text.Append(between);
+            text.Append("module top (input logic a, output logic y);\n    always_comb y = a;\n    if (0) begin : never\n");
+            for (int i = 0; i < count; i++)
+                text.Append("        leaf ").Append(prefix).Append(i).Append(" (.a(a), .y());\n");
+            return text.Append("    end\nendmodule\n").ToString();
+        }
+
+        /// <summary>
+        /// A module something looks inside by a hierarchical name -- <c>dut.state</c> -- is written, so the importer looks for
+        /// each instance's name with a path through dots after it. It made a regex for every named instance and ran it over the
+        /// whole of its module's file, the instances times the file -- in what it made too, since each match copied the rest of
+        /// its path and split it. Four thousand instances named along one long path in a comment -- <c>i0. i1. i2.</c> to
+        /// <c>i3999.</c>, 158 KB -- made 1,050 MB.
+        /// </summary>
+        [Test]
+        public void FourThousandInstances_NamedAlongOneLongPath_AreLookedForInProportion()
+        {
+            var path = new StringBuilder("// ");
+            for (int i = 0; i < 4000; i++)
+                path.Append('i').Append(i).Append(". ");
+
+            (long made, _, ProjectImport import) = Imported(new SourceFile("top.sv", Instances(4000, "i", path.Append('\n').ToString())));
+
+            Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
+            Assert.Less(made, 128 * Megabyte, "each instance's path was copied and split, the instances times the file");
+        }
+
+        /// <summary>
+        /// The same in time: sixteen thousand instances in a file of 3.5 MB of comments, each instance's regex run over the whole
+        /// of it, took 7 s.
+        /// </summary>
+        [Test]
+        public void SixteenThousandInstances_InALargeFile_AreLookedForInOnePass()
+        {
+            (_, double seconds, ProjectImport import) = Imported(new SourceFile("top.sv", Instances(16_000, "g", Comments(3_500_000))));
+
+            Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
+            Assert.Less(seconds, 3.5, "each instance's regex ran over the whole file");
+        }
+
+        /// <summary>
+        /// The guard on reading a file once for its paths: a run of names each after a dot and a space -- <c>u. u. u.</c>, 64,000
+        /// of them in a comment, 187 KB -- is one path, read once. A reading that looked ahead at each name's path rather than
+        /// taking it matched at every name and copied the rest of the run each time: 90 GB in 313 s, where the regex an
+        /// instance made 6 MB.
+        /// </summary>
+        [Test]
+        public void ARunOfNamesAfterDots_IsOnePath_ReadOnce()
+        {
+            var run = new StringBuilder("// ");
+            for (int i = 0; i < 64_000; i++)
+                run.Append("u. ");
+            string text = "module leaf (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n" + run.Append('\n') +
+                "module top (input logic a, output logic y);\n    leaf u (.a(a), .y(y));\nendmodule\n";
+
+            (long made, double seconds, ProjectImport import) = Imported(new SourceFile("top.sv", text));
+
+            Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
+            Assert.Less(made, 32 * Megabyte, "the path was read again from every name along it");
+            Assert.Less(seconds, 1);
+        }
     }
 }

@@ -69,6 +69,61 @@ namespace BitSorter.Board.Tests
             Assert.IsEmpty(import.Notes.Where(n => n.IsError), Notes(import));
         }
 
+        private const string Pair =
+            "module inv (input logic a, output logic y);\n    assign y = ~a;\nendmodule\n" +
+            "module pair (input logic a, output logic y);\n    logic m;\n" +
+            "    inv first (.a(a), .y(m));\n    inv second (.a(m), .y(y));\nendmodule\n";
+
+        /// <summary>A testbench of <see cref="Pair"/> that makes it as <paramref name="instance"/> and reads <paramref name="peek"/>.</summary>
+        private static string PairBench(string instance, string peek) =>
+            "module pair_tb;\n" +
+            "    logic a, y, peek;\n" +
+            $"    pair {instance} (.a(a), .y(y));\n" +
+            $"    assign peek = {peek};\n" +
+            "    initial begin a = 0; #10 a = 1; #10 $stop; end\n" +
+            "endmodule\n";
+
+        /// <summary>
+        /// A path through two instances, spaced round its dots, takes both their modules with it, as the regex an instance found
+        /// it and the one reading of each file finds it (Part 16d).
+        /// </summary>
+        [Test]
+        public void ATestbenchThatLooksTwoDeep_ThroughSpacedDots_HasBothWritten()
+        {
+            ProjectImport import = Import(("pair.sv", Pair), ("pair_tb.sv", PairBench("dut", "dut . first . y")));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.IsTrue(import.Project.Find("pair").IsWritten, "dut is looked inside");
+            Assert.IsTrue(import.Project.Find("inv").IsWritten, "and so is first, inside it");
+            Assert.IsEmpty(import.Notes.Where(n => n.IsError), Notes(import));
+        }
+
+        /// <summary>The pair of the one above: a path that ends at an instance names it, and looks inside only what it passes through.</summary>
+        [Test]
+        public void ATestbenchThatNamesAnInstanceInside_LooksInsideOnlyWhatItPassesThrough()
+        {
+            string bench = PairBench("dut", "y").Replace("    initial begin", "    initial $dumpvars(1, dut.first);\n    initial begin");
+            ProjectImport import = Import(("pair.sv", Pair), ("pair_tb.sv", bench));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.IsTrue(import.Project.Find("pair").IsWritten, "dut is looked inside");
+            Assert.IsFalse(import.Project.Find("inv").IsWritten, "first is named, not looked inside");
+        }
+
+        /// <summary>
+        /// An instance whose escaped name is no plain identifier -- <c>\d+u</c> -- is looked inside where the code names it as
+        /// the language writes it, escaped and ended by a space.
+        /// </summary>
+        [Test]
+        public void ATestbenchThatLooksInsideAnEscapedInstance_HasItWritten()
+        {
+            ProjectImport import = Import(("pair.sv", Pair), ("pair_tb.sv", PairBench(@"\d+u ", @"\d+u .first.y")));
+
+            Assert.IsTrue(import.Succeeded, Notes(import));
+            Assert.IsTrue(import.Project.Find("pair").IsWritten, @"\d+u is looked inside");
+            Assert.IsTrue(import.Project.Find("inv").IsWritten, "and so is first, inside it");
+        }
+
         [Test]
         public void ATestbenchThatMakesSeveralModules_TestsTheOneItCallsDut_OrElseTheOneWithMostPorts()
         {
