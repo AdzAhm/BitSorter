@@ -53,6 +53,49 @@ namespace BitSorter.ViewModel
         public double? Delta(double playhead) => Second.HasValue ? Math.Abs(Second.Value - playhead) : (double?)null;
     }
 
+    /// <summary>
+    /// Where the playhead's time and C2's are written along the top of the waves, each by its line, in the waves' own pixels: a
+    /// label alone to its line's right, held inside the waves' right end as it always was; and two that would be written over
+    /// each other -- cursors closer than a label, or both held at the right end -- the earlier to its line's left and the later
+    /// to its right, or both to the right, one after the other, where the left has no room (the 16d sweep).
+    /// </summary>
+    public static class WaveCursorLabels
+    {
+        /// <summary>How far a label stands from its line.</summary>
+        public const float Gap = 5f;
+
+        /// <summary>How much of the waves' right end a label alone keeps clear of: the room it is held to.</summary>
+        public const float Room = 52f;
+
+        /// <summary>The left of a label written alone by a line at <paramref name="line"/>, the waves ending at <paramref name="right"/>.</summary>
+        public static float Alone(float line, float right) => Math.Min(line + Gap, right - Room);
+
+        /// <summary>
+        /// The lefts of the playhead's label and C2's, by their lines <paramref name="playhead"/> and <paramref name="second"/>, as
+        /// wide as <paramref name="playheadWidth"/> and <paramref name="secondWidth"/>, the waves from <paramref name="left"/> to
+        /// <paramref name="right"/>. On one line, the playhead's is the later.
+        /// </summary>
+        public static (float Playhead, float Second) Apart(float playhead, float playheadWidth, float second, float secondWidth, float left, float right)
+        {
+            float p = Alone(playhead, right), s = Alone(second, right);
+            if (p + playheadWidth + Gap <= s || s + secondWidth + Gap <= p)
+                return (p, s);
+
+            bool playheadLater = playhead >= second;
+            float early = playheadLater ? second : playhead, earlyWidth = playheadLater ? secondWidth : playheadWidth;
+            float late = playheadLater ? playhead : second;
+            float lateAt = Alone(late, right);
+            float earlyAt = Math.Min(early - Gap, lateAt - Gap) - earlyWidth;
+            if (earlyAt < left)
+            {
+                // No room to the left: both to the right, the later after the earlier.
+                earlyAt = Math.Max(left, early + Gap);
+                lateAt = Math.Max(lateAt, earlyAt + earlyWidth + Gap);
+            }
+            return playheadLater ? (lateAt, earlyAt) : (earlyAt, lateAt);
+        }
+    }
+
     /// <summary>Where a click on the waveform lands: on an edge near it, or on a whole time unit.</summary>
     public static class WaveSnap
     {

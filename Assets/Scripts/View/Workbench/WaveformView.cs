@@ -441,25 +441,41 @@ namespace BitSorter.View
             WorkbenchPanel.Show(_playheadLabel, now);
             if (now)
             {
-                float x = Mathf.Min(WorkbenchDrawing.WaveX(_model.Time, View) + 5f, WorkbenchDrawing.WaveRight(_width) - 52f);
+                float x = WaveCursorLabels.Alone(WorkbenchDrawing.WaveX(_model.Time, View), WorkbenchDrawing.WaveRight(_width));
                 _playheadLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
                 WorkbenchPanel.SetText(_playheadLabel, playheadText);
             }
 
-            PlaceCursor(cursors);
+            PlaceCursor(cursors, now);
         }
 
-        /// <summary>The second cursor's time over its line, and the time between the cursors over the bracket.</summary>
-        private void PlaceCursor(WaveCursors cursors)
+        /// <summary>
+        /// The second cursor's time over its line, and the time between the cursors over the bracket. Near the playhead's, the
+        /// two are measured and written apart (<see cref="WaveCursorLabels.Apart"/>): a unit apart, or both held at the waves'
+        /// right end, they were written over each other (the 16d sweep).
+        /// </summary>
+        private void PlaceCursor(WaveCursors cursors, bool playheadShown)
         {
             double? second = cursors?.Second;
             bool shown = second.HasValue && View.Shows(second.Value);
             WorkbenchPanel.Show(_secondLabel, shown);
             if (shown)
             {
-                float x = Mathf.Min(WorkbenchDrawing.WaveX(second.Value, View) + 5f, WorkbenchDrawing.WaveRight(_width) - 52f);
-                _secondLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
+                float waveEnd = WorkbenchDrawing.WaveRight(_width), line = WorkbenchDrawing.WaveX(second.Value, View);
+                float x = WaveCursorLabels.Alone(line, waveEnd);
                 WriteTime(_secondLabel, second.Value);
+                if (playheadShown)
+                {
+                    float playheadLine = WorkbenchDrawing.WaveX(_model.Time, View);
+                    float p = WaveCursorLabels.Alone(playheadLine, waveEnd);
+                    if (Mathf.Abs(p - x) < 2f * WaveCursorLabels.Room)   // near enough to meet: measured, and kept apart
+                    {
+                        (p, x) = WaveCursorLabels.Apart(playheadLine, _playheadLabel.preferredWidth, line, _secondLabel.preferredWidth,
+                            WorkbenchDrawing.WaveLeft, waveEnd);
+                        _playheadLabel.rectTransform.anchoredPosition = new Vector2(p, -(WorkbenchDrawing.WaveTop + 4f));
+                    }
+                }
+                _secondLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
             }
 
             double? delta = cursors?.Delta(_model.Time);

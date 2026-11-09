@@ -16,6 +16,34 @@ namespace BitSorter.ViewModel.Tests
         // The second cursor
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// The two cursors' times written apart (the 16d sweep): alone each to its line's right as before; a unit apart, the
+        /// earlier to its line's left; both at the waves' right end, apart there; at the left end, both to the right in turn.
+        /// </summary>
+        [Test]
+        public void TheCursorsTimes_AreWrittenApart_WhereTheyWouldMeet()
+        {
+            const float left = 100f, right = 900f, wide = 40f;
+            bool Apart((float A, float B) at) => at.A + wide <= at.B || at.B + wide <= at.A;
+
+            Assert.AreEqual((305f, 605f), WaveCursorLabels.Apart(300f, wide, 600f, wide, left, right), "far apart: each to its line's right, as alone");
+            Assert.AreEqual(right - WaveCursorLabels.Room, WaveCursorLabels.Alone(895f, right), "alone at the right end: held inside it");
+
+            (float p, float s) = WaveCursorLabels.Apart(500f, wide, 520f, wide, left, right);
+            Assert.IsTrue(Apart((p, s)), $"a unit apart: {p} and {s}");
+            Assert.AreEqual(500f - WaveCursorLabels.Gap - wide, p, "the earlier, the playhead, to its line's left");
+            Assert.AreEqual(525f, s, "the later to its right");
+
+            (p, s) = WaveCursorLabels.Apart(900f, wide, 890f, wide, left, right);
+            Assert.IsTrue(Apart((p, s)), $"both at the right end: {p} and {s}");
+            Assert.Less(s, p, "C2, the earlier, before the playhead");
+            Assert.LessOrEqual(p + wide, right, "inside the waves");
+
+            (p, s) = WaveCursorLabels.Apart(102f, wide, 104f, wide, left, right);
+            Assert.IsTrue(Apart((p, s)), $"both at the left end: {p} and {s}");
+            Assert.GreaterOrEqual(Math.Min(p, s), left, "inside the waves");
+        }
+
         [Test]
         public void TheSecondCursor_IsPlaced_Moved_AndTaken_AndDeltaIsFromThePlayhead()
         {

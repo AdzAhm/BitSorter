@@ -1160,7 +1160,10 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   the cursor that moves through the waves and Shift's the one that cuts them (2026-10-28). C2 is in its own colour (`SchematicPalette.Cursor`:
   amber, olive on paper, Neon's gold, and Classic's text white, its 1 being yellow), 4.5:1 on the ground,
   since its time is written in it (3:1 until the accessibility review of 2026-11-03), and apart from every
-  value and the playhead. The font has no Δ, so the bracket says only the time.
+  value and the playhead. The font has no Δ, so the bracket says only the time. The playhead's time and C2's are
+  written by their lines and never over each other (`WaveCursorLabels`): near enough to meet -- a unit apart, or both
+  at a finished run's end, held inside the waves' right end on the same pixels until the 16d sweep -- the earlier
+  goes to its line's left.
 - **The mouse as gestures** (`WavePointer`, tested from scripted events under dotnet), and **a press on a
   control is never one**: `WorkbenchControlSample` samples, before anything reacts to the frame, whether
   the topmost thing under the pointer is a control, as `PointerGate` samples the interface for the board,
