@@ -65,7 +65,10 @@ namespace BitSorter.View
         private readonly Color[] _inkWorkedOut, _underWorkedOut;
         private readonly List<TextMeshProUGUI> _glitchLabels = new List<TextMeshProUGUI>();
         private readonly TextMeshProUGUI _playheadLabel, _secondLabel, _spanLabel;
-        private readonly Image[] _bands;
+        private readonly Image[] _bands, _marks;
+
+        /// <summary>How wide a selected row's mark is, at its band's left end.</summary>
+        public const float SelectedMark = 3f;
 
         private readonly List<WaveSpan> _spans = new List<WaveSpan>(32);
         private readonly List<double> _swallowed = new List<double>(4);
@@ -141,17 +144,27 @@ namespace BitSorter.View
 
             View = view;
 
-            // Behind everything the waveform draws, a band a row, the names' column included: shown for a selected row.
+            // Behind everything the waveform draws, a band a row, the names' column included: shown for a selected row. And a
+            // selected row's mark at its left end, in the accent: the band stands a little off the ground and no more -- 1.14:1
+            // on paper -- so the mark is what shows a row selected, a shape as well as a colour (the 16d sweep).
             _bands = new Image[rows];
+            _marks = new Image[rows];
             for (int row = 0; row < rows; row++)
             {
+                var top = new Vector2(-NamesExtra, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight);
                 Image band = UiTheme.Panel_("band", Rect, palette.Selection);
                 band.sprite = null;
                 band.raycastTarget = false;
-                WorkbenchPanel.TopLeft(band.rectTransform, new Vector2(-NamesExtra, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight),
-                    new Vector2(width + NamesExtra, WorkbenchDrawing.RowHeight));
+                WorkbenchPanel.TopLeft(band.rectTransform, top, new Vector2(width + NamesExtra, WorkbenchDrawing.RowHeight));
                 WorkbenchPanel.Show(band, false);
                 _bands[row] = band;
+
+                Image mark = UiTheme.Panel_("selected mark", Rect, palette.Accent);
+                mark.sprite = null;
+                mark.raycastTarget = false;
+                WorkbenchPanel.TopLeft(mark.rectTransform, top, new Vector2(SelectedMark, WorkbenchDrawing.RowHeight));
+                WorkbenchPanel.Show(mark, false);
+                _marks[row] = mark;
             }
 
             layers.BuildTiming(Rect, new Vector2(width, Height), View);
@@ -237,6 +250,9 @@ namespace BitSorter.View
                 WorkbenchPanel.Show(_bands[row], chosen || lit);
                 if (chosen || lit)
                     _bands[row].color = chosen ? palette.Selection : faint;
+                WorkbenchPanel.Show(_marks[row], chosen);
+                if (chosen)
+                    _marks[row].color = palette.Accent;
                 WriteLegibly(row, palette);
             }
         }

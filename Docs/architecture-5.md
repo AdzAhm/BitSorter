@@ -1147,7 +1147,9 @@ half adds the add-signal list, groups, full names and Alt+click on a wire.
   below the design (`h1.s`), so a design built again, under a renamed testbench too, finds every row again.
   In this half a click on a row's name selects it, a right-click opens its menu -- a radix, or REMOVE
   (`WaveRowMenu`) -- X steps the selected rows through the radixes and Delete takes them out. A change of
-  rows builds the stage again round them, the circuit's zoom and the waveform's kept.
+  rows builds the stage again round them, the circuit's zoom and the waveform's kept. A selected row is marked at
+  its band's left end in the accent (`WaveformView.SelectedMark`, 3:1 off the band and the ground): the band alone
+  stands 1.14 to 1.45:1 off the ground (the 16d sweep).
 - **A row and its wire light each other.** Selecting a row lights its net on the circuit, and pointing at a
   wire puts a faint band behind every row showing it (`SchematicPalette.Selection`, opaque, with every
   word 4.5:1 and every value 3:1 on it in all four looks). A value written as a word -- a row's readout --

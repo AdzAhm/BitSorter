@@ -273,7 +273,7 @@ namespace BitSorter.EditMode.Tests
         /// <summary>A colour drawn at its alpha over <paramref name="ground"/>, composited in linear as the renderer does.</summary>
         private static Color Seen(Color colour, Color ground) => Color.Lerp(ground.linear, colour.linear, colour.a).gamma;
 
-        /// <summary>A selected row's band leaves its name readable at 4.5:1 and its wave at 3:1, and is not the ground.</summary>
+        /// <summary>A selected row's band leaves its name readable at 4.5:1 and its wave at 3:1, is not the ground, and its mark stands 3:1 off both.</summary>
         [Test]
         public void OnTheCanvas_ASelectedRow_StaysReadable()
         {
@@ -287,6 +287,10 @@ namespace BitSorter.EditMode.Tests
 
                 foreach ((string what, Color colour) in new[] { ("0", c.Zero), ("1", c.One), ("x", c.Unknown), ("z", c.HighZ), ("a bus", c.Bus), ("the cursor", c.Cursor) })
                     Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, c.Selection), 3f, $"{look.Name}: {what} on the selection band");
+
+                // The band stands only a little off the ground, so what shows a row selected is its mark, in the accent (the 16d sweep).
+                Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Accent, c.Selection), 3f, $"{look.Name}: a selected row's mark on its band");
+                Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Accent, c.Ground), 3f, $"{look.Name}: a selected row's mark on the ground");
             }
         }
 
