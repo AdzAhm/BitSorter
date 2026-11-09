@@ -534,6 +534,32 @@ endmodule"));
         }
 
         /// <summary>
+        /// A testbench with a clock that runs for ever reaches the time it is run to with more to come, as the workbench runs
+        /// every testbench with no <c>$finish</c>: the line <c>$write</c> began is shown there too (the review of the 16d engine
+        /// batch: only a run with nothing left showed it, so the commonest case showed nothing). A run sliced by its budget,
+        /// as the workbench makes one a frame at a time, keeps the line open across the slices: it is one line, not one a slice.
+        /// </summary>
+        [Test]
+        public void ALineWrittenAndNotEnded_IsShown_WhereARunWithAClockReachesItsTime_AndIsNotCutBySlices()
+        {
+            const string Text = "module t; logic clk = 0; always #5 clk = ~clk; " +
+                "initial begin $write(\"waiting for reset... \"); #20 $write(\"done\"); end endmodule";
+            string[] Shown(Simulator s) => s.History.Messages.Where(m => m.Severity == Severity.Info).Select(m => m.Text).ToArray();
+
+            var sim = new Simulator(Clean(Text), null, null);
+            Assert.AreEqual(RunStatus.ReachedTime, sim.RunTo(100).Status);
+            CollectionAssert.AreEqual(new[] { "waiting for reset... done" }, Shown(sim));
+
+            var sliced = new Simulator(Clean(Text), null, null);
+            RunResult result;
+            do
+                result = sliced.RunTo(100, maxEvents: 1);
+            while (result.Status == RunStatus.Paused);
+            Assert.AreEqual(RunStatus.ReachedTime, result.Status);
+            CollectionAssert.AreEqual(new[] { "waiting for reset... done" }, Shown(sliced));
+        }
+
+        /// <summary>
         /// A line built by many <c>$write</c>s costs as much as its characters (the 16d sweep, engine-12): every one copied the
         /// whole line out, scanned it for an end and copied it back, so twenty thousand stars made some 400 MB of strings,
         /// and two hundred thousand tens of seconds with no frame drawn.
