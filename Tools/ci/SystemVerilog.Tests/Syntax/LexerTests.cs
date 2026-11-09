@@ -125,6 +125,25 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(codes, string.Join(" ", s.Text.Select(c => ((int)c).ToString("x2"))), "the characters, by their codes");
         }
 
+        /// <summary>
+        /// The 16d sweep: a string was ended by any of the three double quotes, however it began, so a curly quote typed
+        /// inside an ordinary string -- text from a word processor -- cut it short, and the rest of the line became stray
+        /// tokens. A string opened with a plain quote ends only at one; one opened with a curly quote, copied from a slide,
+        /// still ends at either kind, with a warning.
+        /// </summary>
+        [Test]
+        public void ACurlyQuoteInsideAPlainString_IsPartOfIt()
+        {
+            Token s = Lex("\"He said “hi” to us\"").Single();
+            Assert.AreEqual(TokenKind.String, s.Kind);
+            Assert.AreEqual("He said “hi” to us", s.Text);
+            Assert.AreEqual("$display(\"“hi”\");", Lexer.Straightened("$display(\"“hi”\");"), "and left as written when straightened");
+
+            Token[] curly = Lex("“hi” x", out DiagnosticBag diagnostics);
+            Assert.AreEqual(new[] { "hi", "x" }, curly.Select(t => t.Text).ToArray(), "a curly string still ends at a curly quote");
+            Assert.AreEqual(DiagnosticCodes.LookalikeCharacter, diagnostics.Items.Single().Code);
+        }
+
         [Test]
         public void AStringOfEveryEscape_IsPrintedBackAsItReads()
         {
