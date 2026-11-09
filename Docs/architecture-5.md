@@ -4550,6 +4550,11 @@ something needed").
   file of a thousand small written modules made 35 GB in 55 s, and with a define between each, ran out of memory; it is
   refused in 0.01 s, and two hundred import in half a second (`ImportLimitsTests`). Whether a file is a course template is
   read once a file now, not once a module.
+- **Each file kept is read once for what it declares and includes** (`ProjectImporter`, the declaring files): which files
+  declare something, or include one that does, was a fixpoint whose every pass read every file not yet found in full,
+  twice, a string a line, and a chain of includes listed against its direction adds one a pass. The files are read once
+  now and the declaring found from those that declare, through who includes them. 150 headers of 20 KB so listed made
+  2,001 MB in 1.6 s and make 52 MB in 0.05 s (`AChainOfHeadersListedAgainstItsDirection_IsFoundDeclaringInOnePass`).
 - **A file is read once for the paths that look inside its instances** (`ProjectImporter.LookedInto`): a module a testbench
   looks inside -- `dut.state` -- is written, and the importer found such paths with a regex made for each named instance,
   cells included, run over the whole of its module's file, so the instances times the file. Each file's paths are found

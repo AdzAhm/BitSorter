@@ -381,19 +381,30 @@ namespace BitSorter.Board
             // that includes it, where it means the same to that module. And without an include guard, which would leave it
             // empty in every module but the first once they are files of their own read together -- unless another of the
             // project's files includes it too, when the guard is what keeps it from being declared twice.
+            // Each file read once for what it declares and includes, and the declaring found from there (Part 16d): read again
+            // every pass of a fixpoint, a chain of includes listed against its direction, adding a file a pass, made 2 GB.
             var declaring = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (bool grew = true; grew;)
-            {
-                grew = false;
-                foreach (ProjectFile file in kept)
-                    if (!declaring.Contains(file.Name) && (Declares(file.Text) || IncludesAny(file.Text, declaring)) && declaring.Add(file.Name))
-                        grew = true;
-            }
-
+            var includers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var includedByFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var found = new Queue<string>();
             foreach (ProjectFile file in kept)
+            {
                 foreach (string name in IncludedNames(file.Text))
+                {
                     includedByFiles.Add(name);
+                    if (!includers.TryGetValue(name, out List<string> by))
+                        includers[name] = by = new List<string>();
+                    by.Add(file.Name);
+                }
+
+                if (Declares(file.Text) && declaring.Add(file.Name))
+                    found.Enqueue(file.Name);
+            }
+            while (found.Count > 0)
+                if (includers.TryGetValue(found.Dequeue(), out List<string> by))
+                    foreach (string name in by)
+                        if (declaring.Add(name))
+                            found.Enqueue(name);
             for (int i = 0; i < kept.Count; i++)
             {
                 if (!declaring.Contains(kept[i].Name) || includedByFiles.Contains(kept[i].Name))
@@ -857,14 +868,6 @@ namespace BitSorter.Board
                 if (include.Success)
                     yield return ModuleCutter.NameOf(include.Groups[1].Value);
             }
-        }
-
-        private static bool IncludesAny(string text, HashSet<string> names)
-        {
-            foreach (string name in IncludedNames(text))
-                if (names.Contains(name))
-                    return true;
-            return false;
         }
 
         /// <summary><paramref name="text"/> with every <c>`timescale</c> line left empty, so every other line stays where it was.</summary>
