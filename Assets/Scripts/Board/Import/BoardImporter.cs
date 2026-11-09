@@ -1254,13 +1254,22 @@ namespace BitSorter.Board
 
             private void Join()
             {
-                // Union the joined names, so each drawn net gathers every pin of all its names.
+                // Union the joined names, so each drawn net gathers every pin of all its names. Each name found points straight
+                // at its root after, or a chain of aliases -- assign w2 = w1; assign w3 = w2; ... -- is a list walked from
+                // every name, the square of its length (Part 16d). Which name is the root is as it was, so the nets are.
                 var parent = new Dictionary<string, string>(StringComparer.Ordinal);
                 string Find(string x)
                 {
-                    while (parent.TryGetValue(x, out string up) && up != x)
+                    string root = x;
+                    while (parent.TryGetValue(root, out string up) && up != root)
+                        root = up;
+                    while (parent.TryGetValue(x, out string up) && up != root)
+                    {
+                        parent[x] = root;
                         x = up;
-                    return x;
+                    }
+
+                    return root;
                 }
 
                 foreach (string name in _nets.Keys)
