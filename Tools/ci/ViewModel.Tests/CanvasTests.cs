@@ -503,6 +503,28 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(editor.Moving);
         }
 
+        /// <summary>
+        /// The selection changed through itself, as a TRANSCRIPT line's click picks the part it names, is a change of what the
+        /// overlay draws: the overlay is drawn again on the editor's count alone, and the part was selected in the inspector
+        /// with no outline round it on the circuit (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void TheSelectionChangedThroughItself_IsAChangeOfWhatTheOverlayDraws()
+        {
+            (WorkbenchSession _, CanvasEditor editor, int a, int _, int and, int _) = Editing();
+            int version = editor.Version;
+            editor.Selection.Pick(new CanvasTarget(CanvasTargetKind.Part, part: and), extend: false, toggle: false);
+            Assert.AreNotEqual(version, editor.Version, "picked");
+
+            version = editor.Version;
+            editor.Selection.Box(new[] { a }, new int[0], extend: true);
+            Assert.AreNotEqual(version, editor.Version, "boxed");
+
+            version = editor.Version;
+            editor.Selection.Clear();
+            Assert.AreNotEqual(version, editor.Version, "cleared");
+        }
+
         [Test]
         public void ABoxLetGo_SelectsWhatItTouches_AndIsDrawnWhileItIsDrawn()
         {
