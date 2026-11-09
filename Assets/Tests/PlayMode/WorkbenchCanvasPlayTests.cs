@@ -1344,6 +1344,55 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A cell typed in and left by a click into another keeps the keyboard in the cell clicked into (the 16d sweep). The cell
+        /// left committed as it was let go, the table was drawn again on the release, and the cell clicked into went with the
+        /// old drawing: the next keys reached the workbench, where A opens + SIGNAL and F fits the circuit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnInputCellLeftByAClickIntoAnother_GivesThatOneTheKeyboard()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference: a, b, s[3:0], d and en
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.InputRadixName + "s"));   // s in hex
+            yield return null;
+            yield return null;
+            yield return null;
+            long first = workbench.Inputs.Rows[0].Time;
+            string was = InputAt(workbench, "s", first);
+            string typed = was == "0011" ? "5" : "3";
+
+            UnityEngine.UIElements.TextField s = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 0");
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(s));
+            s.value = typed;
+            yield return null;
+            UnityEngine.UIElements.TextField a = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "a 0");
+            Assert.IsNotNull(a, "sanity: a's cell in the first row");
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(a));
+            yield return null;
+
+            Assert.AreEqual(typed == "5" ? "0101" : "0011", InputAt(workbench, "s", first), "the cell left committed what was typed in it");
+            UnityEngine.UIElements.TextField now = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "a 0");
+            Assert.AreNotSame(a, now, "sanity: the table was drawn again");
+            var focused = now.panel?.focusController?.focusedElement as UnityEngine.UIElements.VisualElement;
+            Assert.IsTrue(focused != null && (focused == now || now.Contains(focused)), $"the cell clicked into has the keyboard, not {focused?.name ?? "nothing"}");
+            Assert.IsTrue(UiText.Typing, "and the workbench's keys are the cell's while it does");
+
+            // Enter in it lets it go as ever: the keyboard is not kept in a cell finished with.
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(now, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+            yield return null;
+            Assert.IsFalse(UiText.Typing, "Enter let the cell go");
+        }
+
+        /// <summary>
         /// A wire clicked is selected, its corners drawn as handles, and a drag on one of its pieces moves the piece
         /// across itself -- one step, layout only, nothing replayed (Part 10b-2).
         /// </summary>
