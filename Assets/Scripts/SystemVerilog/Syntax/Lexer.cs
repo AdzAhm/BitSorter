@@ -491,7 +491,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
             private void ReadString(SourceLocation start, int logical)
             {
-                if (_text[_at] != '"')
+                // Opened with a plain quote, it ends only at one, and a curly quote inside is text; opened with a curly quote,
+                // copied from a slide, it ends at either (the 16d sweep: any of the three ended any string).
+                bool curly = _text[_at] != '"';
+                if (curly)
                 {
                     _diagnostics.Warning(start, DiagnosticCodes.LookalikeCharacter,
                         $"'{_text[_at]}' is a curly quote; it was read as '\"'. Code copied from a slide often has these.");
@@ -505,7 +508,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     char c = _text[_at];
 
-                    if (c == '"' || c == '“' || c == '”')
+                    if (c == '"' || (curly && (c == '“' || c == '”')))
                     {
                         if (c != '"')
                             Lookalikes.Add(_at);
