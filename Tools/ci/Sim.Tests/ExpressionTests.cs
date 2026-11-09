@@ -167,6 +167,43 @@ module t;
 endmodule"));
         }
 
+        /// <summary>
+        /// A replication of 0 inside a concatenation with bits of its own is left out (IEEE 1800, 11.4.12.1), as Icarus 12 and
+        /// ModelSim both run it: the parameterised extension {{(W-N){1'b0}}, a} is written for its identity case, W == N, which
+        /// was refused as "must be at least 1" (the Part 16d sweep). It adds no bit to the concatenation's width either.
+        /// </summary>
+        [Test]
+        public void AReplicationOfZero_InAConcatenation_IsLeftOut()
+        {
+            CollectionAssert.AreEqual(new[] { "a5 a5 0a5 fa5 55 8 4" }, Printed(@"
+module extend #(parameter W = 8, N = 8) (input logic [N-1:0] a, output logic [W-1:0] zeros, signs);
+    assign zeros = {{(W-N){1'b0}}, a};
+    assign signs = {{(W-N){a[N-1]}}, a};
+endmodule
+module t;
+    logic [7:0] narrow = 8'hA5, same_zeros, same_signs;
+    logic [11:0] wide_zeros, wide_signs;
+    extend #(.W(8), .N(8)) same (.a(narrow), .zeros(same_zeros), .signs(same_signs));
+    extend #(.W(12), .N(8)) wider (.a(narrow), .zeros(wide_zeros), .signs(wide_signs));
+    initial #1 $display(""%h %h %h %h %h %0d %0d"", same_zeros, same_signs, wide_zeros, wide_signs,
+        {2{{0{narrow[0]}}, narrow[3:0]}}, $bits({{0{1'b1}}, narrow}), $bits({({0{narrow}}), narrow[3:0]}));
+endmodule"));
+        }
+
+        /// <summary>Where nothing else gives the concatenation a bit, a replication of 0 is an error, as both oracles say.</summary>
+        [TestCase("module t; logic a; logic [3:0] y; assign y = {0{a}}; endmodule", "only inside a concatenation")]
+        [TestCase("module t; logic a, b; logic [3:0] y; assign y = {{0{a}}, {0{b}}}; endmodule", "has no bits")]
+        [TestCase("module t; logic a, b; logic [3:0] y; assign y = {{2{{0{a}}}}, b}; endmodule", "has no bits")]
+        [TestCase("module t; logic a, b; logic [3:0] y; assign y = {{-1{a}}, b}; endmodule", "cannot be negative")]
+        [TestCase("module t; logic b; logic [3:0] y; assign y = {{0{nowhere}}, b}; endmodule", "no signal or parameter called nowhere")]
+        public void AReplicationOfZero_WithNothingElse_IsRefused(string text, string said)
+        {
+            SyntaxTree tree = SyntaxReader.ReadText(text, "test.sv");
+            Elaboration e = Elaborator.Elaborate(tree, null);
+            Assert.IsTrue(e.HasErrors, "it should have been refused");
+            StringAssert.Contains(said, string.Join("\n", e.Diagnostics.Select(d => d.Message)));
+        }
+
         /// <summary>The same at the size that overflowed the stack: fifty thousand items and members, built and run.</summary>
         [Test]
         public void FiftyThousandItems_AreBuiltAndRun()
