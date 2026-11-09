@@ -219,6 +219,10 @@ namespace BitSorter.ViewModel.Tests
                 Refused(join, "width", n, "takes 2 to 64");
             }
 
+            Assert.AreSame(before, b.Session.Project, "and nothing changed");
+        }
+
+        /// <summary>
         /// A count or a width a part's pins are made by, typed out of its range -- a gate's or a mux's inputs, a splitter's or a
         /// joiner's width -- is refused in the document's words like any other (the 16d sweep): the rules said why, and then
         /// made the module's netlist anyway, which threw for a count below 0 and made a pin array of a huge one.
