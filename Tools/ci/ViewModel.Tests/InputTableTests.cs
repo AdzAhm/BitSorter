@@ -116,6 +116,24 @@ namespace BitSorter.ViewModel.Tests
                 "a's 1 at 10 emptied -- and its 0 at 30 with it, the value a then already held");
         }
 
+        /// <summary>
+        /// A cell given only underscores, which are a number's separators, is refused as no number: the underscores taken out left
+        /// nothing, and putting what was typed back into the refusal's words threw (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void ACellOfUnderscoresOnly_IsRefusedAsNoNumber()
+        {
+            InputTable table = InputTable.Of(Session().Project);
+            foreach (string typed in new[] { "_", "__", " _ " })
+            {
+                bool done = true;
+                string refusal = null;
+                Assert.DoesNotThrow(() => done = table.TrySetCell(0, 1, typed, out _, out _, out refusal), $"'{typed}'");
+                Assert.IsFalse(done, $"'{typed}'");
+                Assert.IsNotNull(refusal, $"'{typed}': refused, saying why");
+            }
+        }
+
         [Test]
         public void ARow_IsMovedByItsTime_AndTakenAway()
         {
