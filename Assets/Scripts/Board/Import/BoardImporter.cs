@@ -212,6 +212,10 @@ namespace BitSorter.Board
             private sealed class NetFound
             {
                 public int Width = 1;
+
+                /// <summary>Its range as declared, <c>[Msb:Lsb]</c>: what a select's index is counted by. <c>[0:0]</c> for a bit.</summary>
+                public long Msb, Lsb;
+
                 public LogicVec? Initial;
                 public bool IsPort;
 
@@ -329,13 +333,15 @@ namespace BitSorter.Board
                     return;
                 }
 
-                int width = Width(port.Type, port);
+                int width = Width(port.Type, port, out long msb, out long lsb);
                 int id = Add(new PortPart { Name = port.Name, Direction = port.Direction, Width = width, Comment = port.Comment }, port);
                 if (id == 0)
                     return;
 
                 NetFound net = Net(port.Name);
                 net.Width = width;
+                net.Msb = msb;
+                net.Lsb = lsb;
                 net.IsPort = true;
                 net.Pins.Add(Endpoint.At(id, port.Direction == PortDirection.Input ? "out" : "in"));
             }
@@ -348,7 +354,7 @@ namespace BitSorter.Board
             /// </summary>
             private void Declare(DataDeclaration declaration)
             {
-                int width = Width(declaration.Type, declaration);
+                int width = Width(declaration.Type, declaration, out long msb, out long lsb);
                 string netType = declaration.NetType;
                 bool supply = netType == "supply0" || netType == "supply1";
                 if (netType != null && netType != "wire" && netType != "tri" && netType != "uwire" && !supply)
@@ -373,6 +379,8 @@ namespace BitSorter.Board
 
                     NetFound net = Net(declarator.Name);
                     net.Width = width;
+                    net.Msb = msb;
+                    net.Lsb = lsb;
                     if (supply)
                         _declaredDrivers.Add((declarator.Name, LogicVec.Fill(netType == "supply1" ? Logic4.One : Logic4.Zero, width), declarator));
                     if (declarator.Initializer == null)
@@ -400,8 +408,9 @@ namespace BitSorter.Board
             /// packed range. Any other -- 2-state <c>bit</c> and <c>int</c>, <c>integer</c>, an enum, a struct, a typedef's
             /// name -- is refused, the module coming in as written code, rather than drawn one bit wide.
             /// </summary>
-            private int Width(DataType type, SyntaxNode at)
+            private int Width(DataType type, SyntaxNode at, out long msb, out long lsb)
             {
+                msb = lsb = 0;
                 if (type != null && NotALogicVector(type) is string what)
                 {
                     Problem(at, $"{what} is no net a board draws, a board's nets being logic vectors; it comes in as written code (Part 12).");
@@ -418,7 +427,11 @@ namespace BitSorter.Board
 
                 Dimension range = type.Packed[0];
                 if (TryConstant(range.Left, out long left) && TryConstant(range.Right, out long right))
+                {
+                    msb = left;
+                    lsb = right;
                     return (int)Math.Abs(left - right) + 1;
+                }
 
                 Problem(at, "a width that is not a plain number.");
                 return 1;
@@ -611,7 +624,7 @@ namespace BitSorter.Board
                 {
                     if (connection.Name == null || connection.IsShorthand || connection.IsWildcard)
                         return false;
-                    if (connection.Value != null && CopyNet(connection.Value, i) == null)
+                    if (connection.Value != null && !(CopyNet(connection.Value, i) is string net && CountsFromZero(net)))
                         return false;
                 }
 
@@ -650,6 +663,9 @@ namespace BitSorter.Board
             }
 
             private static bool IsName(Expression e, string name) => e is NameExpression n && n.Path.Count == 1 && n.Name == name;
+
+            /// <summary>Whether a net's index is its offset -- declared <c>[w-1:0]</c>, or a bit -- as an array's copies take it.</summary>
+            private bool CountsFromZero(string net) => !_nets.TryGetValue(net, out NetFound found) || found.Lsb == 0 && found.Msb >= 0;
 
             private void Cells(ModuleInstantiation instantiation, GateKind kind, int inputs)
             {
@@ -752,7 +768,8 @@ namespace BitSorter.Board
                     return;
                 }
 
-                if (!delayed && value is ConditionalExpression && TryMux(value, out List<string> data, out string select))
+                if (!delayed && value is ConditionalExpression && TryMux(value, out List<string> data, out string select, out int selectBits, out bool indexed)
+                    && (!indexed || Net(select).Msb == selectBits - 1 && Net(select).Lsb == 0))
                 {
                     int id = Add(new MuxPart { Inputs = data.Count, Width = Net(to).Width }, assignment);
                     if (id == 0)
@@ -766,6 +783,15 @@ namespace BitSorter.Board
 
                 if (!delayed && value is IndexExpression bit && Strip(bit.Target) is NameExpression bus && bus.Path.Count == 1 && TryConstant(bit.Index, out long index))
                 {
+                    // The bit the index names, counted by the bus's range: a[2] of [4:1] is offset 1, b[0] of [0:3] offset 3.
+                    NetFound busNet = Net(bus.Name);
+                    long offset = busNet.Msb >= busNet.Lsb ? index - busNet.Lsb : busNet.Lsb - index;
+                    if (offset < 0 || offset >= busNet.Width)
+                    {
+                        Problem(assignment, $"{bus.Name}[{index}] is outside {bus.Name}, which is [{busNet.Msb}:{busNet.Lsb}].");
+                        return;
+                    }
+
                     if (!_splitters.TryGetValue(bus.Name, out int splitter))
                     {
                         splitter = Add(new SplitterPart { Width = Net(bus.Name).Width }, assignment);
@@ -775,7 +801,7 @@ namespace BitSorter.Board
                         Net(bus.Name).Pins.Add(Endpoint.At(splitter, "in"));
                     }
 
-                    Net(to).Pins.Add(Endpoint.At(splitter, "o" + index));
+                    Net(to).Pins.Add(Endpoint.At(splitter, "o" + offset));
                     return;
                 }
 
@@ -879,14 +905,20 @@ namespace BitSorter.Board
             /// The printer's mux: <c>s ? d1 : d0</c>, and for four or eight inputs the same nested by the
             /// select's bits from the top one down.
             /// </summary>
-            private static bool TryMux(Expression value, out List<string> data, out string select)
+            /// <remarks>
+            /// <paramref name="indexed"/> says the select's bits are named by index -- <c>s[1]</c>, <c>s[0]</c> -- which the
+            /// mux's select reads from the top of the net down: so only of a select declared <c>[bits-1:0]</c>, whose index is
+            /// its offset.
+            /// </remarks>
+            private static bool TryMux(Expression value, out List<string> data, out string select, out int bits, out bool indexed)
             {
                 data = null;
                 select = null;
+                bits = 0;
+                indexed = false;
 
                 // The condition at the root names the select: s, or s[top].
                 Expression root = Strip(((ConditionalExpression)value).Condition);
-                int bits;
                 if (root is NameExpression s && s.Path.Count == 1)
                 {
                     select = s.Name;
@@ -897,6 +929,7 @@ namespace BitSorter.Board
                 {
                     select = bus.Name;
                     bits = (int)topBit + 1;
+                    indexed = true;
                 }
                 else
                 {
