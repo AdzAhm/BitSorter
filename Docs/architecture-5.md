@@ -3162,7 +3162,10 @@ is built (2026-10-28).
   stimulus's clock; the reset another input called rst... or reset..., active low when its name says so the usual ways
   (rst_n, resetn, nrst, rst_b, reset_l). A name is a guess, so a machine that comes out as one state, or starting on an x,
   is explored again with the reset the other way round, and the fuller kept. Every other input bit, four at most, labels
-  the arrows. Six register bits is checked on the timing's own graph before anything is compiled. Each run compiles a copy whose stimulus is the reset for a cycle, if there is one, then the
+  the arrows. Six register bits is checked on the timing's own graph before anything is compiled -- a project with a
+  testbench too, since the timing reckons the design alone (the 16d sweep: with one the check was skipped, and the
+  processors compiled, elaborated and timed a copy, 79 MB, before being told the same; 0.1 MB now). Each run compiles a
+  copy whose stimulus is the reset for a cycle, if there is one, then the
   inputs that reach a state, one a cycle, then one combination more. The state is read half a period after the edge from
   the register bits the timing analysis names (`TimingGraph.Of` on the copy; six at most, each register's high bit first),
   and the outputs just before the edge. The period is twice the measured settle time, or the design's minimum period if

@@ -179,18 +179,22 @@ namespace BitSorter.ViewModel
             }
 
             // The register bits, counted from the timing's own graph before anything is compiled: a design too big to draw is
-            // told so at once (the 15g-6 review). A testbench's processes could be counted with them, so only without one.
-            if (project.Bench == null)
+            // told so at once (the 15g-6 review). The timing reckons the design alone, never its testbench, so a project with
+            // one is counted so too -- it was compiled and timed again first, 79 MB for a processor (the 16d sweep).
+            // A bit for each node rather than a set of them: a processor launches 66,000.
+            var launched = new bool[analysis.Graph.NodeCount];
+            int bits = 0;
+            foreach (TimingRegister register in analysis.Graph.Registers)
+                foreach (int node in register.Launches)
+                    if (node >= 0 && node < launched.Length && !launched[node])
+                    {
+                        launched[node] = true;
+                        bits++;
+                    }
+            if (bits > MostRegisterBits)
             {
-                var launched = new HashSet<int>();
-                foreach (TimingRegister register in analysis.Graph.Registers)
-                    foreach (int node in register.Launches)
-                        launched.Add(node);
-                if (launched.Count > MostRegisterBits)
-                {
-                    why = TooManyRegisterBits(launched.Count);
-                    return null;
-                }
+                why = TooManyRegisterBits(bits);
+                return null;
             }
 
             // The clock: an input called clk or clock, which is what the registers' edges are written against, or else the
