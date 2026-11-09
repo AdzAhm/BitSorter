@@ -1069,7 +1069,8 @@ namespace BitSorter.Sim
                     !ExpressionBuilder.TryInteger(d.Right, scope, _diagnostics, "a range's bound", out long lsb))
                     return false;
 
-                if (Math.Abs(msb - lsb) + 1 > LogicVec.MaxWidth || Math.Abs(msb) > int.MaxValue / 2 || Math.Abs(lsb) > int.MaxValue / 2)
+                // The bounds held first: their difference at the ends of a long wraps, and Math.Abs of it throws (the Part 16d sweep).
+                if (!ExpressionBuilder.Bounded(msb) || !ExpressionBuilder.Bounded(lsb) || Math.Abs(msb - lsb) + 1 > LogicVec.MaxWidth)
                 {
                     Error(d.Location, ElaborationCodes.TooLarge, $"[{msb}:{lsb}] is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                     return false;
@@ -1196,7 +1197,7 @@ namespace BitSorter.Sim
                         !ExpressionBuilder.TryInteger(d.Right, scope, _diagnostics, "a range's bound", out long lsb))
                         return false;
 
-                    if (Math.Abs(msb) > int.MaxValue / 2 || Math.Abs(lsb) > int.MaxValue / 2)
+                    if (!ExpressionBuilder.Bounded(msb) || !ExpressionBuilder.Bounded(lsb))
                     {
                         Error(d.Location, ElaborationCodes.TooLarge, $"[{msb}:{lsb}] is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                         return false;
@@ -1600,8 +1601,9 @@ namespace BitSorter.Sim
                         return;
                     }
 
-                    words *= Math.Min(Math.Abs(left - right) + 1, (long)NetlistBuilder.MaxMemoryWords + 1);
-                    if (words > NetlistBuilder.MaxMemoryWords || Math.Abs(left) > int.MaxValue / 2 || Math.Abs(right) > int.MaxValue / 2)
+                    if (ExpressionBuilder.Bounded(left) && ExpressionBuilder.Bounded(right))
+                        words *= Math.Min(Math.Abs(left - right) + 1, (long)NetlistBuilder.MaxMemoryWords + 1);
+                    if (words > NetlistBuilder.MaxMemoryWords || !ExpressionBuilder.Bounded(left) || !ExpressionBuilder.Bounded(right))
                     {
                         Error(range.Location, ElaborationCodes.TooLarge, $"{declarator.Name} would have more than {NetlistBuilder.MaxMemoryWords} words.");
                         return;

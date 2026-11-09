@@ -176,6 +176,16 @@ namespace BitSorter.Sim
             return true;
         }
 
+        /// <summary>The furthest from 0 a range's bound may be, either way: half an int, so two bounds' difference, and the width it makes, fit one.</summary>
+        internal const long MostBound = int.MaxValue / 2;
+
+        /// <summary>
+        /// Whether a bound a design gives is within <see cref="MostBound"/> of 0: asked before any arithmetic on it, since two
+        /// bounds at the ends of a long wrap their difference to long.MinValue, whose Math.Abs throws (the Part 16d sweep). A
+        /// range past it is wider than BitSorter allows, and a select past it reaches outside whatever it selects from.
+        /// </summary>
+        internal static bool Bounded(long bound) => bound >= -MostBound && bound <= MostBound;
+
         /// <summary>A constant that must be a known whole number: a delay, a replication count, a range bound.</summary>
         public static bool TryInteger(Expression expression, Scope scope, DiagnosticBag diagnostics, string what, out long result)
         {
@@ -374,6 +384,8 @@ namespace BitSorter.Sim
             if (r.Kind == RangeKind.Constant)
             {
                 long left = ConstantOf(r.Left, report: false), right = ConstantOf(r.Right, report: false);
+                if (!Bounded(left) || !Bounded(right))
+                    return 1;   // a select reaching outside, which building it says
                 return (int)Math.Max(1, Math.Min(LogicVec.MaxWidth, Math.Abs(left - right) + 1));
             }
 
@@ -1389,6 +1401,13 @@ namespace BitSorter.Sim
                     return Expr.Constant(LogicVec.AllX(1));
                 }
 
+                if (!Bounded(left) || !Bounded(right))
+                {
+                    Error(range.Location, ElaborationCodes.BadSelect,
+                        $"{Printer.Print(range)} reaches outside {Printer.Print(range.Target)}, which is [{msb}:{lsb}].");
+                    return Expr.Constant(LogicVec.AllX(1));
+                }
+
                 long low = Math.Min(type.Position(left), type.Position(right));
                 long width = (Math.Abs(left - right) + 1) * step;
 
@@ -1408,7 +1427,8 @@ namespace BitSorter.Sim
                 return Expr.Constant(LogicVec.AllX(1));
             }
 
-            if (w * step > LogicVec.MaxWidth)
+            // The width held before it is multiplied by the element's, which it could wrap past the check.
+            if (w > LogicVec.MaxWidth || w * step > LogicVec.MaxWidth)
             {
                 Error(range.Location, ElaborationCodes.TooLarge, $"{Printer.Print(range)} is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                 return Expr.Constant(LogicVec.AllX(1));
@@ -1420,6 +1440,9 @@ namespace BitSorter.Sim
 
             if (TryInteger(range.Left, _scope, quiet, "a part-select's base", out long b))
             {
+                if (!Bounded(b))
+                    return Expr.Constant(LogicVec.AllX(selectWidth));   // past either end, as below
+
                 long top = up ? b + w - 1 : b;
                 long bottom = up ? b : b - w + 1;
                 long low = Math.Min(type.Position(top), type.Position(bottom));
@@ -3163,7 +3186,7 @@ namespace BitSorter.Sim
                     return false;
                 }
 
-                if (w * step > LogicVec.MaxWidth)
+                if (w > LogicVec.MaxWidth || w * step > LogicVec.MaxWidth)
                 {
                     Error(range.Location, ElaborationCodes.TooLarge, $"{Printer.Print(range)} is wider than BitSorter allows ({LogicVec.MaxWidth} bits).");
                     return false;
@@ -3213,10 +3236,17 @@ namespace BitSorter.Sim
                     return true;
                 }
 
-                left = up ? b + w - 1 : b;
-                right = up ? b : b - w + 1;
+                // A base past MostBound reaches outside, and is never added to, which could wrap it back inside.
+                left = !Bounded(b) ? b : up ? b + w - 1 : b;
+                right = !Bounded(b) ? b : up ? b : b - w + 1;
                 if (!descending)
                     (left, right) = (right, left);
+            }
+
+            if (!Bounded(left) || !Bounded(right))
+            {
+                Error(range.Location, ElaborationCodes.BadSelect, $"{Printer.Print(range)} reaches outside {name}, which is [{type.Msb}:{type.Lsb}].");
+                return false;
             }
 
             long low = Math.Min(type.Position(left), type.Position(right));

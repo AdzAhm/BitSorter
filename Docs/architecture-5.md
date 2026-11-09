@@ -4814,6 +4814,11 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
 - **A replication's count is held before it is multiplied**: its size check multiplied the count by its item's width in
   a long, so 2^62 copies of four bits wrapped to nothing, passed, and threw. More copies than `LogicVec.MaxWidth` are too
   wide whatever the item (SV0318), and below that the product fits.
+- **A bound is held before any arithmetic on it** (`ExpressionBuilder.Bounded`, half an int either way, which the
+  declarations already asked after the fact): `Math.Abs(msb - lsb)` at the ends of a long -- `[9223372036854775807:-1]`,
+  `[64'sh8000000000000000:0]` -- wrapped to long.MinValue and threw, in a declaration, a memory, a part-select read or
+  written, and an indexed width times its element's. A declaration past it is too large, a select past it reaches
+  outside, and a constant index past it reads x as any index outside does.
 
 ---
 
