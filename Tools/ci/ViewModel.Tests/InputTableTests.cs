@@ -134,6 +134,25 @@ namespace BitSorter.ViewModel.Tests
             }
         }
 
+        /// <summary>
+        /// A row added and not filled, its time typed as another such row's, is that row: one, which one DEL takes away. It was
+        /// kept twice, shown once, and the first DEL left it on screen (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void ARowAddedAndMovedOntoAnother_IsOneRow_ThatOneDelTakesAway()
+        {
+            Assert.IsTrue(InputTable.Of(Session().Project).TryAddRow(out InputTable one, out _));
+            Assert.IsTrue(one.TryAddRow(out InputTable two, out _));
+            CollectionAssert.AreEqual(new long[] { 0, 10, 20, 30, 40 }, two.Rows.Select(r => r.Time).ToArray(), "sanity: added at 30 and 40");
+
+            Assert.IsTrue(two.TrySetTime(3, "40", out Stimulus edited, out _, out InputTable moved, out string refusal), refusal);
+            Assert.IsNull(edited, "a row not filled moves without an edit");
+            CollectionAssert.AreEqual(new long[] { 0, 10, 20, 40 }, moved.Rows.Select(r => r.Time).ToArray());
+
+            Assert.IsTrue(moved.TryRemoveRow(3, out _, out _, out InputTable taken, out refusal), refusal);
+            CollectionAssert.AreEqual(new long[] { 0, 10, 20 }, taken.Rows.Select(r => r.Time).ToArray(), "one DEL takes it away");
+        }
+
         [Test]
         public void ARow_IsMovedByItsTime_AndTakenAway()
         {
