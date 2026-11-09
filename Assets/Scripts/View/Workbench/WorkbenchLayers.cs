@@ -201,7 +201,7 @@ namespace BitSorter.View
             foreach ((int Start, int Count) run in Chunks.Cut(_model.RowCount, row => WorkbenchDrawing.RowVertices(_model, row, _wave.Width), VertexBudget))
                 _timing.Add(Create("timing", _reveal, WorkbenchGraphic.Layer.Timing, size, run));
 
-            foreach ((int Start, int Count) run in Chunks.Cut(_model.RowCount, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget))
+            foreach ((int Start, int Count) run in Chunks.Cut(_model.RowCount, row => WorkbenchDrawing.GlitchVertices(_model, row, _wave.Width), VertexBudget))
                 _glitches.Add(Create("glitches", parent, WorkbenchGraphic.Layer.Glitches, size, run));
             _glitchesShown = new int[_glitches.Count];
 
@@ -235,7 +235,7 @@ namespace BitSorter.View
                     "timing", _reveal, WorkbenchGraphic.Layer.Timing, redraw: false))
                 _rowsDrawnTo = RowsReach;
 
-            if (Recut(_glitches, Chunks.Cut(rows, row => WorkbenchDrawing.GlitchVertices(_model, row), VertexBudget),
+            if (Recut(_glitches, Chunks.Cut(rows, row => WorkbenchDrawing.GlitchVertices(_model, row, _wave.Width), VertexBudget),
                     "glitches", _timingParent, WorkbenchGraphic.Layer.Glitches, redraw: false))
             {
                 _glitchesShown = new int[_glitches.Count];

@@ -440,7 +440,7 @@ namespace BitSorter.View
                     PlaceBusLabels(row, middle, palette);
                 WriteLegibly(row, palette);
 
-                // Named where its words have room, the first of any closer: every one is marked by its cross. Every one in view
+                // Named where its words have room, the first of any closer, as its crosses are drawn a cross apart. Every one in view
                 // was named, a label each, kept and moved every frame -- thousands for a fast clock into a slow gate (Part 16d).
                 _model.RowSwallowedApart(row, View.Start, View.End, GlitchLabelWidth / View.PixelsPerUnit, _swallowed);
                 foreach (double at in _swallowed)

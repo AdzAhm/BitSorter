@@ -876,7 +876,10 @@ namespace BitSorter.View
         /// A cross on each row of <paramref name="from"/> on where a change on its way to it was
         /// swallowed, once it has been: drawn up to the moment, never revealed with the rows. A cross
         /// reaches either side of its moment, so the reveal showed one early and cut it in half at its
-        /// own moment; and the marks are few, so redrawing them as they appear costs little.
+        /// own moment; and the marks are few, so redrawing them as they appear costs little. Of marks closer
+        /// than a cross is wide (<see cref="CrossApart"/>) the first is drawn: they would be one cross on
+        /// screen, and a fast clock into a slow gate swallows every pulse -- 2,000 crosses in view were more
+        /// than a mesh holds, one row being one chunk however many it has (the 16d sweep).
         /// </summary>
         public static void Glitches(VectorPainter painter, WorkbenchModel model, WaveView view, SchematicPalette palette,
             int from = 0, int count = int.MaxValue)
@@ -887,9 +890,9 @@ namespace BitSorter.View
             {
                 (int, int) mark = painter.Mark();
                 float middle = RowMiddle(row);
-                model.RowSwallowedIn(row, view, Swallowed);
+                model.RowSwallowedApart(row, view.Start, view.End, CrossApart / view.PixelsPerUnit, Swallowed);
                 for (int i = 0; i < Swallowed.Count; i++)
-                    painter.Cross(new Vector2(WaveX(Swallowed[i], view), middle), 4f, 1.6f, palette.Unknown);
+                    painter.Cross(new Vector2(WaveX(Swallowed[i], view), middle), CrossHalf, 1.6f, palette.Unknown);
 
                 if (!painter.Fits(mark))
                     break;
@@ -1096,8 +1099,18 @@ namespace BitSorter.View
             return (int)Math.Min(int.MaxValue, 1200 + (long)(axis * 1.5f) + spans * 96);
         }
 
-        /// <summary>The most vertices a row's glitch marks take: a cross for every change on its way to it that is swallowed.</summary>
-        public static int GlitchVertices(WorkbenchModel model, int row) => 64 + model.RowSwallowedCount(row) * CrossVertices;
+        /// <summary>
+        /// The most vertices a row's glitch marks take across a time axis <paramref name="axis"/> wide: a cross for every
+        /// change on its way to it that is swallowed, and no more than one every <see cref="CrossApart"/> pixels.
+        /// </summary>
+        public static int GlitchVertices(WorkbenchModel model, int row, float axis) =>
+            64 + (int)Math.Min(model.RowSwallowedCount(row), (long)(axis / CrossApart) + 2) * CrossVertices;
+
+        /// <summary>Half a glitch's cross, in pixels.</summary>
+        private const float CrossHalf = 4f;
+
+        /// <summary>How far apart two glitch crosses are drawn at the least, in pixels: a cross's width.</summary>
+        public const float CrossApart = 2f * CrossHalf;
 
 
         private static void BitRow(VectorPainter painter, SchematicPalette palette, WaveView view, float middle, float high, float low)
