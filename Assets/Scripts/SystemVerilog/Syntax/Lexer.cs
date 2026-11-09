@@ -105,6 +105,9 @@ namespace BitSorter.SystemVerilog.Syntax
             private int _lineStart;
             private int _logicalLine = 1;
 
+            /// <summary>The logical line the last `define was read on: the one line a comment's last backslash continues.</summary>
+            private int _defineLine;
+
             public readonly List<Token> Tokens = new List<Token>();
 
             /// <summary>Where each look-alike read as code is, by its place in the text: <see cref="Straightened"/>'s.</summary>
@@ -151,6 +154,15 @@ namespace BitSorter.SystemVerilog.Syntax
                 _at++;
             }
 
+            /// <summary>At a newline: steps over it as the end of the logical line, whatever is before it.</summary>
+            private void EndLine()
+            {
+                _line++;
+                _lineStart = _at + 1;
+                _logicalLine++;
+                _at++;
+            }
+
             private void SkipSpaceAndComments()
             {
                 while (_at < _text.Length)
@@ -189,6 +201,12 @@ namespace BitSorter.SystemVerilog.Syntax
                         Token last = Tokens.Count > 0 ? Tokens[Tokens.Count - 1] : null;
                         if (last != null && last.Location.Line == line && last.Location.File == _file && comment.Length > 0)
                             last.TrailingComment = last.TrailingComment == null ? comment : last.TrailingComment + " " + comment;
+
+                        // A backslash ending the comment continues a `define's body, as Icarus and ModelSim read it, and no
+                        // other line: a `timescale or an `include whose comment ended in a path's backslash took the next
+                        // line into its arguments, and a module written there was gone (the 16d sweep).
+                        if (_at < _text.Length && _defineLine != _logicalLine)
+                            EndLine();
                     }
                     else if (c == '/' && Peek(1) == '*')
                     {
@@ -299,7 +317,10 @@ namespace BitSorter.SystemVerilog.Syntax
                 if (c == '`' && IsIdentifierStart(Peek(1)))
                 {
                     Advance();
-                    Add(TokenKind.Directive, "`" + ReadWhile(IsIdentifierPart), start, logical);
+                    string directive = "`" + ReadWhile(IsIdentifierPart);
+                    if (directive == "`define")
+                        _defineLine = logical;
+                    Add(TokenKind.Directive, directive, start, logical);
                     return;
                 }
 
