@@ -575,6 +575,25 @@ endmodule"));
 
             Assert.AreEqual(new string('*', 20000) + "|", Printed(sim).Single());
             Assert.Less(made, 8L << 20, $"twenty thousand $writes made {made:N0} bytes");
+
+        /// A width or a precision too long to count is held to the most a print takes, as any wide one is; and a digit that is
+        /// no ASCII digit is no width at all but a conversion BitSorter does not know -- said, never thrown (the Part 16d sweep:
+        /// the digits went to int.Parse before the cap, and an OverflowException left the compile).
+        /// </summary>
+        [Test]
+        public void AFormatsWidthTooLongToCount_IsHeldToTheMost_AndANonAsciiDigit_IsSaid()
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate("module t; initial begin $display(\"[%99999999999d]\", 4'd5); $display(\"[%.99999999999f]\", 1.5); end endmodule"));
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            string[] printed = Printed(Run(e.Design));
+            Assert.AreEqual("[" + new string(' ', 999) + "5]", printed[0], "a thousand characters, the most a width gives");
+            StringAssert.StartsWith("[1.5000", printed[1]);
+            Assert.AreEqual(1 + 2 + 100 + 1, printed[1].Length, "a hundred places, the most a precision gives");
+
+            Elaboration arabic = null;
+            Assert.DoesNotThrow(() => arabic = Elaborate("module t; initial $display(\"%٣d\", 4'd5); endmodule"));
+            CollectionAssert.AreEqual(new[] { ElaborationCodes.NotYet }, arabic.Diagnostics.Select(d => d.Code));
         }
 
         [Test]
