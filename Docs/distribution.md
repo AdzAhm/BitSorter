@@ -82,11 +82,18 @@ the page loads and written back whole whenever a file in it changes, so a tab th
 read the save before another tab wrote it would put its older save back over the
 newer one -- and not only when it saved, but whenever it wrote anything, a
 setting included. Every save carries a stamp, and `BitSorterSave.jslib` tells the
-other tabs each one through localStorage once IndexedDB has it: a tab that hears
-of a stamp not its own takes IndexedDB's files into memory at once and writes no
-save until the page is loaded again, which the chip offers (FILE, RELOAD THE
-SAVE). Two tabs saving within the same moment can still lose the later of the
-two changes; nothing short of a lock across tabs closes that.
+other tabs each one, with the save's path, through localStorage once IndexedDB
+has it: a tab that hears of one takes IndexedDB's files into memory, once its own
+last write has gone out, and a tab of the same save that hears a stamp not its
+own writes no save until the page is loaded again, which the chip offers (FILE,
+RELOAD THE SAVE). Two tabs saving within the same moment can still lose the later
+of the two changes; nothing short of a lock across tabs closes that.
+
+**Two builds on one origin** -- the release and a candidate beside it on Pages --
+share more than it looks: Unity keeps every build's files in one IndexedDB mount,
+`/idbfs`, a folder each, and every tab writes the whole mount back. So every tab
+takes in every build's saves, or it would put an older copy of the other build's
+files back over the newer; only a save of its own build's file holds it.
 
 **Worth testing by hand**: open the build in two tabs, solve an Exercise in one,
 edit MY CIRCUIT in the other -- the chip says another window saved and asks to

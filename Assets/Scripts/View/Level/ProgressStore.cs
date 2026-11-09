@@ -571,7 +571,7 @@ namespace BitSorter.View
 
                 File.Move(TempPath, _path);
                 _stamps.Wrote(stamp);
-                BrowserSave.Written(stamp);
+                BrowserSave.Written(stamp, _path);
             }
             catch (Exception exception)
             {
@@ -583,7 +583,7 @@ namespace BitSorter.View
         /// In a browser, has this tab hear from now on of every save another tab writes (<see cref="BrowserSave"/>): its file
         /// system is its own, and never shows it another tab's. <see cref="ProgressTracker"/> asks it once the save is read.
         /// </summary>
-        public void HearOtherWindows() => BrowserSave.Read(_stamps.Known);
+        public void HearOtherWindows() => BrowserSave.Read(_stamps.Known, _path);
 
         /// <summary>
         /// Whether another window has written the save since this store read it or last wrote it (browser-1): the stamp the

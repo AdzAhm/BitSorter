@@ -19,31 +19,35 @@ namespace BitSorter.View
     internal static class BrowserSave
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        [DllImport("__Internal")] private static extern void BitSorterSaveRead(string stamp);
+        [DllImport("__Internal")] private static extern void BitSorterSaveRead(string stamp, string path);
         [DllImport("__Internal")] private static extern int BitSorterSaveWrittenElsewhere();
-        [DllImport("__Internal")] private static extern void BitSorterSaveWritten(string stamp);
+        [DllImport("__Internal")] private static extern void BitSorterSaveWritten(string stamp, string path);
         [DllImport("__Internal")] private static extern void BitSorterSaveReload();
 
         /// <summary>Whether this is a browser, whose page has the tabs to hear of.</summary>
         public static bool Available => true;
 #else
-        private static void BitSorterSaveRead(string stamp) { }
+        private static void BitSorterSaveRead(string stamp, string path) { }
         private static int BitSorterSaveWrittenElsewhere() => 0;
-        private static void BitSorterSaveWritten(string stamp) { }
+        private static void BitSorterSaveWritten(string stamp, string path) { }
         private static void BitSorterSaveReload() { }
 
         /// <inheritdoc cref="Available"/>
         public static bool Available => false;
 #endif
 
-        /// <summary>The save read, with <paramref name="stamp"/> (null for none): from now on the page hears of every other tab's.</summary>
-        public static void Read(string stamp) => BitSorterSaveRead(stamp ?? "");
+        /// <summary>
+        /// The save at <paramref name="path"/> read, with <paramref name="stamp"/> (null for none): from now on the page hears
+        /// of every other tab's save, and holds this one's for a save of the same path -- another build's on the same origin
+        /// is another file, in the same IndexedDB (the browser-1 fix's review).
+        /// </summary>
+        public static void Read(string stamp, string path) => BitSorterSaveRead(stamp ?? "", path ?? "");
 
         /// <summary>Whether another tab has written the save since this one read it, or last wrote it.</summary>
         public static bool WrittenElsewhere() => BitSorterSaveWrittenElsewhere() != 0;
 
-        /// <summary>This tab's save written, with <paramref name="stamp"/>: told to the other tabs once it is in IndexedDB.</summary>
-        public static void Written(string stamp) => BitSorterSaveWritten(stamp ?? "");
+        /// <summary>This tab's save at <paramref name="path"/> written, with <paramref name="stamp"/>: told to the other tabs once it is in IndexedDB.</summary>
+        public static void Written(string stamp, string path) => BitSorterSaveWritten(stamp ?? "", path ?? "");
 
         /// <summary>The page loaded again, and so the save read again from IndexedDB, as another tab left it.</summary>
         public static void ReloadPage() => BitSorterSaveReload();

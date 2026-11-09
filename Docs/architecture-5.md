@@ -824,9 +824,14 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   is; the chip says so in plain words, the question to reload goes up once, and FILE, RELOAD THE SAVE opens BitSorter again
   on the save as it is. **In a browser each tab's file system is its own**, read from IndexedDB once and written back whole
   whenever a file in it changes, so the file never shows another tab's write: the page (`BitSorterSave.jslib`) tells every
-  tab each save's stamp through localStorage once the save is in IndexedDB, and a tab that hears of one not its own is held,
-  and takes IndexedDB's files into memory at once, so whatever else it writes -- a setting -- carries the newer save back.
-  RELOAD there loads the page again.
+  tab each save's path and stamp through localStorage once the save is in IndexedDB, and a tab that hears of one takes
+  IndexedDB's files into memory -- once its own last write has gone out, or IndexedDB's older copy of it would come back
+  over it -- so whatever else it writes, a setting, carries the newer save back; a tab of the same path that hears a stamp
+  not its own is held. Every build on one origin -- the release and a candidate beside it on Pages -- keeps its files in
+  Unity's one IndexedDB mount, `/idbfs`, a folder each, and every tab writes the whole mount back: so every tab takes in
+  every build's saves, or it would put an older copy of the other build's files back, and only its own build's holds it
+  (the review of browser-1: one key and no path held a release tab whenever a candidate's saved). RELOAD there loads the
+  page again.
 - **A save from a newer BitSorter** -- its `format` past 5, or a key this one does not know, at any depth -- is said to be
   one as BitSorter opens, and copied beside itself as it was, `progress.json.newer-version-<date>`, before this one first
   writes over it; a copy that cannot be made leaves the save unwritten. `JsonUtility` passes over an unknown key without a
