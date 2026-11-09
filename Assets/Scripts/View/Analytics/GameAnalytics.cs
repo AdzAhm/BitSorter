@@ -162,8 +162,17 @@ namespace BitSorter.View
         /// <summary>An exercise solved by CHECK (Part 15d), reported as a level solved under its id, once a session.</summary>
         public static void ExerciseSolved(string id) => Record(AnalyticsRules.LevelSolved, id);
 
+        /// <summary>
+        /// Every report the workbench asks for -- the event's name and the exercise's id -- as it asks, before any rule decides
+        /// whether it is sent: for the tests to hold the workbench to asking only for what happened, with reporting off as
+        /// every fixture has it. It sends nothing, and changes nothing of what is sent or when.
+        /// </summary>
+        public static event Action<string, string> Asked;
+
         private static void Record(string eventName, string levelName)
         {
+            Asked?.Invoke(eventName, levelName);
+
             // Every reason to stay quiet lives in AnalyticsRules, where it can be tested without a
             // scene. This method is left with the part that needs one: the queue and the SDK.
             string key = AnalyticsRules.SessionKey(eventName, levelName);
