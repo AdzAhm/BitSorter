@@ -124,6 +124,32 @@ namespace BitSorter.Sim.Tests
         }
 
         [Test]
+        /// <remarks>
+        /// A change keeps its value, and a value wider than 64 bits keeps both its planes, 16 bytes for every 64 bits: a
+        /// 65,536-bit counter keeps 16 KB a change, two hundred times the 80 bytes the limit counts each record as, and a
+        /// million-bit one filled a browser's 2 GB in about 8,000 changes of the 4 million allowed (Part 16d sweep).
+        /// </remarks>
+        [Test]
+        public void ARunOfAWideValue_StopsWhenWhatItKeepsIsFull_NotWhenItHasKeptAsManyChanges()
+        {
+            Design design = Elaborator.Elaborate(SystemVerilog.Syntax.SyntaxReader.ReadText(@"
+module wide_tb;
+    logic [65535:0] v = 0;
+    always #1 v = v + 1;
+endmodule", "wide.sv")).Design;
+            var sim = new Simulator(design, null, new SimOptions { MaxRecorded = 10_000 });
+
+            long before = GC.GetTotalMemory(true);
+            RunResult result = sim.RunTo(1_000_000);
+            long kept = GC.GetTotalMemory(true) - before;
+
+            Assert.AreEqual(RunStatus.Stopped, result.Status);
+            Assert.Less(kept, 10_000 * 80 * 2, "a full history holds about what the limit says, 80 bytes a record");
+            StringAssert.Contains("more than the 10,000 a run may keep", sim.History.Messages.Last().Text);
+            GC.KeepAlive(sim);
+        }
+
+        [Test]
         public void ALoopWithADelay_OscillatesForAsLongAsItIsRun()
         {
             (Design design, Stimulus stimulus, SignalId y) = Ring(Delay.Of(1));
