@@ -4207,6 +4207,8 @@ through the lock I can add and do anything I want; changes I do in code/drawing 
   the order of events, could not see; a test now runs both on the engine). What is not: the comments
   inside, and the code's shape -- a case is the mux it is, a loop the instances it made, an expression its operators.
   The first edit of each module asks so, once a session (`RewriteQuestion`, the workbench's ask menu by the pointer).
+  A part placed or a wire drawn that asks is let go of as one made is, for the answer to make (the 16d sweep: the gate
+  stayed in hand, and the next click placed a second).
 - **Every part prints**: a box is an expression of its pins (`BoxPart.Code`) -- a slice, a join of pieces at their
   places (gaps z on a wire, x on a variable), a replicate, a select at a place, a widening (with the sign), a sign, an
   `if`'s truth (`(|a) === 1'b1`), a case's match (`===`, its label written on the box, no pin for it since this part);

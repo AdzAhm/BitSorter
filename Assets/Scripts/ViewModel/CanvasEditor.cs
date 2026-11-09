@@ -499,6 +499,10 @@ namespace BitSorter.ViewModel
                         if (!command.Extend)
                             PutDown();
                     }
+                    else if (AskedFirst(placed) && !command.Extend)
+                    {
+                        PutDown();
+                    }
 
                     _version++;
                     return Said(placed);
@@ -926,13 +930,14 @@ namespace BitSorter.ViewModel
             }
 
             EditResult made = _session.Connect(_draft.From, to, _draft.RouteTo(tapAt));
-            if (made.Done)
+            if (made.Done || AskedFirst(made))
             {
                 _draft = null;
                 _draftOver = _checkedOver = CanvasTarget.Nothing;
                 _draftWhyNot = null;
                 Selection.Clear();
-                Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: made.Id), extend: false, toggle: false);
+                if (made.Done)
+                    Selection.Pick(new CanvasTarget(CanvasTargetKind.Wire, wire: made.Id), extend: false, toggle: false);
             }
 
             _version++;
@@ -1365,6 +1370,13 @@ namespace BitSorter.ViewModel
             Selection.All(Module);
             _version++;
         }
+
+        /// <summary>
+        /// Whether <paramref name="result"/> is the first edit of a module's drawing of code, held while the question is asked
+        /// (<see cref="WorkbenchSession.RewriteAsked"/>): its answer makes it, so what made it is let go of as for one made --
+        /// the part in hand stayed, and the next click placed a second (the 16d sweep).
+        /// </summary>
+        private bool AskedFirst(EditResult result) => !result.Done && result.Refusal == WorkbenchSession.RewriteAsked && _session.AsksToRewrite;
 
         private EditResult Said(EditResult result)
         {
