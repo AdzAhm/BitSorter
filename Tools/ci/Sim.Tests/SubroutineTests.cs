@@ -813,14 +813,20 @@ endmodule", 20);
             Assert.IsNull(e.Design);
         }
 
-        /// <summary>A generate loop's rounds each compile its process again, and are held to the same instructions.</summary>
+        /// <summary>
+        /// A generate loop's rounds each compile its process again, and are held to the same instructions: 2,048 rounds of a
+        /// 300-line always, some 614,000 instructions, were built before the limit. Added with the limit's fix rather than ahead
+        /// of it; run against that fix's parent, it fails there on the count of refusals, 0 (the review of the Part 16d sweep).
+        /// </summary>
         [Test]
         public void AProcessInAGenerateLoop_IsHeldToTheDesignsInstructions()
         {
             string body = string.Concat(Enumerable.Repeat("y[i] = ~y[i]; ", 300));
             Elaboration e = Elaborate("module t (input logic [2047:0] a); logic [2047:0] y; for (genvar i = 0; i < 2048; i++) begin : g " +
                 $"always @(a[i]) begin {body}end end endmodule");
-            StringAssert.Contains("instructions", e.Diagnostics.Single(d => d.Code == ElaborationCodes.TooLarge).Message);
+            Diagnostic[] tooLarge = e.Diagnostics.Where(d => d.Code == ElaborationCodes.TooLarge).ToArray();
+            Assert.AreEqual(1, tooLarge.Length, string.Join("\n", e.Diagnostics));
+            StringAssert.Contains("instructions", tooLarge[0].Message);
             Assert.IsNull(e.Design);
         }
 
