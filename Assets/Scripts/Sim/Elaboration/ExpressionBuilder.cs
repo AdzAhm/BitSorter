@@ -1342,7 +1342,7 @@ namespace BitSorter.Sim
             var quiet = new DiagnosticBag();
             if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
             {
-                long position = type.Position(constant);
+                long position = Bounded(constant) ? type.Position(constant) : -1;   // held first: far enough out, the place wraps back inside
                 if (position < 0 || position + width > target.Width)
                     return Expr.Constant(LogicVec.AllX(width, signed));   // reading outside the vector gives x, as the standard says
                 return AsSigned(Expr.Slice(target, (int)position, width), signed);
@@ -3120,7 +3120,7 @@ namespace BitSorter.Sim
 
             if (TryInteger(index.Index, _scope, quiet, "an index", out long constant))
             {
-                long position = type.Position(constant);
+                long position = Bounded(constant) ? type.Position(constant) : -1;
                 if (position < 0 || position + width > type.Width)
                 {
                     Error(index.Location, ElaborationCodes.BadSelect, $"{Printer.Print(index)} is outside {name}, which is [{type.Msb}:{type.Lsb}].");
