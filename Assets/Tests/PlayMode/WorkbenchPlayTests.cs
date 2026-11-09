@@ -877,6 +877,55 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(palette.One, workbench.ReadoutColourOf(a), "a row no longer selected is written in its value's own colour again");
         }
 
+        /// <summary>
+        /// A selected row is marked by more than its band, which stands only a little off the ground -- 1.14:1 on paper, 1.35 in
+        /// Schematic -- though Delete, X, G and the step keys act on it: a mark in the accent at the band's left end, 3:1 off
+        /// the band and the ground, a shape as well as a colour (the 16d sweep).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASelectedRow_IsMarkedAtItsLeftEnd_ClearOfItsBand()
+        {
+            yield return TestScene.Load();
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            int a = RowLabelled(workbench, "a");
+            Vector2 name = workbench.RowNameOnScreen(a);
+            yield return null;
+            Assert.IsNull(MarkOfRow(workbench, name), "sanity: nothing marks a row not selected");
+
+            yield return ClickAt(name);
+            yield return null;
+            Assert.IsTrue(workbench.RowBandShown(a), "sanity: a click on a row's name selects it");
+            Image mark = MarkOfRow(workbench, name);
+            Assert.IsNotNull(mark, "a selected row is marked at its band's left end");
+            SchematicPalette palette = SchematicPalette.Current;
+            Assert.GreaterOrEqual(SchematicPalette.Contrast(mark.color, palette.Selection), 3f, "the mark on the band");
+            Assert.GreaterOrEqual(SchematicPalette.Contrast(mark.color, palette.Ground), 3f, "the mark on the ground");
+
+            workbench.List.ClearSelection();
+            yield return null;
+            yield return null;
+            Assert.IsNull(MarkOfRow(workbench, name), "and unmarked once it is not selected");
+        }
+
+        /// <summary>A shown image in the accent left of a row's name and as tall as it reaches: the row's selected mark, if there is one.</summary>
+        private static Image MarkOfRow(WorkbenchPanel workbench, Vector2 name)
+        {
+            Color accent = SchematicPalette.Current.Accent;
+            var corners = new Vector3[4];
+            foreach (Image image in workbench.GetComponentsInChildren<Image>(false))
+            {
+                if (image.color != accent)
+                    continue;
+                image.rectTransform.GetWorldCorners(corners);
+                Vector2 low = RectTransformUtility.WorldToScreenPoint(null, corners[0]), high = RectTransformUtility.WorldToScreenPoint(null, corners[2]);
+                if (low.y <= name.y && name.y <= high.y && high.x <= name.x)
+                    return image;
+            }
+            return null;
+        }
+
         // -----------------------------------------------------------------
         // Adding signals, groups and names (Part 9b-2b, second half)
         // -----------------------------------------------------------------
