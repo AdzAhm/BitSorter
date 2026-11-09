@@ -1706,6 +1706,27 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("75-workbench-resized-block");
         }
 
+        /// <summary>
+        /// Part 16d: the reference circuit with all three panels folded away -- PARTS, the side panel and the dock each a strip
+        /// at the window's edge holding its arrow, and the circuit fitted to the room they gave it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot76_WorkbenchPanelsFolded()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            workbench.TogglePanels();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Folds.All, "sanity: all three folded");
+            Assert.IsTrue(workbench.IsFitted, "sanity: the circuit fitted to its window");
+            yield return Capture("76-workbench-panels-folded");
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

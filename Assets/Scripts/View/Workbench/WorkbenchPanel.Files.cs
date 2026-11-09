@@ -188,6 +188,7 @@ namespace BitSorter.View
             _notesAbout = _session.Project;
             _transcriptDrawn = -1;
             Notice(comparison.Verdict(unit) + (name != null ? " (" + name + ")" : ""));
+            OpenDock();   // the comparison is said in the TRANSCRIPT (Part 16d)
             ShowDockTab(DockTab.Transcript);
             if (!comparison.Agree)
             {

@@ -135,6 +135,7 @@ namespace BitSorter.View
             bool leaving = _sample != 0 || _exercise == null || _exercise.Id != GuidedTutorial.ExerciseId;
             if (leaving)
                 LeaveTheTypedCode();   // the code on screen kept with the circuit (Part 16d's sweep)
+            OpenPanels();   // its first step lights the NOT in PARTS, which a fold would hide (Part 16d)
             if (_hintShown != null)
             {
                 _hintShown = null;

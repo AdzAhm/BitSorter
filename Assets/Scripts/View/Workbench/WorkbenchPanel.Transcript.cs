@@ -144,7 +144,7 @@ namespace BitSorter.View
             if (_timingList != null)
                 _timingList.style.display = timing ? DisplayStyle.Flex : DisplayStyle.None;
             _timingDrawn = false;
-            _listingView?.SetShown(code);
+            _listingView?.SetShown(code && !_folds.Dock);   // folded, nothing of the dock is drawn (Part 16d)
             if (code)
             {
                 // Chosen, the tab shows the file of the module the window shows; shown again as the stage is built
@@ -157,9 +157,9 @@ namespace BitSorter.View
             }
             if (_wavesClip != null)
             {
-                _wavesClip.gameObject.SetActive(waves);
-                _legend.gameObject.SetActive(waves);
-                if (!waves)
+                _wavesClip.gameObject.SetActive(waves && !_folds.Dock);
+                _legend.gameObject.SetActive(waves && !_folds.Dock);
+                if (!waves || _folds.Dock)
                     Show(_wavesThumb, false);
                 else
                     ScrollWavesBy(0f);

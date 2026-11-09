@@ -577,6 +577,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.ZoomIn: ZoomAboutTheMiddle(1); break;
                 case WorkbenchCommand.ZoomOut: ZoomAboutTheMiddle(-1); break;
                 case WorkbenchCommand.Fit: FitView(); break;
+                case WorkbenchCommand.TogglePanels: TogglePanels(); break;
                 case WorkbenchCommand.PageUp: ScrollWavesBy(-WorkbenchDrawing.RowHeight); break;
                 case WorkbenchCommand.PageDown: ScrollWavesBy(WorkbenchDrawing.RowHeight); break;
                 case WorkbenchCommand.Radix: StepRadix(); break;

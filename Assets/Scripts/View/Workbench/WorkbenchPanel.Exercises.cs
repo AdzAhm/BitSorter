@@ -346,6 +346,7 @@ namespace BitSorter.View
 
             if (!grade.Solved)
             {
+                OpenDock();   // what failed is said in the TRANSCRIPT, which a folded dock would hide (Part 16d)
                 ShowDockTab(DockTab.Transcript);
                 if (grade.Failures.Count > 0)
                 {

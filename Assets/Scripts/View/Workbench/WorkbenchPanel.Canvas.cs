@@ -488,8 +488,10 @@ namespace BitSorter.View
             Rect2 side = _regions.Side;
             Minimap map = BitSorter.ViewModel.Minimap.Of(_viewState, side.width - 2f * PanelPad - 2f * pad);
             _minimap.Map = map;
-            _minimap.gameObject.SetActive(map != null && !ControllerShown);   // a map of a drawing out of sight, while a controller's diagram is up
-            if (map == null || ControllerShown)
+            // A map of a drawing out of sight, while a controller's diagram is up, or of the side panel folded away (Part 16d).
+            bool shown = map != null && !ControllerShown && !_folds.Side;
+            _minimap.gameObject.SetActive(shown);
+            if (!shown)
                 return;
 
             var size = new Vector2(map.Size.x + 2f * pad, map.Size.y + 2f * pad);

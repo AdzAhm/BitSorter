@@ -55,8 +55,10 @@ namespace BitSorter.PlayMode.Tests
         [UnityTearDown]
         public IEnumerator ClearTheScene()
         {
-            // A dragged splitter is kept in the fixture's own settings: the next test opens on the dock's own height.
+            // A dragged splitter and the folds are kept in the fixture's own settings: the next test opens on the dock's own
+            // height, every panel open.
             Preferences.Redirected?.Remove(WorkbenchPanel.DockKey);
+            Preferences.Redirected?.Remove(WorkbenchPanel.FoldsKey);
             yield return TestScene.Clear();
         }
 
@@ -190,6 +192,123 @@ namespace BitSorter.PlayMode.Tests
             Rect circuit = PanelRect(WorkbenchPanel.CircuitPanelName);
             Assert.IsFalse(parts.Overlaps(circuit) || side.Overlaps(circuit), "the side panels stand beside the circuit, never on it");
             Assert.IsTrue(workbench.IsFitted, "and the circuit opens fitted to its window");
+        }
+
+        // -----------------------------------------------------------------
+        // The panels folded away (Part 16d)
+        // -----------------------------------------------------------------
+
+        private static bool Drawn(string name) => ShellPanel.Find<VisualElement>(name).resolvedStyle.display == DisplayStyle.Flex;
+
+        /// <summary>A click on a fold arrow, held to be a control first: a press on one is never the circuit's.</summary>
+        private IEnumerator ClickOnArrow(string name)
+        {
+            Vector2 at = ShellPanel.ScreenPointOf(ShellPanel.Find<VisualElement>(name));
+            Move(_mouse.position, at);
+            yield return null;
+            Assert.IsTrue(ShellPanel.OverControlAt(at), $"{name} is a control: a press on it is not the circuit's");
+            Press(_mouse.leftButton);
+            yield return null;
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>
+        /// Each panel's arrow folds it (Ahmad, 2026-11-08): its inside is drawn no more -- the minimap with the side panel, the
+        /// waves and the legend with the dock -- the circuit's window takes the room and is still where its panel is, fitted
+        /// again; the arrow, in its strip now, opens it again as it was. A click on an arrow selects nothing on the circuit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EachArrow_FoldsItsPanel_TheCircuitTakesTheRoom_AndItsStripOpensItAgain()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            ShellRegions open = workbench.Regions;
+            Assert.IsTrue(Drawn(WorkbenchPanel.PartsPanelName) && Drawn(WorkbenchPanel.SidePanelName) && Drawn(WorkbenchPanel.DockName), "sanity: all open");
+
+            yield return ClickOnArrow(WorkbenchPanel.PartsFoldName);
+            Assert.IsTrue(workbench.Folds.Parts && !workbench.Folds.Side && !workbench.Folds.Dock, "PARTS' arrow folds PARTS alone");
+            Assert.IsFalse(Drawn(WorkbenchPanel.PartsPanelName), "its inside drawn no more");
+            Assert.AreEqual(open.Circuit.width + ShellLayout.PartsWidth - ShellLayout.Folded, workbench.Regions.Circuit.width, 1f, "the circuit wider");
+            AssertSame(PanelRect(WorkbenchPanel.CircuitPanelName), WorldRect("schematic view"), "the circuit's window where its panel is");
+            Assert.IsTrue(workbench.IsFitted, "and fitted to it");
+
+            // Zoomed in, some of the drawing is out of the window and the minimap is up: then the side panel folds.
+            bool MinimapShown() => GameObject.Find(WorkbenchPanel.RootName).GetComponentsInChildren<RectTransform>(false).Any(r => r.name == "minimap");
+            for (int zoom = 0; zoom < 3; zoom++)
+                yield return Tap(_keyboard.equalsKey);
+            Assert.IsTrue(MinimapShown(), "sanity: zoomed in, the minimap is up");
+            yield return ClickOnArrow(WorkbenchPanel.SideFoldName);
+            Assert.IsTrue(workbench.Folds.Side);
+            Assert.IsFalse(Drawn(WorkbenchPanel.SidePanelName));
+            Assert.IsFalse(MinimapShown(), "the minimap goes with the side panel");
+            yield return Tap(_keyboard.fKey);
+
+            yield return ClickOnArrow(WorkbenchPanel.DockFoldName);
+            Assert.IsTrue(workbench.Folds.All, "all three folded, one arrow at a time");
+            Assert.IsFalse(Drawn(WorkbenchPanel.DockName));
+            Assert.IsFalse(Drawn(WorkbenchPanel.SplitterName), "the splitter with it");
+            Assert.IsFalse(workbench.WavesWindow.gameObject.activeInHierarchy, "the waves with it");
+            Assert.AreEqual(open.Circuit.height + open.Dock.height - ShellLayout.Folded, workbench.Regions.Circuit.height, 1f, "the circuit taller");
+            AssertSame(PanelRect(WorkbenchPanel.CircuitPanelName), WorldRect("schematic view"), "the circuit's window where its panel is, all folded");
+            Assert.AreEqual(0, workbench.Editor.Selection.Parts.Count, "the arrows selected nothing on the circuit");
+
+            yield return ClickOnArrow(WorkbenchPanel.DockFoldName);
+            yield return ClickOnArrow(WorkbenchPanel.SideFoldName);
+            yield return ClickOnArrow(WorkbenchPanel.PartsFoldName);
+            Assert.AreEqual(default(ShellFolds), workbench.Folds, "each strip's arrow opens its panel again");
+            Assert.AreEqual(open, workbench.Regions, "every panel where it was");
+            Assert.IsTrue(workbench.WavesWindow.gameObject.activeInHierarchy, "the waves back");
+            Assert.IsTrue(Drawn(WorkbenchPanel.PartsPanelName) && Drawn(WorkbenchPanel.SidePanelName) && Drawn(WorkbenchPanel.DockName));
+        }
+
+        /// <summary>
+        /// H folds all three while any is open and opens them once all are folded (Ahmad, 2026-11-08), and the folds are
+        /// kept: BitSorter opened again opens on them.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator H_FoldsAllThree_HAgainOpensThem_AndTheFoldsAreKept()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            yield return ClickOnArrow(WorkbenchPanel.SideFoldName);
+            Assert.IsTrue(workbench.Folds.Side, "sanity: one folded");
+            yield return Tap(_keyboard.hKey);
+            Assert.IsTrue(workbench.Folds.All, "one open or more: H folds all three");
+            yield return Tap(_keyboard.hKey);
+            Assert.AreEqual(default(ShellFolds), workbench.Folds, "all folded: H opens them");
+
+            workbench.Fold(ShellFold.Parts);
+            workbench.Fold(ShellFold.Dock);
+            Assert.AreEqual(5, Preferences.GetInt(WorkbenchPanel.FoldsKey, -1), "kept as they change: PARTS and the dock");
+
+            yield return TestScene.Clear();
+            yield return OpenTheReference();
+            WorkbenchPanel again = Find<WorkbenchPanel>();
+            Assert.AreNotSame(workbench, again, "sanity: opened again");
+            Assert.IsTrue(again.Folds.Parts && !again.Folds.Side && again.Folds.Dock, "opened again on the folds it had");
+            Assert.IsFalse(Drawn(WorkbenchPanel.PartsPanelName));
+            Assert.IsFalse(again.WavesWindow.gameObject.activeInHierarchy, "the waves folded away from the first frame");
+        }
+
+        /// <summary>The guided tutorial opens every panel as it starts: its first step lights the NOT in PARTS, which a fold would hide.</summary>
+        [UnityTest]
+        public IEnumerator TheTutorial_OpensThePanels_SoTheNotItLightsIsSeen()
+        {
+            yield return OpenTheReference();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.TogglePanels();
+            Assert.IsTrue(workbench.Folds.All, "sanity: all folded");
+
+            workbench.StartTutorial();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(workbench.TutorialRunning, "sanity: the tutorial started");
+            Assert.AreEqual(default(ShellFolds), workbench.Folds, "every panel opened");
+            Assert.AreEqual(WorkbenchPanel.PartButtonName("not"), workbench.Lit?.name, "and the NOT lit in PARTS, drawn");
+            Assert.IsTrue(Drawn(WorkbenchPanel.PartsPanelName));
         }
 
         [UnityTest]

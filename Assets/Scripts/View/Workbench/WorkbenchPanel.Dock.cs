@@ -92,6 +92,7 @@ namespace BitSorter.View
             BuildStatesList();
             ShowDockTab(DockTab.Waves);
             BuildSplitter(palette);
+            BuildFolds(palette);   // after the panels, over their edges (Part 16d)
 
             // One line along the bottom: the gestures where the pointer is, and ? for every key (Part 11d).
             _status = ShellTheme.Label(StatusName, KeyMap.StatusFor(PointerArea.Elsewhere), UiTheme.HelpLineType, palette.TextDim,
@@ -106,7 +107,8 @@ namespace BitSorter.View
         /// <summary>The status line naming the gestures of the circuit, the waves or a BLOCKS row in PARTS, whichever the pointer is over, and ? for every key.</summary>
         private void ShowStatus(Vector2 pointer)
         {
-            PointerArea area = InView(pointer, out _)
+            PointerArea area = OverFold(pointer, out bool folded) ? (folded ? PointerArea.Unfold : PointerArea.Fold)
+                : InView(pointer, out _)
                 ? Editor != null && Editor.PinOver.Kind == CanvasTargetKind.Pin ? PointerArea.Pin
                     : Editor != null && Editor.HandleOver ? PointerArea.Handle
                     : PointerArea.Circuit
@@ -524,7 +526,7 @@ namespace BitSorter.View
             Vector2 window = Root.rect.size;
             float dock = _dockHeight >= 0f ? _dockHeight : ShellLayout.DefaultDockFor(Window, StageTop);
             int frame = UnityEngine.Time.frameCount;
-            if (window == _laidWindow && dock == _laidDock)
+            if (window == _laidWindow && dock == _laidDock && _folds == _laidFolds)
             {
                 // Standing still: the width put off while the window was resized, made now.
                 if (_widthPutOff && frame != _shapedFrame && _stage != null)
@@ -540,7 +542,8 @@ namespace BitSorter.View
             _shapedFrame = frame;
             _laidWindow = window;
             _laidDock = dock;
-            _regions = ShellLayout.Of(Window, StageTop, dock);
+            _laidFolds = _folds;
+            _regions = ShellLayout.Of(Window, StageTop, dock, _folds);
             PlaceShell();
 
             if (_stage == null)
@@ -582,6 +585,7 @@ namespace BitSorter.View
             PlaceInputs();
             PlaceLogic();
             PlaceStates();
+            PlaceFolds();
             FitToolbar(Window.x);
         }
 
