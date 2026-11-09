@@ -301,7 +301,7 @@ namespace BitSorter.Board
                     if (declarator.Initializer != null)
                     {
                         if (declarator.Initializer is NumberLiteral literal)
-                            net.Initial = Resized(literal.Value, width);
+                            net.Initial = Resized(literal, width);
                         else
                             Problem(declarator, $"{declarator.Name} starts at a value that is not a plain number.");
                     }
@@ -620,7 +620,7 @@ namespace BitSorter.Board
 
                 if (value is NumberLiteral constant && !delayed)
                 {
-                    int id = Add(new ConstantPart { Value = Resized(constant.Value, Net(to).Width) }, assignment);
+                    int id = Add(new ConstantPart { Value = Resized(constant, Net(to).Width) }, assignment);
                     if (id != 0)
                         Net(to).Pins.Add(Endpoint.At(id, "y"));
                     return;
@@ -834,7 +834,7 @@ namespace BitSorter.Board
                 string clock = Edge(events, 0), reset = events.Events.Count == 2 ? Edge(events, 1) : null;
 
                 string q = null, d = null;
-                LogicVec? resetValue = null;
+                NumberLiteral resetValue = null;
                 long tcq = 0;
                 bool ok = clock != null && (events.Events.Count == 1 || reset != null);
 
@@ -846,7 +846,7 @@ namespace BitSorter.Board
                 {
                     ok = false;
                     if (inner is IfStatement choice && Strip(choice.Condition) is NameExpression r && r.Name == reset &&
-                        Nonblocking(Single(choice.Then), out string resetTarget, out _, true, out LogicVec v, out long resetTcq) &&
+                        Nonblocking(Single(choice.Then), out string resetTarget, out _, true, out NumberLiteral v, out long resetTcq) &&
                         Nonblocking(Single(choice.Else), out q, out d, out tcq) && resetTarget == q && resetTcq == tcq)
                     {
                         ok = true;
@@ -865,7 +865,7 @@ namespace BitSorter.Board
                 {
                     Width = qNet.Width,
                     HasReset = reset != null,
-                    ResetValue = resetValue == null ? (LogicVec?)null : Resized(resetValue.Value, qNet.Width),
+                    ResetValue = resetValue == null ? (LogicVec?)null : Resized(resetValue, qNet.Width),
                     Initial = qNet.Initial,
                     Tcq = tcq,   // its setup is not in the code, so it comes in as 0
                 };
@@ -896,10 +896,10 @@ namespace BitSorter.Board
             /// A register's write, <c>q &lt;= d;</c> -- or <c>q &lt;= #2 d;</c>, its clock to Q (Part 14a), a constant delay
             /// being all a register's write may carry.
             /// </summary>
-            private static bool Nonblocking(Statement s, out string target, out string source, bool constant, out LogicVec value, out long delay)
+            private static bool Nonblocking(Statement s, out string target, out string source, bool constant, out NumberLiteral value, out long delay)
             {
                 target = source = null;
-                value = default;
+                value = null;
                 delay = 0;
                 if (!(s is AssignmentStatement a) || !a.IsNonBlocking || !(a.Target is NameExpression t) || t.Path.Count != 1)
                     return false;
@@ -917,7 +917,7 @@ namespace BitSorter.Board
                 {
                     if (!(from is NumberLiteral n))
                         return false;
-                    value = n.Value;
+                    value = n;
                     return true;
                 }
 
@@ -1131,7 +1131,18 @@ namespace BitSorter.Board
                 return e;
             }
 
-            private static LogicVec Resized(LogicVec value, int width) => value.Width == width ? value : value.Extend(width, false);
+            /// <summary>
+            /// A literal's value on a net <paramref name="width"/> wide, as an assignment gives it (IEEE 1800, 10.7 and 11.8.2):
+            /// <c>'0</c>, <c>'1</c>, <c>'x</c> and <c>'z</c> fill it; any other is truncated, or extended -- with its sign
+            /// when it is signed, as <c>4'sb1000</c> is, with 0s otherwise.
+            /// </summary>
+            private static LogicVec Resized(NumberLiteral literal, int width)
+            {
+                LogicVec value = literal.Value;
+                if (literal.FillsContext)
+                    return LogicVec.Fill(value[0], width);
+                return value.Width == width ? value : value.Extend(width, value.IsSigned);
+            }
 
             private static string Keyword(ProcessKind kind) => kind switch
             {
