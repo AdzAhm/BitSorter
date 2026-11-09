@@ -435,6 +435,52 @@ namespace BitSorter.ViewModel.Tests
             Assert.Less(made, 4 << 20, "what a step makes");
         }
 
+        /// <summary>
+        /// Ctrl+A, Ctrl+C and Ctrl+V on a 516-part drawing: the paste is one step, checked once, made in good time -- every part
+        /// and wire made again, each part named afresh, each input of the top given 0 from the start, and one Ctrl+Z taking it
+        /// all back. Each part and wire was an edit of its own inside the step, each checking the whole project and copying the
+        /// module, so a paste took time and garbage as the square of its size: 13 s and 9.4 GB here before the 16d sweep
+        /// (canvas-14), the UI frozen for it.
+        /// </summary>
+        [Test]
+        public void ABigDrawing_AllOfItPasted_IsOneStepCheckedOnce()
+        {
+            Project project = Adder(64);
+            Module module = project.TopModule;
+            Assert.AreEqual(516, module.Parts.Count, "sanity: five hundred parts");
+            var all = module.Parts.Select(p => p.Id).ToList();
+            Clipboard.Paste(new BoardEditor(project), module.Name, Clipboard.Copy(project, module.Name, all.Take(3).ToList()), null, null);   // warmed
+
+            var editor = new BoardEditor(project);
+            Clip clip = Clipboard.Copy(project, module.Name, all);
+            var parts = new List<int>();
+            var wires = new List<int>();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var watch = Stopwatch.StartNew();
+            EditResult pasted = Clipboard.Paste(editor, module.Name, clip, parts, wires);
+            double took = watch.Elapsed.TotalMilliseconds;
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.IsTrue(pasted.Done, pasted.Refusal);
+
+            Module after = editor.Project.TopModule;
+            Assert.AreEqual(2 * module.Parts.Count, after.Parts.Count, "every part made again");
+            Assert.AreEqual(2 * module.Wires.Count, after.Wires.Count, "and every wire");
+            Assert.AreEqual(module.Parts.Count, parts.Count, "the parts made, to select");
+            Assert.AreEqual(module.Wires.Count, wires.Count, "and the wires");
+            Assert.AreEqual(after.Parts.Count, after.Parts.Select(p => p.Name).Distinct().Count(), "each part named afresh");
+            int inputs = module.Parts.Count(p => p is PortPart port && port.Direction == BitSorter.SystemVerilog.Syntax.PortDirection.Input);
+            var pastedNames = new HashSet<string>(after.Parts.Where(p => parts.Contains(p.Id)).Select(p => p.Name));
+            Track[] given = editor.Project.Stimulus.Tracks.Where(t => pastedNames.Contains(t.Port)).ToArray();
+            Assert.AreEqual(inputs, given.Length, "each input pasted given 0 from the start, as the strip gives one");
+            Assert.IsTrue(given.All(t => t.Steps.Count == 1 && t.Steps[0].Time == 0 && t.Steps[0].Value.TryGetUInt64(out ulong zero) && zero == 0));
+            Assert.IsTrue(editor.Undo());
+            Assert.AreSame(project, editor.Project, "one Ctrl+Z takes it all back");
+
+            TestContext.WriteLine($"{module.Parts.Count} parts and {module.Wires.Count} wires pasted: {took:F0} ms, {made >> 20} MB");
+            Assert.Less(took, 500, "a paste of five hundred parts, in milliseconds");
+            Assert.Less(made, 64L << 20, "what it makes");
+        }
+
         /// <summary>The fastest of three runs: what the work costs, without whatever else the machine was doing in one of them.</summary>
         private static double Fastest(System.Action work)
         {
