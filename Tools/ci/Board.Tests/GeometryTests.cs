@@ -52,6 +52,36 @@ namespace BitSorter.Board.Tests
             Assert.AreEqual(P(0, -0.75), Pin(tri, "en").At);
         }
 
+        /// <summary>
+        /// A part saved or typed with a count no part can have -- inputs or bits below none, or past what any part takes -- is
+        /// drawn with the pins it has, which are none of its count (<c>Part.Counted</c>), never a pin drawn for each: what the
+        /// rules say in words and the netlist nets are the same pins the drawing puts down (the review of the 16d fixes:
+        /// 29e3547f bounded the pins, but the drawing still made one for each of the count -- a gate saved with a million
+        /// inputs, a million and one pins and 123 MB).
+        /// </summary>
+        [TestCase(-1)]
+        [TestCase(2000)]
+        [TestCase(1_000_000)]
+        public void ACountNoPartCanHave_IsDrawnWithThePinsItHas(int count)
+        {
+            foreach (Part part in new Part[]
+            {
+                new GatePart { Kind = GateKind.And, Inputs = count },
+                new MuxPart { Inputs = count },
+                new SplitterPart { Width = count },
+                new JoinerPart { Width = count },
+            })
+            {
+                long made = GC.GetAllocatedBytesForCurrentThread();
+                PartOutline drawn = PartGeometry.Placed(null, part, new Placement(0, 0));
+                made = GC.GetAllocatedBytesForCurrentThread() - made;
+
+                Assert.AreEqual(part.Pins(null).Count, drawn.Pins.Count, $"{part}: the pins drawn are the pins it has");
+                CollectionAssert.AreEquivalent(part.Pins(null).Select(p => p.Name).ToArray(), drawn.Pins.Select(p => p.Pin).ToArray(), part.ToString());
+                Assert.Less(made, 4_000_000, $"{part}: no pin drawn for each of the count");
+            }
+        }
+
         [TestCaseSource(typeof(SampleBoards), nameof(SampleBoards.Names))]
         public void EveryPin_IsOnTheQuarterCellGrid(string board)
         {
