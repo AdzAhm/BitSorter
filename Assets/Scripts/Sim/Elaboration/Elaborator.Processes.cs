@@ -1020,7 +1020,11 @@ namespace BitSorter.Sim
                 }
 
                 Expr subject = c.Inside ? null : builder.BuildAs(c.Subject, width, signed);
-                var matches = new List<(int At, CaseItem Item)>();
+
+                // Each label's jump, item by item in the order written, and each item's run of them: its jumps are patched from
+                // its own run. Found among every label's, a case of K labels cost K squared (the Part 16d sweep).
+                var matches = new List<int>();
+                var items = new List<(CaseItem Item, int From, int To)>(c.Items.Count);
                 CaseItem fallback = null;
 
                 foreach (CaseItem item in c.Items)
@@ -1031,6 +1035,7 @@ namespace BitSorter.Sim
                         continue;
                     }
 
+                    int from = matches.Count;
                     foreach (Expression label in item.Labels)
                     {
                         if (c.Inside)
@@ -1038,13 +1043,15 @@ namespace BitSorter.Sim
                             // case inside: each label a member of an inside set, a range included (IEEE 1800, 12.5.4).
                             var inside = new InsideExpression { Location = label.Location, Value = c.Subject };
                             inside.Set.Add(label);
-                            matches.Add((p.Emit(new Instruction { Op = OpCode.JumpIf, Value = builder.Build(inside, 0) }), item));
+                            matches.Add(p.Emit(new Instruction { Op = OpCode.JumpIf, Value = builder.Build(inside, 0) }));
                             continue;
                         }
 
                         Expr built = builder.BuildAs(label, width, signed);
-                        matches.Add((p.Emit(new Instruction { Op = OpCode.JumpIfMatch, Value = subject, Other = built, Case = kind }), item));
+                        matches.Add(p.Emit(new Instruction { Op = OpCode.JumpIfMatch, Value = subject, Other = built, Case = kind }));
                     }
+
+                    items.Add((item, from, matches.Count));
                 }
 
                 if (builder.Failed)
@@ -1053,15 +1060,11 @@ namespace BitSorter.Sim
                 int toFallback = p.Emit(OpCode.Jump);
                 var ends = new List<int>();
 
-                foreach (CaseItem item in c.Items)
+                foreach ((CaseItem item, int from, int to) in items)
                 {
-                    if (item.IsDefault)
-                        continue;
-
                     int start = p.Here;
-                    foreach ((int at, CaseItem owner) in matches)
-                        if (owner == item)
-                            p.Patch(at, start);
+                    for (int m = from; m < to; m++)
+                        p.Patch(matches[m], start);
 
                     Statement(p, scope, item.Body);
                     ends.Add(p.Emit(OpCode.Jump));
