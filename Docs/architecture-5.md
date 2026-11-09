@@ -671,7 +671,8 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   run of 400 terms in under 704 KB of stack, where a run of 650 overflows a megabyte, and
   `TheTallestExpressionsTheReaderTakes_AreBuiltInThreeQuartersOfAMegabyte` holds it (the sweep's review: the
   first fix counted a run against the brackets' 200, refusing a 250-bit parity written out, and said the
-  brackets' message at a bit index). The run's own message says to split it over a few assigns. A missing `;` is reported on the line it is missing from. Classes, an interface
+  brackets' message at a bit index). The run's own message says to split it over a few assigns, and once the
+  read has stopped nothing more is said: every bracket and block left open said it was never closed. A missing `;` is reported on the line it is missing from. Classes, an interface
   declared inside a module, `export`, concurrent and deferred assertions, `defparam`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,

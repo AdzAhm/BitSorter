@@ -147,7 +147,15 @@ namespace BitSorter.SystemVerilog.Syntax
             : token.Kind == TokenKind.String ? $"the string \"{token.Text}\""
             : $"'{token.Text}'";
 
-        private void Error(SourceLocation at, string code, string message) => _diagnostics.Error(at, code, message);
+        /// <summary>
+        /// An error -- but none once the read has stopped (<see cref="Stop"/>): every bracket, block and module still open would
+        /// say it is never closed, faulting text that is not wrong after the one error that is (the 16d sweep's review).
+        /// </summary>
+        private void Error(SourceLocation at, string code, string message)
+        {
+            if (!_stopped)
+                _diagnostics.Error(at, code, message);
+        }
 
         /// <summary>One level deeper; false, having stopped the read, if that is too deep.</summary>
         private bool Enter() => Enter($"This nests more than {MaxDepth} levels deep; BitSorter stopped reading here.");
