@@ -21,6 +21,13 @@ namespace BitSorter.ViewModel
     /// row or two of waves and the most that leaves the circuit <see cref="MinCircuit"/> (<see cref="ClampDock"/>);
     /// where a window is too short for both, the dock keeps its least and the circuit gives way. Until it is dragged it
     /// is half the room under the inspector, and no taller than the reference circuit's waves (<see cref="DefaultDockFor"/>).
+    ///
+    /// **Each of the three panels folds away** (Ahmad, 2026-11-08: "so we can have a larger view of the map"): PARTS down
+    /// the left, the side panel down the right and the dock along the bottom each have an arrow on the edge that faces the
+    /// circuit (<see cref="ShellRegions.PartsFold"/> and the others), and folded each is a strip <see cref="Folded"/> wide
+    /// at the window's edge holding only its arrow, the circuit's window taking the room (<see cref="ShellFolds"/>). The
+    /// dock's arrow stands on the splitter beside its grip, the grip keeping the splitter's middle. The inspector bar, the
+    /// toolbar and its controls -- an exercise's GOAL and CHECK among them -- never fold.
     /// </remarks>
     public static class ShellLayout
     {
@@ -48,6 +55,15 @@ namespace BitSorter.ViewModel
         /// <summary>The tallest the dock is before the student has dragged it: the reference circuit's nine rows of waves.</summary>
         public const float DefaultDock = 370f;
 
+        /// <summary>How wide a folded side panel is, and how tall the folded dock: a strip that holds its arrow.</summary>
+        public const float Folded = 24f;
+
+        /// <summary>A fold arrow's button: as long as it is along its edge, and as thick across it -- the splitter's height.</summary>
+        public const float ArrowLength = 32f, ArrowThickness = SplitterHeight;
+
+        /// <summary>How far right of the splitter's middle the dock's arrow stands: clear of the grip, 56 wide there.</summary>
+        public const float DockArrowOffset = 28f + Gap + 0.5f * ArrowLength;
+
         /// <summary>The room under the inspector for the circuit and the dock, in <paramref name="window"/> under a toolbar <paramref name="top"/> tall.</summary>
         private static float Room(Vec2 window, float top) => window.y - top - InspectorHeight - Gap - StatusHeight - SplitterHeight;
 
@@ -64,42 +80,130 @@ namespace BitSorter.ViewModel
         public static float ClampDock(float dock, Vec2 window, float top) => Arith.Clamp(dock, MinDock, MaxDock(window, top));
 
         /// <summary>Where every panel is in <paramref name="window"/> under a toolbar <paramref name="top"/> tall, with the dock <paramref name="dock"/> tall.</summary>
-        public static ShellRegions Of(Vec2 window, float top, float dock)
+        public static ShellRegions Of(Vec2 window, float top, float dock) => Of(window, top, dock, default);
+
+        /// <summary>
+        /// Where every panel is in <paramref name="window"/> under a toolbar <paramref name="top"/> tall, with the dock
+        /// <paramref name="dock"/> tall while it is open, and the panels <paramref name="folds"/> says folded.
+        /// </summary>
+        public static ShellRegions Of(Vec2 window, float top, float dock, ShellFolds folds)
         {
-            dock = ClampDock(dock, window, top);
+            dock = folds.Dock ? Folded : ClampDock(dock, window, top);
             float left = Margin, right = Arith.Max(left, window.x - Margin), width = right - left;
             var inspector = new Rect2(left, top, width, InspectorHeight);
             top += InspectorHeight + Gap;
 
             float statusTop = Arith.Max(top, window.y - StatusHeight);
-            float dockTop = statusTop - dock;
+            float dockTop = Arith.Max(top, statusTop - dock);
             float splitterTop = Arith.Max(top, dockTop - SplitterHeight);
             float body = Arith.Max(0f, splitterTop - top);
 
-            float circuitLeft = left + PartsWidth + Gap;
-            float sideLeft = Arith.Max(circuitLeft, right - SideWidth);
+            float partsWidth = folds.Parts ? Folded : PartsWidth, sideWidth = folds.Side ? Folded : SideWidth;
+            float circuitLeft = left + partsWidth + Gap;
+            float sideLeft = Arith.Max(circuitLeft, right - sideWidth);
             float circuitWidth = Arith.Max(0f, sideLeft - Gap - circuitLeft);
+
+            var parts = new Rect2(left, top, partsWidth, body);
+            var side = new Rect2(sideLeft, top, sideWidth, body);
+            var splitter = new Rect2(left, splitterTop, width, SplitterHeight);
+            var dockRect = new Rect2(left, dockTop, width, Arith.Max(0f, statusTop - dockTop));
+            float inner = folds.Dock ? 0f : 1f;   // a folded dock's header, waves and legend have no height
+
+            // Each arrow on the edge that faces the circuit, in the gap there; folded, in the middle of its strip.
+            float middle = top + 0.5f * body;
+            float partsArrowX = folds.Parts ? parts.center.x : parts.xMax + 0.5f * Gap;
+            float sideArrowX = folds.Side ? side.center.x : side.xMin - 0.5f * Gap;
+            float dockArrowX = left + 0.5f * width + DockArrowOffset;
+            float dockArrowY = folds.Dock ? dockRect.center.y : splitter.center.y;
 
             return new ShellRegions(
                 inspector: inspector,
-                parts: new Rect2(left, top, PartsWidth, body),
+                parts: parts,
                 circuit: new Rect2(circuitLeft, top, circuitWidth, body),
-                side: new Rect2(sideLeft, top, SideWidth, body),
-                splitter: new Rect2(left, splitterTop, width, SplitterHeight),
-                dock: new Rect2(left, dockTop, width, dock),
-                dockHeader: new Rect2(left, dockTop, width, DockHeaderHeight),
-                waves: new Rect2(left, dockTop + DockHeaderHeight, width, Arith.Max(0f, dock - DockHeaderHeight - LegendHeight)),
-                legend: new Rect2(left, statusTop - LegendHeight, width, LegendHeight),
-                status: new Rect2(left, statusTop, width, StatusHeight));
+                side: side,
+                splitter: splitter,
+                dock: dockRect,
+                dockHeader: new Rect2(left, dockTop, width, inner * DockHeaderHeight),
+                waves: new Rect2(left, dockTop + inner * DockHeaderHeight, width,
+                    inner * Arith.Max(0f, dockRect.height - DockHeaderHeight - LegendHeight)),
+                legend: new Rect2(left, statusTop - inner * LegendHeight, width, inner * LegendHeight),
+                status: new Rect2(left, statusTop, width, StatusHeight),
+                partsFold: Around(partsArrowX, middle, ArrowThickness, ArrowLength),
+                sideFold: Around(sideArrowX, middle, ArrowThickness, ArrowLength),
+                dockFold: Around(dockArrowX, dockArrowY, ArrowLength, ArrowThickness),
+                folds: folds);
         }
+
+        private static Rect2 Around(float x, float y, float width, float height) => new Rect2(x - 0.5f * width, y - 0.5f * height, width, height);
+    }
+
+    /// <summary>The workbench's three panels that fold away (<see cref="ShellFolds"/>).</summary>
+    public enum ShellFold
+    {
+        /// <summary>PARTS, with DESIGN in it, down the left.</summary>
+        Parts,
+
+        /// <summary>The side panel down the right: the selection's quick fields and the minimap.</summary>
+        Side,
+
+        /// <summary>The dock along the bottom: its tabs, the waves and the legend.</summary>
+        Dock,
+    }
+
+    /// <summary>
+    /// Which of the three panels are folded away (<see cref="ShellLayout"/>): a click on one's arrow folds or opens it, and H
+    /// folds all three while any is open, else opens them (<see cref="AllToggled"/>). Kept between launches as one number,
+    /// a bit a panel (<see cref="Bits"/>); none folded is the default, and what a machine that never folded one reads.
+    /// </summary>
+    public readonly struct ShellFolds : System.IEquatable<ShellFolds>
+    {
+        public ShellFolds(bool parts, bool side, bool dock)
+        {
+            Parts = parts;
+            Side = side;
+            Dock = dock;
+        }
+
+        public bool Parts { get; }
+        public bool Side { get; }
+        public bool Dock { get; }
+
+        /// <summary>Whether <paramref name="panel"/> is folded.</summary>
+        public bool this[ShellFold panel] => panel == ShellFold.Parts ? Parts : panel == ShellFold.Side ? Side : Dock;
+
+        /// <summary>Whether every one is folded.</summary>
+        public bool All => Parts && Side && Dock;
+
+        /// <summary><paramref name="panel"/> folded if it is open, opened if it is folded; the others as they are.</summary>
+        public ShellFolds Toggled(ShellFold panel) => new ShellFolds(
+            panel == ShellFold.Parts ? !Parts : Parts, panel == ShellFold.Side ? !Side : Side, panel == ShellFold.Dock ? !Dock : Dock);
+
+        /// <summary>H: every one folded while any is open, and every one opened once all are folded.</summary>
+        public ShellFolds AllToggled() => All ? default : new ShellFolds(true, true, true);
+
+        /// <summary>The folds as one number: 1 PARTS, 2 the side panel, 4 the dock.</summary>
+        public int Bits => (Parts ? 1 : 0) | (Side ? 2 : 0) | (Dock ? 4 : 0);
+
+        /// <summary>The folds <paramref name="bits"/> says (<see cref="Bits"/>); none for a number under 0, as a setting never made reads.</summary>
+        public static ShellFolds FromBits(int bits) => bits < 0 ? default : new ShellFolds((bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0);
+
+        public bool Equals(ShellFolds other) => Bits == other.Bits;
+        public override bool Equals(object other) => other is ShellFolds f && Equals(f);
+        public override int GetHashCode() => Bits;
+        public static bool operator ==(ShellFolds a, ShellFolds b) => a.Equals(b);
+        public static bool operator !=(ShellFolds a, ShellFolds b) => !a.Equals(b);
     }
 
     /// <summary>Where each of the workbench's docked panels is (<see cref="ShellLayout.Of"/>), in the window's units, y down.</summary>
     public readonly struct ShellRegions : System.IEquatable<ShellRegions>
     {
         public ShellRegions(Rect2 inspector, Rect2 parts, Rect2 circuit, Rect2 side, Rect2 splitter, Rect2 dock, Rect2 dockHeader,
-            Rect2 waves, Rect2 legend, Rect2 status)
+            Rect2 waves, Rect2 legend, Rect2 status, Rect2 partsFold, Rect2 sideFold, Rect2 dockFold, ShellFolds folds)
         {
+            PartsFold = partsFold;
+            SideFold = sideFold;
+            DockFold = dockFold;
+            Folds = folds;
             Inspector = inspector;
             Parts = parts;
             Circuit = circuit;
@@ -126,10 +230,26 @@ namespace BitSorter.ViewModel
         public Rect2 Legend { get; }
         public Rect2 Status { get; }
 
+        /// <summary>PARTS' fold arrow: on its edge facing the circuit, or in its strip while it is folded.</summary>
+        public Rect2 PartsFold { get; }
+
+        /// <summary>The side panel's fold arrow, as <see cref="PartsFold"/> is.</summary>
+        public Rect2 SideFold { get; }
+
+        /// <summary>The dock's fold arrow: on the splitter beside its grip, or in its strip while it is folded.</summary>
+        public Rect2 DockFold { get; }
+
+        /// <summary>Which panels these regions have folded.</summary>
+        public ShellFolds Folds { get; }
+
+        /// <summary>The arrow of <paramref name="panel"/>.</summary>
+        public Rect2 FoldOf(ShellFold panel) => panel == ShellFold.Parts ? PartsFold : panel == ShellFold.Side ? SideFold : DockFold;
+
         public bool Equals(ShellRegions other) =>
             Inspector.Equals(other.Inspector) && Parts.Equals(other.Parts) && Circuit.Equals(other.Circuit) && Side.Equals(other.Side) && Splitter.Equals(other.Splitter) &&
             Dock.Equals(other.Dock) && DockHeader.Equals(other.DockHeader) && Waves.Equals(other.Waves) && Legend.Equals(other.Legend) &&
-            Status.Equals(other.Status);
+            Status.Equals(other.Status) && PartsFold.Equals(other.PartsFold) && SideFold.Equals(other.SideFold) &&
+            DockFold.Equals(other.DockFold) && Folds.Equals(other.Folds);
 
         public override bool Equals(object other) => other is ShellRegions r && Equals(r);
 

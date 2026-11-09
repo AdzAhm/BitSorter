@@ -102,6 +102,133 @@ namespace BitSorter.ViewModel.Tests
         }
 
         // -----------------------------------------------------------------
+        // The panels folded away (Part 16d)
+        // -----------------------------------------------------------------
+
+        private static readonly ShellFold[] EveryPanel = { ShellFold.Parts, ShellFold.Side, ShellFold.Dock };
+
+        /// <summary>Every way the three can be folded, none folded first.</summary>
+        private static System.Collections.Generic.IEnumerable<ShellFolds> EveryFold()
+        {
+            for (int bits = 0; bits < 8; bits++)
+                yield return ShellFolds.FromBits(bits);
+        }
+
+        [Test]
+        public void TheLayoutWithNoFolds_IsTheOpenOne_AsItWasBefore()
+        {
+            foreach (Vec2 window in new[] { Full, Browser, new Vec2(400f, 300f) })
+                Assert.AreEqual(ShellLayout.Of(window, Toolbar, 300f), ShellLayout.Of(window, Toolbar, 300f, default));
+        }
+
+        [Test]
+        public void FoldedOrNot_ThePanelsTileTheWindow_AndNoTwoOverlap()
+        {
+            foreach (Vec2 window in new[] { Full, Browser })
+                foreach (ShellFolds folds in EveryFold())
+                {
+                    ShellRegions r = ShellLayout.Of(window, Toolbar, ShellLayout.DefaultDock, folds);
+                    Rect2[] tiles = Tiles(r);
+                    for (int i = 0; i < tiles.Length; i++)
+                    {
+                        Assert.GreaterOrEqual(tiles[i].xMin, ShellLayout.Margin - 1e-3f);
+                        Assert.LessOrEqual(tiles[i].xMax, window.x - ShellLayout.Margin + 1e-3f, $"tile {i} runs off the right, folds {folds.Bits}");
+                        Assert.LessOrEqual(tiles[i].yMax, window.y + 1e-3f, $"tile {i} runs off the bottom, folds {folds.Bits}");
+                        for (int j = i + 1; j < tiles.Length; j++)
+                            Assert.IsFalse(Overlap(tiles[i], tiles[j]), $"tiles {i} and {j} overlap, folds {folds.Bits}");
+                    }
+                    Assert.AreEqual(folds, r.Folds);
+                }
+        }
+
+        [Test]
+        public void AFoldedPanel_IsAStripAtTheWindowsEdge_AndTheCircuitTakesItsRoom()
+        {
+            ShellRegions open = ShellLayout.Of(Full, Toolbar, ShellLayout.DefaultDock);
+
+            ShellRegions parts = ShellLayout.Of(Full, Toolbar, ShellLayout.DefaultDock, new ShellFolds(true, false, false));
+            Assert.AreEqual(ShellLayout.Folded, parts.Parts.width, 1e-3f);
+            Assert.AreEqual(ShellLayout.Margin, parts.Parts.xMin, 1e-3f, "at the window's left edge");
+            Assert.AreEqual(open.Circuit.width + ShellLayout.PartsWidth - ShellLayout.Folded, parts.Circuit.width, 1e-3f, "the circuit wider by what folded");
+
+            ShellRegions side = ShellLayout.Of(Full, Toolbar, ShellLayout.DefaultDock, new ShellFolds(false, true, false));
+            Assert.AreEqual(ShellLayout.Folded, side.Side.width, 1e-3f);
+            Assert.AreEqual(Full.x - ShellLayout.Margin, side.Side.xMax, 1e-3f, "at the window's right edge");
+            Assert.AreEqual(open.Circuit.width + ShellLayout.SideWidth - ShellLayout.Folded, side.Circuit.width, 1e-3f);
+
+            ShellRegions dock = ShellLayout.Of(Full, Toolbar, ShellLayout.DefaultDock, new ShellFolds(false, false, true));
+            Assert.AreEqual(ShellLayout.Folded, dock.Dock.height, 1e-3f, "a strip over the status line");
+            Assert.AreEqual(dock.Status.yMin, dock.Dock.yMax, 1e-3f);
+            Assert.AreEqual(open.Circuit.height + ShellLayout.DefaultDock - ShellLayout.Folded, dock.Circuit.height, 1e-3f, "the circuit taller by what folded");
+            Assert.AreEqual(0f, dock.DockHeader.height, 1e-3f, "nothing of the dock's inside shows");
+            Assert.AreEqual(0f, dock.Waves.height, 1e-3f);
+            Assert.AreEqual(0f, dock.Legend.height, 1e-3f);
+
+            ShellRegions all = ShellLayout.Of(Full, Toolbar, 5000f, new ShellFolds(true, true, true));
+            Assert.AreEqual(ShellLayout.Folded, all.Dock.height, 1e-3f, "folded, the dock's dragged height is beside the point");
+            Assert.AreEqual(parts.Circuit.width + ShellLayout.SideWidth - ShellLayout.Folded, all.Circuit.width, 1e-3f);
+        }
+
+        [Test]
+        public void EachArrow_IsOnTheEdgeFacingTheCircuit_OrInItsStripWhenFolded_AndClearOfTheGrip()
+        {
+            foreach (ShellFolds folds in EveryFold())
+            {
+                ShellRegions r = ShellLayout.Of(Full, Toolbar, ShellLayout.DefaultDock, folds);
+                foreach (ShellFold panel in EveryPanel)
+                {
+                    Rect2 arrow = r.FoldOf(panel);
+                    Assert.Greater(arrow.width * arrow.height, 0f, $"{panel}'s arrow has a size");
+                    Assert.IsFalse(Overlap(arrow, r.Inspector), $"{panel}'s arrow is under the inspector");
+                }
+
+                Vec2 parts = r.PartsFold.center, side = r.SideFold.center, dock = r.DockFold.center;
+                if (folds.Parts)
+                    Assert.AreEqual(r.Parts.center.x, parts.x, 1e-3f, "folded, PARTS' arrow is in its strip");
+                else
+                    Assert.IsTrue(parts.x > r.Parts.xMax && parts.x < r.Circuit.xMin, "PARTS' arrow in the gap facing the circuit");
+                if (folds.Side)
+                    Assert.AreEqual(r.Side.center.x, side.x, 1e-3f, "folded, the side panel's arrow is in its strip");
+                else
+                    Assert.IsTrue(side.x < r.Side.xMin && side.x > r.Circuit.xMax, "the side panel's arrow in the gap facing the circuit");
+                Assert.AreEqual(r.Circuit.center.y, parts.y, 1e-3f, "half way down its edge");
+                Assert.AreEqual(r.Circuit.center.y, side.y, 1e-3f);
+
+                if (folds.Dock)
+                    Assert.AreEqual(r.Dock.center.y, dock.y, 1e-3f, "folded, the dock's arrow is in its strip");
+                else
+                    Assert.AreEqual(r.Splitter.center.y, dock.y, 1e-3f, "open, on the splitter");
+                Assert.GreaterOrEqual(dock.x - r.DockFold.width / 2f, r.Splitter.center.x + 28f, "clear of the grip in the splitter's middle");
+            }
+        }
+
+        [Test]
+        public void H_FoldsEveryPanelWhileAnyIsOpen_AndOpensThemAllOnceAllAreFolded()
+        {
+            foreach (ShellFolds folds in EveryFold())
+            {
+                ShellFolds after = folds.AllToggled();
+                if (folds.All)
+                    Assert.AreEqual(default(ShellFolds), after, "all folded: H opens them");
+                else
+                    Assert.IsTrue(after.All, $"folds {folds.Bits}: H folds every one");
+            }
+
+            ShellFolds one = default(ShellFolds).Toggled(ShellFold.Side);
+            Assert.IsTrue(one.Side && !one.Parts && !one.Dock, "an arrow folds its own panel alone");
+            Assert.AreEqual(default(ShellFolds), one.Toggled(ShellFold.Side), "and opens it again");
+        }
+
+        [Test]
+        public void TheFolds_AreKeptAsOneNumber_AndNoneIsWhatASettingNeverMadeReads()
+        {
+            foreach (ShellFolds folds in EveryFold())
+                Assert.AreEqual(folds, ShellFolds.FromBits(folds.Bits));
+            Assert.AreEqual(default(ShellFolds), ShellFolds.FromBits(-1), "a machine that never folded one");
+            Assert.AreEqual(7, new ShellFolds(true, true, true).Bits);
+        }
+
+        // -----------------------------------------------------------------
         // The circuit's window made another size
         // -----------------------------------------------------------------
 

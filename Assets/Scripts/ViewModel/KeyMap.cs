@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -150,6 +150,7 @@ namespace BitSorter.ViewModel
                 case WorkbenchCommand.ZoomIn:
                 case WorkbenchCommand.ZoomOut:
                 case WorkbenchCommand.Fit:
+                case WorkbenchCommand.TogglePanels:
                 case WorkbenchCommand.Keys:
                     return "VIEW";
 
@@ -196,6 +197,11 @@ namespace BitSorter.ViewModel
                     return "pin:  drag to wire  ·  ? every key";
                 case PointerArea.Handle:
                     return "block:  drag to resize  ·  ? every key";
+                case PointerArea.Fold:
+                    // A panel's arrow (Part 16d): what it does, and the key that does it for all three.
+                    return "panel:  click to hide it  ·  H hides or shows them all  ·  ? every key";
+                case PointerArea.Unfold:
+                    return "panel:  click to show it  ·  H hides or shows them all  ·  ? every key";
                 case PointerArea.Circuit:
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
                 case PointerArea.Waves:

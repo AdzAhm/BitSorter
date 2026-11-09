@@ -20,6 +20,7 @@ namespace BitSorter.ViewModel
         ZoomIn,
         ZoomOut,
         Fit,
+        TogglePanels,
         PageUp,
         PageDown,
         AddSignal,
@@ -104,7 +105,8 @@ namespace BitSorter.ViewModel
     /// **Reserved for the whole game:** Escape, which closes what is on top -- on the workbench, its
     /// popups first and then the start page or a part in hand, and never the workbench (<c>UiEscape</c>, Part 15a). M,
     /// H, F2 and F8 were the 4.x game's level list, help and two diagrams, and N switched the sound; Part 16a deleted the
-    /// game and Part 16b the sound, and all five are free for a binding of the workbench's own. **Reserved by
+    /// game and Part 16b the sound, and all five were free for a binding of the workbench's own -- H now folds the panels
+    /// away (Part 16d, Ahmad's choice). **Reserved by
     /// browsers:** Ctrl with R, W, S, T, N or L (reload, close, save, new tab, new window, address bar), which a web page
     /// cannot take back, and every function key but F2 and F8, as the 4.x controls found: F1 is help, F3 find, F4 Edge's
     /// address bar, F5 reload, F6 focus, F7 caret browsing, F9 reader view, and F10 to F12 the menu, fullscreen and the
@@ -140,6 +142,7 @@ namespace BitSorter.ViewModel
             new KeyBinding("Minus", WorkbenchCommand.ZoomOut, "-", "zoom the circuit out"),
             new KeyBinding("NumpadMinus", WorkbenchCommand.ZoomOut, "-", "zoom the circuit out"),
             new KeyBinding("F", WorkbenchCommand.Fit, "F", "show the whole circuit"),
+            new KeyBinding("H", WorkbenchCommand.TogglePanels, "H", "hide or show the side panels and the dock"),
             new KeyBinding("UpArrow", WorkbenchCommand.PageUp, "UP", "scroll the waves up"),
             new KeyBinding("PageUp", WorkbenchCommand.PageUp, "PG UP", "scroll the waves up"),
             new KeyBinding("DownArrow", WorkbenchCommand.PageDown, "DOWN", "scroll the waves down"),

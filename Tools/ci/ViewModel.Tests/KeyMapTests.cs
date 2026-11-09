@@ -80,5 +80,22 @@ namespace BitSorter.ViewModel.Tests
             StringAssert.StartsWith("blocks:", KeyMap.StatusFor(PointerArea.Blocks));
             StringAssert.Contains("right-click to delete its module", KeyMap.StatusFor(PointerArea.Blocks));
         }
+
+        [Test]
+        public void H_HidesOrShowsThePanels_UnderView_AndAnArrowSaysSo()
+        {
+            KeyBinding h = WorkbenchKeys.All.Single(b => b.Command == WorkbenchCommand.TogglePanels);
+            Assert.AreEqual("H", h.Key);
+            Assert.AreEqual("VIEW", KeyMap.GroupOf(WorkbenchCommand.TogglePanels));
+            Assert.AreEqual(1, WorkbenchKeys.All.Count(b => b.Key == "H" && !b.Ctrl && !b.Shift && !b.Alt), "H does one thing");
+
+            StringAssert.Contains("click to hide it", KeyMap.StatusFor(PointerArea.Fold));
+            StringAssert.Contains("click to show it", KeyMap.StatusFor(PointerArea.Unfold));
+            foreach (PointerArea area in new[] { PointerArea.Fold, PointerArea.Unfold })
+            {
+                StringAssert.Contains("H hides or shows them all", KeyMap.StatusFor(area));
+                StringAssert.Contains("?", KeyMap.StatusFor(area));
+            }
+        }
     }
 }
