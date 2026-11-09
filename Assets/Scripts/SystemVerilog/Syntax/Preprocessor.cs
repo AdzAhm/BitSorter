@@ -131,27 +131,30 @@ namespace BitSorter.SystemVerilog.Syntax
                     continue;
                 }
 
-                List<Token> rest = RestOfLine(tokens, i);
-                int consumed = rest.Count;
+                // The rest of the line is looked at only by the directives that read it -- never by a macro use, which reads
+                // its own arguments: copied out for every token, a line of N uses cost N squared over two (the 16d sweep).
+                int consumed;
 
                 switch (token.Text)
                 {
                     case "`ifdef":
                     case "`ifndef":
                     {
-                        bool defined = rest.Count > 0 && _macros.ContainsKey(rest[0].Text);
+                        Token name = NextOnLine(tokens, i);
+                        bool defined = name != null && _macros.ContainsKey(name.Text);
                         bool holds = token.Text == "`ifdef" ? defined : !defined;
                         bool parent = Active;
                         _conditionals.Push(new Conditional(token.Text, token.Location, parent && holds, holds, parent));
-                        consumed = rest.Count > 0 ? 1 : 0;
-                        if (rest.Count == 0)
+                        consumed = name != null ? 1 : 0;
+                        if (name == null)
                             _diagnostics.Error(token.Location, DiagnosticCodes.Expected, $"{token.Text} needs the name of a macro.");
                         break;
                     }
 
                     case "`elsif":
                     {
-                        consumed = rest.Count > 0 ? 1 : 0;
+                        Token name = NextOnLine(tokens, i);
+                        consumed = name != null ? 1 : 0;
                         if (_conditionals.Count == 0)
                         {
                             _diagnostics.Error(token.Location, DiagnosticCodes.UnbalancedConditional, "`elsif without an `ifdef before it.");
@@ -159,7 +162,7 @@ namespace BitSorter.SystemVerilog.Syntax
                         }
 
                         Conditional top = _conditionals.Pop();
-                        bool holds = !top.Taken && rest.Count > 0 && _macros.ContainsKey(rest[0].Text);
+                        bool holds = !top.Taken && name != null && _macros.ContainsKey(name.Text);
                         _conditionals.Push(new Conditional(top.Directive, top.Start, top.Parent && holds, top.Taken || holds, top.Parent));
                         break;
                     }
@@ -191,12 +194,12 @@ namespace BitSorter.SystemVerilog.Syntax
                         {
                             // Inside a dropped stretch, a directive's own arguments are dropped with it --
                             // but only the line-bound ones; a macro use is a single token.
-                            consumed = IsLineDirective(token.Text) ? rest.Count : 0;
+                            consumed = IsLineDirective(token.Text) ? RestOfLineCount(tokens, i) : 0;
                             break;
                         }
 
                         consumed = IsLineDirective(token.Text) || IsBareDirective(token.Text)
-                            ? Directive(token, rest, macroDepth, depth)
+                            ? Directive(token, tokens, i, depth)
                             : UseMacro(token, tokens, i, macroDepth, depth);
                         break;
                 }
@@ -213,8 +216,15 @@ namespace BitSorter.SystemVerilog.Syntax
             name == "`include" || name == "`define" || name == "`undef" || name == "`timescale" ||
             name == "`default_nettype" || name == "`line" || name == "`pragma" || name == "`begin_keywords";
 
-        /// <summary>Works one directive; returns how many of the following tokens it used.</summary>
-        private int Directive(Token token, List<Token> rest, int macroDepth, int depth)
+        /// <summary>Works the directive at <paramref name="index"/>; returns how many of the tokens after it it used.</summary>
+        private int Directive(Token token, List<Token> tokens, int index, int depth)
+        {
+            if (IsBareDirective(token.Text) && token.Text != "`unconnected_drive")
+                return Directive(token, null, depth);
+            return Directive(token, RestOfLine(tokens, index), depth);
+        }
+
+        private int Directive(Token token, List<Token> rest, int depth)
         {
             switch (token.Text)
             {
@@ -619,21 +629,23 @@ namespace BitSorter.SystemVerilog.Syntax
         }
 
         /// <summary>The tokens after <paramref name="index"/> on the same logical line of the same file.</summary>
-        private static List<Token> RestOfLine(List<Token> tokens, int index)
+        private static List<Token> RestOfLine(List<Token> tokens, int index) => tokens.GetRange(index + 1, RestOfLineCount(tokens, index));
+
+        /// <summary>How many tokens after <paramref name="index"/> are on the same logical line of the same file.</summary>
+        private static int RestOfLineCount(List<Token> tokens, int index)
         {
-            var rest = new List<Token>();
-            Token directive = tokens[index];
-
-            for (int i = index + 1; i < tokens.Count; i++)
-            {
-                Token t = tokens[i];
-                if (t.Kind == TokenKind.EndOfFile || t.LogicalLine != directive.LogicalLine || t.Location.File != directive.Location.File)
-                    break;
-                rest.Add(t);
-            }
-
-            return rest;
+            int i = index + 1;
+            while (i < tokens.Count && OnTheLineOf(tokens[index], tokens[i]))
+                i++;
+            return i - index - 1;
         }
+
+        /// <summary>The token after <paramref name="index"/>, if it is on the same logical line of the same file; else null.</summary>
+        private static Token NextOnLine(List<Token> tokens, int index) =>
+            index + 1 < tokens.Count && OnTheLineOf(tokens[index], tokens[index + 1]) ? tokens[index + 1] : null;
+
+        private static bool OnTheLineOf(Token directive, Token t) =>
+            t.Kind != TokenKind.EndOfFile && t.LogicalLine == directive.LogicalLine && t.Location.File == directive.Location.File;
 
         private readonly struct Conditional
         {
