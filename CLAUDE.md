@@ -739,8 +739,11 @@ stretch that way.
   for it, which is kept for each module, or its code cannot be drawn; + CODE,
   WRITE IT, an imported course template and an exercise answered in code open on the
   code, to be typed into (`WorkbenchSession.ShowCodeOf`), and text typed and not yet
-  applied is still what EXPORT applies or refuses with the drawing up
-  (`WorkbenchSession.PendingCode`). **A circuit can be locked** (Part 15h-4d, asked
+  applied -- into any written module, on screen, behind its drawing or stepped out
+  of, each a draft the save keeps -- is what EXPORT, the hand-in, the lock and
+  CHECK apply first, or are refused by, saying whose it is
+  (`WorkbenchSession.ApplyTyping`, `WhyTypingStops`; the 16d sweep: it was the
+  module shown's alone). **A circuit can be locked** (Part 15h-4d, asked
   2026-10-29; `WorkbenchSession.Locked`): the padlock in the circuit window's top strip,
   left of FIT's place and of FIT's key, F, which it stood over until a reference shot
   showed FIT without its key -- not the lower corner Ahmad first asked for, which a
