@@ -707,6 +707,21 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// A constant index at the end of a long is outside, read as x and refused as a target: its element's place, the index
+        /// times its element's width, wrapped back to 0, and the select read or wrote element 0 (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AnIndexAtTheEndOfALong_IsOutside_NotElementZero()
+        {
+            Design read = Clean("module m (input logic [1:0][1:0] p, output logic [1:0] y); assign y = p[64'sh8000000000000000]; endmodule");
+            Assert.AreEqual("xx", Bits(Settle(read, ("p", B("0110"))), "y"));
+
+            Elaboration written = Elaborate("module m (input logic [1:0] a, output logic [1:0][1:0] y); assign y[64'sh8000000000000000] = a; endmodule");
+            CollectionAssert.Contains(Codes(written), ElaborationCodes.BadSelect, string.Join("\n", written.Diagnostics));
+            Assert.IsNull(written.Design);
+        }
+
+        /// <summary>
         /// What the parts limit leaves room for: a loop inside a loop of 65,536 rounds between them, an assign each, is built --
         /// the pair of the refusals above, so they cannot pass by refusing everything.
         /// </summary>
