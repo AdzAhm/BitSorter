@@ -133,6 +133,14 @@ namespace BitSorter.Board
         /// </summary>
         public const int MaxModules = 200;
 
+        /// <summary>
+        /// How much of what its files say between their modules -- defines, includes, conditionals -- an import copies into the
+        /// written modules after them, which saw it there: 4 MB, a file's worth, all its files' together (Part 16d). Each module
+        /// carries every define above it, so a file of modules with defines between them carried the square of them, each
+        /// parsed with its module; a table of a thousand defines over a hundred modules carries 1.9 MB.
+        /// </summary>
+        public const long MaxCarried = MaxFileSize;
+
         /// <summary>How large one file may be, in characters: 4 MB, where the course's largest file is ten thousand.</summary>
         public const long MaxFileSize = 4L << 20;
 
@@ -488,6 +496,7 @@ namespace BitSorter.Board
             // Each module drawn when it can be -- the modules it uses decided first, a written one placed in it as a block --
             // and written otherwise. In the files' order, the testbench last.
             var cutters = new Dictionary<string, ModuleCutter>(StringComparer.OrdinalIgnoreCase);
+            var carry = new ModuleCutter.Carry(MaxCarried);
             string TextOf(string name) => kept.Find(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase))?.Text;
             Module Written(ModuleDeclaration module)
             {
@@ -499,11 +508,14 @@ namespace BitSorter.Board
                         if (other.Location.File != null && string.Equals(SourcePaths.Normalise(other.Location.File), file, StringComparison.OrdinalIgnoreCase))
                             lines.Add(other.Location.Line);
                     texts.TryGetValue(file, out string text);
-                    cutter = new ModuleCutter(ModuleCutter.NameOf(file), text, lines, moduleFiles, declaring, TextOf);
+                    cutter = new ModuleCutter(ModuleCutter.NameOf(file), text, lines, moduleFiles, declaring, TextOf, carry);
                     cutters[file] = cutter;
                 }
 
+                // Once a cut has carried more than an import may, the import is refused (below), said once: the rest is not cut.
                 var renamed = new List<string>();
+                if (carry.Spent)
+                    return new Module { Name = module.Name, Source = BoardPrinter.WithoutHeader(module.Name, cutter.Alone(module)) };
                 string source = cutter.Cut(module, out string problem, renamed);
                 if (problem != null)
                 {
@@ -576,6 +588,8 @@ namespace BitSorter.Board
 
             foreach (ModuleDeclaration module in modules)
                 Decide(module, 0);
+            if (carry.Spent)
+                return Refused();
 
             var made = new List<Module>();
             foreach (ModuleDeclaration module in modules)

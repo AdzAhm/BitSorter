@@ -2058,8 +2058,9 @@ template is imported, then exported filled.
   `timescale` (**which sets the project's unit** instead), an include of a file whose modules are the project's, and
   the line the export heads a module's file with, "// reg4: written in BitSorter." (`BoardPrinter.WithoutHeader`), so a
   project exported and imported again is the text it was -- until the 14g-4 review found it, each round added one.
-  A file whose conditionals choose *between* modules cannot be cut, and the import says so. An include is named by its
-  file's bare name, since that is how a project keeps its files -- and so, since Part 16d's sweep, is any other name in
+  A file whose conditionals choose *between* modules cannot be cut, and the import says so; nor, since Part 16d's sweep,
+  can files that between them would carry more than 4 MB into their modules (`ProjectImporter.MaxCarried`). An include
+  is named by its file's bare name, since that is how a project keeps its files -- and so, since Part 16d's sweep, is any other name in
   quotes that names one of them through a folder, a `$readmemh("mem/rom.hex", ...)` or a define a `$readmemh` reads, in
   a module's text and in a file kept, each said in a note (`ModuleCutter.Flattened`): kept as written, the run looked
   for mem/rom.hex and found nothing, and so did ModelSim, given the files side by side by an export.
@@ -4550,6 +4551,15 @@ something needed").
   file of a thousand small written modules made 35 GB in 55 s, and with a define between each, ran out of memory; it is
   refused in 0.01 s, and two hundred import in half a second (`ImportLimitsTests`). Whether a file is a course template is
   read once a file now, not once a module.
+- **What files say between their modules is carried into the modules after them only so far** (`ModuleCutter.Carry`,
+  `ProjectImporter.MaxCarried`, 4 MB, all an import's files together): each written module carries every define, include
+  and conditional above it, which it saw there, so a file of modules with defines between them carried the square of
+  them, each parsed with its module. A cut is charged what it carries before its text is made, and past the bound the
+  import is refused, said once, with the way round it -- what the modules share in a file of its own, included. Each gap's
+  directives are found once, too, where each cut walked every earlier gap from the file's first line. A hundred and
+  twenty modules after sixty defines each made 824 MB in 4.8 s and are refused in 0.13 s; a table of a thousand
+  defines over a hundred modules, 1.9 MB carried, is carried as before; and all 80 imports of the corpus and the
+  exercises' solutions cut to the same texts, their notes included, compared old against new.
 - **Each file kept is read once for what it declares and includes** (`ProjectImporter`, the declaring files): which files
   declare something, or include one that does, was a fixpoint whose every pass read every file not yet found in full,
   twice, a string a line, and a chain of includes listed against its direction adds one a pass. The files are read once

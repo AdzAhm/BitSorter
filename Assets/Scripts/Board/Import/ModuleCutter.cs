@@ -35,6 +35,42 @@ namespace BitSorter.Board
         private readonly HashSet<string> _moduleFiles;
         private readonly HashSet<string> _declaring;
         private readonly Func<string, string> _textOf;
+        private readonly Carry _carry;
+
+        /// <summary>Each gap before a module -- the lines after the module before it -- by its directives' lines, found once.</summary>
+        private readonly List<List<(int Line, string Directive)>> _gaps = new List<List<(int, string)>>();
+
+        /// <summary>Each module by the line its <c>module</c> is on, from 0: its place in <see cref="_bodies"/>.</summary>
+        private readonly Dictionary<int, int> _bodyAt = new Dictionary<int, int>();
+
+        /// <summary>
+        /// How much of what files said between their modules an import may copy into the modules after them, all its files'
+        /// together (Part 16d): each module carries every define above it, so a file of modules with defines between them
+        /// carried the square of them, each parsed with its module.
+        /// </summary>
+        internal sealed class Carry
+        {
+            public Carry(long most) => Left = Most = most;
+
+            public long Most { get; }
+
+            public long Left { get; private set; }
+
+            /// <summary>Whether a cut asked for more than was left, and was refused.</summary>
+            public bool Spent { get; private set; }
+
+            internal bool Take(long size)
+            {
+                if (Spent || size > Left)
+                {
+                    Spent = true;
+                    return false;
+                }
+
+                Left -= size;
+                return true;
+            }
+        }
 
         /// <param name="file">The file's name, as the notes say it.</param>
         /// <param name="text">Its text.</param>
@@ -42,13 +78,15 @@ namespace BitSorter.Board
         /// <param name="moduleFiles">The bare names of files whose modules are the project's own.</param>
         /// <param name="declaring">The bare names of the project's files that declare something.</param>
         /// <param name="textOf">A project file's text by its bare name, or null.</param>
+        /// <param name="carry">What the import may still copy into its modules from between them, shared by its files; null for no bound.</param>
         public ModuleCutter(string file, string text, IEnumerable<int> moduleLines, HashSet<string> moduleFiles, HashSet<string> declaring,
-            Func<string, string> textOf)
+            Func<string, string> textOf, Carry carry = null)
         {
             _file = file;
             _moduleFiles = moduleFiles;
             _declaring = declaring;
             _textOf = textOf;
+            _carry = carry;
             _lines = LinesOf(text);
             _code = new string[_lines.Length];
             bool inComment = false;
@@ -72,11 +110,34 @@ namespace BitSorter.Board
                         break;
                     }
 
+                _bodyAt[ordered[i]] = _bodies.Count;
                 _bodies.Add((ordered[i], end));
             }
 
             FindTheGuard();
             Problem = CheckTheConditionals();
+
+            // Each gap's directives, found once: each cut walked every gap before its module from the file's first line. A long
+            // define's lines after its first are its own, never directives, as Take takes them.
+            int gap = 0;
+            foreach ((int start, int end) in _bodies)
+            {
+                var directives = new List<(int, string)>();
+                for (int l = gap; l < start; l++)
+                {
+                    if (_guard.Contains(l))
+                        continue;
+                    string directive = DirectiveOf(_code[l]);
+                    if (directive == null)
+                        continue;
+                    directives.Add((l, directive));
+                    if (directive == "define" || directive == "undef" || directive == "default_nettype")
+                        l = LastOf(l);
+                }
+
+                _gaps.Add(directives);
+                gap = end + 1;
+            }
         }
 
         /// <summary>Why the file's modules cannot be cut into texts of their own, or null when they can.</summary>
@@ -87,8 +148,7 @@ namespace BitSorter.Board
         public string Cut(ModuleDeclaration module, out string problem, ICollection<string> renamed = null)
         {
             problem = Problem;
-            int own = _bodies.FindIndex(b => b.Start == module.Location.Line - 1);
-            if (own < 0)
+            if (!_bodyAt.TryGetValue(module.Location.Line - 1, out int own))
             {
                 problem = $"{module.Name} could not be found in {_file}.";
                 return null;
@@ -111,15 +171,12 @@ namespace BitSorter.Board
             }
 
             // What the file said between earlier modules: its defines, includes and the conditionals round them.
-            int gap = 0;
             for (int i = 0; i < own; i++)
             {
                 int depth = 0;
-                for (int l = gap; l < _bodies[i].Start; l++)
+                foreach ((int at, string directive) in _gaps[i])
                 {
-                    if (_guard.Contains(l))
-                        continue;
-                    string directive = DirectiveOf(_code[l]);
+                    int l = at;
                     switch (directive)
                     {
                         case "ifdef":
@@ -151,9 +208,26 @@ namespace BitSorter.Board
                             break;
                     }
                 }
-
-                gap = _bodies[i].End + 1;
             }
+
+            // What it carries from them is charged before its text is made, all the import's files' cuts together.
+            if (_carry != null)
+            {
+                long carried = 0;
+                foreach (string line in kept)
+                    carried += line.Length + 1;
+                foreach (string line in inside)
+                    carried += line.Length + 1;
+                if (!_carry.Take(carried))
+                {
+                    problem = $"{_file} says so much between its modules -- defines, includes, conditionals -- that each module after it, " +
+                        $"made a file of its own with all it saw above it, would come to more than {_carry.Most >> 20} MB in all: put " +
+                        "what they share in a file of its own and include it.";
+                    return null;
+                }
+            }
+
+            int gap = own == 0 ? 0 : _bodies[own - 1].End + 1;
 
             // The gap just before it, as written: its comments, and its directives but the ones left out.
             {
@@ -230,8 +304,7 @@ namespace BitSorter.Board
         /// <summary>The text of a module whose file cannot be cut: the module alone, from its <c>module</c> to its <c>endmodule</c>.</summary>
         public string Alone(ModuleDeclaration module, ICollection<string> renamed = null)
         {
-            int own = _bodies.FindIndex(b => b.Start == module.Location.Line - 1);
-            if (own < 0)
+            if (!_bodyAt.TryGetValue(module.Location.Line - 1, out int own))
                 return "";
             var source = new StringBuilder();
             for (int l = _bodies[own].Start; l <= _bodies[own].End; l++)
@@ -369,9 +442,17 @@ namespace BitSorter.Board
         /// <summary>Line <paramref name="l"/> taken, and the lines a <c>\</c> at its end carries on to; the last line taken.</summary>
         private int Take(int l, List<string> into)
         {
-            into.Add(_lines[l]);
+            int last = LastOf(l);
+            for (; l <= last; l++)
+                into.Add(_lines[l]);
+            return last;
+        }
+
+        /// <summary>The last of the lines <paramref name="l"/> carries on to with a <c>\</c> at its end: itself, where it has none.</summary>
+        private int LastOf(int l)
+        {
             while (_lines[l].TrimEnd().EndsWith("\\", StringComparison.Ordinal) && l + 1 < _lines.Length)
-                into.Add(_lines[++l]);
+                l++;
             return l;
         }
 
