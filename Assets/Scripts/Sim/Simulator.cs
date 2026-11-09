@@ -2197,7 +2197,6 @@ namespace BitSorter.Sim
             }
         }
 
-        /// <summary>A whole-number task argument, or <paramref name="fallback"/> when there is none or it is unknown.</summary>
         /// <summary>
         /// A memory task's address: signed only if the value is -- 8'd128 is 128, never -128 (the 16d sweep, engine-8) -- and
         /// one past what a long holds as the largest, which is outside any memory. <paramref name="fallback"/> when it is
