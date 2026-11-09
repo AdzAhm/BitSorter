@@ -709,6 +709,36 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// Packed dimensions whose product is past what a long holds, or a packed struct whose members' widths add up past what
+        /// an int holds, are too large, said so: multiplied and added unchecked, the width wrapped to 0, or to a negative, or to
+        /// exactly the most, passed the check, and the signal was declared a few bits wide -- its selects worked out against a
+        /// type of another width, a struct's fields at negative places (the Part 16d sweep).
+        /// </summary>
+        [TestCase("module m (output logic y); logic [65535:0][65535:0][65535:0][65535:0] x; endmodule")]
+        [TestCase("module m (output logic y); logic [2097151:0][2097151:0][2097151:0] x; endmodule")]
+        [TestCase("module m (output logic y); typedef bit [1023:0][1023:0] k_t; k_t [1073741823:0][1073741823:0] x; endmodule")]
+        public void PackedDimensionsMultipliedPastALong_AreTooLarge(string text)
+        {
+            Elaboration e = Elaborate(text);
+            CollectionAssert.Contains(Codes(e), ElaborationCodes.TooLarge, string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        [Test]
+        public void AStructsMembersAddedPastAnInt_AreTooLarge()
+        {
+            var text = new System.Text.StringBuilder("module m (output logic y);\n    typedef logic [1048575:0] w_t;\n    typedef struct packed {\n");
+            for (int i = 0; i <= 4096; i++)
+                text.Append("        w_t m").Append(i).Append(";\n");
+            text.Append("    } s_t;\n    s_t v;\nendmodule\n");
+
+            Elaboration e = Elaborate(text.ToString());
+            CollectionAssert.Contains(Codes(e), ElaborationCodes.TooLarge, "4,097 members of 2^20 bits add to 2^32 + 2^20, an int's wrap to the most allowed: " +
+                string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
         /// What cannot be built is said, never only dropped: an indexed part-select of no width, read or written, a $clog2 of
         /// no value or of x, and a cast to no width or past the widest each set the builder's Failed with nothing in the
         /// diagnostics, so the assign or the whole process went and the design ran without a word (the Part 16d sweep).
