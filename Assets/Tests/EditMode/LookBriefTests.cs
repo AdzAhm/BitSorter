@@ -247,6 +247,29 @@ namespace BitSorter.EditMode.Tests
             }
         }
 
+        /// <summary>
+        /// A bus's value written over its box reads at 4.5:1 where it is written (WCAG's for text) -- one with an x in it on the
+        /// x's box, its faint red and the bars across it both. In the x's own red it was 3.6:1 on the box and about 1.4:1 over
+        /// a bar (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void OnTheWaves_AValueWrittenOverAnXsBox_Reads()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                Color ink = WaveformView.BusLabelColour(LogicVec.AllX(4), c);
+                foreach ((string under, Color drawn) in new[] { ("the x's box", c.HatchFill), ("a bar across it", c.HatchBar) })
+                {
+                    float contrast = SchematicPalette.Contrast(ink, Seen(drawn, c.Ground));
+                    Assert.GreaterOrEqual(contrast, SchematicPalette.WordContrast, $"{look.Name}: an x's value on {under} is {contrast:F2}:1");
+                }
+
+                float known = SchematicPalette.Contrast(WaveformView.BusLabelColour(LogicVec.FromUInt64(5, 4), c), c.Ground);
+                Assert.GreaterOrEqual(known, SchematicPalette.WordContrast, $"{look.Name}: a known value over its box is {known:F2}:1");
+            }
+        }
+
         /// <summary>A colour drawn at its alpha over <paramref name="ground"/>, composited in linear as the renderer does.</summary>
         private static Color Seen(Color colour, Color ground) => Color.Lerp(ground.linear, colour.linear, colour.a).gamma;
 
