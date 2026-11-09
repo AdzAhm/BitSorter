@@ -389,8 +389,8 @@ namespace BitSorter.ViewModel.Tests
         /// Ctrl+A on the 1,028-part adder, dragged: a step of the drag -- the overlay drawn again where the selection has got
         /// to -- within a frame's budget. Every wire has both its ends on moved parts, so each is only carried along by the
         /// drag, and needs no routing; and the moved layout is made once a step, not once a part. Measured before the 16d
-        /// sweep's fixes at about 300 ms and 60 MB a step (canvas-6, canvas-7): each wire routed again round the rest, and a
-        /// copy of the whole layout made for each part moved.
+        /// sweep's fixes at 491 ms and 186 MB a step (canvas-6, canvas-7): each wire routed again round the rest, and a copy
+        /// of the whole layout made for each part moved.
         /// </summary>
         [Test]
         public void AThousandPartDrawing_AllOfItDragged_TakesAStepWithinAFrame()

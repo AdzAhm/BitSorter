@@ -4988,6 +4988,10 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   `WireGeometry.Following`, 22 to 36 KB a frame on the small samples), rebuilding every outline and the obstacle map each time --
   the unmoved parts' could be kept from the press; the first-time hints' check every 30 frames (`SimulatorHints.Due`, which the `unity-performance` pass took: it searches no scene and
   makes no delegate now, and since Part 16d works nothing out again until the run has changed, `SimulatorHints.Watch`); a bus row's
+
+  the unmoved parts' could be kept from the press; since the 16d sweep a wire between two dragged parts is carried along, not
+  routed, and with no wire out to the rest none of it is made; the first-time hints' check every 30 frames (`SimulatorHints.Due`, which the `unity-performance` pass took: it searches no scene and
+  makes no delegate now); a bus row's
   readout made once each time its value changes (`WaveformView.Readout`).
 
 **As built in Part 16: the browser download** (the `optimize-web` skill, 2026-11-03). The release settings the skill asks for
