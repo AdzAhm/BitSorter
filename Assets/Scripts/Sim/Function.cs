@@ -329,14 +329,16 @@ namespace BitSorter.Sim
 
             public override int Width => _width;
 
-            /// <summary>Whether <see cref="_given"/> is in use: a call evaluated again while its arguments are worked out -- ack(m - 1, ack(m, n - 1)) -- takes an array of its own.</summary>
+            /// <summary>Whether <see cref="_given"/> is being filled: a call evaluated again meanwhile -- ack(m - 1, ack(m, n - 1)) -- takes an array of its own.</summary>
             private bool _busy;
 
             public override LogicVec Evaluate(LogicVec[] values)
             {
                 // Every argument first, in the caller's own values, before the function starts on its own. One array serves
                 // every call but one that comes back in while it is filled, which would put its arguments over the outer
-                // call's (the 16d sweep, engine-1); only that one allocates.
+                // call's (the 16d sweep, engine-1); only that one allocates. It is free again once filled: the call copies
+                // the arguments in before the function's statements run, so a call made from inside them takes it too (the
+                // review of the 16d engine batch: kept busy for the whole call, every such call allocated).
                 bool mine = !_busy;
                 LogicVec[] given = mine ? _given : new LogicVec[_arguments.Length];
                 _busy = true;
@@ -344,14 +346,14 @@ namespace BitSorter.Sim
                 {
                     for (int i = 0; i < _arguments.Length; i++)
                         given[i] = _arguments[i].Evaluate(values);
-
-                    return FunctionRunner.Call(_function, given, values, _width, _signed);
                 }
                 finally
                 {
                     if (mine)
                         _busy = false;
                 }
+
+                return FunctionRunner.Call(_function, given, values, _width, _signed);
             }
 
             /// <summary>The arguments' reads only: what the function's statements read is not an operand of the call (IEEE 1800, 9.2.2.2.1).</summary>
