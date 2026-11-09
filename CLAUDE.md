@@ -865,8 +865,10 @@ stretch that way.
   drawing, the hit map and a wire being drawn (`WorkbenchSession.RoutesOf`), which
   each routed it for themselves; a drag routes only the wires on the parts it moves,
   round the rest where they lie (`WireGeometry.Following`, a preview the drop routes
-  whole), and carries along unrouted, with no bends, a wire between two of them (the
-  16d sweep: all of a thousand-part drawing dragged was half a second a step); and a route tried asks only the squares of the board it crosses
+  whole) -- and, past 400 wires following it, carries along unrouted, with no bends, a
+  wire between two of them (`CanvasEditor.RoutedUpTo`; the 16d sweep: all of a
+  thousand-part drawing dragged was half a second a step), never on a drag of a few,
+  where a wire carried ran through what it passed over; and a route tried asks only the squares of the board it crosses
   (`WireObstacles`) -- every route as it was, held to the character on fifty
   drawings. In a browser, a drawing slow to draw again says once a run that the
   desktop version is faster (`DesktopHint`). **A double-click on a part or a wire, or Enter

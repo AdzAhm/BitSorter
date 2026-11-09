@@ -1568,15 +1568,35 @@ namespace BitSorter.ViewModel
         }
 
         /// <summary>
+        /// How many wires may follow a drag of the selection with each routed again at every step, as the drop routes them;
+        /// past it, the wires between two of its parts are carried along instead (<see cref="GhostWires"/>). Measured
+        /// (2026-11-09): the 260-part adder's 355 wires, all of it dragged, routed in 18 ms a step, and the 1,028-part
+        /// adder's 1,411 in 322 ms; half of the latter, 796 wires following, in 91 ms, and 56 with its 281 between carried.
+        /// </summary>
+        public const int RoutedUpTo = 400;
+
+        /// <summary>
         /// The wires on <paramref name="parts"/>, routed to where <paramref name="moved"/> places them, as ghosts: those alone,
         /// round the rest where they are (Part 15g) -- every wire routed again at each step was a third of a second a step on a
         /// 1,000-part drawing. What a drag of the selection and a drag of a block's handle (Part 16) both show. A drag of the
-        /// selection moves its parts <paramref name="by"/> an offset, so a wire between two of them is carried along with it
-        /// rather than routed (the 16d sweep); a resize moves the pins themselves, and has none.
+        /// selection moves its parts <paramref name="by"/> an offset, and where more than <see cref="RoutedUpTo"/> wires follow
+        /// it a wire between two of them is carried along with it rather than routed (the 16d sweep) -- not a drag of a few,
+        /// where a wire carried ran through what it passed over and jumped on the drop (the sweep's review); a resize moves
+        /// the pins themselves, and has none.
         /// </summary>
         private void GhostWires(CanvasOverlay overlay, SchematicLayout.Frame frame, Module module, Layout moved, ICollection<int> parts,
             (double X, double Y)? by)
         {
+            if (by.HasValue)
+            {
+                int following = 0;
+                foreach (Wire wire in module.Wires)
+                    if ((!wire.From.IsTap && parts.Contains(wire.From.Pin.Part)) || (!wire.To.IsTap && parts.Contains(wire.To.Pin.Part)))
+                        following++;
+                if (following <= RoutedUpTo)
+                    by = null;
+            }
+
             Module ghost = module with { Layout = moved };
             IReadOnlyDictionary<int, IReadOnlyList<BoardPoint>> lying = _session.RoutesOf(Drawn, module);
             Dictionary<int, IReadOnlyList<BoardPoint>> routes = by.HasValue

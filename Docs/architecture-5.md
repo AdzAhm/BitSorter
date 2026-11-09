@@ -3341,12 +3341,16 @@ the slower of the two, and it was made more than once an edit.
   the project's modules -- a block's outline is its module's -- so an input's steps edited route nothing.
 - **A drag routes only the wires that follow it** (`WireGeometry.Following`): the wires on the moved parts, round the
   others where they lie; routing every wire again at each step was what made a drag of a big drawing stutter. A preview:
-  the drop routes the whole module, and a following wire may then take another way round a wire that moved too. **A wire
-  between two moved parts is carried along** (the 16d sweep, canvas-6): with both its ends on the selection and no bends
-  kept, its route as it lay is moved by the drag's offset and not routed at all; with bends it still runs through them,
-  as the drop routes it, since a move leaves a wire's bends where they are; and with nothing left to route, no outline nor
-  obstacle is made. A resize moves pins rather than parts, and routes its block's wires as before. Ctrl+A on the
-  thousand-part adder dragged had routed every wire at each step, about half a second, since every wire follows. **The
+  the drop routes the whole module, and a following wire may then take another way round a wire that moved too. **On a
+  big drag a wire between two moved parts is carried along** (the 16d sweep, canvas-6): where more than 400 wires follow
+  the drag (`CanvasEditor.RoutedUpTo`), one with both its ends on the selection and no bends kept has its route as it lay
+  moved by the drag's offset, not routed at all; with bends it still runs through them, as the drop routes it, since a
+  move leaves a wire's bends where they are; and with nothing left to route, no outline nor obstacle is made. A resize
+  moves pins rather than parts, and routes its block's wires as before. Ctrl+A on the thousand-part adder dragged had
+  routed every wire at each step, about half a second, since every wire follows. A drag of up to 400 still routes every
+  wire that follows it, as the drop will: carried, bit 0's wires dragged over bit 2's gates ran through them and jumped
+  on the drop (the sweep's review). Measured: the 260-part adder's 355 wires, all of it dragged, routed in 18 ms a step;
+  the thousand-part adder's 1,411 in 322 ms, and half of it, 796 following, in 91 ms, or 56 with its 281 between carried. **The
   moved layout is one copy** (`Layout.WithParts`, canvas-7): the overlay, and `BoardEditor.MoveParts` on the drop, copied
   the whole layout once for each part moved, 65 MB of the 186 a step made.
 - **TIMING names each signal once**: two hundred paths listed, each look-alike, each signal along them named again, made
@@ -3365,7 +3369,8 @@ the slower of the two, and it was made more than once an edit.
   twice, the second time from the routes the first made, and the review found a 500 ms edit told as 6 ms.
 - **Tests** (`BigDrawingTests`): a drag keeps every other wire as it lay and ends each following wire on its moved pin; a
   drag by an offset carries the wires between its parts, runs a bent one through its bends and routes those out to the
-  rest; all of the thousand-part adder dragged takes a step within 4 MB and 100 ms (about 19 alone), its wires carried end to end; the
+  rest; a drag of a few parts routes the wires between them as the drop does; all of the thousand-part adder dragged
+  takes a step within 4 MB and 100 ms (about 19 alone), its wires carried end to end; the
   session routes a document once, an input's edit keeps the routes, and a move and its undo route afresh to what routing
   from nothing gives; the hit map and the drawing take the routes they are given; the hint's rule, the session keeping the
   slowest until asked, and a slow edit of the thousand-part adder heard as slow; and that adder drawn, timed and dragged
