@@ -694,5 +694,40 @@ endmodule", 20);
             Assert.IsTrue(e.HasErrors, "it should have been refused");
             StringAssert.Contains(said, string.Join("\n", e.Diagnostics.Select(d => d.Message)));
         }
+
+        /// <summary>The tasks t0 to t<paramref name="last"/>, each calling the one below <paramref name="fanOut"/> times, and an initial calling the last.</summary>
+        private static string Doubling(int last, int fanOut, string body)
+        {
+            var text = new System.Text.StringBuilder($"module t; reg x = 1'b0; task t0; {body} endtask\n");
+            for (int i = 1; i <= last; i++)
+                text.Append($"task t{i}; {string.Concat(Enumerable.Repeat($"t{i - 1}; ", fanOut))}endtask\n");
+            return text.Append($"initial t{last}; endmodule").ToString();
+        }
+
+        /// <summary>
+        /// A task is written in place wherever it is called, so tasks each calling the one below twice write two to the power of
+        /// their number of copies: from a few hundred bytes, gigabytes and minutes, then out of memory, with nothing said (the
+        /// Part 16d sweep). The whole design's processes are held to a number of instructions between them (Elaborator.MaxInstructions),
+        /// every task's call one, written in place or not -- an empty body too.
+        /// </summary>
+        [TestCase("x = ~x;")]
+        [TestCase("")]
+        public void TasksCallingTasks_AreHeldToTheDesignsInstructions(string body)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Elaboration e = Elaborate(Doubling(19, 2, body));
+            Assert.Less(watch.Elapsed.TotalSeconds, 20, "stopped where it passes, not after");
+            Diagnostic said = e.Diagnostics.Single(d => d.Code == ElaborationCodes.TooLarge);
+            StringAssert.Contains("instructions", said.Message);
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>The pair of the refusal: the same tasks, a thousand copies deep, are written in and run.</summary>
+        [Test]
+        public void TasksCallingTasks_AThousandCopies_AreWrittenInAndRun()
+        {
+            Simulator sim = Run(Doubling(10, 2, "x = ~x;"), 10);
+            Assert.AreEqual("0", Now(sim, "x"), "1,024 turns over, an even number");
+        }
     }
 }
