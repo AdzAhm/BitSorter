@@ -189,8 +189,18 @@ namespace BitSorter.Board
                 public int Width = 1;
                 public LogicVec? Initial;
                 public bool IsPort;
+
+                /// <summary>Whether a register's q is on it, which takes its starting value as the register's.</summary>
+                public bool IsRegister;
+
                 public readonly List<Endpoint> Pins = new List<Endpoint>();
             }
+
+            /// <summary>What declarations drive, each with where: a supply's level, and a net's declaration assignment.</summary>
+            private readonly List<(string Net, LogicVec Value, SyntaxNode At)> _declaredDrivers = new List<(string, LogicVec, SyntaxNode)>();
+
+            /// <summary>Each variable given a starting value, with where: a register's, or held for good where nothing writes it.</summary>
+            private readonly List<(string Net, SyntaxNode At)> _started = new List<(string, SyntaxNode)>();
 
             public ModuleReader(BoardEditor editor, ModuleDeclaration source, Dictionary<string, ModuleDeclaration> modules, HashSet<string> interfaces, List<string> problems)
             {
@@ -241,6 +251,14 @@ namespace BitSorter.Board
                 foreach (ModuleItem item in _source.Items)
                     Item(item);
 
+                // What the declarations drive: a supply, a net's assignment, and a variable's starting value no register takes,
+                // each a constant on its net -- beside anything else that drives it, two drivers, which the rules refuse.
+                foreach ((string name, LogicVec value, SyntaxNode at) in _declaredDrivers)
+                    Constant(name, value, at);
+                foreach ((string name, SyntaxNode at) in _started)
+                    if (!_nets[name].IsRegister && _nets[name].Initial is LogicVec start)
+                        Constant(name, start, at);
+
                 if (_problems.Count > before)
                     return;
 
@@ -285,9 +303,29 @@ namespace BitSorter.Board
                 net.Pins.Add(Endpoint.At(id, port.Direction == PortDirection.Input ? "out" : "in"));
             }
 
+            /// <summary>
+            /// A declaration's nets: their width, and what the declaration says of them -- a supply drives its level, a net's
+            /// declaration assignment drives it (IEEE 1800, 10.3.1), a variable's is where it starts. A net type that resolves
+            /// its drivers its own way, and a net's own delay, are no board's, as they are no engine's yet
+            /// (<c>Elaborator.CheckNetType</c>): refused, not drawn as a plain wire.
+            /// </summary>
             private void Declare(DataDeclaration declaration)
             {
                 int width = Width(declaration.Type, declaration);
+                string netType = declaration.NetType;
+                bool supply = netType == "supply0" || netType == "supply1";
+                if (netType != null && netType != "wire" && netType != "tri" && netType != "uwire" && !supply)
+                {
+                    Problem(declaration, $"a {netType} net resolves its drivers its own way, which a board does not draw; it comes in as written code (Part 12).");
+                    return;
+                }
+
+                if (declaration.Delay != null)
+                {
+                    Problem(declaration, "a net with a delay of its own cannot be drawn, a board's delays being its gates'; it comes in as written code (Part 12).");
+                    return;
+                }
+
                 foreach (Declarator declarator in declaration.Declarators)
                 {
                     if (declarator.Unpacked.Count > 0)
@@ -298,12 +336,24 @@ namespace BitSorter.Board
 
                     NetFound net = Net(declarator.Name);
                     net.Width = width;
-                    if (declarator.Initializer != null)
+                    if (supply)
+                        _declaredDrivers.Add((declarator.Name, LogicVec.Fill(netType == "supply1" ? Logic4.One : Logic4.Zero, width), declarator));
+                    if (declarator.Initializer == null)
+                        continue;
+                    if (!(declarator.Initializer is NumberLiteral literal))
                     {
-                        if (declarator.Initializer is NumberLiteral literal)
-                            net.Initial = Resized(literal, width);
-                        else
-                            Problem(declarator, $"{declarator.Name} starts at a value that is not a plain number.");
+                        Problem(declarator, $"{declarator.Name} starts at a value that is not a plain number.");
+                        continue;
+                    }
+
+                    if (netType != null)
+                    {
+                        _declaredDrivers.Add((declarator.Name, Resized(literal, width), declarator));
+                    }
+                    else
+                    {
+                        net.Initial = Resized(literal, width);
+                        _started.Add((declarator.Name, declarator));
                     }
                 }
             }
@@ -596,6 +646,14 @@ namespace BitSorter.Board
             /// <summary>A net no one else will name, for a cell's pin left open.</summary>
             private string Unconnected(string part, string pin) => "\u0001" + part + "." + pin;
 
+            /// <summary>A constant part driving <paramref name="net"/> with <paramref name="value"/>.</summary>
+            private void Constant(string net, LogicVec value, SyntaxNode at)
+            {
+                int id = Add(new ConstantPart { Value = value }, at);
+                if (id != 0)
+                    Net(net).Pins.Add(Endpoint.At(id, "y"));
+            }
+
             private void Assign(Assignment assignment, DelayControl delay)
             {
                 if (!(assignment.Target is NameExpression target) || target.Path.Count != 1)
@@ -861,6 +919,7 @@ namespace BitSorter.Board
                 }
 
                 NetFound qNet = Net(q);
+                qNet.IsRegister = true;
                 var register = new RegisterPart
                 {
                     Width = qNet.Width,
