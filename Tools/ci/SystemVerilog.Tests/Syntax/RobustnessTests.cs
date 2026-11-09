@@ -123,6 +123,21 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.Contains(DiagnosticCodes.TooDeep, Codes(tree));
         }
 
+        /// <summary>
+        /// The 16d sweep: generate regions inside each other, an enum based on an enum, and a struct inside a struct each
+        /// recursed with no count of how deep, so enough of them overflowed the stack rather than stopping the read.
+        /// </summary>
+        [TestCase("module m; ", "generate ", "", " endgenerate", " endmodule")]
+        [TestCase("module m; typedef ", "enum ", "{A}", "", " t; endmodule")]
+        [TestCase("module m; typedef ", "struct { ", "logic a;", " } s;", " t; endmodule")]
+        [TestCase("module m; typedef ", "union { ", "logic a;", " } u;", " t; endmodule")]
+        public void DeepTypesAndGenerateRegions_StopWithAMessage(string start, string open, string middle, string close, string end)
+        {
+            string text = start + string.Concat(Enumerable.Repeat(open, 500)) + middle + string.Concat(Enumerable.Repeat(close, 500)) + end;
+            SyntaxTree tree = SyntaxReader.ReadText(text, "deep.sv");
+            Assert.Contains(DiagnosticCodes.TooDeep, Codes(tree));
+        }
+
         [Test]
         public void ARunOfOperatorsWithinTheLimit_IsRead()
         {
