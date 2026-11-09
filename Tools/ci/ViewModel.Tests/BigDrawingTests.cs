@@ -142,6 +142,66 @@ namespace BitSorter.ViewModel.Tests
             Assert.Greater(routed, 0, "sanity: wires routed");
         }
 
+        /// <summary>
+        /// A drag of a few parts routes the wires between them at each step, round what they pass over, as the drop routes them:
+        /// carried along instead, bit 0's gates dragged over bit 2's ran two of their wires through the parts in the way, and
+        /// the drop routed them elsewhere (the review of the 16d sweep's fixes). Carrying is for a drag too big to route at a
+        /// frame's pace (<see cref="AThousandPartDrawing_AllOfItDragged_TakesAStepWithinAFrame"/>).
+        /// </summary>
+        [Test]
+        public void ADragOfAFewParts_RoutesTheWiresBetweenThem_AsTheDropWill()
+        {
+            var session = new WorkbenchSession(Adder(4), () => 0.0);
+            var editor = new CanvasEditor(session);
+            Module module = session.Project.TopModule;
+            List<int> parts = module.Parts.Where(p => new[] { "x0", "y0", "p0", "q0", "r0" }.Contains(p.Name)).Select(p => p.Id).ToList();
+            Assert.AreEqual(5, parts.Count, "sanity: bit 0's five gates");
+            editor.Selection.Box(parts, new int[0], extend: false);
+            IReadOnlyDictionary<int, IReadOnlyList<Point>> lay = session.RoutesOf(session.Project, module);
+            SchematicLayout.Frame frame = session.Run.Model.Layout.Board;
+
+            Placement x0 = module.Layout.PlacementOf(module.Parts.Single(p => p.Name == "x0").Id);
+            var from = new BoardPoint(x0.Position.X, x0.Position.Y);
+            var to = new BoardPoint(from.X, from.Y - 10);   // over bit 2's gates
+            editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: from));
+            editor.Do(new CanvasCommand(CanvasGesture.MoveTo, to, from));
+            var overlay = new CanvasOverlay();
+            editor.Overlay(overlay);
+            EditResult? dropped = editor.Do(new CanvasCommand(CanvasGesture.EndMove, to, from));
+            Assert.IsTrue(dropped.HasValue && dropped.Value.Done, dropped?.Refusal);
+            Layout after = session.Project.TopModule.Layout;
+            Assert.AreEqual(new Placement(new Point(x0.Position.X, x0.Position.Y - 10), x0.QuarterTurns, x0.Flipped),
+                after.PlacementOf(module.Parts.Single(p => p.Name == "x0").Id), "sanity: dropped ten cells down");
+
+            // What a step routes, the wires on the parts moved round the rest where they lay: what the drop is drawn from.
+            Dictionary<int, IReadOnlyList<Point>> routed = WireGeometry.Following(session.Project, module with { Layout = after }, lay, parts);
+            int ghost = 0, between = 0, carriedWouldDiffer = 0;
+            bool Moved(Endpoint end) => !end.IsTap && parts.Contains(end.Pin.Part);
+            foreach (Wire wire in module.Wires)
+            {
+                if (!Moved(wire.From) && !Moved(wire.To))
+                    continue;
+                Vec2[] drawn = overlay.GhostWires[ghost++];
+                IReadOnlyList<Point> route = routed[wire.Id];
+                Assert.AreEqual(route.Count, drawn.Length, $"wire {wire.Id} has the drop's route");
+                for (int i = 0; i < route.Count; i++)
+                {
+                    Vec2 at = frame.ToStage(route[i]);
+                    Assert.AreEqual(at.x, drawn[i].x, 1e-3, $"wire {wire.Id}, point {i}");
+                    Assert.AreEqual(at.y, drawn[i].y, 1e-3, $"wire {wire.Id}, point {i}");
+                }
+                if (Moved(wire.From) && Moved(wire.To))
+                {
+                    between++;
+                    if (!lay[wire.Id].Select(p => new Point(p.X, p.Y - 10)).SequenceEqual(route))
+                        carriedWouldDiffer++;
+                }
+            }
+            Assert.AreEqual(ghost, overlay.GhostWires.Count, "sanity: a ghost for every wire on the parts moved");
+            Assert.Greater(between, 0, "sanity: wires between the parts moved");
+            Assert.Greater(carriedWouldDiffer, 0, "sanity: a wire carried along would not be where the drop routes it");
+        }
+
         [Test]
         public void TheSession_RoutesADocumentOnce_AndAnInputsEditKeepsTheRoutes()
         {
