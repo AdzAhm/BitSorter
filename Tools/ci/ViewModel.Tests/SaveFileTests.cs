@@ -91,6 +91,65 @@ namespace BitSorter.ViewModel.Tests
             }
         }
 
+        /// <summary>
+        /// A save as large as a student's with written processors in it: <paramref name="projects"/> circuits of ten modules,
+        /// each with a long text and fifty parts, its stamp at its head or, as a save from before stamps has it, none.
+        /// </summary>
+        private static string BigSave(int projects, bool stamped)
+        {
+            var save = new StringBuilder(stamped ? "{\"stamp\":\"abc\",\"completed\":[\"half-adder\"],\"projects\":[" : "{\"completed\":[\"half-adder\"],\"projects\":[");
+            for (int p = 0; p < projects; p++)
+            {
+                if (p > 0)
+                    save.Append(',');
+                save.Append("{\"key\":\"doc/p").Append(p).Append("\",\"project\":{\"format\":5,\"modules\":[");
+                for (int m = 0; m < 10; m++)
+                {
+                    if (m > 0)
+                        save.Append(',');
+                    save.Append("{\"name\":\"m").Append(m).Append("\",\"code\":\"").Append('x', 10_000).Append("\\n// one \\\"line\\\"\",\"parts\":[");
+                    for (int k = 0; k < 50; k++)
+                    {
+                        if (k > 0)
+                            save.Append(',');
+                        save.Append("{\"id\":").Append(k).Append(",\"kind\":\"gate\",\"name\":\"g").Append(k).Append("\",\"x\":1.5,\"y\":2.5}");
+                    }
+                    save.Append("]}");
+                }
+                save.Append("]}}");
+            }
+            save.Append("],\"format\":5}");
+            return save.ToString();
+        }
+
+        /// <summary>
+        /// What a save is read for as BitSorter opens -- its stamp, and what of it this one does not know -- makes nothing for
+        /// each value or key the save holds, only for each kind of key (the browser-1 and newer-save review): it is read in the
+        /// first frame, beside the launch's open, and a browser frees memory only between frames. A 4 MB save made 105 MB,
+        /// every string in it built again and every key's path made for every time it is met; and a save from before stamps,
+        /// read for one, built every string in it too. Measured with <c>DOTNET_JitObjectStackAllocation=0</c> as well.
+        /// </summary>
+        [Test]
+        public void ReadingASaveForItsStampAndWhatIsNotKept_MakesNothingForEachValueOrKeyItHolds()
+        {
+            string stamped = BigSave(40, stamped: true);
+            string old = BigSave(40, stamped: false);
+            Assert.Greater(stamped.Length, 4_000_000, "sanity: a save of 4 MB");
+            CollectionAssert.IsEmpty(SaveFile.NotKept(stamped, stamped), "sanity: it keeps what it reads");
+            Assert.AreEqual("abc", SaveFile.StampOf(stamped, out _));
+            Assert.IsNull(SaveFile.StampOf(old, out bool sure));
+            Assert.IsTrue(sure, "sanity: read to its end for a stamp it has not");
+
+            long notKept = FrameAllocationTests.BytesEach(() => SaveFile.NotKept(stamped, old), 3);
+            long stamp = FrameAllocationTests.BytesEach(() => SaveFile.StampOf(old, out _), 3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.Less(notKept, 256 * 1024, $"what is not kept, of a save of {stamped.Length:N0} characters, made {notKept:N0} bytes");
+                Assert.Less(stamp, 16 * 1024, $"the stamp of a save of {old.Length:N0} characters with none made {stamp:N0} bytes");
+            });
+        }
+
         [Test]
         public void ASaveFromANewerBitSorter_IsCopiedBesideItself_Dated()
         {
