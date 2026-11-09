@@ -400,11 +400,12 @@ namespace BitSorter.PlayMode.Tests
 
         /// <summary>
         /// Code typed and not yet applied is not lost as another circuit opens (Part 16d's sweep): applied first where it
-        /// applies -- inside the editor's pause -- and, where it cannot, asked about before anything is left: CANCEL stays with
-        /// the code as typed, and LEAVE IT goes. The session was replaced with the typed text in it, without a word.
+        /// applies -- inside the editor's pause -- and, where it cannot, kept as its module's draft and shown back as the
+        /// exercise opens again, nothing asked (Ahmad's decision, 2026-11-03). The session was replaced with the typed text in
+        /// it, without a word.
         /// </summary>
         [UnityTest]
-        public IEnumerator CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout()
+        public IEnumerator CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_AsADraftWhereItCannotApply()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Workbench;
@@ -429,7 +430,7 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(solved, workbench.Session.Project.TopModule.Source,
                 "what was typed was applied as the exercise was left, and kept under its id");
 
-            // A fault typed: leaving asks first.
+            // A fault typed: leaving asks nothing, and the fault is the answer's draft.
             if (workbench.ExerciseCard.IsOpen)
                 workbench.ExerciseCard.Close();
             yield return null;
@@ -439,19 +440,15 @@ namespace BitSorter.PlayMode.Tests
             code.Type(faulted, Time.timeAsDouble * 1000.0);
             workbench.OpenExercise("balance-the-paths");
             yield return null;
-            Assert.IsTrue(workbench.Ask.IsOpen, "code on screen that cannot apply asks before it is left");
-            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id, "and nothing is left until it is answered");
+            Assert.IsFalse(workbench.Ask.IsOpen, "code on screen that cannot apply is kept as a draft: nothing is asked");
+            Assert.AreEqual("balance-the-paths", workbench.ExerciseOpen?.Id, "and the other exercise opens");
 
-            yield return Click(AskMenu.NoItem);
-            Assert.AreEqual("half-adder", workbench.ExerciseOpen?.Id, "CANCEL stays");
-            Assert.AreEqual(faulted, code.Text, "with the code as typed");
-
-            workbench.OpenExercise("balance-the-paths");
+            workbench.OpenExercise("half-adder");
             yield return null;
-            Assert.IsTrue(workbench.Ask.IsOpen, "asked again");
-            yield return Click(AskMenu.YesItem);
-            Assert.AreEqual("balance-the-paths", workbench.ExerciseOpen?.Id, "and the answer that leaves it, leaves it");
-            Assert.IsFalse(workbench.Ask.IsOpen, "asked once: the way out does not ask again");
+            Assert.AreEqual(solved, workbench.Session.Project.TopModule.Source, "the answer as it last applied");
+            Assert.IsNotNull(workbench.Session.Code, "shown on its code");
+            Assert.AreEqual(faulted, workbench.Session.Code.Text, "with the fault typed, kept as its draft");
+            Assert.IsTrue(workbench.Session.Code.Pending, "marked not applied");
         }
 
         [UnityTest]

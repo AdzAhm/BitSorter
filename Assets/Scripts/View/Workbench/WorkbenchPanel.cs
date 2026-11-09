@@ -1887,8 +1887,8 @@ namespace BitSorter.View
         /// </summary>
         public void ShowSample(int sample)
         {
-            if (MayLeave(() => ShowSample(sample)))   // code on screen that cannot apply asks first (Part 16d's sweep)
-                ShowSample(sample, underThePage: false);
+            LeaveTheTypedCode();   // the code on screen kept with the circuit (Part 16d's sweep)
+            ShowSample(sample, underThePage: false);
         }
 
         /// <summary>

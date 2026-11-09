@@ -257,16 +257,10 @@ namespace BitSorter.View
         /// <summary>
         /// Code typed inside the editor's pause applied, so the keep that follows writes it (Part 16d's sweep): as BitSorter
         /// closes, or as a desktop build is put behind another window (<see cref="CodeDocument.AppliedAsTheFocusGoes"/>), where
-        /// no frame may come to end the pause. Code that cannot apply cannot be kept, and nothing can be asked as a window
-        /// closes; a sample keeps nothing. A browser runs nothing as its tab closes.
+        /// no frame may come to end the pause. Code that cannot apply is kept as its module's draft (Ahmad's decision,
+        /// 2026-11-03), so nothing is said; a sample keeps nothing. A browser runs nothing as its tab closes.
         /// </summary>
-        private void KeepTheTypedCode()
-        {
-            // Not an exercise RESET PROGRESS let go out of sight: its code would be kept under MY CIRCUIT's key (the review of
-            // Part 16d's sweep).
-            if (_session != null && _sample == 0 && !_forgotten)
-                ApplyTypedCode("kept");
-        }
+        private void KeepTheTypedCode() => LeaveTheTypedCode();
 
         // -----------------------------------------------------------------
         // The mouse on the canvas

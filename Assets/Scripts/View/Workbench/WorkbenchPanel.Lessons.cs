@@ -133,8 +133,8 @@ namespace BitSorter.View
             if (Root == null)
                 return;
             bool leaving = _sample != 0 || _exercise == null || _exercise.Id != GuidedTutorial.ExerciseId;
-            if (leaving && !MayLeave(StartTutorial))
-                return;   // code on screen that cannot apply: asked first, the tutorial started on the answer (Part 16d's sweep)
+            if (leaving)
+                LeaveTheTypedCode();   // the code on screen kept with the circuit (Part 16d's sweep)
             if (_hintShown != null)
             {
                 _hintShown = null;

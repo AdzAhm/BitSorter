@@ -96,8 +96,7 @@ namespace BitSorter.View
                 LeaveHome();   // open already, under the start page or not: building it again would lose its selection and undo
                 return;
             }
-            if (!MayLeave(() => OpenDocument(key)))
-                return;   // code on screen that cannot apply: asked first (Part 16d's sweep)
+            LeaveTheTypedCode();   // the code on screen kept with the circuit (Part 16d's sweep)
 
             KeepMyCircuit(now: true);
             MarkKept();   // kept: nothing of it, nor what is typed into it, is written under the next key
@@ -165,8 +164,7 @@ namespace BitSorter.View
                 Notice(why);
                 return;
             }
-            if (!MayLeave(() => NewCircuit(name)))
-                return;   // code on screen that cannot apply: asked first, before the circuit is made (Part 16d's sweep)
+            LeaveTheTypedCode();   // the code on screen kept with the circuit before the new one is made (Part 16d's sweep)
 
             name = name.Trim();
             string key = Documents.KeyOf(name);
@@ -274,10 +272,8 @@ namespace BitSorter.View
                 store.Save();
             }
 
-            MarkKept();   // gone with its key: nothing of it is written under MY CIRCUIT's
-            _leavingTheTypedCode = _session;   // and its code on screen with it: nothing to ask about
+            MarkKept();   // gone with its key: nothing of it, nor what is typed into it, is written under MY CIRCUIT's
             OpenDocument(WorkbenchSamples.MyCircuitKey);
-            _leavingTheTypedCode = null;
             Notice("deleted the circuit " + name);
         }
     }

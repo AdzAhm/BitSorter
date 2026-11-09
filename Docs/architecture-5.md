@@ -2122,20 +2122,20 @@ template is imported, then exported filled.
   does not happen, "exported" or "handed in". The lock and, since Part 16d's sweep, CHECK share it too ("checked").
 - **Leaving a circuit keeps the code on screen** (Part 16d's sweep). Another circuit, exercise or sample opened replaced
   the session, and the typed text in it, without a word. Now typed code is applied first, as the pause would apply it,
-  and kept with the circuit; code that cannot apply asks before anything is left (`WorkbenchPanel.MayLeave`), the chip
-  saying what is wrong with it, and LEAVE IT does the whole of what was asked for -- an import made, a program chosen, the
-  tutorial started -- once the circuit is left. A sample keeps nothing of its own and never asks; a circuit deleted takes
-  its code with it. As the desktop build closes or is put behind another window, typed code is applied before the keep;
-  code that cannot apply is lost then, since nothing can be asked as a window closes. Not in a browser
+  and kept with the circuit; code that cannot apply stays its module's draft, kept with the circuit and shown back marked
+  not applied as it opens again, and nothing is asked (`WorkbenchPanel.LeaveTheTypedCode`; Ahmad's decision, 2026-11-03,
+  which the sweep's first fix -- a question, LEAVE IT -- came before). A sample keeps nothing of its own; a circuit deleted
+  takes its code with it. As the desktop build closes or is put behind another window, typed code is applied before the
+  keep, and what cannot apply is kept as its draft. Not in a browser
   (`CodeDocument.AppliedAsTheFocusGoes`, the review of the sweep): its code editor is a box laid over the canvas, and if
   Unity takes the focus going to it for the focus lost -- nothing here settles it -- every click into it would have
   applied code typed a moment before, or put a refusal on the chip. A hidden tab draws no frame, so code typed just before
   it applies once the tab is shown again; and a browser runs nothing as a tab closes, so code typed inside the pause, or
-  an edit inside the half second before its keep, is lost with it. The leave is asked once,
-  by what was asked for, before the key the stage keeps under changes, and the circuit is then opened past it. RESET
-  PROGRESS never asks: it lets an exercise go as it is, having made MY CIRCUIT that key already, and the exercise's code
-  applied on the way was written over MY CIRCUIT (the review of the sweep). Play Mode,
-  `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_OrAskedAbout` and
+  an edit inside the half second before its keep, is lost with it. The leave is made once,
+  by what was asked for, before the key the stage keeps under changes. RESET PROGRESS lets an exercise go as it is,
+  never through the leave, having made MY CIRCUIT that key already: the exercise's code applied on the way was written
+  over MY CIRCUIT (the review of the sweep). Play Mode,
+  `CodeTypedAndNotApplied_IsKept_AsAnotherCircuitOpens_AsADraftWhereItCannotApply` and
   `ResetProgress_WithCodeTypedInAnExercise_WritesNothingOfItUnderMyCircuit`.
 - **Only typed code is pending** (the review of Part 16d's sweep). The session keeps the editor's text while the drawing
   of code is up, and nothing brings it in line with the document until the code shows again: an undo there, or an edit

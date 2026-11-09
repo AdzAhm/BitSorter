@@ -753,13 +753,11 @@ stretch that way.
   of, each a draft the save keeps -- is what EXPORT, the hand-in, the lock and
   CHECK apply first, or are refused by, saying whose it is
   (`WorkbenchSession.ApplyTyping`, `WhyTypingStops`; the 16d sweep: it was the
-  module shown's alone). **A circuit can be locked** (Part 15h-4d, asked
-
-  applied is still what EXPORT applies or refuses with the drawing up
-  (`WorkbenchSession.PendingCode`) -- and, since Part 16d's sweep, what CHECK grades,
-  and what leaving the circuit applies, or asks about where it cannot apply
-  (`WorkbenchPanel.MayLeave`); never the text of an editor the document has moved under,
-  by an undo or an edit of the drawing, which it sets aside (`CodeDocument.Behind`). **A circuit can be locked** (Part 15h-4d, asked
+  module shown's alone), and what leaving the circuit applies where it can, the
+  rest kept as its draft with nothing asked (`WorkbenchPanel.LeaveTheTypedCode`);
+  never the text of an editor the document has moved under, by an undo or an edit
+  of the drawing, which it sets aside (`CodeDocument.Behind`). **A circuit can be
+  locked** (Part 15h-4d, asked
   2026-10-29; `WorkbenchSession.Locked`): the padlock in the circuit window's top strip,
   left of FIT's place and of FIT's key, F, which it stood over until a reference shot
   showed FIT without its key -- not the lower corner Ahmad first asked for, which a

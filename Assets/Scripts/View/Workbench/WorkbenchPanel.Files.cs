@@ -257,8 +257,9 @@ namespace BitSorter.View
         /// </summary>
         public void Import(IReadOnlyList<SourceFile> files)
         {
-            if (_session == null || !MayLeave(() => Import(files)))
-                return;   // code on screen that cannot apply: asked first, before the import is made (Part 16d's sweep)
+            if (_session == null)
+                return;
+            LeaveTheTypedCode();   // the code on screen kept with the circuit before the import opens (Part 16d's sweep)
 
             ProjectImport import = ProjectImporter.Import(files);
             if (!import.Succeeded)
@@ -393,39 +394,21 @@ namespace BitSorter.View
             return false;
         }
 
-        /// <summary>What the question before code on screen that cannot apply is left says, and the answer that leaves it.</summary>
-        public const string LeaveTheCodeQuestion =
-            "The code on screen does not apply, so it cannot be kept: leave it, and lose what was typed since it last applied?",
-            LeaveTheCodeYes = "LEAVE IT";
-
-        /// <summary>The session whose code on screen LEAVE IT let go: what it is left for opens without asking again.</summary>
-        private WorkbenchSession _leavingTheTypedCode;
-
         /// <summary>
-        /// Whether the circuit open may be left now for another circuit, exercise or sample (Part 16d's sweep). Code typed and
-        /// not yet applied is applied first, as its editor would after the pause, so the circuit is kept with it; code that
-        /// cannot apply asks first (<see cref="LeaveTheCodeQuestion"/>), the chip saying what is wrong with it, and
-        /// <paramref name="leave"/> -- the whole of what was asked for -- is done on LEAVE IT. A sample keeps nothing of its
-        /// own, so it never asks. Leaving replaced the session with the typed text in it, without a word.
+        /// The code typed into the circuit open, as it is left for another circuit, exercise or sample (Part 16d's sweep): what
+        /// applies is applied, as its editor would after the pause, so the circuit is kept with it; what cannot apply stays the
+        /// draft of its module it is (<see cref="WorkbenchSession.Drafts"/>), kept with the circuit and shown back, marked not
+        /// applied, as it opens again -- Ahmad's decision (2026-11-03): code typed with an error is kept as a draft, never
+        /// lost, and nothing is asked. A sample keeps nothing of its own. Leaving replaced the session with the typed text in
+        /// it, without a word.
         /// </summary>
-        private bool MayLeave(System.Action leave)
+        private void LeaveTheTypedCode()
         {
             // An exercise RESET PROGRESS let go while the workbench was out of sight is not the circuit under the key the
             // stage keeps under, and is left as it is (the review of Part 16d's sweep).
-            if (_session == null || _sample != 0 || _forgotten || ReferenceEquals(_leavingTheTypedCode, _session))
-                return true;
-            if (ApplyTypedCode("kept"))
-                return true;
-            if (_ask == null)
-                return true;
-
-            _ask.Ask(Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero, LeaveTheCodeQuestion, LeaveTheCodeYes, () =>
-            {
-                _leavingTheTypedCode = _session;
-                leave();
-                _leavingTheTypedCode = null;
-            });
-            return false;
+            if (_session == null || _sample != 0 || _forgotten)
+                return;
+            _session.WhyTypingStops("kept");   // what cannot apply is the draft kept: nothing to say on the chip of the next
         }
 
         /// <summary>

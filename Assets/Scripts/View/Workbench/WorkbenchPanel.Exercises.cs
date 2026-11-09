@@ -115,8 +115,7 @@ namespace BitSorter.View
                 LeaveHome();   // open already: building it again would lose its selection and undo
                 return;
             }
-            if (!MayLeave(() => OpenExercise(id)))
-                return;   // code on screen that cannot apply: asked first (Part 16d's sweep)
+            LeaveTheTypedCode();   // the code on screen kept with the circuit (Part 16d's sweep)
 
             KeepMyCircuit(now: true);
             MarkKept();   // kept: nothing of it, nor what is typed into it, is written under the exercise's key
