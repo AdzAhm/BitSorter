@@ -49,12 +49,12 @@ namespace BitSorter.View
             Mathf.Min(MostHeight, Mathf.CeilToInt((WorkbenchDrawing.WaveHeight(rows) + 2f * Margin) * Scale));
 
         /// <summary>
-        /// <paramref name="model"/>'s rows, named <paramref name="names"/>, at the moment it shows, over
-        /// the time <paramref name="window"/> shows, with <paramref name="cursors"/> and
-        /// <paramref name="breakpoints"/>, as a PNG in Schematic Light.
+        /// <paramref name="model"/>'s rows, named <paramref name="names"/>, at the moment it shows, its
+        /// words <paramref name="moment"/>, over the time <paramref name="window"/> shows, with
+        /// <paramref name="cursors"/> and <paramref name="breakpoints"/>, as a PNG in Schematic Light.
         /// </summary>
         public static byte[] Render(WorkbenchModel model, IReadOnlyList<string> names, IReadOnlyList<bool> headers,
-            WaveView window, string playheadText, WaveCursors cursors, Breakpoints breakpoints)
+            WaveView window, MomentWords moment, WaveCursors cursors, Breakpoints breakpoints)
         {
             SchematicPalette palette = SchematicPalette.Light;
             int height = HeightFor(model.RowCount);
@@ -99,7 +99,7 @@ namespace BitSorter.View
                     each.gameObject.layer = Layer;
 
                 layers.Refresh(all: true);
-                wave.Place(playheadText, cursors);
+                wave.Place(moment, cursors);
                 Canvas.ForceUpdateCanvases();
 
                 var request = new RenderPipeline.StandardRequest { destination = texture };

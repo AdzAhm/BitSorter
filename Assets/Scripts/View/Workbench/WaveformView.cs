@@ -81,6 +81,9 @@ namespace BitSorter.View
         // Every unit is two letters at most.
         private readonly char[] _timeText = new char[TimeText.MaxLength(1, "ms")];
 
+        // The moment's words the playhead's label was last handed (MomentWords.Version): handed again only when they change.
+        private int _playheadVersion = -1;
+
         /// <summary>The waveform's rect, its pivot at its top-left corner, in the stage's units.</summary>
         public RectTransform Rect { get; }
 
@@ -393,10 +396,10 @@ namespace BitSorter.View
 
         /// <summary>
         /// Writes the moment's words: each row's value now, the values over the buses' boxes up to the
-        /// moment, the glitches' words, the playhead's <paramref name="playheadText"/>, the second
+        /// moment, the glitches' words, the playhead's from <paramref name="moment"/>, the second
         /// cursor's time and the span to it, and the axis's numbers when the window has moved.
         /// </summary>
-        public void Place(string playheadText, WaveCursors cursors = null)
+        public void Place(MomentWords moment, WaveCursors cursors = null)
         {
             SchematicPalette palette = SchematicPalette.Current;
 
@@ -461,7 +464,13 @@ namespace BitSorter.View
             {
                 float x = WaveCursorLabels.Alone(WorkbenchDrawing.WaveX(_model.Time, View), WorkbenchDrawing.WaveRight(_width));
                 _playheadLabel.rectTransform.anchoredPosition = new Vector2(x, -(WorkbenchDrawing.WaveTop + 4f));
-                WorkbenchPanel.SetText(_playheadLabel, playheadText);
+                // Characters, never a string: a frame of playback reaching another tenth made one for this label (the review
+                // of Part 16d's sweep). Handed to TextMeshPro only when they change, as SetText hands a string.
+                if (moment.Version != _playheadVersion)
+                {
+                    _playheadVersion = moment.Version;
+                    _playheadLabel.SetCharArray(moment.Characters, moment.PlayheadStart, moment.Moment == null ? 0 : moment.PlayheadLength);
+                }
             }
 
             PlaceCursor(cursors, now);

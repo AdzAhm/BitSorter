@@ -307,7 +307,8 @@ namespace BitSorter.View
 
         /// <summary>
         /// The moment's words -- <c>t = 12.5 ns</c> over the slider and <c>12.5 ns</c> at the playhead -- written again only as
-        /// the moment shown moves to another tenth (<see cref="MomentWords"/>), never for the whole run ahead (Part 16d).
+        /// the moment shown moves to another tenth, from those kept where it has been shown before (<see cref="MomentWords"/>),
+        /// never for the whole run ahead (Part 16d).
         /// </summary>
         private readonly MomentWords _moment = new MomentWords();
 
@@ -1124,7 +1125,7 @@ namespace BitSorter.View
 
             string name = WaveExport.FileName(ExportName(), "png");
             _moment.Write(TimeText.Tenths(_model.Time, _model.End), _model.Unit);
-            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _moment.Playhead,
+            byte[] bytes = WaveformPng.Render(_model, _appliedNames, _appliedHeaders, _wave.View, _moment,
                 _cursors, _playback.Breakpoints);
             return SaveExport(name, bytes, "image/png");
         }
@@ -2320,7 +2321,7 @@ namespace BitSorter.View
 
             RefreshPlayLabel();
             PlaceDigits();
-            _wave.Place(_moment.Playhead, _cursors);
+            _wave.Place(_moment, _cursors);
         }
 
         private void RefreshPlayLabel()

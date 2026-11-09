@@ -1111,6 +1111,13 @@ Precise, and no casing under the wires.
   axis is ticked on the 1-2-5 ladder at least 40 pixels apart, in the step's own decimals (`TimeText`,
   which writes into a buffer and reads no culture), so the reference's run is ticked every 2 ns fitted as
   it was before and every 0.1 ns zoomed in to the full.
+- **The moment's words are written as it is shown, never for the whole run** (Part 16d's sweep, `MomentWords`): the
+  playhead's `12.5 ns` and the slider's `t = 12.5 ns`, to a tenth of a unit. They were made for every tenth of the run
+  in one frame whenever a run opened, was replayed or grew -- 158 MB for a run of 100,000 units, and INPUTS lets END go to
+  10,000,000 -- and an `int` of tenths wrapped for RUN TO 1 ms in a ps project. Now the playhead's are characters handed
+  to TextMeshPro only as they change, and the slider's -- a UI Toolkit label, which takes only a string -- a string
+  made the first time the moment reaches its tenth and kept, the last 16,384 tenths' by tenth: longer than any sample's
+  or exercise's run, so playing one again makes nothing (see the zero-GC pass in Part 16).
 - **Only the window is drawn.** Zoomed in, a run can be millions of pixels long, so the rows are drawn
   for the time in view and drawn again when it moves, and nothing of the schematic is. Changes closer than
   a pixel and a half are one busy block, hatched if any of them is x, so what is drawn is bounded by the
@@ -5018,6 +5025,8 @@ it; each commit says what it gained and how that was measured. Nothing drawn cha
 **As built in Part 16: the zero-GC pass** (the `csharp-zero-gc` skill, 2026-11-03). The commitment is the skill's L2 for the
 workbench's frame: **what a frame asks of the view-model and the engine, standing still or playing, allocates nothing once warm**;
 a run being made, an edit, a gesture's routing and a tab's work slices are work, and are measured as such, not held to zero.
+**One exception, since Part 16d's sweep**: the slider's `t = 12.5 ns`, one string of about 56 bytes the first time playing
+reaches a tenth of a unit, at most one a frame (`MomentWords`; under "Left, measured" below).
 WorkbenchPanel.Update measured about 10 KB a frame paused on the pipelined processor and 28 KB playing, in the editor.
 The `unity-performance` pass ran beside it and made several of the same changes -- the finds by index, `NetAt`, a controller's
 lit signals, the canvas's lists -- so when the two were stacked one copy of each was kept (that pass's), with both passes' tests.
@@ -5042,8 +5051,11 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   an object for a component that is not there, for each of the seventeen key readers a frame once the shell was clicked;
   `TryGetComponent` makes none.
 - **Already clean, and now held**: the engine recording a run allocates exactly its history's buffers growing, to the byte
-  (`RecordingAllocationTests`); the chip, the time, the playhead's texts and the waves' spans were made once.
-- **Held by** `FrameAllocationTests` (ViewModel, every frame ask at 0 bytes), `RtlEvaluatorReuseTests` and
+  (`RecordingAllocationTests`); the chip's texts and the waves' spans were made once. So were the time's and the playhead's
+  until Part 16d's sweep, for every tenth of the run ahead, all in the frame the run opened -- 158 MB for a run of 100,000
+  units; see the exception below.
+- **Held by** `FrameAllocationTests` (ViewModel, every frame ask at 0 bytes, the moment's words standing and for a tenth
+  shown before among them), `RtlEvaluatorReuseTests` and
   `RecordingAllocationTests` (Sim), `WorkbenchPerformanceTests.EverythingDrawnAgain_MakesNoGarbageForTheCircuitItDraws` (Edit Mode)
   and `KeyboardReadPlayTests` (Play Mode).
 - **Left, measured**: a drag's preview routes the dragged parts' wires every frame it moves (`CanvasEditor.Overlay` through
@@ -5055,6 +5067,15 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   routed, and with no wire out to the rest none of it is made; the first-time hints' check every 30 frames (`SimulatorHints.Due`, which the `unity-performance` pass took: it searches no scene and
   makes no delegate now); a bus row's
   readout made once each time its value changes (`WaveformView.Readout`).
+- **Left, measured, and the one break in the commitment**: the slider's moment, `t = 12.5 ns`, is a UI Toolkit label, and
+  a label takes only a string. So the first time playing reaches a tenth of a unit, it makes one -- 56 bytes for a run as
+  long as INPUTS allows, at most one a frame -- and keeps it (`MomentWords`, the last 16,384 tenths' by tenth). Once a
+  tenth has been shown, it makes nothing: the moment standing, the run played again, the playhead dragged back, or the
+  run made again after an edit. A replay of any sample or exercise is fully warm, since the longest, the multicycle
+  processor's, is 1,350 units. The playhead's own `12.5 ns` makes nothing: it is characters handed to TextMeshPro
+  (`SetCharArray`). The other way, making every tenth's words ahead, made none a frame but 158 MB in one for a
+  100,000-unit run (the review of the sweep, 2026-11-09). `TextTests` holds a new tenth to its one string, and
+  `FrameAllocationTests` a tenth shown before to 0.
 
 **As built in Part 16: the browser download** (the `optimize-web` skill, 2026-11-03). The release settings the skill asks for
 were already `WebGLBuild`'s -- Brotli, Disk Size with LTO, Optimize Size, WebAssembly 2023, data caching, no debug symbols,

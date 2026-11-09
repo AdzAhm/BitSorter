@@ -504,14 +504,25 @@ namespace BitSorter.ViewModel.Tests
         public void MomentWords_AreOneStringATenthNotShownBefore_AndNothingWhileTheMomentStands()
         {
             var words = new MomentWords();
+            string Playhead() => new string(words.Characters, words.PlayheadStart, words.PlayheadLength);
             words.Write(125, "ns");
-            Assert.AreEqual("12.5 ns", words.Playhead);
+            Assert.AreEqual("12.5 ns", Playhead(), "the playhead's, characters for TextMeshPro");
             Assert.AreEqual("t = 12.5 ns", words.Moment);
+            int version = words.Version;
+            words.Write(125, "ns");
+            Assert.AreEqual(version, words.Version, "the moment standing: nothing to hand TextMeshPro again");
             words.Write(125, "ps");
             Assert.AreEqual("t = 12.5 ps", words.Moment, "another unit, other words");
+            Assert.AreEqual("12.5 ps", Playhead());
+            Assert.AreNotEqual(version, words.Version);
+            words.Write(3, "ps");
+            Assert.AreEqual("0.3 ps", Playhead(), "a shorter time over a longer one: its own characters, and no more");
+            words.Write(125, "ps");
+            Assert.AreEqual("12.5 ps", Playhead(), "a tenth's kept words, back in the characters");
             words.Forget();
             Assert.IsNull(words.Moment);
             Assert.AreEqual(-1L, words.Step);
+            Assert.Throws<ArgumentOutOfRangeException>(() => words.Write(-1, "ns"), "no tenth before the start");
 
             const int Frames = 1000;
             const long From = 1_000_000L;

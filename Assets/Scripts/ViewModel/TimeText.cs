@@ -19,9 +19,10 @@ namespace BitSorter.ViewModel
     /// view keeps and hands TextMeshPro the characters (<c>SetCharArray</c>), as the frame-rate counter
     /// does. The workbench's first waveform made a string for every tenth of a unit of the run up front,
     /// which held only while the run was short: INPUTS lets a run's END go to 10,000,000, two hundred
-    /// million strings in one frame (Part 16d). The readout over the slider, a UI Toolkit label that takes
-    /// only a string, is now written from here as the moment shown moves to another tenth
-    /// (<see cref="Tenths"/>, <see cref="MomentWords"/>), and never ahead of it.
+    /// million strings in one frame (Part 16d). The playhead's readout is now characters too, and the
+    /// one over the slider, a UI Toolkit label that takes only a string, a string made as the moment
+    /// shown first reaches a tenth and kept for it (<see cref="Tenths"/>, <see cref="MomentWords"/>),
+    /// never ahead of it.
     ///
     /// **Time is an integer** (invariant 7): the engine counts whole project units, and the unit's name
     /// is a label. A time on screen may still have a fraction -- the playhead moves smoothly between
@@ -423,54 +424,136 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>
-    /// The moment's words for the readouts: <c>12.5 ns</c> at the playhead and <c>t = 12.5 ns</c> over the slider, for the
-    /// tenth of a unit shown (<see cref="TimeText.Tenths"/>), written as the moment moves to another tenth and kept while it
-    /// stands (Part 16d's sweep).
+    /// The moment's words for the readouts: <c>t = 12.5 ns</c> over the slider, and <c>12.5 ns</c> at the playhead -- the same
+    /// characters past <see cref="Prefix"/> -- for the tenth of a unit shown (<see cref="TimeText.Tenths"/>), written as the
+    /// moment moves to another tenth and kept while it stands (Part 16d's sweep).
     /// </summary>
     /// <remarks>
-    /// **Two strings a tenth, none while it stands, none ahead.** The workbench wrote both for every tenth of the run up
-    /// front, whenever a run opened, was replayed or grew: a frame of playback then formatted nothing, but a run of 100,000
-    /// units made some 150 MB in one frame, and INPUTS lets END go to 10,000,000. Now a frame of playback that moves to
-    /// another tenth makes these two strings and no more (<c>TextTests</c> holds them to a number), and one that stands
-    /// makes nothing. The slider's readout is a UI Toolkit label, which takes only a string, so the two cannot be written
-    /// into a buffer as the axis's labels are.
+    /// **One string for a tenth not shown before; none while the moment stands, none for a tenth shown before, none ahead.**
+    /// The workbench wrote both readouts for every tenth of the run up front, whenever a run opened, was replayed or grew: a
+    /// frame of playback then formatted nothing, but a run of 100,000 units made some 150 MB in one frame, and INPUTS lets END
+    /// go to 10,000,000. Written as the moment was shown instead, every frame that reached another tenth made two strings,
+    /// a tenth shown a moment before included -- which broke the zero-GC pass's word that a frame playing allocates nothing
+    /// once warm (the review of the sweep). Now:
+    ///
+    /// - The playhead's words are not a string at all: <see cref="Characters"/> from <see cref="PlayheadStart"/>, handed to
+    ///   TextMeshPro as the axis's labels are (<c>SetCharArray</c>), again only when <see cref="Version"/> moves.
+    /// - The slider's readout is a UI Toolkit label, which takes only a string, so a tenth not shown before makes that one
+    ///   string -- at most one a frame, 56 bytes for a run as long as INPUTS can make -- and it is kept, so a tenth shown
+    ///   before makes none: the words of the last <see cref="Kept"/> tenths written, by tenth, while the unit is the same.
+    ///   That is 1,638.4 units of run, longer than any sample's (the multicycle processor's, the longest, is 1,350 units) or
+    ///   exercise's (look-ahead's, 832), so playing one again, dragging the playhead back over it or making it again after
+    ///   an edit makes nothing; a longer run makes a tenth's string again once it has gone that far past it. What is kept
+    ///   holds about 1 MB at most, 256 KB of it the two arrays made with the panel.
+    ///
+    /// <c>FrameAllocationTests</c> holds a tenth shown before and a moment standing to 0 bytes, and <c>TextTests</c> a tenth
+    /// not shown before to its one string.
     /// </remarks>
     public sealed class MomentWords
     {
-        private char[] _chars = new char[0];
+        /// <summary>What the slider's readout says before the moment's time.</summary>
+        public const string Prefix = "t = ";
+
+        /// <summary>How many tenths' words are kept, the latest written of each place in the ring: 1,638.4 units of run.</summary>
+        public const int Kept = 16384;
+
+        /// <summary>The words kept, each at its tenth's place in the ring, and which tenth each is for (-1 for none).</summary>
+        private readonly string[] _kept = new string[Kept];
+
+        private readonly long[] _keptStep = new long[Kept];
+
+        /// <summary>The unit the words kept are in: another unit, and none of them is.</summary>
+        private string _keptUnit;
+
+        private char[] _chars = new char[0], _time = new char[0];
         private string _unit;
+
+        public MomentWords()
+        {
+            for (int i = 0; i < Kept; i++)
+                _keptStep[i] = -1;
+        }
 
         /// <summary>The tenth of a unit the words are for; -1 before any is written, or once forgotten.</summary>
         public long Step { get; private set; } = -1;
 
-        /// <summary>The moment at the playhead, <c>12.5 ns</c>; null before any is written.</summary>
-        public string Playhead { get; private set; }
-
         /// <summary>The moment over the slider, <c>t = 12.5 ns</c>; null before any is written.</summary>
         public string Moment { get; private set; }
 
-        /// <summary>The words for tenth <paramref name="step"/> in <paramref name="unit"/>, unless they are already its.</summary>
+        /// <summary>
+        /// The moment's characters, <see cref="Moment"/>'s own from the start: the playhead's words are
+        /// <see cref="PlayheadLength"/> of them from <see cref="PlayheadStart"/>. Written over as the moment moves.
+        /// </summary>
+        public char[] Characters => _chars;
+
+        /// <summary>Where in <see cref="Characters"/> the playhead's words start: past <see cref="Prefix"/>.</summary>
+        public int PlayheadStart => Prefix.Length;
+
+        /// <summary>How many characters the playhead's words are, <c>12.5 ns</c> being 7; 0 before any is written.</summary>
+        public int PlayheadLength { get; private set; }
+
+        /// <summary>Changes each time the words are written: what the view hands TextMeshPro the playhead's characters on.</summary>
+        public int Version { get; private set; }
+
+        /// <summary>
+        /// The words for tenth <paramref name="step"/>, 0 or later, in <paramref name="unit"/>, unless they are already its: the
+        /// words kept for it if there are any, else written and kept.
+        /// </summary>
         public void Write(long step, string unit)
         {
+            if (step < 0)
+                throw new ArgumentOutOfRangeException(nameof(step), step, "A tenth of the run is 0 or later, as TimeText.Tenths gives it.");
             if (step == Step && Moment != null && unit == _unit)
                 return;
 
-            int longest = TimeText.MaxLength(1, unit);
-            if (_chars.Length < longest)
-                _chars = new char[longest];
+            if (unit != _keptUnit)
+            {
+                for (int i = 0; i < Kept; i++)
+                {
+                    _keptStep[i] = -1;
+                    _kept[i] = null;
+                }
+                _keptUnit = unit;
+            }
 
-            int length = TimeText.Write(step / 10.0, 1, unit, _chars);
-            Playhead = new string(_chars, 0, length);
-            Moment = "t = " + Playhead;
+            int longest = TimeText.MaxLength(1, unit);
+            if (_time.Length < longest)
+            {
+                _time = new char[longest];
+                _chars = new char[Prefix.Length + longest];
+                Prefix.CopyTo(0, _chars, 0, Prefix.Length);
+            }
+
+            int place = (int)(step % Kept);
+            string moment = _keptStep[place] == step ? _kept[place] : null;
+            if (moment == null)
+            {
+                int length = TimeText.Write(step / 10.0, 1, unit, _time);
+                Array.Copy(_time, 0, _chars, Prefix.Length, length);
+                moment = new string(_chars, 0, Prefix.Length + length);
+                _kept[place] = moment;
+                _keptStep[place] = step;
+            }
+            else
+            {
+                moment.CopyTo(0, _chars, 0, moment.Length);
+            }
+
+            Moment = moment;
+            PlayheadLength = moment.Length - Prefix.Length;
             Step = step;
             _unit = unit;
+            Version++;
         }
 
-        /// <summary>The words forgotten, for a run opened, replayed or grown: written again as the moment is next shown.</summary>
+        /// <summary>
+        /// The words forgotten, for a run opened, replayed or grown: written again as the moment is next shown -- from those
+        /// kept, where its tenth's are.
+        /// </summary>
         public void Forget()
         {
             Step = -1;
-            Playhead = Moment = null;
+            Moment = null;
         }
     }
 }
