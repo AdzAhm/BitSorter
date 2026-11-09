@@ -676,8 +676,7 @@ namespace BitSorter.ViewModel.Tests
             WaveView closer = Fitted(ProcessorRun, Strip);
             closer.ZoomAbout(400f, 12);
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 0; k < 20; k++)
+            void CutBoth()
             {
                 spans.Clear();
                 WaveView.Spans(view, timeOf, times.Length, 0, times[times.Length - 1], spans);
@@ -685,8 +684,20 @@ namespace BitSorter.ViewModel.Tests
                 WaveView.Spans(closer, timeOf, times.Length, closer.Start, closer.End, spans);
             }
 
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.AreEqual(0, allocated, "cutting spans into a list with room allocated");
+            // Warmed with the very calls measured, and the least of three measures taken: the runtime's own now and then is
+            // not the cutter's -- 1,632 bytes once in CI and once in a loaded local run, never alone. A cutter that allocated
+            // would show it in every measure.
+            CutBoth();
+            long least = long.MaxValue;
+            for (int measure = 0; measure < 3; measure++)
+            {
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                for (int k = 0; k < 20; k++)
+                    CutBoth();
+                least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
+            }
+
+            Assert.AreEqual(0, least, "cutting spans into a list with room allocated");
             Assert.IsNotEmpty(spans);
         }
 
