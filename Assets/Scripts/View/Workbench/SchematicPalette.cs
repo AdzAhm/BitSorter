@@ -257,6 +257,18 @@ namespace BitSorter.View
             return new Color(colour.r, colour.g, colour.b, alpha);
         }
 
+        /// <summary>The band along a selected wire, over the drawing: the accent, faint enough for the wire's own colour to show through it.</summary>
+        public Color SelectedWireBand => Over(Accent, 0.45f);
+
+        /// <summary>The band along the timing path's wires (Part 14b), in the second cursor's colour.</summary>
+        public Color PathBand => Over(Cursor, 0.4f);
+
+        /// <summary>An x's box on the waves: its faint fill.</summary>
+        public Color HatchFill => Over(Unknown, 0.18f);
+
+        /// <summary>An x's box on the waves: the bars across it.</summary>
+        public Color HatchBar => Over(Unknown, 0.8f);
+
         /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>
         public const float WordContrast = 4.5f;
 

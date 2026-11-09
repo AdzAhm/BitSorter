@@ -504,6 +504,9 @@ namespace BitSorter.View
             label.SetCharArray(_timeText, 0, TimeText.Write(time, decimals, _model.Unit, _timeText));
         }
 
+        /// <summary>The colour a bus's value is written in over its box: the text's for a known value, the x's for one with an x in it.</summary>
+        public static Color BusLabelColour(LogicVec value, SchematicPalette palette) => value.IsKnown ? palette.Text : palette.Unknown;
+
         /// <summary>A bus row's values written over its boxes, up to the moment: a box too narrow for its value has none.</summary>
         private void PlaceBusLabels(int row, float middle, SchematicPalette palette)
         {
@@ -533,7 +536,7 @@ namespace BitSorter.View
                 TextMeshProUGUI label = labels[used++];
                 WorkbenchPanel.Show(label, true);
                 WorkbenchPanel.SetText(label, text);
-                label.color = value.IsKnown ? palette.Text : palette.Unknown;
+                label.color = BusLabelColour(value, palette);
                 label.rectTransform.anchoredPosition = new Vector2((x0 + x1) * 0.5f, -middle);
             }
 

@@ -119,7 +119,7 @@ namespace BitSorter.View
                 return;
 
             foreach (StageRoute wire in overlay.PathWires)
-                painter.Stroke(wire, SchematicStyle.OneWidth + PathBand, palette.Over(palette.Cursor, 0.4f));
+                painter.Stroke(wire, SchematicStyle.OneWidth + PathBand, palette.PathBand);
             foreach (Rect2 part in overlay.PathParts)
                 Outlined(painter, part, palette.Cursor, PathWidth);
             foreach (Rect2 port in overlay.PathPorts)
@@ -127,7 +127,7 @@ namespace BitSorter.View
 
             foreach (Vector2[] wire in overlay.SelectedWires)
                 if (wire.Length >= 2)
-                    painter.Stroke(new StageRoute(wire), SchematicStyle.OneWidth + 5f, palette.Over(palette.Accent, 0.45f));
+                    painter.Stroke(new StageRoute(wire), SchematicStyle.OneWidth + 5f, palette.SelectedWireBand);
             foreach (Rect2 part in overlay.Selected)
                 Outlined(painter, part, palette.Accent, SelectedWidth);
 
@@ -1228,10 +1228,10 @@ namespace BitSorter.View
             if (x1 - x0 < 0.5f)
                 return;
 
-            painter.Rect(x0, top, x1, bottom, palette.Over(palette.Unknown, 0.18f));
+            painter.Rect(x0, top, x1, bottom, palette.HatchFill);
 
             float height = bottom - top;
-            Color bar = palette.Over(palette.Unknown, 0.8f);
+            Color bar = palette.HatchBar;
 
             for (float c = x0 - height; c < x1; c += 6f)
             {
