@@ -582,12 +582,58 @@ endmodule");
         [Test]
         public void ARunOfOperatorsJustInsideTheReadersLimit_IsBuiltAndRun()
         {
-            int terms = 2 * Parser.MaxDepth - 10;
+            int terms = Parser.MaxHeight - 10;
             string chain = string.Join(" ^ ", Enumerable.Range(0, terms).Select(i => $"a[{i}]"));
             Design design = Clean($"module m (input logic [{terms - 1}:0] a, output logic y); assign y = {chain}; endmodule");
 
             var ones = new string('1', terms - 1);
             Assert.AreEqual((terms - 1) % 2 == 0 ? "0" : "1", Bits(Settle(design, ("a", B("0" + ones))), "y"), "the parity of the ones");
+        }
+
+        /// <summary>
+        /// What <see cref="Parser.MaxHeight"/> was chosen by, held: the tallest expressions the reader takes -- a run as long as
+        /// it allows, and a bracket nest as deep, each bracket holding an operator -- read, printed, elaborated, run and
+        /// extracted for the drawing in three quarters of a megabyte of stack, a quarter of the smallest any host gives left
+        /// for the caller's frames. Too much stack is an overflow, which nothing catches: the test run itself stops, loudly.
+        /// Measured in an optimized build, as CI's is; without optimization every frame is larger, and the same two need
+        /// more than a megabyte -- as the 200 brackets the reader always took did.
+        /// </summary>
+        [Test]
+        public void TheTallestExpressionsTheReaderTakes_AreBuiltInThreeQuartersOfAMegabyte()
+        {
+            var debuggable = (System.Diagnostics.DebuggableAttribute)Attribute.GetCustomAttribute(typeof(Elaborator).Assembly, typeof(System.Diagnostics.DebuggableAttribute));
+            if (debuggable != null && debuggable.IsJITOptimizerDisabled)
+                Assert.Ignore("measured only in an optimized build, as CI builds it");
+
+            string run = string.Join(" ^ ", Enumerable.Range(0, Parser.MaxHeight - 2).Select(i => $"a[{i % 8}]"));
+            string nest = string.Concat(Enumerable.Repeat("(a[0] ^ ", Parser.MaxDepth - 2)) + "a[1]" + new string(')', Parser.MaxDepth - 2);
+
+            foreach (string expression in new[] { run, nest })
+            {
+                string text = $"module m (input logic [7:0] a, output logic [7:0] y);\n    assign y = {expression};\nendmodule\n";
+                string failed = null;
+                var thread = new System.Threading.Thread(() =>
+                {
+                    SyntaxTree tree = SyntaxReader.ReadText(text, "tall.sv");
+                    if (tree.Diagnostics.Count > 0)
+                    {
+                        failed = "the read reported:\n" + string.Join("\n", tree.Diagnostics);
+                        return;
+                    }
+                    Printer.Print(tree);
+                    Elaboration e = Elaborator.Elaborate(tree, "m");
+                    if (e.HasErrors)
+                    {
+                        failed = "the elaborator reported:\n" + string.Join("\n", e.Diagnostics);
+                        return;
+                    }
+                    new Simulator(e.Design, null, new SimOptions()).RunTo(10);
+                    RtlExtractor.Of(e.Design, "m");
+                }, 768 * 1024);
+                thread.Start();
+                thread.Join();
+                Assert.IsNull(failed, failed);
+            }
         }
 
         /// <summary>

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace BitSorter.SystemVerilog.Syntax
@@ -74,7 +73,7 @@ namespace BitSorter.SystemVerilog.Syntax
         private Expression ParseBinary(int minimum)
         {
             Expression left = ParseUnary();
-            int run = 0;   // the operators folded in, each making the tree a level deeper (EnterRun)
+            int run = 0;   // the operators folded in, each making the tree a level taller (EnterRun)
 
             try
             {
@@ -82,7 +81,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     if (Current.IsKeyword("inside") && InsidePrecedence >= minimum)
                     {
-                        if (run > 0 && !EnterRun())
+                        if (!EnterRun())
                             return left;
                         run++;
                         Next();
@@ -94,7 +93,7 @@ namespace BitSorter.SystemVerilog.Syntax
                     if (precedence < minimum)
                         return left;
 
-                    if (run > 0 && !EnterRun())
+                    if (!EnterRun())
                         return left;
                     run++;
 
@@ -113,7 +112,7 @@ namespace BitSorter.SystemVerilog.Syntax
             }
             finally
             {
-                _depth -= Math.Max(0, run - 1);
+                _runLevels -= run;
             }
         }
 
@@ -437,7 +436,7 @@ namespace BitSorter.SystemVerilog.Syntax
             }
             finally
             {
-                _depth -= Math.Max(0, run - 1);
+                _runLevels -= run;
             }
         }
 
@@ -447,7 +446,7 @@ namespace BitSorter.SystemVerilog.Syntax
             {
                 if (Current.Is("[") || (Current.Is(".") && Peek(1).Kind == TokenKind.Identifier))
                 {
-                    if (run > 0 && !EnterRun())
+                    if (!EnterRun())
                         return expression;
                     run++;
                 }

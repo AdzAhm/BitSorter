@@ -136,7 +136,7 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         [TestCase("(a[{0}])")]
         public void ARunPastTheLimit_SaysToSplitIt_WhateverItsOperands(string operand)
         {
-            string chain = string.Join(" ^ ", Enumerable.Range(0, 2 * Parser.MaxDepth + 10).Select(i => string.Format(operand, i % 8)));
+            string chain = string.Join(" ^ ", Enumerable.Range(0, Parser.MaxHeight + 10).Select(i => string.Format(operand, i % 8)));
             SyntaxTree tree = SyntaxReader.ReadText("module m (input logic [7:0] a, output logic y);\n  assign y = " + chain + ";\nendmodule\n", "chain.sv");
             Diagnostic first = tree.Diagnostics.First(d => d.Severity == DiagnosticSeverity.Error);
             Assert.AreEqual(DiagnosticCodes.TooDeep, first.Code, first.ToString());

@@ -663,9 +663,15 @@ asked for it to read the course and general SystemVerilog alike (2026-10-12).
   what follows. It never throws and never hangs: after an error it skips to a `;` or a keyword that starts
   something; every loop makes progress; nesting deeper than 200 -- brackets, statements, generate blocks and
   regions, an enum's base and a struct's members -- stops the read with a message rather than
-  the browser's stack -- and a run of operators or selects counts as nesting, each one a level, since
-  `a + a + ... + a` is read in a loop but makes a tree as deep as it is long, which the printer and the
-  elaborator walk a call a level (the 16d sweep: a hundred thousand terms overflowed the stack). A missing `;` is reported on the line it is missing from. Classes, an interface
+  the browser's stack; and so does an expression taller than 400 (`Parser.MaxHeight`), its levels of nesting
+  and the operators and selects of its runs counted together, since `a + a + ... + a` is read in a loop but
+  makes a tree as deep as it is long, which the printer and the elaborator walk a call a level (the 16d sweep:
+  a hundred thousand terms overflowed the stack). 400 is as tall as the deepest bracket nest the reader always
+  took, 200 brackets each holding an operator; under .NET 10, optimized, the elaborator builds that nest and a
+  run of 400 terms in under 704 KB of stack, where a run of 650 overflows a megabyte, and
+  `TheTallestExpressionsTheReaderTakes_AreBuiltInThreeQuartersOfAMegabyte` holds it (the sweep's review: the
+  first fix counted a run against the brackets' 200, refusing a 250-bit parity written out, and said the
+  brackets' message at a bit index). The run's own message says to split it over a few assigns. A missing `;` is reported on the line it is missing from. Classes, an interface
   declared inside a module, `export`, concurrent and deferred assertions, `defparam`, drive strengths and the switch
   primitives are refused where they stand, their text kept.
 - **Printer** (`Printer`): the course's style -- four-space indents, one port per line with its comment,

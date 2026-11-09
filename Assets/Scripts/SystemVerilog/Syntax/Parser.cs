@@ -16,15 +16,27 @@ namespace BitSorter.SystemVerilog.Syntax
     /// - **It never throws and never hangs.** Every error is a diagnostic; after one, it skips to a
     ///   place it can carry on from (a <c>;</c>, a keyword that starts something, <c>endmodule</c>),
     ///   and every loop is guarded to make progress. Nesting deeper than <see cref="MaxDepth"/> stops
-    ///   the read rather than the stack, which in a browser is small -- a run of operators or selects
-    ///   counting as nesting, each a level, since the tree it makes is as deep as it is long.
+    ///   the read rather than the stack, which in a browser is small; and so does an expression taller
+    ///   than <see cref="MaxHeight"/>, a run of operators or selects counting a level an operator, since
+    ///   the tree it makes is as deep as it is long.
     /// - **Messages are for students**: what was expected, in the course's words, at the place a student
     ///   will look -- a missing <c>;</c> is reported on the line it is missing from, not the next one.
     /// </remarks>
     public sealed partial class Parser
     {
-        /// <summary>How deep expressions, statements, generate blocks and types may nest, a run of operators counting each one.</summary>
+        /// <summary>How deep expressions, statements, generate blocks and types may nest.</summary>
         public const int MaxDepth = 200;
+
+        /// <summary>
+        /// How tall an expression may be: every level of nesting on the way down to it, and every operator, select and member
+        /// of a run -- <c>a + b + c</c>, <c>a[0][1]</c>, <c>s.m().n()</c> -- which is read in a loop but makes the tree a level
+        /// taller an operator, walked by the printer and the elaborator a call a level (the 16d sweep). Twice
+        /// <see cref="MaxDepth"/>, as tall as the deepest bracket nest the reader always took, <c>(a ^ (a ^ (...)))</c> two
+        /// hundred deep: measured under .NET 10, the elaborator builds that nest, and a run of 400 terms, in under 704 KB of
+        /// stack, where a run of 650 overflowed one megabyte (the sweep's review, which found the brackets' 200 refusing a
+        /// parity of 250 bits written out).
+        /// </summary>
+        public const int MaxHeight = 2 * MaxDepth;
 
         /// <summary>
         /// How many bits the literals of one read may hold between them, counting only those wider than 64 bits -- the ones a
@@ -40,6 +52,10 @@ namespace BitSorter.SystemVerilog.Syntax
         private readonly ExpansionBudget _budget;
         private int _at;
         private int _depth;
+
+        /// <summary>The operators and selects of the runs being read, each a level of an expression's height (<see cref="EnterRun"/>).</summary>
+        private int _runLevels;
+
         private bool _stopped;
 
         /// <summary>Names declared by <c>typedef</c> so far: a statement or item starting with one is a declaration.</summary>
@@ -141,24 +157,43 @@ namespace BitSorter.SystemVerilog.Syntax
             if (_stopped)
                 return false;
 
-            if (++_depth <= MaxDepth)
-                return true;
+            ++_depth;
+            if (_depth > MaxDepth)
+                return Stop(tooDeep);
 
-            Error(Current.Location, DiagnosticCodes.TooDeep, tooDeep);
-            _stopped = true;
-            return false;
+            // A bracket inside a run as tall as an expression may be -- a select's, a[i], as most operands of one have -- says
+            // the run's message: it said "nests more than 200 levels deep" at a bit index (the 16d sweep's review).
+            if (_depth + _runLevels > MaxHeight)
+                return Stop(TooTall);
+            return true;
         }
 
         /// <summary>
-        /// One more operator in a run of them -- <c>a + b + c</c>, <c>a[0][1]</c>, <c>s.m().n()</c> -- which is read in a loop
-        /// but makes a tree one level deeper, walked by the printer and the elaborator a call a level: so it counts as a level,
-        /// as a bracket does (the 16d sweep). The first operator after a value is free, as it always was, so a bracket holding
-        /// one, <c>1 + (1 + (...))</c>, nests as deep as before; every one after it in the run is a level, left again with
-        /// the run.
+        /// One more operator, select or member in a run of them -- <c>a + b + c</c>, <c>a[0][1]</c>, <c>s.m().n()</c> -- which is
+        /// read in a loop but makes a tree one level taller, walked by the printer and the elaborator a call a level: so it is
+        /// a level of the expression's height, as a bracket is (the 16d sweep), left again with the run. False, having stopped
+        /// the read, past <see cref="MaxHeight"/>.
         /// </summary>
-        private bool EnterRun() =>
-            Enter($"This expression runs more than {MaxDepth} operators or selects in a row, counting the brackets around it; " +
-                  "BitSorter stopped reading here. Split it over a few assigns.");
+        private bool EnterRun()
+        {
+            if (_stopped)
+                return false;
+            if (_depth + _runLevels + 1 > MaxHeight)
+                return Stop(TooTall);
+            _runLevels++;
+            return true;
+        }
+
+        private static readonly string TooTall =
+            $"This expression is more than {MaxHeight} levels deep, each operator or select in a row a level and each bracket " +
+            "around it; BitSorter stopped reading here. Split it over a few assigns.";
+
+        private bool Stop(string why)
+        {
+            Error(Current.Location, DiagnosticCodes.TooDeep, why);
+            _stopped = true;
+            return false;
+        }
 
         private void Leave() => _depth--;
 
