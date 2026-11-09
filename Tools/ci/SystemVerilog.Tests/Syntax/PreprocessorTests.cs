@@ -421,9 +421,10 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             for (int f = 0; f < 4; f++)
             {
                 string path = $"part{f}.sv";
-                // Seventeen doublings, 655,359 each with every body token paid for as it is used (the 16d sweep; eighteen
-                // were 786,431 when a use paid one and only what it put out).
-                files.Add(path, Doubling(17, "`define M0 x\n", "`define M{i} `M{j} `M{j}\n", "module m" + f + "; wire y = `M{n}; endmodule\n"));
+                // Eighteen doublings, 786,431 tokens walked each: the outermost use and every token of every body used. The
+                // 16d sweep's first fix charged a use inside a body twice, as a token of the body and again as a use, so a
+                // part cost 1.3 million alone -- and this test was cut to seventeen to fit, where its review put it back.
+                files.Add(path, Doubling(18, "`define M0 x\n", "`define M{i} `M{j} `M{j}\n", "module m" + f + "; wire y = `M{n}; endmodule\n"));
                 paths.Add(path);
             }
 
