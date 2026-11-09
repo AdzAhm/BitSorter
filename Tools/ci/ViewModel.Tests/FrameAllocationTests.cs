@@ -296,5 +296,30 @@ namespace BitSorter.ViewModel.Tests
                     _ = each;
             }), "a loop over what is selected");
         }
+
+        /// <summary>
+        /// The moment's words (<see cref="MomentWords"/>), written every frame a moment is drawn, allocate nothing while the
+        /// moment stands, and nothing for a tenth shown before -- a run played again, the playhead dragged back over it, the
+        /// run made again after an edit (the review of Part 16d's sweep). Written for every tenth of the run up front, they made
+        /// nothing a frame but some 150 MB in one; written as they were shown, they made two strings each time any tenth was.
+        /// </summary>
+        [Test]
+        public void TheMomentsWords_StandingOrForATenthShownBefore_AllocateNothing()
+        {
+            const long Tenths = 1000;
+            var words = new MomentWords();
+            for (long step = 0; step < Tenths; step++)
+                words.Write(step, "ns");   // the run played once
+            long at = Tenths - 1;
+            Assert.AreEqual("t = 99.9 ns", words.Moment, "sanity: the last tenth shown");
+
+            Assert.AreEqual(0, BytesEach(() => words.Write(at, "ns")), "the moment standing");
+            Assert.AreEqual(0, BytesEach(() => words.Write(at = (at + 1) % Tenths, "ns"), (int)Tenths * 3), "the run played again");
+            Assert.AreEqual(0, BytesEach(() => words.Write(at = (at + Tenths - 7) % Tenths, "ns"), (int)Tenths), "the playhead dragged back over it");
+            words.Forget();
+            Assert.AreEqual(0, BytesEach(() => words.Write(at = (at + 1) % Tenths, "ns"), (int)Tenths), "the run made again after an edit");
+            words.Write(125, "ns");
+            Assert.AreEqual("t = 12.5 ns", words.Moment, "sanity: each tenth still has its own words");
+        }
     }
 }

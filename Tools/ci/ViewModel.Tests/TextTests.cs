@@ -494,12 +494,14 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
-        /// The moment's words cost a frame of playback two strings as the moment moves to another tenth, and nothing while it
-        /// stands (Part 16d's sweep, its review): written for every tenth of the run up front, a frame of playback made none,
-        /// but a run of 100,000 units made some 150 MB in one frame. Held to a number here, as the readouts' only cost.
+        /// The moment's words cost a frame of playback that reaches a tenth not shown before one string, the slider's readout,
+        /// and nothing while the moment stands (Part 16d's sweep, its review): written for every tenth of the run up front, a
+        /// frame of playback made none, but a run of 100,000 units made some 150 MB in one frame; written as shown, they were
+        /// two strings a tenth. The playhead's are characters TextMeshPro is handed, and a tenth shown before is kept
+        /// (<see cref="FrameAllocationTests.TheMomentsWords_StandingOrForATenthShownBefore_AllocateNothing"/>).
         /// </summary>
         [Test]
-        public void MomentWords_AreTwoStringsATenth_AndNothingWhileTheMomentStands()
+        public void MomentWords_AreOneStringATenthNotShownBefore_AndNothingWhileTheMomentStands()
         {
             var words = new MomentWords();
             words.Write(125, "ns");
@@ -528,7 +530,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(From + Frames - 1, words.Step, "sanity: the last tenth written");
             Assert.AreEqual("t = 100099.9 ns", words.Moment);
             Assert.AreEqual(0, standing, "a frame the moment stands writes nothing");
-            Assert.LessOrEqual(moving, 160, "a frame the moment moves makes its two strings, the longer of them 15 characters, and no more");
+            Assert.LessOrEqual(moving, 64, "a frame the moment moves to a tenth not shown before makes one string of 15 characters, and no more");
         }
 
         [Test]
