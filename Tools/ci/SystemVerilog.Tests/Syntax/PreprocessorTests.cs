@@ -166,6 +166,18 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         /// <summary>
+        /// A string continued onto the next line with a backslash is two lines of the file, and `__LINE__ after it counts
+        /// both (IEEE 1800, 22.13), as ModelSim does; Icarus 12 counts one, and is a line short from there on
+        /// (Docs/oracle-notes.md), so the corpus puts its `__LINE__ before its continued string.
+        /// </summary>
+        [Test]
+        public void TheLine_AfterAStringContinuedOntoTheNext_CountsBoth()
+        {
+            ModuleDeclaration m = OnlyModule("module m;\n  initial $display(\"a\\\nb\");\n  assign y = `__LINE__;\nendmodule\n");
+            Assert.AreEqual("4", Printer.Print(m.Items.OfType<ContinuousAssign>().Single().Assignments[0].Value));
+        }
+
+        /// <summary>
         /// `undefineall forgets every macro a `define made (IEEE 1800, 22.5.3), as ModelSim does; Icarus 12 does not know it,
         /// and reads it as an undefined macro standing for nothing (Docs/oracle-notes.md).
         /// </summary>

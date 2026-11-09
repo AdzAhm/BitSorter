@@ -43,6 +43,7 @@ namespace BitSorter.Ci.Oracle
             new TestCaseData("behavioural/reals.sv", "reals_tb", null, null),
             new TestCaseData("behavioural/interfaces.sv", "interfaces_tb", null, null),
             new TestCaseData("behavioural/shared_bus.sv", "shared_bus_tb", null, null),
+            new TestCaseData("behavioural/lexical.sv", "lexical_tb", null, null),
             new TestCaseData("system/printing.sv", "printing", null, null),
             new TestCaseData("system/memories.sv", "memories_tb", null, "system/memories.hex,system/memories.bin"),
             new TestCaseData("processor/mcpu.sv", "mcpu_tb", null, "processor/mcpu_program.hex,processor/mcpu_data.hex,processor/mcpu_expected.hex"),

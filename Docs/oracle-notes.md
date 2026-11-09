@@ -418,6 +418,22 @@ writes. Where Icarus 12 cannot run it, `LibraryTests` holds it to the standard:
 | `` `__LINE__ `` in a macro whose use runs over several lines | the use's last line | its first, as ModelSim gives it (the standard says only "the current line"; the 16d sweep, probed 2026-11-09) |
 | `` `undefineall `` | "macro undefineall undefined (and assumed null)", every macro kept | every macro a `` `define `` made forgotten (22.5.3), as ModelSim does; `PreprocessorTests` holds it |
 
+## How text is read (the 16d sweep and its review, probed 2026-11-09)
+
+`corpus/behavioural/lexical.sv` runs in Icarus 12, ModelSim and BitSorter alike, every signal and every line: a string's
+escapes -- `\101`, `\x42`, `\t`, `\\`, `\"`, `\v`, `\f`, `\a`, `\033`, `\377` -- and one continued onto the next line;
+a size and its base read apart, `` `W'hA5 `` with `` `define W 8 ``, `` `ZERO(6) `` with `` `define ZERO(w) w'b0 ``, and
+the base on the line after its size (white space may stand between them, 5.7.1); a delay's number never the size of the
+value after it -- `q = #2 'b1`, `#2'b11`, `` `DLY 'b0 `` with `` `define DLY #1 ``, `` #`T 'hD ``, the value on the next
+line -- since a delay is a number alone (A.2.2.3), while in brackets, `#(2 'b1)`, it is an expression and one literal in
+all three; an unnamed gate delayed by a parameter, `and #D (y1, a, b)`; and a comment ending in a backslash, which
+continues a `` `define `` onto its next line and no other directive -- a `` `timescale `` written with a Windows path.
+
+| Question | Icarus 12 | The standard, and BitSorter |
+| --- | --- | --- |
+| `` `__LINE__ `` after a string continued onto the next line with a backslash | one short: the continued line is not counted, nor in its own messages after it | the line it stands on (22.13), as ModelSim gives it; `PreprocessorTests` holds it, and the corpus puts its `` `__LINE__ `` first |
+| A string opened with a plain quote and closed with a curly one, `"mixed”` | "Missing closing quote for string" | not the standard's -- BitSorter reads a look-alike as what it looks like, with a warning, and exports it straightened, as `"mixed"`. ModelSim warns that the string is never closed and carries it on, lines later, to the next plain quote |
+
 ## Testbench control (Part L5, 2026-10-19)
 
 `corpus/behavioural/testbench_control.sv` runs in both and agrees on every signal and line: the three
