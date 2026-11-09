@@ -777,6 +777,37 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// $clog2 of a wide constant is worked out from its highest bit, not by shifting the whole value right a place at a
+        /// time: a vector of its width made at every step cost its length times its width -- $clog2 of a million ones, inside
+        /// the widest allowed, a million vectors of a million bits, minutes with the workbench frozen (the Part 16d sweep).
+        /// Held by what the elaboration allocates, which no machine's speed moves; and the answer, $clog2(2^N - 1) = N.
+        /// </summary>
+        [Test]
+        public void AClog2OfAWideConstant_IsWorkedOutFromItsHighestBit()
+        {
+            static (long Bytes, Simulator Sim) Built(int width)
+            {
+                SyntaxTree tree = SyntaxReader.ReadText(
+                    "module m (output int y);\n    localparam int W = $clog2({" + width + "{1'b1}});\n    assign y = W;\nendmodule\n", "clog2.sv");
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                Elaboration e = Elaborator.Elaborate(tree);
+                long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+                Assert.IsNotNull(e.Design, string.Join("\n", e.Diagnostics));
+                return (bytes, Settle(e.Design));
+            }
+
+            (long bytes, Simulator sim) = Built(65_536);
+            TestContext.WriteLine($"$clog2 of 65,536 ones: {bytes:N0} bytes");
+            Assert.Less(bytes, 16L << 20, "65,536 ones, a handful of vectors of 8 KB -- not one at every bit");
+            Assert.AreEqual(U(65_536, 32).Format(Radix.Binary), Bits(sim, "y"));
+
+            (bytes, sim) = Built(LogicVec.MaxWidth);
+            TestContext.WriteLine($"$clog2 of {LogicVec.MaxWidth:N0} ones: {bytes:N0} bytes");
+            Assert.Less(bytes, 64L << 20, "the widest allowed, a handful of vectors of 256 KB");
+            Assert.AreEqual(U((ulong)LogicVec.MaxWidth, 32).Format(Radix.Binary), Bits(sim, "y"));
+        }
+
+        /// <summary>
         /// What cannot be built is said, never only dropped: an indexed part-select of no width, read or written, a $clog2 of
         /// no value or of x, and a cast to no width or past the widest each set the builder's Failed with nothing in the
         /// diagnostics, so the assign or the whole process went and the design ran without a word (the Part 16d sweep).
