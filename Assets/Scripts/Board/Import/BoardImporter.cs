@@ -292,6 +292,18 @@ namespace BitSorter.Board
                     return;
                 }
 
+                if (port.Unpacked.Count > 0)
+                {
+                    Problem(port, $"{port.Name} is an array port; a module with one comes in as written code (Part 12).");
+                    return;
+                }
+
+                if (port.NetType != null && port.NetType != "wire" && port.NetType != "tri" && port.NetType != "uwire")
+                {
+                    Problem(port, $"{port.Name} is a {port.NetType} port, which a board does not draw; it comes in as written code (Part 12).");
+                    return;
+                }
+
                 int width = Width(port.Type, port);
                 int id = Add(new PortPart { Name = port.Name, Direction = port.Direction, Width = width, Comment = port.Comment }, port);
                 if (id == 0)
@@ -358,8 +370,19 @@ namespace BitSorter.Board
                 }
             }
 
+            /// <summary>
+            /// A net's width, from a type a board's nets are: <c>logic</c> or <c>reg</c>, or none written, with at most one
+            /// packed range. Any other -- 2-state <c>bit</c> and <c>int</c>, <c>integer</c>, an enum, a struct, a typedef's
+            /// name -- is refused, the module coming in as written code, rather than drawn one bit wide.
+            /// </summary>
             private int Width(DataType type, SyntaxNode at)
             {
+                if (type != null && NotALogicVector(type) is string what)
+                {
+                    Problem(at, $"{what} is no net a board draws, a board's nets being logic vectors; it comes in as written code (Part 12).");
+                    return 1;
+                }
+
                 if (type == null || type.Packed.Count == 0)
                     return 1;
                 if (type.Packed.Count > 1)
@@ -374,6 +397,20 @@ namespace BitSorter.Board
 
                 Problem(at, "a width that is not a plain number.");
                 return 1;
+            }
+
+            /// <summary>What <paramref name="type"/> is, in words, when it is no logic vector; null when it is one.</summary>
+            private static string NotALogicVector(DataType type)
+            {
+                if (type.Enum != null)
+                    return "an enum";
+                if (type.Struct != null)
+                    return type.Struct.IsUnion ? "a union" : "a struct";
+                if (type.Name != null)
+                    return $"a {type.Name}, a typedef's type,";
+                if (type.Keyword != null && type.Keyword != "logic" && type.Keyword != "reg")
+                    return ("aeiou".IndexOf(type.Keyword[0]) >= 0 ? "an " : "a ") + type.Keyword;
+                return null;
             }
 
             // -----------------------------------------------------------------
