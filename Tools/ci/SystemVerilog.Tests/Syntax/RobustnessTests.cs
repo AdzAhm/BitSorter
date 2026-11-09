@@ -124,6 +124,43 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             string nonsense = string.Concat(Enumerable.Repeat("§ ", 5000));
             SyntaxTree tree = SyntaxReader.ReadText(nonsense, "n.sv");
             Assert.LessOrEqual(tree.Diagnostics.Count, DiagnosticBag.MaxItems);
+            Assert.AreEqual(DiagnosticBag.MaxItems, tree.Diagnostics.Count, "capped, not empty: five thousand faults give the cap's worth");
+            Assert.IsTrue(tree.HasErrors);
+        }
+
+        /// <summary>
+        /// The 16d sweep: the cap was one for every kind, so code pasted from a slide -- every indent a no-break space, each
+        /// one a warning -- filled it, and a fault after them was dropped: the tree had no error, and the assign it lost was
+        /// silently missing from the run.
+        /// </summary>
+        [Test]
+        public void AnErrorAfterTheCapOfWarnings_IsStillAnError()
+        {
+            string pasted = string.Concat(Enumerable.Repeat(" ", 600)) + "module m (output logic y); assign y = ; endmodule";
+            SyntaxTree tree = SyntaxReader.ReadText(pasted, "pasted.sv");
+
+            Assert.Greater(Codes(tree).Count(c => c == DiagnosticCodes.LookalikeCharacter), DiagnosticBag.MaxItems / 2, "the warnings that fill the cap");
+            Assert.IsTrue(tree.HasErrors, "the fault after them");
+            Assert.Contains(DiagnosticCodes.Expected, Codes(tree));
+        }
+
+        [Test]
+        public void TheBag_CapsWarningsAndErrorsApart()
+        {
+            var bag = new DiagnosticBag();
+            var at = new SourceLocation("a.sv", 1, 1);
+            for (int i = 0; i < DiagnosticBag.MaxItems * 2; i++)
+                bag.Warning(at, DiagnosticCodes.LookalikeCharacter, "a warning");
+            Assert.IsFalse(bag.HasErrors);
+
+            bag.Error(at, DiagnosticCodes.Expected, "an error after them");
+            Assert.IsTrue(bag.HasErrors);
+            Assert.AreEqual(DiagnosticSeverity.Error, bag.Items[bag.Items.Count - 1].Severity, "kept, after the warnings it followed");
+
+            for (int i = 0; i < DiagnosticBag.MaxItems * 2; i++)
+                bag.Error(at, DiagnosticCodes.Expected, "more");
+            Assert.AreEqual(DiagnosticBag.MaxItems, bag.Items.Count(d => d.Severity == DiagnosticSeverity.Error), "errors capped on their own");
+            Assert.AreEqual(DiagnosticBag.MaxItems, bag.Items.Count(d => d.Severity != DiagnosticSeverity.Error), "warnings capped on their own");
         }
     }
 }

@@ -572,6 +572,34 @@ endmodule");
             Assert.IsNull(e.Design);
         }
 
+        /// <summary>
+        /// The 16d sweep: the messages are capped so nonsense gives a readable number of them, and the cap was one for every
+        /// kind -- so six hundred copies of an instance, each with an input left unconnected and warned of, filled it, and the
+        /// error after them was dropped: no error, and the design built and run without what failed.
+        /// </summary>
+        [TestCase("missing u2 (.a(y));", ElaborationCodes.UnknownModule)]
+        [TestCase("assign y = nowhere(a);", ElaborationCodes.UnknownName)]
+        public void AnErrorAfterTheCapOfWarnings_IsStillReported_AndThereIsNoDesign(string fault, string code)
+        {
+            Elaboration e = Elaborate(@"
+module leaf (input logic a, input logic b, output logic y);
+    assign y = a & b;
+endmodule
+
+module top (input logic a, output logic y);
+    for (genvar i = 0; i < 600; i++) begin : g
+        logic out;
+        leaf u (.a(a), .y(out));
+    end
+    " + fault + @"
+endmodule", "top");
+
+            Assert.Greater(e.Diagnostics.Count(d => d.Code == ElaborationCodes.Unconnected), DiagnosticBag.MaxItems / 2, "the warnings that fill the cap");
+            Assert.IsTrue(Codes(e).Contains(code), "the error after them");
+            Assert.IsTrue(e.HasErrors);
+            Assert.IsNull(e.Design);
+        }
+
         [Test]
         public void AnImplicitNet_IsAOneBitWire_WithAWarning()
         {
