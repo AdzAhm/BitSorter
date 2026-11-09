@@ -286,6 +286,23 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.IsInstanceOf<ContinuousAssign>(tree.Modules.Single().Items.Last(), "the assign after them was still read");
         }
 
+        /// <summary>
+        /// The 16d sweep: a typedef's unpacked range and a function's or task's unpacked argument were read and thrown away
+        /// without a word, so typedef logic [7:0] ram_t [0:15] made every ram_t one 8-bit vector and mem[3] a bit of it --
+        /// another simulation than Icarus's, and CODE and EXPORT printed another design. Refused where it stands, as an
+        /// unpacked struct member is.
+        /// </summary>
+        [TestCase("typedef logic [7:0] ram_t [0:15];", "ram_t")]
+        [TestCase("function logic f(input logic [7:0] data [0:3]); return data[0][0]; endfunction", "data")]
+        [TestCase("task t(input logic [7:0] data [4]); endtask", "data")]
+        public void AnUnpackedRangeBitSorterWouldDrop_IsRefused(string item, string name)
+        {
+            SyntaxTree tree = Read("module m;\n  " + item + "\nendmodule\n");
+            Assert.AreEqual(new[] { DiagnosticCodes.Unsupported }, Codes(tree));
+            StringAssert.Contains(name, tree.Diagnostics[0].Message);
+            StringAssert.Contains("unpacked", tree.Diagnostics[0].Message);
+        }
+
         [Test]
         public void AMissingSemicolon_IsReportedOnTheLineItIsMissingFrom()
         {
