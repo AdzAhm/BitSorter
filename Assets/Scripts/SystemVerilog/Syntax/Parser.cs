@@ -1938,8 +1938,11 @@ namespace BitSorter.SystemVerilog.Syntax
 
             if (Current.Kind == TokenKind.Number || Current.Kind == TokenKind.RealNumber)
             {
+                // A number alone, never joined to a based value after it as a size: in q = `DLY 'b0, with `define DLY #1, the
+                // delay is 1 and 'b0 the value (delay_value, IEEE 1800 A.2.2.3), as Icarus and ModelSim read it (the 16d sweep's
+                // review: ParsePrimary's join took the delay for the value's size, and the statement had no value).
                 Token value = Current;
-                delay.Values.Add(ParsePrimary());
+                delay.Values.Add(value.Kind == TokenKind.Number ? Literal(Next()) : ParsePrimary());
 
                 // A time unit written straight after the number: 10ns.
                 // The design's unit is its project's or its `timescale's, which this delay cannot change.
