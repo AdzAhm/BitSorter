@@ -206,6 +206,36 @@ endmodule", files, until: 0);
             Assert.Less(made, 16L << 20, $"two thousand cycles of a log made {made:N0} bytes");
         }
 
+        /// <summary>
+        /// A file holds at most <see cref="Simulator.MaxFileCharacters"/>, and what is written to it once it is full is left
+        /// out, the run saying so once (the review of the 16d engine batch: the cap had no test, and a write short enough to
+        /// fit in what room was left after a longer one was dropped still went in).
+        /// </summary>
+        [Test]
+        public void AFileFull_LeavesOutEverythingWrittenAfter_AndSaysSoOnce()
+        {
+            string line = new string('x', 250);
+            int lines = Simulator.MaxFileCharacters / (line.Length + 1) + 10;
+            var files = new MemorySimFiles();
+            Simulator sim = Run(@"
+module t;
+    integer f, i;
+    initial begin
+        f = $fopen(""big.txt"", ""w"");
+        for (i = 0; i < " + lines + @"; i = i + 1)
+            $fdisplay(f, """ + line + @""");
+        $fdisplay(f, ""short"");
+        $fclose(f);
+    end
+endmodule", files, until: 10);
+
+            Assert.IsTrue(files.TryRead("big.txt", out string text));
+            Assert.LessOrEqual(text.Length, Simulator.MaxFileCharacters);
+            Assert.AreEqual(Simulator.MaxFileCharacters / (line.Length + 1) * (line.Length + 1), text.Length, "every line that fitted, and none after");
+            StringAssert.DoesNotContain("short", text, "a write after the file is full is left out, however short");
+            Assert.AreEqual(1, sim.History.Messages.Count(m => m.Text.Contains("the most a file a run writes may hold")));
+        }
+
         /// <summary>Files that match a name whatever its case, as the workbench's run files do (ProjectFiles.RunFiles).</summary>
         private sealed class CaselessFiles : ISimFiles
         {
