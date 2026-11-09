@@ -36,6 +36,41 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains("There are 201 files here, and an import takes at most 200. Is this one project's folder?", Said(import));
         }
 
+        /// <summary><paramref name="count"/> small modules in one file, each written -- an always in it -- as a generated file has them.</summary>
+        private static string Modules(int count)
+        {
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; i < count; i++)
+                text.Append("module m").Append(i).Append(" (input logic clk, output logic q);\n    always_ff @(posedge clk) q <= ~q;\nendmodule\n");
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// Every written module is read among all the others, so checking a project costs the square of its modules -- and the
+        /// cube past the reads its caches keep: one file of a thousand small modules made 35 GB in 55 s, and with a define
+        /// between each, ran out of memory (Part 16d sweep). A file holds any number, so files are no bound on them.
+        /// </summary>
+        [Test]
+        public void MoreModulesThanAnImportTakes_AreRefused_AskingWhetherItIsOneProject()
+        {
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("many.sv", Modules(201)) });
+
+            Assert.IsFalse(import.Succeeded);
+            StringAssert.Contains("There are 201 modules here, and an import takes at most 200. Is this one project?", Said(import));
+        }
+
+        [Test]
+        public void AsManyModulesAsAnImportTakes_AreImported_InMoments()
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("many.sv", Modules(200)) });
+            double seconds = clock.Elapsed.TotalSeconds;
+
+            Assert.IsTrue(import.Succeeded, Said(import));
+            Assert.AreEqual(200, import.Project.Modules.Count);
+            Assert.Less(seconds, 5);
+        }
+
         [Test]
         public void MoreInAllThanAnImportTakes_IsRefused()
         {
