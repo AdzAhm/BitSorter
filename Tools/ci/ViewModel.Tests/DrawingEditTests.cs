@@ -207,6 +207,33 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// A part placed, or a wire drawn, that asks the question first is made by its answer, and is let go of as one made is:
+        /// the gate stayed in hand, and the next click placed a second; the wire went on being drawn from its pin (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void APlaceOrAWire_ThatAsksFirst_IsLetGoOf_ForTheAnswerToMake()
+        {
+            WorkbenchSession session = Written(Chooser, "pick");
+            var editor = new CanvasEditor(session);
+            editor.Take(PartsCatalog.Find(session.Project, session.Module, "and"));
+            EditResult? placed = editor.Do(new CanvasCommand(CanvasGesture.Place, new Point(6, 6)));
+            Assert.AreEqual(WorkbenchSession.RewriteAsked, placed?.Refusal, "sanity: the question asked");
+            Assert.IsNull(editor.InHand, "nothing left in hand for the next click to place a second");
+            Assert.IsTrue(session.AnswerRewrite(true).Done);
+            editor.Relaid();
+            Assert.AreEqual(1, session.Run.Model.Layout.Parts.Count(p => p.Part is GatePart), "placed once, by the answer");
+
+            session = Written("module two (input logic a, output logic y, z);\n    assign y = a;\nendmodule\n", "two");
+            editor = new CanvasEditor(session);
+            int Port(string name) => session.Run.Model.Layout.Ports.Single(p => p.Name.Split('[')[0] == name).Part;
+            editor.Do(new CanvasCommand(CanvasGesture.BeginWire, target: new CanvasTarget(CanvasTargetKind.Pin, part: Port("a"), pin: "out")));
+            Assert.IsTrue(editor.Drafting, "sanity: a wire drawn from a");
+            EditResult? wired = editor.Do(new CanvasCommand(CanvasGesture.EndWire, target: new CanvasTarget(CanvasTargetKind.Pin, part: Port("z"), pin: "in")));
+            Assert.AreEqual(WorkbenchSession.RewriteAsked, wired?.Refusal, "sanity: the question asked");
+            Assert.IsFalse(editor.Drafting, "the wire let go of, for the answer to make");
+        }
+
+        /// <summary>
         /// A clock's period set in the inspector on the drawing changes the stimulus, which code written from the drawing does
         /// not carry: refused, saying where it is set, rather than reported done and lost (the review of #117).
         /// </summary>
