@@ -249,8 +249,10 @@ namespace BitSorter.EditMode.Tests
 
         /// <summary>
         /// A bus's value written over its box reads at 4.5:1 where it is written (WCAG's for text) -- one with an x in it on the
-        /// x's box, its faint red and the bars across it both. In the x's own red it was 3.6:1 on the box and about 1.4:1 over
-        /// a bar (the 16d sweep).
+        /// x's box as it is drawn: its faint red over the row, and the bars across it over that, on the ground and on a selected
+        /// row's band (a row lit by its wire is a band between the two). In the x's own red it was 3.6:1 on the box and about
+        /// 1.4:1 over a bar (the 16d sweep); in the text's, with its bars measured over the bare ground rather than over the
+        /// box, 4.17:1 over a bar on Schematic Light's paper and 4.03 on a selected row (the sweep's review).
         /// </summary>
         [Test]
         public void OnTheWaves_AValueWrittenOverAnXsBox_Reads()
@@ -259,10 +261,14 @@ namespace BitSorter.EditMode.Tests
             {
                 SchematicPalette c = look.Canvas;
                 Color ink = WaveformView.BusLabelColour(LogicVec.AllX(4), c);
-                foreach ((string under, Color drawn) in new[] { ("the x's box", c.HatchFill), ("a bar across it", c.HatchBar) })
+                foreach ((string row, Color band) in new[] { ("on the ground", c.Ground), ("on a selected row", c.Selection) })
                 {
-                    float contrast = SchematicPalette.Contrast(ink, Seen(drawn, c.Ground));
-                    Assert.GreaterOrEqual(contrast, SchematicPalette.WordContrast, $"{look.Name}: an x's value on {under} is {contrast:F2}:1");
+                    Color box = Seen(c.HatchFill, band), bar = Seen(c.HatchBar, box);
+                    foreach ((string under, Color drawn) in new[] { ("the x's box", box), ("a bar across it", bar) })
+                    {
+                        float contrast = SchematicPalette.Contrast(ink, drawn);
+                        Assert.GreaterOrEqual(contrast, SchematicPalette.WordContrast, $"{look.Name}: an x's value {row}, on {under}, is {contrast:F2}:1");
+                    }
                 }
 
                 float known = SchematicPalette.Contrast(WaveformView.BusLabelColour(LogicVec.FromUInt64(5, 4), c), c.Ground);
