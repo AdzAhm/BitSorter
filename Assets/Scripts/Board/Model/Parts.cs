@@ -54,9 +54,10 @@ namespace BitSorter.Board
         /// its count, but none for a count no part can have, below none or past <see cref="BoardRules.MaxWidth"/>. The rules say
         /// in words what is wrong with that count (<see cref="BoardRules"/>), and an edit making it is refused; its pins are never
         /// what throws, nor a hundred million of them what is made first (the 16d sweep). Any count a part can have is counted
-        /// as it is, a MUX of sixteen of a drawing of code's case included.
+        /// as it is, a MUX of sixteen of a drawing of code's case included. The drawing counts them so too
+        /// (<see cref="PartGeometry"/>), so the pins drawn are the pins it has (the review of the 16d fixes).
         /// </summary>
-        protected static int Counted(int count) => count < 0 || count > BoardRules.MaxWidth ? 0 : count;
+        internal static int Counted(int count) => count < 0 || count > BoardRules.MaxWidth ? 0 : count;
 
         public bool TryPin(Project project, string name, out Pin pin)
         {

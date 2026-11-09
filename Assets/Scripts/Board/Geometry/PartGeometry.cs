@@ -180,9 +180,12 @@ namespace BitSorter.Board
 
                 case GatePart gate:
                 {
-                    double half = Half(gate.Inputs);
-                    for (int i = 0; i < gate.Inputs; i++)
-                        Left(GatePart.InputPin(gate.Kind, i), Row(i, gate.Inputs), -1.0);
+                    // As many inputs as the gate has pins for: none for a count no gate can have, which the rules say in words
+                    // (Part.Counted; the review of the 16d fixes: a gate saved with a million inputs drew a million pins).
+                    int inputs = Part.Counted(gate.Inputs);
+                    double half = Half(inputs);
+                    for (int i = 0; i < inputs; i++)
+                        Left(GatePart.InputPin(gate.Kind, i), Row(i, inputs), -1.0);
                     Right("y", 0, 1.0);
                     return new PartOutline(-1.0, -half, 1.0, half, pins);
                 }
@@ -224,9 +227,10 @@ namespace BitSorter.Board
                 case MuxPart mux:
                 {
                     // A trapezoid, the data on its long left side and the select underneath.
-                    double half = Half(mux.Inputs) + 0.25;
-                    for (int i = 0; i < mux.Inputs; i++)
-                        Left("d" + i, Row(i, mux.Inputs), -1.0);
+                    int inputs = Part.Counted(mux.Inputs);
+                    double half = Half(inputs) + 0.25;
+                    for (int i = 0; i < inputs; i++)
+                        Left("d" + i, Row(i, inputs), -1.0);
                     Down("s", 0, -half - 0.25);
                     Right("y", 0, 1.0);
                     return new PartOutline(-1.0, -half - 0.25, 1.0, half, pins);
@@ -235,18 +239,20 @@ namespace BitSorter.Board
                 case SplitterPart splitter:
                 {
                     // A bar: the bus in on the left, bit 0 lowest on the right.
-                    double half = Half(splitter.Width);
+                    int bits = Part.Counted(splitter.Width);
+                    double half = Half(bits);
                     Left("in", 0, -0.5);
-                    for (int i = 0; i < splitter.Width; i++)
-                        Right("o" + i, Row(splitter.Width - 1 - i, splitter.Width), 0.5);
+                    for (int i = 0; i < bits; i++)
+                        Right("o" + i, Row(bits - 1 - i, bits), 0.5);
                     return new PartOutline(-0.5, -half, 0.5, half, pins);
                 }
 
                 case JoinerPart joiner:
                 {
-                    double half = Half(joiner.Width);
-                    for (int i = 0; i < joiner.Width; i++)
-                        Left("i" + i, Row(joiner.Width - 1 - i, joiner.Width), -0.5);
+                    int bits = Part.Counted(joiner.Width);
+                    double half = Half(bits);
+                    for (int i = 0; i < bits; i++)
+                        Left("i" + i, Row(bits - 1 - i, bits), -0.5);
                     Right("out", 0, 0.5);
                     return new PartOutline(-0.5, -half, 0.5, half, pins);
                 }
