@@ -91,6 +91,49 @@ endmodule", "t");
             CollectionAssert.AreEqual(new long[] { 5, 10 }, sim.History.Suspensions);
         }
 
+        /// <summary>
+        /// A row read in a radix of its own writes the value a step carried on past a <c>$stop</c> settles on: its text was kept
+        /// by the change's place, which the step carried on gives another value, and read the value it had while suspended for
+        /// the rest of the session (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void ARowInARadixOfItsOwn_WritesTheValueAStepCarriedOnSettlesOn()
+        {
+            BitSorter.Board.ProjectImport import = BitSorter.Board.ProjectImporter.Import(new List<BitSorter.Board.SourceFile>
+            {
+                new BitSorter.Board.SourceFile("pass.sv", "module pass (input logic [3:0] a, output logic [3:0] y);\n" +
+                                                          "    assign y = a;\n" +
+                                                          "endmodule\n"),
+                new BitSorter.Board.SourceFile("pass_tb.sv", "module pass_tb;\n" +
+                                                             "    logic [3:0] a, y;\n" +
+                                                             "    pass dut (.a(a), .y(y));\n" +
+                                                             "    initial begin\n" +
+                                                             "        a = 0;\n" +
+                                                             "        #5 a = 9;\n" +
+                                                             "        $stop;\n" +
+                                                             "        a = 12;\n" +
+                                                             "        #5 $finish;\n" +
+                                                             "    end\n" +
+                                                             "endmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            RunSession run = RunSession.Open(import.Project, Ticking(0.001));
+            run.Finish();
+            WorkbenchModel model = run.Model;
+            Assert.IsTrue(run.Suspended, "sanity: at the $stop");
+
+            int a = Enumerable.Range(0, model.Layout.Rows.Count).Single(r => model.Layout.Rows[r].Signal.EndsWith(".a", StringComparison.Ordinal));
+            model.SetRows(new[] { model.RowSignal(a) }, new[] { WaveRadix.Unsigned });
+            model.RowValueAt(0, 5, out string suspended);
+            Assert.AreEqual("9", suspended, "sanity: as the step stood when it was suspended");
+
+            Assert.IsTrue(run.RunOn(20));
+            run.Finish();
+            model.RowValueAt(0, 5, out string carriedOn);
+            Assert.AreEqual("12", carriedOn, "what the step settled on once it was carried on");
+            Assert.AreEqual("12", model.RowText(0, model.RowTrack(0).IndexAt(5)));
+        }
+
         [Test]
         public void TheSlicer_RunsOn_OnlyARunSuspendedOrAtItsHorizon()
         {
