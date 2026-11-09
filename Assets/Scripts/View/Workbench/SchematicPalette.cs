@@ -185,7 +185,7 @@ namespace BitSorter.View
             var copy = (SchematicPalette)MemberwiseClone();
             copy.Name = name;
             copy._words = null;   // worked out from this palette's colours, which the copy may change
-            copy._selectedBand = copy._pathBand = null;
+            copy._selectedBand = copy._pathBand = copy._hatchBar = null;
             change?.Invoke(copy);
             return copy;
         }
@@ -297,8 +297,25 @@ namespace BitSorter.View
         /// <summary>An x's box on the waves: its faint fill.</summary>
         public Color HatchFill => Over(Unknown, 0.18f);
 
-        /// <summary>An x's box on the waves: the bars across it.</summary>
-        public Color HatchBar => Over(Unknown, 0.8f);
+        /// <summary>
+        /// An x's box on the waves: the bars across it, at 80% where a value written over them in the text's colour still reads
+        /// at <see cref="WordContrast"/>, and as much less as it must where it does not -- 4.29:1 over a bar on Schematic Light's
+        /// paper, 3.89 in Classic (the 16d sweep). Schematic's are as they were.
+        /// </summary>
+        public Color HatchBar => _hatchBar ??= Over(Unknown, HatchOpacity());
+
+        private Color? _hatchBar;
+
+        private float HatchOpacity()
+        {
+            for (int step = 0; step <= ClearSteps; step++)
+            {
+                float t = Mathf.Lerp(0.8f, 0.3f, step / (float)ClearSteps);
+                if (Contrast(Text, Color.LerpUnclamped(Ground, Unknown, t)) >= WordContrast * 1.01f)
+                    return t;
+            }
+            return 0.3f;
+        }
 
         /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>
         public const float WordContrast = 4.5f;

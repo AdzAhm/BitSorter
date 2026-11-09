@@ -1099,7 +1099,10 @@ Precise, and no casing under the wires.
   a pixel and a half are one busy block, hatched if any of them is x, so what is drawn is bounded by the
   window's pixels rather than the run's changes: a clock with 20,000 edges across 860 pixels is 1,184
   vertices fitted, and no zoom between that and its edges one by one outgrows a mesh. A box the window cuts
-  is square at the cut. The words over a bus's boxes come from the same stretches, pooled per row.
+  is square at the cut. The words over a bus's boxes come from the same stretches, pooled per row, in the text's colour,
+  an x's as a known one's: in the x's red it was 3.6:1 on its box and about 1.4:1 over a bar, and an x's bars are now
+  as light as a word over them needs to read at 4.5:1 (`SchematicPalette.HatchBar`: Schematic's 80% as it was, Schematic
+  Light's 76%, Neon Board's 78%, Classic's 71%; the 16d sweep).
 - **Values in the course's radixes** (`ValueText`, `TextCache`): binary, octal, hex, unsigned, signed and
   an enum's names, every bus the same length whatever its value, as `MaxChars` says. The waveform writes
   a bus in hex as before, with one deliberate change: a digit partly unknown is `X`, as `$display` writes
