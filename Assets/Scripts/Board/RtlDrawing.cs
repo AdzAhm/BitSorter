@@ -109,12 +109,26 @@ namespace BitSorter.Board
         /// </summary>
         public LogicVec[] Inner(IReadOnlyList<LogicVec> nets)
         {
+            var values = new LogicVec[_inner.Length];
+            Inner(nets, values);
+            return values;
+        }
+
+        /// <summary>
+        /// The same, each value written into <paramref name="values"/>, which has a place for each: what the workbench asks once
+        /// a step while a drawing with GATES open plays. Nothing is allocated for it, at any width up to 64 bits: each gate keeps
+        /// the place its inputs are gathered in (the 16d sweep, waves-8: a gate's inputs and the whole were new arrays each time).
+        /// </summary>
+        public void Inner(IReadOnlyList<LogicVec> nets, LogicVec[] values)
+        {
             if (nets == null)
                 throw new ArgumentNullException(nameof(nets));
-            var values = new LogicVec[_inner.Length];
-            for (int i = 0; i < values.Length; i++)
+            if (values == null)
+                throw new ArgumentNullException(nameof(values));
+            if (values.Length < _inner.Length)
+                throw new ArgumentException("a place is needed for each of the " + _inner.Length + " wires inside", nameof(values));
+            for (int i = 0; i < _inner.Length; i++)
                 values[i] = _inner[i].Value(nets, values);
-            return values;
         }
 
         /// <summary>
@@ -143,6 +157,9 @@ namespace BitSorter.Board
             private readonly int[] _from;
             private readonly int _bit;
 
+            /// <summary>A gate's inputs, gathered for <see cref="Gates.Evaluate(GateKind, LogicVec[])"/>: made the first time, and kept.</summary>
+            private LogicVec[] _inputs;
+
             public LogicVec Value(IReadOnlyList<LogicVec> nets, LogicVec[] inner)
             {
                 if (_compute != null)
@@ -151,7 +168,7 @@ namespace BitSorter.Board
                 {
                     case GatePart gate:
                     {
-                        var inputs = new LogicVec[_from.Length];
+                        LogicVec[] inputs = _inputs ??= new LogicVec[_from.Length];
                         for (int i = 0; i < inputs.Length; i++)
                             inputs[i] = In(i, nets, inner);
                         return Gates.Evaluate(gate.Kind, inputs);

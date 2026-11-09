@@ -32,7 +32,7 @@ namespace BitSorter.Sim
 
         /// <summary>
         /// The same, every net's value written into <paramref name="values"/>, which has a place for each: what the workbench
-        /// asks once a moment while a drawing of code plays, for the values on its wires. Nothing is allocated for it once the
+        /// asks once a step while a drawing of code plays, for the values on its wires. Nothing is allocated for it once the
         /// netlist has been evaluated once, at any width up to 64 bits (the zero-GC pass, Part 16): the order its cells go in
         /// depends on the netlist alone, so it is worked out the first time and kept with it.
         /// </summary>

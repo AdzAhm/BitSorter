@@ -200,10 +200,13 @@ namespace BitSorter.ViewModel
             {
                 // The drawing of code's reads, found in this run by name (Part 15h-4).
                 _drawnSignals = new int[layout.Drawn.ReadNames.Count];
+                _drawnRead = new bool[design.Signals.Count];
                 for (int i = 0; i < _drawnSignals.Length; i++)
                 {
                     _drawnSignals[i] = Index(layout.Drawn.ReadNames[i]);
                     Track(_drawnSignals[i]);
+                    if (_drawnSignals[i] >= 0)
+                        _drawnRead[_drawnSignals[i]] = true;
                 }
             }
 
@@ -468,6 +471,8 @@ namespace BitSorter.ViewModel
                 if (track == null || !track.Grow())
                     continue;
                 grew = true;
+                if (_drawnRead != null && _drawnRead[signal])
+                    _drawnStale = true;   // what the drawing of code was worked out from has more to it (DrawnValue)
 
                 // A step a $stop suspended, carried on: the texts kept by the places it gave other values go with them.
                 if (track.RewroteFrom >= 0)
@@ -539,14 +544,22 @@ namespace BitSorter.ViewModel
         }
 
         private int[] _drawnSignals;
+        private bool[] _drawnRead;
         private LogicVec[] _drawnInputs, _drawnValues, _drawnInner;
-        private double _drawnAt = double.NaN;
+        private long _drawnStep;
+        private bool _drawnStale = true;
 
-        /// <summary>A wire of a drawing of code no signal holds: the netlist worked out from this run's signals now, once a moment.</summary>
+        /// <summary>
+        /// A wire of a drawing of code no signal holds: the netlist worked out from this run's signals now, once a step. Every
+        /// signal is read at its step's settled value (<see cref="SignalTrack.IndexAt"/>), so the values are worked out again only
+        /// when the step shown changes or a signal read grows -- not at every moment, which playing is every frame (the 16d
+        /// sweep, waves-8: a controller's netlist and its gates were worked out nineteen times a step).
+        /// </summary>
         private LogicVec DrawnValue(int net)
         {
             DrawnValues drawn = Layout.Drawn;
-            if (!(Time == _drawnAt))
+            long step = (long)Math.Floor(Time + 1e-9);
+            if (_drawnStale || step != _drawnStep)
             {
                 if (_drawnInputs == null)
                 {
@@ -559,12 +572,18 @@ namespace BitSorter.ViewModel
                     int signal = _drawnSignals[i];
                     _drawnInputs[drawn.Reads[i]] = signal >= 0 ? ValueAt(signal, 1, Time) : LogicVec.AllX(drawn.ReadWidths[i]);
                 }
-                // Into the same array each moment: playing, a moment is a frame (the zero-GC pass, Part 16).
+                // Into the same arrays each step: playing, a step is a few frames (the zero-GC pass, Part 16).
                 if (_drawnValues == null || _drawnValues.Length != drawn.Netlist.Nets.Count)
                     _drawnValues = new LogicVec[drawn.Netlist.Nets.Count];
                 RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs, _drawnValues);
-                _drawnInner = drawn.Drawing != null && drawn.Drawing.InnerCount > 0 ? drawn.Drawing.Inner(_drawnValues) : null;
-                _drawnAt = Time;
+                if (drawn.Drawing != null && drawn.Drawing.InnerCount > 0)
+                {
+                    if (_drawnInner == null || _drawnInner.Length != drawn.Drawing.InnerCount)
+                        _drawnInner = new LogicVec[drawn.Drawing.InnerCount];
+                    drawn.Drawing.Inner(_drawnValues, _drawnInner);
+                }
+                _drawnStep = step;
+                _drawnStale = false;
             }
             int at = drawn.RtlNetOf(net);
             return at >= 0 ? _drawnValues[at] : _drawnInner[-2 - at];   // a wire inside an opening into gates (GATES)

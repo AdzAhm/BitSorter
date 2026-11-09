@@ -3655,8 +3655,10 @@ instances inside written code stepped into, and GATES opening its small operator
   routes cached as any document's (`DocumentSchematic.Build` takes a module and its board netlist now, for one the
   project does not compile).
 - **Its values are the run's.** A wire no signal holds -- an adder's output inside `assign y = a + b + c` -- is worked
-  out at the playhead from the signals the netlist reads, with the engine's own operators, once a moment however many
-  wires ask. `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
+  out at the playhead from the signals the netlist reads, with the engine's own operators, once a step however many
+  wires ask: every signal reads its step's settled value, so the values are worked out again only when the step shown
+  changes or a signal read grows -- playing, a moment is a frame, and a step nineteen of them at the default speed (the
+  16d sweep, waves-8: the multicycle controller with GATES open was worked out at every frame, 284 microseconds and 88 KB). `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
   edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise.
 - **Stepping inside written code**: a double-click on a block of the drawing steps into the instance its code makes --
   the canvas finds what is under the pointer on the drawing itself (`WorkbenchSession.DrawnModule`, `CanStepInto`),
@@ -4960,7 +4962,9 @@ lit signals, the canvas's lists -- so when the two were stacked one copy of each
   path, count through an `IReadOnlyList`; foreach a concrete `List`, `HashSet` or array.**
 - **A drawing of code playing** worked its wires out of a netlist sorted again every moment (`RtlEvaluator`): 7.6 KB a frame on the
   pipelined processor, 43 KB on the multicycle controller. The order is kept with the netlist and the values written into the
-  model's own array.
+  model's own array. With GATES open the gates' wires came out in new arrays, one for the drawing and one a gate (88 KB a frame
+  on the multicycle controller, the 16d sweep): `RtlDrawing.Inner` writes into the model's array too, each gate keeping the
+  place its inputs are gathered in, and the whole is worked out once a step rather than once a frame.
 - **A controller shown** made its signals' names every frame to look them up (`ControllerNow`, 0.5 to 0.9 KB): found once now.
 - **The editor's own**: `UiText.Typing` asked the event system's selection for a field with `GetComponent`, which in the editor makes
   an object for a component that is not there, for each of the seventeen key readers a frame once the shell was clicked;
