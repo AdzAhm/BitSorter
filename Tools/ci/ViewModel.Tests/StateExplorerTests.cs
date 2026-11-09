@@ -137,6 +137,29 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// A circuit with no registers is sent to LOGIC only where LOGIC tables it (the 16d sweep): a latch of two crossed NANDs
+        /// has no register and two inputs, and STATES said LOGIC tables it, where LOGIC refuses a loop of logic -- each tab
+        /// sending the student to the other, neither showing anything. A latch written always_latch the same.
+        /// </summary>
+        [Test]
+        public void ACircuitWithNoRegisters_IsSentToLogic_OnlyWhereLogicTablesIt()
+        {
+            foreach (string untabled in new[]
+            {
+                "module sr (input logic s_n, r_n, output logic q, q_n);\n    nand (q, s_n, q_n);\n    nand (q_n, r_n, q);\nendmodule\n",
+                "module latch (input logic d, en, output logic q);\n    always_latch if (en) q = d;\nendmodule\n",
+            })
+            {
+                Assert.IsNull(Explored(Written(untabled), out string why), untabled);
+                StringAssert.StartsWith("The state diagram is for circuits with registers", why, untabled);
+                StringAssert.DoesNotContain("LOGIC", why, untabled);
+            }
+
+            Assert.IsNull(Explored(Written("module and2 (input logic a, b, output logic y);\n    assign y = a & b;\nendmodule\n"), out string tabled));
+            StringAssert.EndsWith(", and LOGIC tables it.", tabled, "logic LOGIC does table");
+        }
+
+        /// <summary>
         /// A register that holds its input, reset by a button: rst_btn is active high whatever its last letter, and reset_btn
         /// written active low is found so by exploring the other way round once the first comes out held in reset. The 15g-6
         /// review found rst_btn taken as active low, and one state that ignored its input.
