@@ -160,13 +160,17 @@ namespace BitSorter.SystemVerilog.Syntax
         /// <summary>One level deeper; false, having stopped the read, if that is too deep.</summary>
         private bool Enter() => Enter($"This nests more than {MaxDepth} levels deep; BitSorter stopped reading here.");
 
-        private bool Enter(string tooDeep)
+        /// <summary>
+        /// One level deeper, saying <paramref name="tooDeep"/> past <see cref="MaxDepth"/> -- with <paramref name="room"/> levels
+        /// left for what is read inside it, a packed dimension's bounds, so its own message is the one said.
+        /// </summary>
+        private bool Enter(string tooDeep, int room = 0)
         {
             if (_stopped)
                 return false;
 
             ++_depth;
-            if (_depth > MaxDepth)
+            if (_depth + room > MaxDepth)
                 return Stop(tooDeep);
 
             // A bracket inside a run as tall as an expression may be -- a select's, a[i], as most operands of one have -- says
@@ -922,7 +926,7 @@ namespace BitSorter.SystemVerilog.Syntax
                 {
                     if (type.Packed.Count > 0)
                     {
-                        if (!Enter(DimensionsTooDeep))
+                        if (!Enter(DimensionsTooDeep, room: 1))
                             break;
                         dimensions++;
                     }

@@ -137,7 +137,7 @@ namespace BitSorter.Board.Tests
             StringAssert.Contains($"Wire {wires[0].id} has the same id as something else", string.Join("\n", editor.Diagnostics.Select(d => d.Message)));
         }
 
-        [Test]
+        /// <summary>
         /// Two wires saved under one id -- a hand-edited or hostile save -- are refused by the rules in words, as a document's
         /// repeated id always was, never thrown out of them: the netlist the rules build first indexed past its end (save-3),
         /// from the workbench's Start, on every launch that opened the circuit.

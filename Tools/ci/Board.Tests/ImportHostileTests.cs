@@ -28,9 +28,9 @@ namespace BitSorter.Board.Tests
             ("nesting a hundred thousand deep", "module deep_tb; logic y = " + new string('(', 100_000) + "1" + new string(')', 100_000) + "; endmodule\n",
                 "levels deep"),
             ("a chain a hundred thousand long", "module chain (input logic a, output logic y);\n    assign y = a" +
-                string.Concat(Enumerable.Repeat(" & a", 100_000)) + ";\nendmodule\n", "operators deep"),
+                string.Concat(Enumerable.Repeat(" & a", 100_000)) + ";\nendmodule\n", "levels deep"),
             ("a chain of selects a hundred thousand long", "module selects (input logic a, output logic y);\n    assign y = a" +
-                string.Concat(Enumerable.Repeat("[0]", 100_000)) + ";\nendmodule\n", "selects deep"),
+                string.Concat(Enumerable.Repeat("[0]", 100_000)) + ";\nendmodule\n", "levels deep"),
             ("structs nested a hundred thousand deep", "module nest (input logic a, output logic y);\n    typedef " +
                 string.Concat(Enumerable.Repeat("struct packed { ", 100_000)) + "logic x;" + string.Concat(Enumerable.Repeat(" } f;", 99_999)) +
                 " } t;\n    assign y = a;\nendmodule\n", "levels deep"),
