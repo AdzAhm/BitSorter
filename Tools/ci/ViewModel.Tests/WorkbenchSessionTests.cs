@@ -308,6 +308,38 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(20, playback.ReasonTime);
         }
 
+        /// <summary>
+        /// A breakpoint on a signal follows it, by its name as the rows do, onto the replay of an edit that numbers the design's
+        /// signals anew -- an input placed gives the testbench a signal ahead of the circuit's. It was kept by the old number,
+        /// and fired on whichever signal had that number now, or was dropped without a word (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void Playback_SwitchedOntoAReplay_KeepsABreakpointOnItsSignal_ThoughTheSignalsAreNumberedAnew()
+        {
+            WorkbenchSession session = Reference();
+            var playback = new Playback(session.Run);
+            int IndexOf(WorkbenchModel model, string key) => model.Signals.TryFind(key, out int signal) ? signal : -1;
+            WorkbenchModel before = session.Run.Model;
+            WaveRow last = before.Layout.Rows[before.Layout.Rows.Count - 1];
+            Assert.IsTrue(before.Session.Design.TryFind(last.Signal, out SignalId id), last.Signal);
+            string key = before.Signals.KeyOf(id.Index);
+            int width = before.Session.Design.Signals[id.Index].Width;
+            playback.Breakpoints.Add(Breakpoint.OnX(id.Index));
+            playback.Breakpoints.Add(Breakpoint.OnValue(id.Index, LogicVec.Fill(Logic4.One, width)));
+            playback.Breakpoints.Add(Breakpoint.At(20));
+
+            Bench(session.Place(PartsCatalog.Find(session.Project, session.Module, "input"), new Placement(-6, 6)));
+            session.Finish();
+            playback.Switch(session.Run);
+            int now = IndexOf(session.Run.Model, key);
+            Assert.AreNotEqual(id.Index, now, $"sanity: {key} is numbered anew");
+
+            Assert.AreEqual(3, playback.Breakpoints.Count, "none dropped");
+            Assert.AreEqual(Breakpoint.OnX(now), playback.Breakpoints[0], $"on {key}, as it is numbered now");
+            Assert.AreEqual(Breakpoint.OnValue(now, LogicVec.Fill(Logic4.One, width)), playback.Breakpoints[1]);
+            Assert.AreEqual(Breakpoint.At(20), playback.Breakpoints[2]);
+        }
+
         private static void Bench(EditResult result) => Assert.IsTrue(result.Done, "refused: " + result.Refusal);
 
         // -----------------------------------------------------------------
