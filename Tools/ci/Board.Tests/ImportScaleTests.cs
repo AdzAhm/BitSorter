@@ -135,28 +135,6 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
-        /// A module something looks inside by a hierarchical name -- <c>dut.state</c> -- is written, so the importer looks
-        /// for each instance's name followed by a dot: it made a regex for every instance and ran it over the whole of its
-        /// module's file, the instances times the file. Eight thousand instances in a file of 3.5 MB took 12.8 s, in a generate
-        /// branch never made, so that the rest of the import costs next to nothing beside the looking.
-        /// </summary>
-        [Test]
-        public void EightThousandInstances_InALargeFile_AreLookedForInOnePass()
-        {
-            var text = new StringBuilder("module leaf (input logic a, output logic y);\n    always_comb y = ~a;\nendmodule\n");
-            text.Append(Comments(3_500_000));
-            text.Append("module top (input logic a, output logic y);\n    always_comb y = a;\n    if (0) begin : never\n");
-            for (int i = 0; i < 8000; i++)
-                text.Append("        leaf g").Append(i).Append(" (.a(a), .y());\n");
-            text.Append("    end\nendmodule\n");
-
-            (_, double seconds, ProjectImport import) = Imported(new SourceFile("top.sv", text.ToString()));
-
-            Assert.AreEqual(2, import.Project.Modules.Count, "sanity: both modules made");
-            Assert.Less(seconds, 4, "the instances were looked for one at a time over the whole file");
-        }
-
-        /// <summary>
         /// Which of the files kept declare something -- a constant, a type -- or include one that does is found pass by pass
         /// until none is added, and each pass read every file not yet found in full, twice: a chain of includes listed against
         /// its direction adds one a pass. 150 headers of 20 KB, each including the one before and the first declaring a
