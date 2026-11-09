@@ -270,6 +270,15 @@ namespace BitSorter.Board
                 return Refused();
             }
 
+            // What a drawing reads its modules from: the ones kept, each the first of its name -- a library cell's included, for
+            // its default delays -- so a module is drawn from the declaration the project has, never one the note says was not
+            // kept, nor one from a file that did not read.
+            var drawable = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
+            foreach (ModuleDeclaration module in tree.Modules)
+                if ((module.Location.File == null || !broken.Contains(SourcePaths.Normalise(module.Location.File))) && !drawable.ContainsKey(module.Name))
+                    drawable[module.Name] = module;
+            HashSet<string> interfaces = BoardImporter.InterfacesOf(tree);
+
             // What the modules name (Part 13f): a file is the project's when a source names it, in quotes and case aside -- by an
             // include, or as a file it reads, a memory image's name passed down as a string included -- or a file so named does.
             // Anything else in a folder imported whole -- a handout, a zip, a simulator's logs -- is not.
@@ -486,7 +495,9 @@ namespace BitSorter.Board
                 texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string fileText);
                 bool template = CourseTemplate.TryRead(fileText, out _);
 
-                Module chosen = module == bench || template || lookedInto.Contains(module.Name) ? null : Drawn(tree, module.Name, WrittenUnder(module.Name), kept);
+                Module chosen = module == bench || template || lookedInto.Contains(module.Name)
+                    ? null
+                    : Drawn(drawable, interfaces, tree.Timescale, module.Name, WrittenUnder(module.Name), kept);
                 if (chosen == null)
                 {
                     chosen = Written(module);
@@ -698,9 +709,10 @@ namespace BitSorter.Board
         }
 
         /// <summary>The module drawn, if it is structural and every module it uses is drawn or <paramref name="written"/>; null otherwise.</summary>
-        private static Module Drawn(SyntaxTree tree, string module, List<Module> written, List<ProjectFile> files)
+        private static Module Drawn(Dictionary<string, ModuleDeclaration> modules, HashSet<string> interfaces, string timescale, string module,
+            List<Module> written, List<ProjectFile> files)
         {
-            ImportResult drawn = BoardImporter.Import(tree, module, written, files);
+            ImportResult drawn = BoardImporter.Import(modules, interfaces, timescale, module, written, files);
             return drawn.Succeeded ? drawn.Project.Find(module) : null;
         }
 

@@ -46,7 +46,40 @@ namespace BitSorter.Board
         /// block of it, pins from its header, rather than drawn, so a structural module over written ones is drawn. The
         /// project's <paramref name="files"/> are what their includes read.
         /// </summary>
-        public static ImportResult Import(SyntaxTree tree, string top, IReadOnlyList<Module> written, IReadOnlyList<ProjectFile> files)
+        public static ImportResult Import(SyntaxTree tree, string top, IReadOnlyList<Module> written, IReadOnlyList<ProjectFile> files) =>
+            Import(ModulesOf(tree), InterfacesOf(tree), tree.Timescale, top, written, files);
+
+        /// <summary>
+        /// The modules of <paramref name="tree"/> by name: of two of one name, the first, as a project keeps it
+        /// (<see cref="ProjectImporter"/>, which says so).
+        /// </summary>
+        internal static Dictionary<string, ModuleDeclaration> ModulesOf(SyntaxTree tree)
+        {
+            var modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
+            foreach (ModuleDeclaration module in tree.Modules)
+                if (!modules.ContainsKey(module.Name))
+                    modules[module.Name] = module;
+            return modules;
+        }
+
+        /// <summary>
+        /// The names of the interfaces of <paramref name="tree"/> (Part L8): no part a board draws, so a module that uses one
+        /// comes in as written code.
+        /// </summary>
+        internal static HashSet<string> InterfacesOf(SyntaxTree tree)
+        {
+            var interfaces = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ModuleDeclaration declared in tree.Interfaces)
+                interfaces.Add(declared.Name);
+            return interfaces;
+        }
+
+        /// <summary>
+        /// The same, from <paramref name="modules"/> by name -- the ones an import keeps, so a drawing is of the module the
+        /// project has (Part 16d) -- and <paramref name="interfaces"/>, with the <paramref name="timescale"/> the files gave.
+        /// </summary>
+        internal static ImportResult Import(Dictionary<string, ModuleDeclaration> modules, HashSet<string> interfaces, string timescale,
+            string top, IReadOnlyList<Module> written, IReadOnlyList<ProjectFile> files)
         {
             var writtenNames = new HashSet<string>(StringComparer.Ordinal);
             if (written != null)
@@ -54,9 +87,6 @@ namespace BitSorter.Board
                     writtenNames.Add(module.Name);
 
             var problems = new List<string>();
-            var modules = new Dictionary<string, ModuleDeclaration>(StringComparer.Ordinal);
-            foreach (ModuleDeclaration module in tree.Modules)
-                modules[module.Name] = module;
 
             if (top == null || !modules.TryGetValue(top, out ModuleDeclaration topModule))
                 return new ImportResult(null, new[] { $"There is no module called {top ?? "(none)"} to draw." });
@@ -96,11 +126,6 @@ namespace BitSorter.Board
 
             Visit(topModule, 0);
 
-            // An interface (Part L8) is no part a board draws; a module that uses one comes in as written code.
-            var interfaces = new HashSet<string>(StringComparer.Ordinal);
-            foreach (ModuleDeclaration declared in tree.Interfaces)
-                interfaces.Add(declared.Name);
-
             if (writtenNames.Contains(top))
                 return new ImportResult(null, new[] { $"{top} is written." });
             var editor = new BoardEditor(new Project
@@ -130,7 +155,7 @@ namespace BitSorter.Board
 
             // A `timescale of one whole unit is the project's unit, as printing one wrote it. One in tens
             // of a unit (10ns/1ns) has none a project can count in, and the delays are read as written.
-            if (TimeUnits.TryUnitOf(tree.Timescale, out string unit))
+            if (TimeUnits.TryUnitOf(timescale, out string unit))
                 editor.SetSettings(editor.Project.Settings with { TimeUnit = unit });
 
             return problems.Count > 0 ? new ImportResult(null, problems) : new ImportResult(editor.Project, problems);
