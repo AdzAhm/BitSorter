@@ -229,14 +229,8 @@ namespace BitSorter.View
         /// <summary>A save that could not be read and whose copy could not be kept either: copied before anything is written over it.</summary>
         private string _keepAsideFrom;
 
-        /// <summary>The stamp of the save as this store last read or wrote it; null for none (<see cref="ProgressFile.stamp"/>).</summary>
-        private string _stamp;
-
-        /// <summary>
-        /// The stamp of this store's last write that did not land: a write that died after the old file went and before the new
-        /// one was moved in leaves it as the temporary file, which is this store's own, never another window's.
-        /// </summary>
-        private string _tried;
+        /// <summary>The stamps of the save that are this store's own: read, written, or written and not landed (<see cref="ProgressFile.stamp"/>).</summary>
+        private readonly BitSorter.ViewModel.SaveStamps _stamps = new BitSorter.ViewModel.SaveStamps();
 
         /// <summary>
         /// Why the save read is a newer BitSorter's, in words -- its format past this one's, or a key this one does not know --
@@ -321,8 +315,7 @@ namespace BitSorter.View
             LastError = null;
             Held = SaveHold.None;
             _keepAsideFrom = null;
-            _stamp = null;
-            _tried = null;
+            _stamps.Read(null);
             FromANewerVersion = null;
             NewerCopy = null;
             _newerFrom = null;
@@ -359,7 +352,7 @@ namespace BitSorter.View
             }
 
             // The stamp as the file has it, damaged or not: what a save from now on is held to (browser-1).
-            _stamp = BitSorter.ViewModel.SaveFile.StampOf(json, out _);
+            _stamps.Read(BitSorter.ViewModel.SaveFile.StampOf(json, out _));
 
             try
             {
@@ -568,15 +561,14 @@ namespace BitSorter.View
                     _newerFrom = null;
                 }
 
-                _tried = stamp;
+                _stamps.Trying(stamp);
                 File.WriteAllText(TempPath, JsonUtility.ToJson(file, true));
 
                 if (File.Exists(_path))
                     File.Delete(_path);
 
                 File.Move(TempPath, _path);
-                _stamp = stamp;
-                _tried = null;
+                _stamps.Wrote(stamp);
                 BrowserSave.Written(stamp);
             }
             catch (Exception exception)
@@ -589,7 +581,7 @@ namespace BitSorter.View
         /// In a browser, has this tab hear from now on of every save another tab writes (<see cref="BrowserSave"/>): its file
         /// system is its own, and never shows it another tab's. <see cref="ProgressTracker"/> asks it once the save is read.
         /// </summary>
-        public void HearOtherWindows() => BrowserSave.Read(_stamp);
+        public void HearOtherWindows() => BrowserSave.Read(_stamps.Known);
 
         /// <summary>
         /// Whether another window has written the save since this store read it or last wrote it (browser-1): the stamp the
@@ -606,8 +598,7 @@ namespace BitSorter.View
                 return false;
             try
             {
-                string now = StampOf(path);
-                return !string.Equals(now, _stamp, StringComparison.Ordinal) && !(now != null && string.Equals(now, _tried, StringComparison.Ordinal));
+                return _stamps.IsAnothers(StampOf(path));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
