@@ -707,6 +707,23 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// A port declared inside a generate block -- a misplaced line, a missing end -- is said where it is: the block's items
+        /// were declared with no module, and the port's check of the module's port list threw a NullReferenceException out of
+        /// Elaborate (the Part 16d sweep).
+        /// </summary>
+        [TestCase("module m (input logic a, output logic y); if (1) begin : g input b; end assign y = a; endmodule")]
+        [TestCase("module m (input logic a, output logic y); for (genvar i = 0; i < 2; i++) begin : g output logic [1:0] z; end assign y = a; endmodule")]
+        [TestCase("module m (a, y); input a; output y; if (1) begin : g input a; end assign y = a; endmodule")]
+        public void APortDeclaredInAGenerateBlock_IsMisplaced_NeverThrown(string text)
+        {
+            Elaboration e = null;
+            Assert.DoesNotThrow(() => e = Elaborate(text));
+            Diagnostic said = e.Diagnostics.Single(d => d.Code == ElaborationCodes.Misplaced);
+            StringAssert.Contains("generate block", said.Message);
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
         /// A constant index at the end of a long is outside, read as x and refused as a target: its element's place, the index
         /// times its element's width, wrapped back to 0, and the select read or wrote element 0 (the Part 16d sweep).
         /// </summary>
