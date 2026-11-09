@@ -739,6 +739,44 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// A case is compiled in time as its labels, not their square: each item's jumps were found by walking every label's,
+        /// so a ROM written as a case of K entries cost K squared -- 16,384 entries some 2.7e8 steps, at every elaboration of
+        /// every instance (the Part 16d sweep). Four times the entries take about four times as long, never sixteen; the tree
+        /// is read before the clock starts, so only the elaboration is timed. And the ROM still gives each entry its word.
+        /// </summary>
+        [Test]
+        public void ACase_IsCompiledInTimeAsItsLabels_NotTheirSquare()
+        {
+            static SyntaxTree Rom(int entries)
+            {
+                var text = new System.Text.StringBuilder("module rom (input logic [15:0] addr, output logic [15:0] d);\n    always_comb\n        case (addr)\n");
+                for (int i = 0; i < entries; i++)
+                    text.Append("            16'd").Append(i).Append(": d = 16'd").Append(i * 7 & 0xFFFF).Append(";\n");
+                text.Append("            default: d = 16'd0;\n        endcase\nendmodule\n");
+                return SyntaxReader.ReadText(text.ToString(), "rom.sv");
+            }
+
+            static (double Ms, Design Design) Build(SyntaxTree tree)
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                Elaboration e = Elaborator.Elaborate(tree);
+                double ms = watch.Elapsed.TotalMilliseconds;
+                Assert.IsNotNull(e.Design, string.Join("\n", e.Diagnostics));
+                return (ms, e.Design);
+            }
+
+            SyntaxTree small = Rom(8_192), large = Rom(32_768);
+            Build(small);   // warmed
+            double few = Build(small).Ms;
+            (double many, Design design) = Build(large);
+            TestContext.WriteLine($"8,192 entries {few:F0} ms, 32,768 entries {many:F0} ms: {many / Math.Max(few, 1e-3):F1} times");
+            Assert.Less(many, 8 * few + 100, $"32,768 entries took {many:F0} ms where 8,192 took {few:F0}: four times the labels, not sixteen");
+
+            Assert.AreEqual(U(12345 * 7 & 0xFFFF, 16), Settle(design, ("addr", U(12345, 16))).Value(design.Find("rom.d")), "entry 12,345");
+            Assert.AreEqual(U(0, 16), Settle(design, ("addr", U(40000, 16))).Value(design.Find("rom.d")), "past the entries, the default");
+        }
+
+        /// <summary>
         /// What cannot be built is said, never only dropped: an indexed part-select of no width, read or written, a $clog2 of
         /// no value or of x, and a cast to no width or past the widest each set the builder's Failed with nothing in the
         /// diagnostics, so the assign or the whole process went and the design ran without a word (the Part 16d sweep).
