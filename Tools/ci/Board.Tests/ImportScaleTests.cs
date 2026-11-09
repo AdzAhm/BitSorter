@@ -189,6 +189,33 @@ namespace BitSorter.Board.Tests
             Assert.Less(made, 128 * Megabyte, "what it carried was parsed with each module");
         }
 
+        /// <summary>
+        /// A file whose conditionals choose between its modules cannot be cut into texts of their own, so each of its modules
+        /// comes in alone, saying why -- and what a cut would have carried is carried nowhere, so it is charged nothing. The cut
+        /// was made and charged before it was thrown away, and past 4 MB of what was never carried the import was refused.
+        /// </summary>
+        [Test]
+        public void AFileThatCannotBeCut_IsChargedNothingForWhatItWouldHaveCarried()
+        {
+            var text = new StringBuilder("`ifndef SLOW\n");
+            for (int m = 0; m < 120; m++)
+            {
+                for (int d = 0; m > 0 && d < 60; d++)
+                    text.Append("`define W").Append(m).Append('_').Append(d).Append(" 1\n");
+                text.Append("module m").Append(m).Append(" (input logic clk, output logic q);\n    always_ff @(posedge clk) q <= ~q;\nendmodule\n");
+                if (m == 0)
+                    text.Append("`endif\n");
+            }
+
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("many.sv", text.ToString()) });
+            string notes = string.Join("\n", import.Notes);
+
+            StringAssert.DoesNotContain("says so much between its modules", notes, "refused for what it never carried");
+            StringAssert.Contains("chooses between its modules", notes, "sanity: it says why its modules come in alone");
+            Assert.IsTrue(import.Succeeded, notes);
+            Assert.AreEqual(120, import.Project.Modules.Count, "each module alone");
+        }
+
         /// <summary>The pair of the one above: a table of a thousand defines over a hundred modules, each using one, is carried whole.</summary>
         [Test]
         public void ATableOfDefinesOverAHundredModules_IsCarriedIntoEach()
