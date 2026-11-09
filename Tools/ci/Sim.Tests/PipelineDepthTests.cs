@@ -283,6 +283,30 @@ namespace BitSorter.Sim.Tests
             Assert.AreEqual(1, temporary.Stages);
         }
 
+        /// <summary>
+        /// A blocking temporary given a value on every way through is not kept from the edge before (the 16d sweep): each arm
+        /// of an if and its else was taken as on some ways only, its value joined to the temporary's last, so a 1-stage design
+        /// read as paths of 1 to 2 registers -- and a temporary's first value, written over on every way, still reached y.
+        /// </summary>
+        [Test]
+        public void ATemporaryWrittenOnEveryWay_IsNotKept_AndWhatItWasIsGone()
+        {
+            const string Head = "module m (input logic clk, sel, a, b, output logic y); logic t; always_ff @(posedge clk) begin ";
+            Assert.AreEqual(1, Depth(Head + "if (sel) t = a; else t = b; y <= t; end endmodule\n").Stages, "an if and its else");
+            Assert.AreEqual(1, Depth(Head + "case (sel) 1'b0: t = a; default: t = b; endcase y <= t; end endmodule\n").Stages,
+                "every arm of a case with a default");
+            Assert.AreEqual(1, Depth(Head + "t = b; if (sel) t = a; y <= t; end endmodule\n").Stages, "a value first, then another on some ways");
+
+            PipelineDepth over = Depth(Head + "t = y; if (sel) t = a; else t = b; y <= t; end endmodule\n");
+            Assert.IsFalse(over.Loop, "y's own value, written over on every way, never reaches y");
+            Assert.AreEqual(1, over.Stages);
+
+            PipelineDepth some = Depth(Head + "if (sel) t = a; y <= t; end endmodule\n");
+            Assert.IsNull(some.Stages, "written on some ways only, t keeps a from an edge before on the others");
+            Assert.AreEqual(1, some.Fewest);
+            Assert.AreEqual(2, some.Most);
+        }
+
         [Test]
         public void AWordWrittenAtAPlaceFoundAsItRuns_IsNotFollowed()
         {
