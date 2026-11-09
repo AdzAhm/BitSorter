@@ -208,6 +208,19 @@ namespace BitSorter.ViewModel
                     if (_drawnSignals[i] >= 0)
                         _drawnRead[_drawnSignals[i]] = true;
                 }
+
+                // The memories it reads a word of by its address, found in this run by name: the word addressed is read off
+                // the run's history as it is asked for, and no word is followed (the 16d sweep, waves-14).
+                IReadOnlyList<MemoryInfo> memories = layout.Drawn.Memories;
+                if (memories.Count > 0)
+                {
+                    _drawnMemories = new MemoryInfo[memories.Count];
+                    for (int k = 0; k < memories.Count; k++)
+                        for (int m = 0; m < design.Memories.Count; m++)
+                            if (design.Memories[m].Name == memories[k].Name && design.Memories[m].Width == memories[k].Width)
+                                _drawnMemories[k] = design.Memories[m];
+                    _drawnWord = DrawnWord;
+                }
             }
 
             SetRows(rows);
@@ -546,8 +559,14 @@ namespace BitSorter.ViewModel
         private int[] _drawnSignals;
         private bool[] _drawnRead;
         private LogicVec[] _drawnInputs, _drawnValues, _drawnInner;
-        private long _drawnStep;
+        private long _drawnStep, _drawnRecorded;
         private bool _drawnStale = true;
+
+        /// <summary>This run's own memory of each of the drawing's <see cref="DrawnValues.Memories"/>, or null where it has none.</summary>
+        private MemoryInfo[] _drawnMemories;
+
+        /// <summary><see cref="DrawnWord"/>, made once: what the netlist asks a word of a memory of.</summary>
+        private Func<MemoryInfo, int, LogicVec> _drawnWord;
 
         /// <summary>
         /// A wire of a drawing of code no signal holds: the netlist worked out from this run's signals now, once a step. Every
@@ -559,8 +578,10 @@ namespace BitSorter.ViewModel
         {
             DrawnValues drawn = Layout.Drawn;
             long step = (long)Math.Floor(Time + 1e-9);
-            if (_drawnStale || step != _drawnStep)
+            if (_drawnStale || step != _drawnStep || (_drawnWord != null && _history.Recorded != _drawnRecorded))
             {
+                _drawnStep = step;
+                _drawnRecorded = _history.Recorded;   // a word is read off the history, which may have more to it since
                 if (_drawnInputs == null)
                 {
                     _drawnInputs = new LogicVec[drawn.SignalCount];
@@ -575,18 +596,37 @@ namespace BitSorter.ViewModel
                 // Into the same arrays each step: playing, a step is a few frames (the zero-GC pass, Part 16).
                 if (_drawnValues == null || _drawnValues.Length != drawn.Netlist.Nets.Count)
                     _drawnValues = new LogicVec[drawn.Netlist.Nets.Count];
-                RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs, _drawnValues);
+                RtlEvaluator.Evaluate(drawn.Netlist, _drawnInputs, _drawnValues, _drawnWord);
                 if (drawn.Drawing != null && drawn.Drawing.InnerCount > 0)
                 {
                     if (_drawnInner == null || _drawnInner.Length != drawn.Drawing.InnerCount)
                         _drawnInner = new LogicVec[drawn.Drawing.InnerCount];
                     drawn.Drawing.Inner(_drawnValues, _drawnInner);
                 }
-                _drawnStep = step;
                 _drawnStale = false;
             }
             int at = drawn.RtlNetOf(net);
             return at >= 0 ? _drawnValues[at] : _drawnInner[-2 - at];   // a wire inside an opening into gates (GATES)
+        }
+
+        /// <summary>
+        /// The word <paramref name="at"/> words past the lowest of a memory the drawing of code reads by its address, at the step
+        /// being worked out: this run's word of the memory of that name, read off its history; an x where the run has no such word.
+        /// </summary>
+        private LogicVec DrawnWord(MemoryInfo memory, int at)
+        {
+            IReadOnlyList<MemoryInfo> memories = Layout.Drawn.Memories;
+            for (int k = 0; k < memories.Count; k++)
+            {
+                if (!ReferenceEquals(memories[k], memory))
+                    continue;
+                MemoryInfo run = _drawnMemories[k];
+                if (run == null || at >= run.Depth)
+                    break;
+                SignalId word = run.Word(run.Lowest + at);
+                return _history.ChangeCount(word) > 0 ? _history.ValueAt(word, _drawnStep) : LogicVec.AllX(memory.Width);
+            }
+            return LogicVec.AllX(memory.Width);
         }
 
         /// <summary>The value a part's signal holds now: a lamp's, what it shows.</summary>

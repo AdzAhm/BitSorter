@@ -6,7 +6,7 @@ namespace BitSorter.Sim.Tests
 {
     /// <summary>
     /// <see cref="RtlEvaluator"/> evaluating into an array of the caller's (the zero-GC pass, Part 16), as the workbench does
-    /// once a moment while a drawing of code plays: every net reads what a new array of its own would, whatever the array
+    /// once a step while a drawing of code plays: every net reads what a new array of its own would, whatever the array
     /// held before, and once the netlist has been evaluated once, nothing is allocated for it.
     /// </summary>
     public class RtlEvaluatorReuseTests
@@ -104,6 +104,49 @@ namespace BitSorter.Sim.Tests
             for (int k = 0; k < times; k++)
                 RtlEvaluator.Evaluate(netlist, signals, values);
             return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        /// <summary>
+        /// A word a memory is read at by its address, asked of a reader of the caller's rather than read off the signals -- every
+        /// word of them x, so a word read there would show -- reads what it does off the signals, and every net with it: what the
+        /// workbench gives a drawing of code, which follows no word of a memory (the 16d sweep, waves-14).
+        /// </summary>
+        [Test]
+        public void AWordAskedOfAReader_ReadsAsOffTheSignals()
+        {
+            (Design design, Simulator sim) = Pipelined();
+            sim.RunTo(400);
+            LogicVec[] signals = Values(design, sim);
+            var noWords = (LogicVec[])signals.Clone();
+            foreach (MemoryInfo memory in design.Memories)
+                for (int at = 0; at < memory.Depth; at++)
+                    noWords[memory.First.Index + at] = LogicVec.AllX(memory.Width);
+            int asked = 0;
+            LogicVec Word(MemoryInfo memory, int at)
+            {
+                asked++;
+                return signals[memory.First.Index + at];
+            }
+
+            int netlists = 0;
+            foreach (ScopeInfo scope in design.Scopes)
+            {
+                if (scope.Kind != ScopeKind.Instance)
+                    continue;
+                RtlNetlist netlist = RtlExtractor.Of(design, scope.Path);
+                if (netlist == null || !System.Linq.Enumerable.Any(netlist.Cells, c => c.Kind == RtlKind.Word))
+                    continue;
+                netlists++;
+                LogicVec[] read = RtlEvaluator.Evaluate(netlist, signals);
+                var asking = new LogicVec[netlist.Nets.Count];
+                RtlEvaluator.Evaluate(netlist, noWords, asking, Word);
+                for (int i = 0; i < read.Length; i++)
+                    Assert.AreEqual(read[i].IsEmpty ? "" : read[i].Format(Radix.Binary), asking[i].IsEmpty ? "" : asking[i].Format(Radix.Binary),
+                        $"{scope.Path}.{netlist.Nets[i].Name}");
+            }
+
+            Assert.Greater(netlists, 0, "sanity: a module of the processor reads a word of a memory by its address");
+            Assert.Greater(asked, 0, "sanity: and its words were asked for");
         }
 
         [Test]

@@ -39,12 +39,22 @@ namespace BitSorter.Sim
         public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values) => Evaluate(netlist, signals, values, -1, default);
 
         /// <summary>
+        /// The same, a word a memory is read at by its address (<see cref="RtlKind.Word"/>) asked of <paramref name="word"/> -- given
+        /// the memory and the word's place from its lowest -- rather than read off <paramref name="signals"/>: for a caller that keeps
+        /// no value for every word of a memory, when the netlist reads one at a time (the 16d sweep, waves-14: the workbench followed
+        /// each of a 65,536-word memory's words to show the one addressed). Null reads them off <paramref name="signals"/>.
+        /// </summary>
+        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values, Func<MemoryInfo, int, LogicVec> word) =>
+            Evaluate(netlist, signals, values, -1, default, word);
+
+        /// <summary>
         /// The same, with the net <paramref name="held"/> at <paramref name="value"/> whatever drives it, as if it were an input:
         /// every cell reading it reads that, and the cell driving it is not worked out. How a decoder on a signal the module
         /// works out itself is tried at each of its labels, however seldom its inputs bring the signal there
-        /// (<c>ControllerCheck</c>, the review of the 16d fixes). -1 holds none.
+        /// (<c>ControllerCheck</c>, the review of the 16d fixes). -1 holds none. A memory's words as above.
         /// </summary>
-        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values, int held, LogicVec value)
+        public static void Evaluate(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values, int held, LogicVec value,
+            Func<MemoryInfo, int, LogicVec> word = null)
         {
             if (netlist == null)
                 throw new ArgumentNullException(nameof(netlist));
@@ -82,9 +92,9 @@ namespace BitSorter.Sim
                 values[output] = output == held ? value : nets[output].Signal >= 0 ? signals[nets[output].Signal] : LogicVec.AllX(nets[output].Width);
 
             foreach (RtlCell cell in plan.Order)
-                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan);
+                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan, word);
             foreach (RtlCell cell in plan.Looped)
-                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan);
+                values[cell.Output] = cell.Output == held ? value : Apply(cell, values, signals, nets, plan, word);
         }
 
         /// <summary>
@@ -187,7 +197,8 @@ namespace BitSorter.Sim
         private static LogicVec In(RtlCell cell, int pin, LogicVec[] values) => values[cell.InputList[pin]];
 
         /// <summary>One cell's output, from its inputs' values: the engine's own operator for each kind.</summary>
-        private static LogicVec Apply(RtlCell cell, LogicVec[] values, LogicVec[] signals, IReadOnlyList<RtlNet> nets, Plan plan)
+        private static LogicVec Apply(RtlCell cell, LogicVec[] values, LogicVec[] signals, IReadOnlyList<RtlNet> nets, Plan plan,
+            Func<MemoryInfo, int, LogicVec> word)
         {
             switch (cell.Kind)
             {
@@ -231,7 +242,9 @@ namespace BitSorter.Sim
                 {
                     MemoryInfo memory = cell.Memory;
                     int at = memory == null ? -1 : Expr.WordAt(In(cell, 0, values), memory.Depth);
-                    return at >= 0 ? signals[memory.First.Index + at] : LogicVec.AllX(nets[cell.Output].Width);
+                    if (at < 0)
+                        return LogicVec.AllX(nets[cell.Output].Width);
+                    return word != null ? word(memory, at) : signals[memory.First.Index + at];
                 }
                 case RtlKind.Opaque:
                     return cell.Source.Evaluate(signals);

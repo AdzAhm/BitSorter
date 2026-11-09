@@ -8,7 +8,8 @@ namespace BitSorter.ViewModel
 {
     /// <summary>
     /// What a drawing of code's wires that no signal holds (Part 15h-4) -- an adder's output inside <c>assign y = a + b + c</c>
-    /// -- are worked out from: the netlist, the net each of the layout's wires carries, and the signals it reads, by name.
+    /// -- are worked out from: the netlist, the net each of the layout's wires carries, and the signals it reads, by name, with
+    /// the memories it reads a word of.
     /// A model works the values out at a moment with the engine's own operators (<see cref="RtlEvaluator"/>), the signals
     /// read off its own run by those names -- never by the numbers of the design the netlist was made from, which an edit
     /// replayed under an older run does not share (the review of #108: undo and redo read the wrong signals, and threw).
@@ -38,8 +39,11 @@ namespace BitSorter.ViewModel
                 throw new ArgumentNullException(nameof(design));
             SignalCount = design.Signals.Count;
 
-            // What the netlist reads off the design: every net that is a signal, a register's signal, a memory's words.
+            // What the netlist reads off the design: every net that is a signal, a register's signal -- and the memories it
+            // reads a word of by its address, whose words are asked for one at a time as the address names them, never each
+            // followed (the 16d sweep, waves-14: a 65,536-word memory was 65,536 signals read at every step).
             var reads = new SortedSet<int>();
+            var memories = new List<MemoryInfo>();
             foreach (RtlNet net in netlist.Nets)
                 if (net.Signal >= 0)
                     reads.Add(net.Signal);
@@ -47,10 +51,10 @@ namespace BitSorter.ViewModel
             {
                 if (cell.Kind == RtlKind.Register && cell.Signal >= 0)
                     reads.Add(cell.Signal);
-                if (cell.Kind == RtlKind.Word && cell.Memory != null)
-                    for (int word = 0; word < cell.Memory.Depth; word++)
-                        reads.Add(cell.Memory.First.Index + word);
+                if (cell.Kind == RtlKind.Word && cell.Memory != null && !memories.Contains(cell.Memory))
+                    memories.Add(cell.Memory);
             }
+            Memories = memories;
             _reads = new int[reads.Count];
             reads.CopyTo(_reads);
             _names = new string[_reads.Length];
@@ -79,6 +83,13 @@ namespace BitSorter.ViewModel
 
         /// <summary>Each of <see cref="Reads"/>' widths: an x of it where a run has no such signal.</summary>
         public IReadOnlyList<int> ReadWidths => _widths;
+
+        /// <summary>
+        /// The netlist's design's memories it reads a word of by its address (<see cref="RtlKind.Word"/>), each once: their words
+        /// are none of <see cref="Reads"/>, and a model gives the one addressed as it is asked for, found in its own run by the
+        /// memory's name (<see cref="RtlEvaluator.Evaluate(RtlNetlist, LogicVec[], LogicVec[], Func{MemoryInfo, int, LogicVec})"/>).
+        /// </summary>
+        public IReadOnlyList<MemoryInfo> Memories { get; }
 
         /// <summary>Whether the layout's net <paramref name="net"/> is one whose value is worked out here.</summary>
         public bool Has(int net) => net >= 0 && net < _rtlNetOf.Length && _rtlNetOf[net] != -1;

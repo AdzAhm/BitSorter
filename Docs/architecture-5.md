@@ -3659,7 +3659,11 @@ instances inside written code stepped into, and GATES opening its small operator
   wires ask: every signal reads its step's settled value, so the values are worked out again only when the step shown
   changes or a signal read grows -- playing, a moment is a frame, and a step nineteen of them at the default speed (the
   16d sweep, waves-8: the multicycle controller with GATES open was worked out at every frame, 284 microseconds and 88 KB). `DrawnValues` names those signals, and each model finds them in its own run by name: the layout of an
-  edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise.
+  edit is handed to the run shown until its replay takes over, and that run's design numbers its signals otherwise. **A
+  memory read by its address is no signal of them** (the 16d sweep, waves-14): `DrawnValues.Memories` names it, and the
+  evaluator asks the model for the word the address names (`RtlEvaluator.Evaluate` with a word reader), which reads it off
+  its run's history by the memory's name -- every word had been a signal the model followed, a track each, so a
+  65,536-word memory drawn made 49 MB with a model, 37 MB past one of its code, and took a millisecond or more a frame.
 - **Stepping inside written code**: a double-click on a block of the drawing steps into the instance its code makes --
   the canvas finds what is under the pointer on the drawing itself (`WorkbenchSession.DrawnModule`, `CanStepInto`),
   found again whenever a step is taken outside it -- DRAWING among them -- and
