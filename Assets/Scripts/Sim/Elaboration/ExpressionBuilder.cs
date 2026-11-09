@@ -1775,15 +1775,21 @@ namespace BitSorter.Sim
                         return Expr.Constant(LogicVec.AllX(32, true));
                     }
 
-                    int bits = 0;
-                    LogicVec one = LogicVec.FromUInt64(1, value.Width);
-                    LogicVec n = LogicVec.Subtract(value.AsUnsigned(), one);
                     if (LogicVec.Truth(value) == Logic4.Zero)
                         return Expr.Constant(LogicVec.FromInt64(0, 32, true));
-                    while (LogicVec.Truth(n) == Logic4.One)
+
+                    // The bits v - 1 needs: one past its highest 1, found from the top. Shifted right a place at a time, a
+                    // vector of its width at every step, a million ones cost a million vectors of a million bits (the Part 16d
+                    // sweep).
+                    LogicVec n = LogicVec.Subtract(value.AsUnsigned(), LogicVec.FromUInt64(1, value.Width));
+                    int bits = 0;
+                    for (int i = n.Width - 1; i >= 0; i--)
                     {
-                        n = LogicVec.ShiftRight(n, LogicVec.FromUInt64(1, 8));
-                        bits++;
+                        if (n[i] == Logic4.One)
+                        {
+                            bits = i + 1;
+                            break;
+                        }
                     }
 
                     return Expr.Constant(LogicVec.FromInt64(bits, 32, true));
