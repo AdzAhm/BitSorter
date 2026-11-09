@@ -4568,7 +4568,9 @@ something needed").
   `ProjectImporter.MaxCarried`, 4 MB, all an import's files together): each written module carries every define, include
   and conditional above it, which it saw there, so a file of modules with defines between them carried the square of
   them, each parsed with its module. A cut is charged what it carries before its text is made, and past the bound the
-  import is refused, said once, with the way round it -- what the modules share in a file of its own, included. Each gap's
+  import is refused, said once, with the way round it -- what the modules share in a file of its own, included. A file
+  that cannot be cut -- its conditionals choose between its modules -- makes no cut and is charged nothing, each module
+  coming in alone as before (it was charged first and refused past the bound, the branch's review found). Each gap's
   directives are found once, too, where each cut walked every earlier gap from the file's first line. A hundred and
   twenty modules after sixty defines each made 824 MB in 4.8 s and are refused in 0.13 s; a table of a thousand
   defines over a hundred modules, 1.9 MB carried, is carried as before; and all 80 imports of the corpus and the

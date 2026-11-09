@@ -154,6 +154,11 @@ namespace BitSorter.Board
                 return null;
             }
 
+            // A file that cannot be cut makes no cut, so it carries nothing and is charged nothing: its module comes in alone.
+            // Made and charged before the caller threw it away, what it never carried counted against the import's bound.
+            if (problem != null)
+                return null;
+
             (int start, int end) = _bodies[own];
             var kept = new List<string>();
             var inside = new List<string>();
