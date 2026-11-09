@@ -299,6 +299,39 @@ namespace BitSorter.Sim.Tests
             Assert.IsNull(depth.Stages);
         }
 
+        /// <summary>
+        /// A memory written with = at a word found as it runs costs what one written with &lt;= does (the 16d sweep): every bit
+        /// of every word was given a copy of all the write reads -- 4,096 words of 32 bits, 65 bits read, 939 MB in the frame
+        /// TIMING opened -- where &lt;= meets at one junction. Both are followed only enough to find a loop, and say so.
+        /// </summary>
+        [Test]
+        public void AMemoryWrittenWithEquals_AtAWordFoundAsItRuns_CostsWhatOneWrittenLater_Does()
+        {
+            static TimingGraph Ram(string assign)
+            {
+                string text = "module m (input logic clk, we, input logic [9:0] addr, input logic [31:0] wdata, output logic [31:0] rdata);\n" +
+                    "    logic [31:0] mem [0:1023];\n" +
+                    $"    always_ff @(posedge clk) if (we) mem[addr] {assign} wdata;\n" +
+                    "    assign rdata = mem[addr];\n" +
+                    "endmodule\n";
+                Elaboration e = Elaborator.Elaborate(SyntaxReader.ReadText(text, "ram.sv"), null);
+                Assert.IsFalse(e.HasErrors, string.Join("\n", e.Diagnostics));
+                return TimingGraph.Of(e.Design);
+            }
+            static long Cost(TimingGraph graph, out PipelineDepth depth)
+            {
+                PipelineDepth.Of(graph);
+                long before = System.GC.GetAllocatedBytesForCurrentThread();
+                depth = PipelineDepth.Of(graph);
+                return System.GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+
+            long blocking = Cost(Ram("="), out PipelineDepth now), later = Cost(Ram("<="), out PipelineDepth atTheEdge);
+            TestContext.WriteLine($"= {blocking / 1024 / 1024} MB, <= {later / 1024 / 1024} MB");
+            Assert.IsTrue(now.Unfollowed && atTheEdge.Unfollowed, "a word found as it runs is not followed, either way");
+            Assert.Less(blocking, 2 * later, "the same memory, the same write: a junction either way");
+        }
+
         [Test]
         public void AClock_StartsNoPath_AndAResetDecidesNoStage()
         {
