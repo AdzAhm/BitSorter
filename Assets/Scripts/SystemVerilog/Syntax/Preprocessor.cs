@@ -27,8 +27,9 @@ namespace BitSorter.SystemVerilog.Syntax
 
         /// <summary>
         /// How much macros and includes may make in one import, every file read together (<see cref="ExpansionBudget"/>) --
-        /// each use of a macro, each token one makes, each argument put in and each character a <c>`"...`"</c> spells out,
-        /// and each token of a file included -- before the reader stops expanding them (Part 13f). Depth alone does not bound
+        /// each use of a macro and each token of its body, each argument put in and each character a <c>`"...`"</c> spells out,
+        /// and each token of a file included -- before the reader stops expanding them (Part 13f). A body is paid for whole,
+        /// as it is used: a token of it in a dropped stretch makes nothing, but is walked all the same (the 16d sweep). Depth alone does not bound
         /// it: macros that each use the one before twice, or files that each include the next twice, make two to the power
         /// of the chain's length, and a chain of 31 is inside <see cref="MaxDepth"/>. A course project makes a few thousand.
         /// Charged before what it pays for is made, so nothing past it is ever allocated.
@@ -126,8 +127,8 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 if (token.Kind != TokenKind.Directive)
                 {
-                    if (Active && (macroDepth == 0 || Spend(1, null)))
-                        _output.Add(token);
+                    if (Active)
+                        _output.Add(token);   // a body's tokens were paid for by its use, whole
                     continue;
                 }
 
@@ -400,9 +401,11 @@ namespace BitSorter.SystemVerilog.Syntax
                 return 0;
             }
 
+            // The use and every token of its body, before the body is walked: one in a dropped stretch puts out nothing, but a
+            // macro doubling over a body that is mostly `ifdef'd away walked it a million times, charged for none (the 16d sweep).
             if (macroDepth == 0)
                 _outermostUse = token;
-            if (!Spend(1, null))
+            if (!Spend(1 + macro.Body.Count, null))
                 return 0;
 
             List<Token> body = macro.Body;
@@ -428,8 +431,8 @@ namespace BitSorter.SystemVerilog.Syntax
                     return consumed;
             }
 
-            var withEnd = new List<Token>(body) { new Token(TokenKind.EndOfFile, string.Empty, token.Location, token.LogicalLine) };
-            Process(withEnd, macroDepth + 1, depth + 1);
+            // Walked where it is, never copied: nothing writes to a body, and its end is the list's.
+            Process(body, macroDepth + 1, depth + 1);
             return consumed;
         }
 
