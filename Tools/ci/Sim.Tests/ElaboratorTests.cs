@@ -707,6 +707,27 @@ endmodule", "top");
         }
 
         /// <summary>
+        /// What cannot be built is said, never only dropped: an indexed part-select of no width, read or written, a $clog2 of
+        /// no value or of x, and a cast to no width or past the widest each set the builder's Failed with nothing in the
+        /// diagnostics, so the assign or the whole process went and the design ran without a word (the Part 16d sweep).
+        /// </summary>
+        [TestCase("module m #(parameter W = 0) (input logic [7:0] d, output logic [3:0] y); assign y = d[0 +: W]; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m #(parameter W = -2) (input logic [7:0] d, output logic [3:0] y); assign y = d[7 -: W]; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m #(parameter W = 0) (input logic a, output logic [7:0] y); assign y[0 +: W] = a; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m #(parameter W = 0) (input logic a); logic [7:0] y; initial y[0 +: W] = a; endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m; int x; initial x = $clog2(); endmodule", ElaborationCodes.BadCall)]
+        [TestCase("module m; int x; initial x = $clog2(4, 2); endmodule", ElaborationCodes.BadCall)]
+        [TestCase("module m; int x; initial x = $clog2(4'b1x01); endmodule", ElaborationCodes.NotConstant)]
+        [TestCase("module m (input logic [7:0] v, output logic [7:0] y); assign y = 0'(v); endmodule", ElaborationCodes.BadSelect)]
+        [TestCase("module m (input logic [7:0] v, output logic [7:0] y); assign y = 2000000'(v); endmodule", ElaborationCodes.TooLarge)]
+        public void WhatCannotBeBuilt_IsSaid_NeverOnlyDropped(string text, string code)
+        {
+            Elaboration e = Elaborate(text);
+            CollectionAssert.Contains(Codes(e), code, string.Join("\n", e.Diagnostics));
+            Assert.IsNull(e.Design);
+        }
+
+        /// <summary>
         /// A port declared inside a generate block -- a misplaced line, a missing end -- is said where it is: the block's items
         /// were declared with no module, and the port's check of the module's port list threw a NullReferenceException out of
         /// Elaborate (the Part 16d sweep).
