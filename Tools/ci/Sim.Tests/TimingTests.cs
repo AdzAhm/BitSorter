@@ -420,6 +420,18 @@ endmodule");
             Assert.Less(graph.Arcs.Count, 3 * 2 * 256 * 8, "about one arc for each bit read and each bit written");
         }
 
+        /// <summary>
+        /// A value whose bits' pairs cost more than a junction meets at one however wide it is (the 16d sweep): whether pairing
+        /// cost more was asked of the pairs counted only to just past 4,096, so a sum 1,400 bits wide -- 2,800 sources, nearly
+        /// two million pairs -- was paired, an arc for every pair, more than half a gigabyte in the frame TIMING opened.
+        /// </summary>
+        [Test]
+        public void AValueWhosePairsCostMoreThanAJunction_MeetsAtOne_HoweverWide()
+        {
+            TimingGraph sum = Graph("module m (output logic o); logic [1399:0] a, b, s; assign s = a + b; assign o = s[0]; endmodule");
+            Assert.Less(sum.Arcs.Count, 4 * 1400, "an arc for each of a's and b's bits into the junction, and one out of it for each of s's");
+        }
+
         /// <summary>A register's delay that calls a function is the run's to know: taken as 0, never a crash.</summary>
         [Test]
         public void ARegisterDelayCallingAFunction_IsNoConstant_AndNoCrash()
