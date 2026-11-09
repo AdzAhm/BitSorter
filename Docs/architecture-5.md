@@ -2234,7 +2234,9 @@ and one browser build for Part 13's checks -- and Part 12f's.
   (`ProjectImporter.Reads`): the desktop's Import folder and the browser's picker -- handed the limits by the game -- read
   nothing over them, leave a hidden folder's files out before counting, and pass a file they leave unread as
   `SourceFile.Unread`, its path and size, for the import to name. A file the desktop cannot open is left out the same
-  way rather than thrown.
+  way rather than thrown. **And 200 modules** (`MaxModules`, Part 16d's sweep), refused the same way: one file holds any
+  number, and every written module is read among all the others, so a file of a thousand small modules made 35 GB in
+  55 s; the corpus's pipelined processor has seventeen.
 - **The security review** took an import as untrusted text and tried each layer's limits against it. Three were missing,
   each found, held by a red test and fixed:
   - **Macros and includes that make too much.** Each macro of a chain using the one before twice makes two to the power
@@ -4541,6 +4543,13 @@ something needed").
   first new error is about. The thousand gates make 11 MB in 0.07 s, and 4,000 make 38 MB; every one of 135 imports --
   each corpus folder, each corpus file alone and each of its modules drawn, and each exercise solution -- comes out
   identical, its notes included, compared old against new. Held by `ImportScaleTests`.
+- **An import makes at most 200 modules** (`ProjectImporter.MaxModules`, refused asking whether it is one project, as too
+  many files is). Each module cost work in proportion to them all: every written module is read among all the others
+  (`WrittenModules.ReadAnew`), so a check of the project is the square of its modules, and past the 512 reads
+  `WrittenModules` keeps -- room it took 200 files to be enough for, though one file holds any number -- the cube. One
+  file of a thousand small written modules made 35 GB in 55 s, and with a define between each, ran out of memory; it is
+  refused in 0.01 s, and two hundred import in half a second (`ImportLimitsTests`). Whether a file is a course template is
+  read once a file now, not once a module.
 - **A file is read once for the paths that look inside its instances** (`ProjectImporter.LookedInto`): a module a testbench
   looks inside -- `dut.state` -- is written, and the importer found such paths with a regex made for each named instance,
   cells included, run over the whole of its module's file, so the instances times the file. Each file's paths are found

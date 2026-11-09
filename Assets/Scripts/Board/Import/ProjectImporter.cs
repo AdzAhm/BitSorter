@@ -125,6 +125,14 @@ namespace BitSorter.Board
         /// </summary>
         public const int MaxFiles = 200;
 
+        /// <summary>
+        /// How many modules one import makes (Part 16d). Files are no bound on them -- one holds any number -- and every written
+        /// module is read among all the others (<see cref="WrittenModules"/>), so a check of a project costs the square of its
+        /// modules, and past the reads it keeps the cube: one file of a thousand small modules made 35 GB in 55 s, in one
+        /// frame. The corpus's pipelined processor has seventeen.
+        /// </summary>
+        public const int MaxModules = 200;
+
         /// <summary>How large one file may be, in characters: 4 MB, where the course's largest file is ten thousand.</summary>
         public const long MaxFileSize = 4L << 20;
 
@@ -274,6 +282,13 @@ namespace BitSorter.Board
             if (modules.Count == 0)
             {
                 Note(null, 0, 0, "No module could be read from the files.", true);
+                return Refused();
+            }
+
+            if (modules.Count > MaxModules)
+            {
+                Note(null, 0, 0, $"There are {modules.Count.ToString(CultureInfo.InvariantCulture)} modules here, and an import takes at most " +
+                    $"{MaxModules}. Is this one project?", true);
                 return Refused();
             }
 
@@ -495,6 +510,16 @@ namespace BitSorter.Board
             var decided = new Dictionary<string, Module>(StringComparer.Ordinal);
             var written = new List<Module>();
 
+            // Whether a file is a course template (Part 13e), read once a file: read for each of its modules, a file of many
+            // read itself as many times.
+            var templates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            bool IsTemplate(string file, string text)
+            {
+                if (!templates.TryGetValue(file, out bool template))
+                    templates[file] = template = CourseTemplate.TryRead(text, out _);
+                return template;
+            }
+
             // The written modules a module makes, all the way down: all a drawing of it can place as blocks. Handed every
             // module written so far, each edit of the attempt checked all of them again: 460 MB in one frame for the
             // pipelined processor, whose every module comes in written (Part 16b).
@@ -520,8 +545,9 @@ namespace BitSorter.Board
                         Decide(inner, depth + 1);
 
                 // A course template (Part 13e) is written, its markers kept, so the student's code goes between them.
-                texts.TryGetValue(SourcePaths.Normalise(module.Location.File ?? ""), out string fileText);
-                bool template = CourseTemplate.TryRead(fileText, out _);
+                string ownFile = SourcePaths.Normalise(module.Location.File ?? "");
+                texts.TryGetValue(ownFile, out string fileText);
+                bool template = IsTemplate(ownFile, fileText);
 
                 Module chosen = module == bench || template || lookedInto.Contains(module.Name)
                     ? null

@@ -82,8 +82,9 @@ namespace BitSorter.Board
     /// </remarks>
     public static class WrittenModules
     {
-        // Room for every module of the largest import (ProjectImporter.MaxFiles, 200) and a few documents of them: at 128 a
-        // project of more written modules than that emptied the caches on every check.
+        // Room for every module of the largest import (ProjectImporter.MaxModules, 200) and a few documents of them: at 128 a
+        // project of more written modules than that emptied the caches on every check. It once counted on the import's 200
+        // files to bound the modules, which one file of a thousand got round (Part 16d).
         private const int KeptResults = 512;
         private static readonly Dictionary<string, WrittenModule> Kept = new Dictionary<string, WrittenModule>(StringComparer.Ordinal);
         private static readonly Dictionary<string, (SyntaxTree Tree, List<SourceLocation> TimeDeclarations)> Parsed =
