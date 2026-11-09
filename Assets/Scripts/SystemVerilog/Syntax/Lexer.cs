@@ -521,8 +521,10 @@ namespace BitSorter.SystemVerilog.Syntax
 
             private void ReadString(SourceLocation start, int logical)
             {
-                // Opened with a plain quote, it ends only at one, and a curly quote inside is text; opened with a curly quote,
-                // copied from a slide, it ends at either (the 16d sweep: any of the three ended any string).
+                // Opened with a plain quote, it ends at the next plain one, and a curly quote before it is text; with no plain
+                // one left on its line, at its last curly quote, read as a plain one -- "mixed” as ModelSim reads it, with a
+                // warning. Opened with a curly quote, copied from a slide, it ends at either kind (the 16d sweep: any of the
+                // three ended any string; and its review: then "mixed” was never closed).
                 bool curly = _text[_at] != '"';
                 if (curly)
                 {
@@ -533,6 +535,7 @@ namespace BitSorter.SystemVerilog.Syntax
 
                 Advance();
                 var value = new StringBuilder();
+                int lastCurly = -1, lastLine = 0, lastLineStart = 0, lastLogical = 0, lastLength = 0;
 
                 while (_at < _text.Length)
                 {
@@ -547,6 +550,15 @@ namespace BitSorter.SystemVerilog.Syntax
                         return;
                     }
 
+                    if (c == '“' || c == '”')
+                    {
+                        lastCurly = _at;
+                        lastLine = _line;
+                        lastLineStart = _lineStart;
+                        lastLogical = _logicalLine;
+                        lastLength = value.Length;
+                    }
+
                     if (c == '\n')
                         break;
 
@@ -559,6 +571,21 @@ namespace BitSorter.SystemVerilog.Syntax
 
                     value.Append(c);
                     Advance();
+                }
+
+                if (lastCurly >= 0)
+                {
+                    _at = lastCurly;
+                    _line = lastLine;
+                    _lineStart = lastLineStart;
+                    _logicalLine = lastLogical;
+                    value.Length = lastLength;
+                    _diagnostics.Warning(Here, DiagnosticCodes.LookalikeCharacter,
+                        $"'{_text[_at]}' is a curly quote; it was read as '\"', closing the string. Code copied from a slide often has these.");
+                    Lookalikes.Add(_at);
+                    Advance();
+                    Add(TokenKind.String, value.ToString(), start, logical);
+                    return;
                 }
 
                 _diagnostics.Error(start, DiagnosticCodes.UnterminatedString, "This string is never closed with a \" on the same line.");
