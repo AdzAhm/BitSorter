@@ -151,6 +151,54 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(0, bytes, $"a moment's wires on {model.Layout.Nets.Count} nets");
         }
 
+        /// <summary>
+        /// Playing a drawing of code with GATES open, at the workbench's default speed -- 3.2 units a second, a nineteenth of a
+        /// unit a frame -- every wire's value read each frame, those inside the gates included, allocates nothing; and a frame
+        /// whose moment is in the same step as the last one's works nothing out again, since every value is the step's: it costs
+        /// what reading the wires does, under half what working them out at a new step does. The
+        /// multicycle controller's netlist and its gates were worked out at every frame, the gates' wires into new arrays: 89,624
+        /// bytes and 284 microseconds a frame here (the 16d sweep, waves-8).
+        /// </summary>
+        [TestCase("Multicycle RISC-V", "mcpu/mcpu_control")]
+        public void EveryWiresValue_WithGatesOpen_Playing_AllocatesNothing_AndIsWorkedOutOnceAStep(string sample, string into)
+        {
+            WorkbenchSession session = Opened(sample);
+            foreach (string module in into.Split('/', StringSplitOptions.RemoveEmptyEntries))
+                if (session.Module != module)
+                    Assert.IsTrue(session.StepInto(session.DrawnModule.Parts.OfType<BlockPart>().First(b => b.Module == module).Id), "into " + module);
+            if (session.ShowsController)
+                session.DrawController(false);
+            Assert.IsNull(session.DrawGates(true), "GATES opens");
+            session.Finish();
+            WorkbenchModel model = session.Run.Model;
+            Assert.Greater(session.GatesOpened, 50, "sanity: its gates open");
+            Assert.IsNotNull(model.Layout.Drawn, "sanity: a drawing of code, its wires worked out");
+
+            void Frame(double at)
+            {
+                model.Seek(at);
+                for (int i = 0; i < model.Layout.Nets.Count; i++)
+                    _ = model.NetValue(i);
+            }
+
+            double time = model.End * 0.25, frame = 3.2 / 60;
+            Assert.AreEqual(0, BytesEach(() => Frame(time += frame), 600), $"a frame's wires on {model.Layout.Nets.Count} nets, playing");
+
+            // Each moment in a new step, so worked out each time; and each in the one step, so worked out once.
+            double across = Math.Floor(model.End * 0.5), within = Math.Floor(model.End * 0.75) + 0.1;
+            Frame(across);
+            Frame(within);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < 400; i++)
+                Frame(across += 1.0);
+            double eachStep = watch.Elapsed.TotalMilliseconds;
+            watch.Restart();
+            for (int i = 0; i < 400; i++)
+                Frame(within += 0.002);
+            double oneStep = watch.Elapsed.TotalMilliseconds;
+            Assert.Less(oneStep, eachStep / 2, $"400 frames in one step took {oneStep:F2} ms, 400 in a step each {eachStep:F2} ms");
+        }
+
         /// <summary>The net under the pointer, which the hover chip asks every frame the pointer is on the circuit, allocates nothing.</summary>
         [TestCase("Pipelined RISC-V")]
         [TestCase("Reference")]
