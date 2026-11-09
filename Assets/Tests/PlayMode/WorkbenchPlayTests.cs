@@ -769,7 +769,8 @@ namespace BitSorter.PlayMode.Tests
             string second = workbench.SecondText;
             Assert.IsNotNull(second, $"{where}: sanity, C2's time written");
             SchematicPalette palette = SchematicPalette.Current;
-            TextMeshProUGUI c2 = workbench.GetComponentsInChildren<TextMeshProUGUI>(false).First(l => l.text == second && l.color == palette.Cursor);
+            // The waves are drawn on the stage, which is not under the workbench's own object: every label shown is asked.
+            TextMeshProUGUI c2 = Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None).First(l => l.text == second && l.color == palette.Cursor);
             float y = c2.rectTransform.anchoredPosition.y;
             TextMeshProUGUI playhead = c2.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(false)
                 .Single(l => l != c2 && l.color == palette.Accent && Mathf.Abs(l.rectTransform.anchoredPosition.y - y) < 0.5f);
@@ -956,7 +957,8 @@ namespace BitSorter.PlayMode.Tests
         {
             Color accent = SchematicPalette.Current.Accent;
             var corners = new Vector3[4];
-            foreach (Image image in workbench.GetComponentsInChildren<Image>(false))
+            // The waves are drawn on the stage, which is not under the workbench's own object: every image shown is asked.
+            foreach (Image image in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
             {
                 if (image.color != accent)
                     continue;
