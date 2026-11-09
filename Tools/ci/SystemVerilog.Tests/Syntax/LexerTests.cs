@@ -144,6 +144,25 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(DiagnosticCodes.LookalikeCharacter, diagnostics.Items.Single().Code);
         }
 
+        /// <summary>
+        /// The 16d sweep's review: a string opened with a plain quote and closed with a curly one -- "mixed” -- read before
+        /// ACurlyQuoteInsideAPlainString_IsPartOfIt, and since then was never closed, with errors down the next line, where
+        /// ModelSim warns and goes on. A plain quote further along its line ends it, the curly ones before it text; with none,
+        /// its last curly quote ends it, read as a plain one with a warning, as every look-alike is, and straightened so.
+        /// </summary>
+        [TestCase("$display(\"mixed”);", "mixed", "$display(\"mixed\");")]
+        [TestCase("$display(\"mixed“);", "mixed", "$display(\"mixed\");")]
+        [TestCase("$display(\"He said “hi”);", "He said “hi", "$display(\"He said “hi\");")]
+        [TestCase("$display(\"a\\\"b”);", "a\"b", "$display(\"a\\\"b\");")]
+        public void APlainStringClosedByACurlyQuote_EndsAtItsLastOne(string source, string text, string straightened)
+        {
+            Token[] tokens = Lex(source + "\n$display(\"next\");", out DiagnosticBag diagnostics);
+            Assert.AreEqual(new[] { "$display", "(", text, ")", ";", "$display", "(", "next", ")", ";" }, tokens.Select(t => t.Text).ToArray());
+            Assert.AreEqual(TokenKind.String, tokens[2].Kind);
+            Assert.AreEqual(DiagnosticCodes.LookalikeCharacter, diagnostics.Items.Single().Code, string.Join("\n", diagnostics.Items));
+            Assert.AreEqual(straightened + "\n$display(\"next\");", Lexer.Straightened(source + "\n$display(\"next\");"));
+        }
+
         [Test]
         public void AStringOfEveryEscape_IsPrintedBackAsItReads()
         {
