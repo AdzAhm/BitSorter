@@ -227,6 +227,29 @@ namespace BitSorter.EditMode.Tests
             }
         }
 
+        /// <summary>
+        /// A selected wire's band -- all a straight wire shows of being selected, having no corners -- and the timing path's
+        /// band stand 3:1 off the ground, as every mark on the canvas does (WCAG's for graphics). They were 1.99:1 and 1.71:1
+        /// on Schematic Light's paper (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void OnTheCanvas_ASelectedWiresBand_AndThePathsBand_StandClearOfTheGround()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                foreach ((string what, Color band) in new[]
+                         { ("a selected wire's band", c.SelectedWireBand), ("the timing path's band", c.PathBand) })
+                {
+                    float contrast = SchematicPalette.Contrast(Seen(band, c.Ground), c.Ground);
+                    Assert.GreaterOrEqual(contrast, 3f, $"{look.Name}: {what} is {contrast:F2}:1 against the ground");
+                }
+            }
+        }
+
+        /// <summary>A colour drawn at its alpha over <paramref name="ground"/>, composited in linear as the renderer does.</summary>
+        private static Color Seen(Color colour, Color ground) => Color.Lerp(ground.linear, colour.linear, colour.a).gamma;
+
         /// <summary>A selected row's band leaves its name readable at 4.5:1 and its wave at 3:1, and is not the ground.</summary>
         [Test]
         public void OnTheCanvas_ASelectedRow_StaysReadable()
