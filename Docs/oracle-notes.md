@@ -504,7 +504,9 @@ parts from the standard, BitSorter follows the standard, and `DataTypeTests` hol
 
 `corpus/behavioural/expressions.sv` runs in both and agrees on every line: `==?` and `!=?`, the bit
 counters, casts, an enum's methods, `$random` with and without a seed, and -- since Part 16d -- a
-replication of 0 inside a concatenation, left out (11.4.12.1), in a parameterised extension at `W == N`.
+replication of 0 inside a concatenation, left out (11.4.12.1), in a parameterised extension at `W == N`,
+and `**` with a negative exponent as table 11-4 has it: 0 for a base past 1 either way, 1 for 1, -1 or 1 for
+-1 as the exponent is odd or even, x for 0 (BitSorter gave x for all of them; ModelSim prints the same line).
 What was probed on the way:
 
 | Question | Icarus 12 | BitSorter |

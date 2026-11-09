@@ -1649,15 +1649,32 @@ namespace BitSorter.Sim
             }
 
             LogicVec result = LogicVec.FromUInt64(1, width, signed);
-            LogicVec factor = baseValue.Extend(width, signed && baseValue.IsSigned);
+            bool signedBase = signed && baseValue.IsSigned;
+            LogicVec factor = baseValue.Extend(width, signedBase);
 
             if (exponent < 0)
-                return Expr.Constant(LogicVec.AllX(width));
+                return Expr.Constant(NegativePower(factor, signedBase, exponent, width, signed));
 
             for (long i = 0; i < Math.Min(exponent, 4096); i++)
                 result = LogicVec.Multiply(result, factor);
 
             return Expr.Constant(result);
+        }
+
+        /// <summary>
+        /// <c>a ** b</c> for an integer <c>b</c> below 0, as IEEE 1800's table 11-4 has it: 0 for a base past 1 either way, 1
+        /// for a base of 1, -1 or 1 for a base of -1 as the exponent is odd or even, and x for a base of 0 or one with an x or
+        /// z bit. The base is -1 only read as signed: an unsigned one of all ones is past 1.
+        /// </summary>
+        private static LogicVec NegativePower(LogicVec factor, bool signedBase, long exponent, int width, bool signed)
+        {
+            if (!factor.IsKnown || factor.TryGetUInt64(out ulong value) && value == 0)
+                return LogicVec.AllX(width, signed);
+            if (signedBase && factor.TryGetInt64(out long minusOne) && minusOne == -1)
+                return (exponent & 1) != 0 ? LogicVec.FromInt64(-1, width, signed) : LogicVec.FromUInt64(1, width, signed);
+            if (factor.TryGetUInt64(out ulong one) && one == 1)
+                return LogicVec.FromUInt64(1, width, signed);
+            return LogicVec.FromUInt64(0, width, signed);
         }
 
         private Expr BuildCall(CallExpression call)

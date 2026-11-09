@@ -49,8 +49,6 @@ module expressions_tb;
 
         $display("casts %0d %0d %0d %0d %0d %0d %0d", int'(8'hF0), 4'(8'h1F), 16'(-8'sd2), byte'(300), bit'(1'bx), int'(4'b1x01), shortint'(-1));
 
-        $display("powers %0d %0d %0d %0d %0d %0d %b", 2 ** -1, 1 ** -3, (-1) ** -3, (-1) ** -2, (-5) ** -1, 8'hFF ** -1, 0 ** -1);
-
         state = RUN;
         other = state.next();
         $display("enum [%s] [%s] %0d %0d %0d", state.name(), other.name(), state.first(), state.last(), state.num());
@@ -93,6 +91,7 @@ module expressions_tb;
         // Last, so the lines ModelSim prints otherwise keep their places (BehaviouralOracleTests.ModelSimDiffers).
         $display("sized by an expression %0d %0d %0d %0d", (W+1)'(4'd9), $bits((W+1)'(v)), (W-1)'(4'd13), (2*W)'(v) + 8'd1);
 
+        $display("powers %0d %0d %0d %0d %0d %0d %b", 2 ** -1, 1 ** -3, (-1) ** -3, (-1) ** -2, (-5) ** -1, 8'hFF ** -1, 0 ** -1);
         #1 $display("extended %h %h %h %h %h", same_zeros, same_signs, wide_zeros, wide_signs, {2{{0{narrow[0]}}, narrow[3:0]}});
         #1 $finish;
     end
