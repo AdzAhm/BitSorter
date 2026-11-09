@@ -1393,6 +1393,62 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A cell typed in keeps what is typed in it, and the keyboard, while the table is drawn again under it -- the dock
+        /// resized here, as a wheel over the table does it too -- and makes no edit until it is let go. The redraw made a new
+        /// field for it from the document and gave that the keyboard: what was typed and not yet committed was put back with
+        /// the cell still looking typed in, or committed half typed as the old field went (the review of the 16d sweep's
+        /// fixes).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnInputCellTypedIn_KeepsWhatIsTyped_ThroughARedraw()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(1);   // the reference: a, b, s[3:0], d and en
+            yield return null;
+            workbench.ShowInputs();
+            yield return null;
+            ShellPanel.Submit(ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.InputRadixName + "s"));   // s in hex
+            yield return null;
+            yield return null;
+            yield return null;
+            long first = workbench.Inputs.Rows[0].Time;
+            string was = InputAt(workbench, "s", first);
+            string typed = was == "0011" ? "5" : "3";
+
+            UnityEngine.UIElements.TextField s = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 0");
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(s));
+            s.value = typed;
+            yield return null;
+            object project = workbench.Session.Project;
+            UnityEngine.UIElements.TextField a = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "a 0");
+
+            workbench.SetDockHeight(workbench.Regions.Dock.height + 40f);
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.AreNotSame(a, ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "a 0"), "sanity: the table was drawn again");
+            UnityEngine.UIElements.TextField now = ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.InputCellName + "s 0");
+            var focused = now.panel?.focusController?.focusedElement as UnityEngine.UIElements.VisualElement;
+            Assert.IsTrue(focused != null && (focused == now || now.Contains(focused)), $"the cell typed in has the keyboard, not {focused?.name ?? "nothing"}");
+            Assert.AreEqual(typed, now.value, "and what is typed in it");
+            Assert.AreSame(project, workbench.Session.Project, "no edit made by the redraw");
+            Assert.AreEqual(was, InputAt(workbench, "s", first));
+
+            // Enter commits it, as ever, and lets it go.
+            Press(_keyboard.enterKey);
+            ShellPanel.SendKey(now, KeyCode.Return);
+            yield return null;
+            Release(_keyboard.enterKey);
+            yield return null;
+            yield return null;
+            yield return null;
+            Assert.AreEqual(typed == "5" ? "0101" : "0011", InputAt(workbench, "s", first), "Enter committed what was typed");
+            Assert.IsFalse(UiText.Typing, "and let the cell go");
+        }
+
+        /// <summary>
         /// A selection made on the circuit from the keyboard is the one Delete takes away: Ctrl+A selected everything with the
         /// circuit never clicked, and Delete went to the waveform's rows instead, as Ctrl+X, Q and V did not (the 16d sweep).
         /// </summary>
