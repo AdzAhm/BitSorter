@@ -2282,7 +2282,10 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
   4; it is 26, the carry through every copy. Which bit of a value depends on which, and which way round, is each
   expression's own (`Expr.Depends`, `BitDeps`): a read, a select, a part-select, a concatenation, a widening and a shift
   by a constant only move bits; `~` inverts each; AND and OR pass a change the same way round bit by bit, XOR either way;
-  a sum carries from the bottom bit up; a condition reaches every bit either way; anything else, every bit to every bit.
+  a sum carries from the bottom bit up -- while its bits hold at most 2^18 sources between them, a sum of two 511-bit
+  operands, and taken whole past that, as a value too wide to follow is (the 16d sweep: bit i held a copy of every source
+  of bits 0 to i, so a 4,096-bit sum was 1,187 MB and a second; 8.7 MB and 26 ms now); a condition reaches every bit
+  either way; anything else, every bit to every bit.
   So a gate passes its own sense through what its input reads -- NOT of `~a` is the same way round -- and **an
   assignment that only moves bits at no delay is a connection**, gone through but not listed: a port joined to `c[1]` is
   one. A delayed assignment keeps its sense, rising at its rise.

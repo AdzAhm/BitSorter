@@ -135,7 +135,7 @@ namespace BitSorter.Sim
     /// </summary>
     /// <remarks>
     /// A value wider than <see cref="MostBitsApart"/> is not followed bit by bit: every bit of it depends on everything
-    /// any bit does. A select, a part-select, a concatenation and a widening only move bits: a value made of nothing else
+    /// any bit does -- nor is a sum whose bits would hold more than <see cref="MostSourcesApart"/> sources between them. A select, a part-select, a concatenation and a widening only move bits: a value made of nothing else
     /// is <see cref="Routing"/>, and a zero-delay assignment of one joins names of the same wires rather than being logic.
     /// </remarks>
     internal sealed class BitDeps
@@ -143,16 +143,24 @@ namespace BitSorter.Sim
         /// <summary>The widest value followed bit by bit.</summary>
         public const int MostBitsApart = 4096;
 
+        /// <summary>
+        /// The most sources a sum's bits are followed with, all its bits' together: bit i takes every source of bits 0 to i, so
+        /// a sum of two 511-bit operands is about this many, and a wider one is taken whole (the 16d sweep: a 4,096-bit sum's
+        /// bits held 16.8 million sources between them, 1.2 GB).
+        /// </summary>
+        public const int MostSourcesApart = 1 << 18;
+
         private readonly SourceSet[] _bits;
         private readonly SourceSet _all;
         private SourceSet _union;
 
-        private BitDeps(int width, SourceSet[] bits, SourceSet all, bool routing)
+        private BitDeps(int width, SourceSet[] bits, SourceSet all, bool routing, SourceSet union = null)
         {
             Width = width;
             _bits = bits;
             _all = all;
             Routing = routing;
+            _union = union;
         }
 
         public int Width { get; }
@@ -226,7 +234,7 @@ namespace BitSorter.Sim
         /// </summary>
         public static BitDeps Upward(int width, params BitDeps[] operands)
         {
-            if (width > MostBitsApart)
+            if (width > MostBitsApart || SourcesUpward(width, operands) > MostSourcesApart)
                 return Uniform(width, Mixed(operands));
 
             var bits = new SourceSet[Math.Max(0, width)];
@@ -239,7 +247,25 @@ namespace BitSorter.Sim
                     parts[k + 1] = (operands[k].Of(i), Sense.Either);
                 bits[i] = below = SourceSet.Union(parts);
             }
-            return new BitDeps(width, bits, null, routing: false);
+
+            // The top bit takes every source any bit does: what any bit depends on, without walking every bit's again.
+            return new BitDeps(width, bits, null, routing: false, union: below);
+        }
+
+        /// <summary>
+        /// How many sources a sum's bits would hold between them, bit i every source of bits 0 to i -- at most, since a source
+        /// met twice is held once -- counted only until past <see cref="MostSourcesApart"/>.
+        /// </summary>
+        private static long SourcesUpward(int width, BitDeps[] operands)
+        {
+            long below = 0, total = 0;
+            for (int i = 0; i < width && total <= MostSourcesApart; i++)
+            {
+                foreach (BitDeps operand in operands)
+                    below += operand.Of(i).Count;
+                total += below;
+            }
+            return total;
         }
 
         /// <summary>Every bit of every one of <paramref name="operands"/>, either way.</summary>
