@@ -850,8 +850,9 @@ lives in the engine's layer, which already sees the syntax tree, so the layers s
   change and a tenth more; an edit of the inputs stops at `MaxRun` itself, `StimulusEdits.MaxTime`).
 - **Part 16d adds `drafts`** (Ahmad, 2026-11-03: code typed with an error is kept as a draft): the code typed into a
   document's written modules and not applied, each a record of the document's key, the module and the text
-  (`DraftRecord`). Written with the document as it is kept, given back to the session that opens it, renamed with it, gone
-  with a delete, and forgotten with an answer by RESET PROGRESS. Absent, so nothing typed, in every older file.
+  (`DraftRecord`). Written with the document as it is kept, given back to the session that opens it, renamed with it, moved
+  with an answer that no longer fits its exercise to the circuit it is kept as, gone with a delete, and forgotten with an
+  answer by RESET PROGRESS. Absent, so nothing typed, in every older file.
 
 ---
 

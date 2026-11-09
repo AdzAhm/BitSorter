@@ -145,7 +145,8 @@ namespace BitSorter.View
         /// <summary>
         /// The exercise's document: the student's answer the save keeps under its id, made the exercise's again
         /// (<see cref="Exercise.Adopt"/>); or, with none, the exercise as it starts. A kept circuit that is no answer to it
-        /// is not lost: it is moved to a circuit of its own, and the notice says where. (A 4.x board of the exercise's level
+        /// is not lost: it is moved to a circuit of its own, with the code typed into it and not applied, and the notice says
+        /// where. (A 4.x board of the exercise's level
         /// was migrated here too, until Part 16a.)
         /// </summary>
         private Project ExerciseDocument(Exercise exercise)
@@ -168,6 +169,7 @@ namespace BitSorter.View
                         Settings = (kept.Settings ?? new ProjectSettings()) with { Exercise = null, Library = null, RegisterStart = null },
                     };
                     store.SetProject(Documents.KeyOf(name), own);
+                    store.SetDrafts(Documents.KeyOf(name), store.Drafts(exercise.Id));   // what was typed into it goes with it
                     store.RemoveProject(exercise.Id);
                     store.Save();
                     _exerciseNote = "the circuit kept for " + exercise.Title + " no longer fits it, so it opens fresh: yours is kept as " +
