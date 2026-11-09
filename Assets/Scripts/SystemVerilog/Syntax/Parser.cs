@@ -1919,7 +1919,24 @@ namespace BitSorter.SystemVerilog.Syntax
                 return delay;
             }
 
-            if (Current.Kind == TokenKind.Number || Current.Kind == TokenKind.RealNumber || Current.Kind == TokenKind.Identifier)
+            if (Current.Kind == TokenKind.Identifier)
+            {
+                // A name, never a call (delay_value, IEEE 1800 A.2.2.3): in and #D (y, a, b) the bracket is the gate's
+                // terminals, which a call would take for D's arguments (the 16d sweep).
+                Token first = Next();
+                var name = new NameExpression { Location = first.Location };
+                name.Path.Add(first.Text);
+                if (Accept("::"))
+                {
+                    name.Package = first.Text;
+                    name.Path[0] = ExpectIdentifier($"a name in package {first.Text} after '::'") ?? "?";
+                }
+
+                delay.Values.Add(name);
+                return delay;
+            }
+
+            if (Current.Kind == TokenKind.Number || Current.Kind == TokenKind.RealNumber)
             {
                 Token value = Current;
                 delay.Values.Add(ParsePrimary());
