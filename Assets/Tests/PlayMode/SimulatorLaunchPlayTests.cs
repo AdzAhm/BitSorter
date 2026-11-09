@@ -352,6 +352,36 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// An answer kept under an exercise that no longer fits it is moved to a circuit of the student's own as the exercise
+        /// opens -- and the code typed into it and not applied goes with it (the review of the 16d sweep's fixes: the move
+        /// deleted the answer under the exercise's key, and its drafts with it).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator CodeTypedIntoAnAnswerThatNoLongerFits_GoesWithItToTheCircuitItIsKeptAs()
+        {
+            const string exercise = "half-adder";
+            string broken = WorkbenchSamples.AdderSource.Replace("= a + b;", "= a + ;");
+            Plant(store =>
+            {
+                store.SetProject(exercise, WorkbenchSamples.WrittenAdder());   // its top is no half adder: no answer to it
+                store.SetDrafts(exercise, new System.Collections.Generic.Dictionary<string, string> { ["add4"] = broken });
+            });
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+
+            workbench.OpenExercise(exercise);
+            yield return null;
+            string moved = Documents.KeyOf(ExerciseCatalog.Run.Single(e => e.Id == exercise).Title + " old");
+            var onDisk = new ProgressStore(ProgressStore.DefaultPath);
+            onDisk.Load();
+            Assert.IsTrue(onDisk.TryGetProject(moved, out Project kept, new System.Collections.Generic.List<string>()), "sanity: moved to a circuit of its own");
+            Assert.AreEqual("adder", kept.Top);
+            Assert.IsTrue(onDisk.Drafts(moved).TryGetValue("add4", out string draft), "what was typed into it went with it");
+            Assert.AreEqual(broken, draft);
+            CollectionAssert.IsEmpty(onDisk.Drafts(exercise), "and nothing is left under the exercise");
+        }
+
+        /// <summary>
         /// A launch that stopped while opening what was open last opens the start page instead, and says so (Part 16b): a
         /// browser that ran out of memory opening a big design would stop on every launch after. One that opens it marks
         /// that it is opening, and takes the mark off once it has stayed up.
