@@ -123,7 +123,6 @@ namespace BitSorter.Sim.Tests
             Assert.Less(sim.History.ChangeCount(sim.Design.Find(sim.Design.Signals.First(s => s.Width == 65536).Name)), 100);
         }
 
-        [Test]
         /// <remarks>
         /// A change keeps its value, and a value wider than 64 bits keeps both its planes, 16 bytes for every 64 bits: a
         /// 65,536-bit counter keeps 16 KB a change, two hundred times the 80 bytes the limit counts each record as, and a
