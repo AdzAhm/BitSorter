@@ -98,6 +98,7 @@ namespace BitSorter.Board
         public Placement PlacementOf(int part) => Parts.TryGetValue(part, out Placement p) ? p : default;
 
         public Layout WithPart(int part, Placement placement) => this with { Parts = With(Parts, part, placement) };
+
         public Layout WithoutPart(int part) => this with { Parts = Without(Parts, part) };
 
         /// <summary>

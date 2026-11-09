@@ -99,6 +99,7 @@ namespace BitSorter.ViewModel
         private CanvasHit _hit;
 
         private Dictionary<int, Placement> _start;
+        private readonly Dictionary<int, Placement> _moved = new Dictionary<int, Placement>();   // where the overlay draws them
         private int _anchor;
         private double _dx, _dy;
         private readonly List<Guide> _guides = new List<Guide>();
@@ -1503,10 +1504,10 @@ namespace BitSorter.ViewModel
                         overlay.Ghosts.Add(Stage(frame, outline, SelectedRoom, _dx, _dy));
                 }
 
-                var placed = new Dictionary<int, Placement>(_start.Count);
+                _moved.Clear();
                 foreach (KeyValuePair<int, Placement> part in _start)
-                    placed[part.Key] = part.Value.Moved(_dx, _dy);
-                GhostWires(overlay, frame, module, module.Layout.WithParts(placed), _start.Keys);
+                    _moved[part.Key] = part.Value.Moved(_dx, _dy);
+                GhostWires(overlay, frame, module, module.Layout.WithParts(_moved), _start.Keys);
 
                 foreach (Guide guide in _guides)
                 {
