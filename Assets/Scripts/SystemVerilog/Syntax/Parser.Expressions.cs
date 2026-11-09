@@ -267,7 +267,17 @@ namespace BitSorter.SystemVerilog.Syntax
                 }
 
                 Expect(")", "to close the '('");
-                return new ParenthesizedExpression { Location = t.Location, Inner = inner };
+                var parenthesized = new ParenthesizedExpression { Location = t.Location, Inner = inner };
+
+                // A size cast whose size is worked out: (W+1)'(a + b). Its size may be any constant primary (IEEE 1800,
+                // 6.24.1); the apostrophe was looked for only after a number, a keyword or a name (the 16d sweep).
+                if (Current.Is("'") && Peek(1).Is("("))
+                {
+                    Next();
+                    return ParseCastBody(new CastExpression { Location = t.Location, TargetText = Printer.Print(parenthesized), Width = parenthesized });
+                }
+
+                return parenthesized;
             }
 
             if (t.Is("{"))

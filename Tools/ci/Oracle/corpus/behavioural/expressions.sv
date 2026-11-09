@@ -29,7 +29,6 @@ module expressions_tb;
         $display("counting %0d %b %b %b %b", $countones(b), $onehot(8'b0001_0000), $onehot0(8'b0), $isunknown(b), $isunknown(v));
 
         $display("casts %0d %0d %0d %0d %0d %0d %0d", int'(8'hF0), 4'(8'h1F), 16'(-8'sd2), byte'(300), bit'(1'bx), int'(4'b1x01), shortint'(-1));
-        $display("sized by an expression %0d %0d %0d %0d", (W+1)'(4'd9), $bits((W+1)'(v)), (W-1)'(4'd13), (2*W)'(v) + 8'd1);
 
         state = RUN;
         other = state.next();
@@ -69,6 +68,9 @@ module expressions_tb;
         $display("passed over %0d %0d %0d %0d %0d %0d", a, c, d, e, f, seed);
         x = unknown ? $random(seed) : 1;
         $display("both arms of x %0d %0d", x, seed);
+
+        // Last, so the lines ModelSim prints otherwise keep their places (BehaviouralOracleTests.ModelSimDiffers).
+        $display("sized by an expression %0d %0d %0d %0d", (W+1)'(4'd9), $bits((W+1)'(v)), (W-1)'(4'd13), (2*W)'(v) + 8'd1);
         #1 $finish;
     end
 endmodule

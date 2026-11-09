@@ -1024,7 +1024,11 @@ namespace BitSorter.SystemVerilog.Syntax
                     return;
 
                 case CastExpression c:
-                    text.Append(c.TargetText).Append("'(");
+                    if (c.Width is ParenthesizedExpression)
+                        Write(text, c.Width, compact);   // (W+1)'(x): a size worked out, spaced as the printer spaces it
+                    else
+                        text.Append(c.TargetText);
+                    text.Append("'(");
                     Write(text, c.Value, compact);
                     text.Append(')');
                     return;
