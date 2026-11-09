@@ -182,7 +182,13 @@ namespace BitSorter.ViewModel.Tests
             }
 
             double time = model.End * 0.25, frame = 3.2 / 60;
-            Assert.AreEqual(0, BytesEach(() => Frame(time += frame), 600), $"a frame's wires on {model.Layout.Nets.Count} nets, playing");
+            // The least of three runs of 600 frames: once in a while a full test run puts a few kilobytes made once, not by any
+            // frame, into one of them -- 13 bytes a frame of 600 -- as it does into the other asks here; a frame that allocates
+            // allocates in all three.
+            long least = long.MaxValue;
+            for (int run = 0; run < 3; run++)
+                least = Math.Min(least, BytesEach(() => Frame(time += frame), 600));
+            Assert.AreEqual(0, least, $"a frame's wires on {model.Layout.Nets.Count} nets, playing");
 
             // Each moment in a new step, so worked out each time; and each in the one step, so worked out once.
             double across = Math.Floor(model.End * 0.5), within = Math.Floor(model.End * 0.75) + 0.1;
