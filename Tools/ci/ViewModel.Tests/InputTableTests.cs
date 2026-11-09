@@ -356,6 +356,68 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
+        /// Under a written testbench, an edit that leaves the design as it was -- a part of the drawing of code moved -- makes the
+        /// table again from what the testbench applied, without running it again: the table was made by running the whole
+        /// testbench, in the frame, at every edit with INPUTS up, beside the session's own run of it (the 16d sweep, waves-2). An
+        /// edit of the code runs it again, and the table is what the new code applies.
+        /// </summary>
+        [Test]
+        public void UnderATestbench_AnEditThatLeavesTheDesign_DoesNotRunItAgain()
+        {
+            Project project = Imported(
+                ("add8.sv", "module add8 (input logic [7:0] a, input logic [7:0] b, output logic [8:0] y);\n" +
+                            "    assign y = a + b;\n" +
+                            "endmodule\n"),
+                ("add8_tb.sv", "module add8_tb;\n" +
+                               "    logic [7:0] a, b;\n" +
+                               "    logic [8:0] y;\n" +
+                               "    integer i;\n" +
+                               "    add8 dut (.a(a), .b(b), .y(y));\n" +
+                               "    initial begin\n" +
+                               "        for (i = 0; i < 16384; i = i + 1) begin\n" +
+                               "            {a, b} = i;\n" +
+                               "            #1;\n" +
+                               "        end\n" +
+                               "        $stop;\n" +
+                               "    end\n" +
+                               "endmodule\n"));
+            var session = new WorkbenchSession(project, () => 0.0);
+            session.Finish();
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the written top drawn");
+
+            InputTable.Of(session.Project);   // warmed: a first call pays for compiling the code it runs
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            InputTable table = InputTable.Of(session.Project);
+            double first = clock.Elapsed.TotalMilliseconds;
+            Assert.AreEqual("add8_tb", table.AppliedBy, "sanity");
+            Assert.AreEqual(16384 - InputTable.MostAppliedRows, table.LeftOut, "sanity: what it applies");
+
+            int part = session.Run.Model.Layout.Parts.First().Part.Id;
+            EditResult moved = session.Move(new Dictionary<int, Placement> { [part] = new Placement(30, 3) });
+            Assert.IsTrue(moved.Done, moved.Refusal);
+            Assert.AreNotSame(project, session.Project, "sanity: another document");
+            clock.Restart();
+            InputTable again = InputTable.Of(session.Project, table);
+            double second = clock.Elapsed.TotalMilliseconds;
+            Assert.AreEqual("add8_tb", again.AppliedBy);
+            Assert.AreEqual(table.LeftOut, again.LeftOut);
+            CollectionAssert.AreEqual(table.Rows.Select(r => string.Join(" ", r.Cells)).ToArray(), again.Rows.Select(r => string.Join(" ", r.Cells)).ToArray(),
+                "the same rows");
+            TestContext.WriteLine($"the table made: {first:F0} ms, and again after a move: {second:F0} ms");
+            Assert.Less(second, first / 4, $"made again after a move in {second:F0} ms, where running the testbench took {first:F0}");
+
+            // The testbench's code edited: run again, and what it applies now.
+            var editor = new BoardEditor(session.Project);
+            EditResult edited = editor.SetSource("add8_tb", session.Project.Find("add8_tb").Source.Replace("{a, b} = i;", "{b, a} = i;"));
+            Assert.IsTrue(edited.Done, edited.Refusal);
+            Assert.AreEqual("", again.Rows[1].Cells[0], "sanity: a waits at 1, as b counts");
+            Assert.AreEqual("01", again.Rows[1].Cells[1]);
+            InputTable rewritten = InputTable.Of(editor.Project, again);
+            Assert.AreEqual("01", rewritten.Rows[1].Cells[0], "a counts now");
+            Assert.AreEqual("", rewritten.Rows[1].Cells[1], "and b waits");
+        }
+
+        /// <summary>
         /// A row added and not filled yet is the editable table's, and never reaches a read-only one (the 15h review): CONVERT, +
         /// ROW and Ctrl+Z left a blank row on the testbench's table.
         /// </summary>
