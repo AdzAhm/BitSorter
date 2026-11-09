@@ -139,11 +139,11 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
-        /// A register's write waits for nothing but its clock to Q: one delay, the same on every write, as a drawn register's
+        /// A register's write waits for nothing but its clock to Q, one delay on a nonblocking write, as a drawn register's
         /// prints -- q &lt;= #50 d is a register whose clock to Q is 50, which static timing reads as its Tcq (Part 14a). Any
-        /// other wait passed as a plain register: a blocking write's delay or event, which stops the process mid-body, and a
-        /// reset's write delayed apart from its D's, which no drawn register has and the import does not read as one (the
-        /// Part 16d sweep).
+        /// other wait passed as a plain register: a blocking write's delay or event, which stops the process mid-body (the
+        /// Part 16d sweep). A reset's write delayed apart from its D's passed before the sweep and still does: refusing it is
+        /// a new rule of the library's, Ahmad's to decide (the review of the sweep's fix).
         /// </summary>
         [Test]
         public void ARegistersWrite_WaitsOnlyForItsClockToQ()
@@ -152,10 +152,7 @@ namespace BitSorter.Board.Tests
             Holds("    localparam TCQ = 2;\n    always_ff @(posedge clk or negedge rst_n)\n        if (!rst_n) q <= #TCQ 1'b0;\n        else q <= #TCQ a;\n    assign y = q;");
             Breaks("    always_ff @(posedge clk) q = #5 a;\n    assign y = q;", "A register's write waits only for its clock to Q");
             Breaks("    always_ff @(posedge clk) q = @(negedge clk) a;\n    assign y = q;", "A register's write waits only for its clock to Q");
-            Breaks("    always_ff @(posedge clk or negedge rst_n)\n        if (!rst_n) q <= #1 1'b0;\n        else q <= #2 a;\n    assign y = q;",
-                "the same on every write");
-            Breaks("    always_ff @(posedge clk or negedge rst_n)\n        if (!rst_n) q <= 1'b0;\n        else q <= #2 a;\n    assign y = q;",
-                "the same on every write");
+            Holds("    always_ff @(posedge clk or negedge rst_n)\n        if (!rst_n) q <= 1'b0;\n        else q <= #2 a;\n    assign y = q;");
         }
 
         /// <summary>Under no constants, a constant by any name is refused: a parameter into a cell, a supply net, a widening's 0s (the 14g review).</summary>

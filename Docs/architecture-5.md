@@ -2603,8 +2603,8 @@ computed and measured, registers given a clock to Q and a setup, a library mode 
     constant; else q <= d` with a one-bit reset, its inverse, or one compared with a constant -- or an `initial` giving
     starting values; anything else, ifs nested into a function, a case, an enable that keeps the value, is refused. Its
     writes wait for nothing but its clock to Q, as a drawn register's print (`q <= #2 d`, static timing's Tcq): a
-    number on a nonblocking write, the same on its reset's write and its D's; a blocking write's delay or event, which
-    stops the process mid-body, passed until Part 16d, and is refused;
+    number on a nonblocking write, or none; a blocking write's delay or event, which stops the process mid-body, passed
+    until Part 16d, and is refused. A reset's write delayed apart from its D's still passes;
   - no constant where the library takes none, by any name: a number, a parameter, a supply net, a widening's 0s, a
     constant loaded on every clock (a reset or starting value is no tie, and stays).
 

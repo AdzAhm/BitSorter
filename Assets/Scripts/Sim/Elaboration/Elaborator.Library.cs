@@ -173,8 +173,7 @@ namespace BitSorter.Sim
             {
                 at = body?.Location ?? default;
                 why = null;
-                var clockToQ = new Dictionary<string, string>(System.StringComparer.Ordinal);
-                if (Writes(scope, body, constantsOnly: false, clockToQ, out at, out why))
+                if (Writes(scope, body, constantsOnly: false, out at, out why))
                     return true;
 
                 Statement single = body is BlockStatement b && b.Declarations.Count == 0 && b.Statements.Count == 1 ? b.Statements[0] : body;
@@ -196,19 +195,16 @@ namespace BitSorter.Sim
                     return false;
                 }
 
-                clockToQ.Clear();
-                return Writes(scope, reset.Then, constantsOnly: true, clockToQ, out at, out why) &&
-                    Writes(scope, reset.Else, constantsOnly: false, clockToQ, out at, out why);
+                return Writes(scope, reset.Then, constantsOnly: true, out at, out why) && Writes(scope, reset.Else, constantsOnly: false, out at, out why);
             }
 
             /// <summary>
             /// Whether <paramref name="s"/> is writes and nothing else -- an assignment, or a block of them -- each of a constant
             /// when <paramref name="constantsOnly"/> (a reset's), and of no constant where none is taken otherwise. Each waits only
             /// for the register's clock to Q, as a drawn register's write does (Part 14a): <c>q &lt;= #2 d</c>, one constant on a
-            /// nonblocking write, and the same on every write of one register, its reset's and its D's -- <paramref name="clockToQ"/>,
-            /// each target's as printed, "" for none.
+            /// nonblocking write, or none.
             /// </summary>
-            private bool Writes(Scope scope, Statement s, bool constantsOnly, Dictionary<string, string> clockToQ, out SourceLocation at, out string why)
+            private bool Writes(Scope scope, Statement s, bool constantsOnly, out SourceLocation at, out string why)
             {
                 at = s?.Location ?? default;
                 why = "A register's body is its writes, q <= d -- or an if on its reset, its then the reset values and its else the " +
@@ -221,28 +217,14 @@ namespace BitSorter.Sim
 
                     // Its clock to Q and no other wait: a blocking write's delay or event stops the process mid-body, which no
                     // register does (the Part 16d sweep).
-                    string delay = "";
-                    if (a.IntraAssignment != null)
+                    if (a.IntraAssignment != null &&
+                        (a.Operator != "<=" || !(a.IntraAssignment is DelayControl d) || d.Values.Count != 1 || !Constant(scope, d.Values[0])))
                     {
-                        if (a.Operator != "<=" || !(a.IntraAssignment is DelayControl d) || d.Values.Count != 1 || !Constant(scope, d.Values[0]))
-                        {
-                            why = "A register's write waits only for its clock to Q, a number on a nonblocking write -- q <= #2 d -- as a " +
-                                "drawn register's does. Any other delay or wait in it is no cell of the library.";
-                            return false;
-                        }
-
-                        delay = Printer.Print(d.Values[0]);
-                    }
-
-                    string target = Printer.Print(a.Target);
-                    if (clockToQ.TryGetValue(target, out string before) && before != delay)
-                    {
-                        why = "A register's clock to Q is the same on every write, its reset's and its D's -- q <= #2 1'b0; else q <= #2 d; -- " +
-                            "as a drawn register's is.";
+                        why = "A register's write waits only for its clock to Q, a number on a nonblocking write -- q <= #2 d -- as a " +
+                            "drawn register's does. Any other delay or wait in it is no cell of the library.";
                         return false;
                     }
 
-                    clockToQ[target] = delay;
                     bool constant = Constant(scope, a.Value);
                     if (constantsOnly && !constant)
                     {
@@ -262,7 +244,7 @@ namespace BitSorter.Sim
                 if (s is BlockStatement b && b.Declarations.Count == 0 && b.Statements.Count > 0)
                 {
                     foreach (Statement inner in b.Statements)
-                        if (!Writes(scope, inner, constantsOnly, clockToQ, out at, out why))
+                        if (!Writes(scope, inner, constantsOnly, out at, out why))
                             return false;
                     return true;
                 }
