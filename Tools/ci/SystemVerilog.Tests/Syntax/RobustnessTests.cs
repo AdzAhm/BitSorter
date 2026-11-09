@@ -149,6 +149,37 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(1, tree.Modules.Count);
         }
 
+        /// <summary>
+        /// The 16d sweep: a sized literal is made at its full width as it is read, and kept on the tree, with a cap on one
+        /// literal alone -- so 1048576'd0, eleven characters, holds 256 KB, and a hundred thousand bytes of them held 2 GB
+        /// before the design's own size was ever asked: past a browser's whole heap.
+        /// </summary>
+        [Test]
+        public void WideLiterals_AreHeldToABudgetForTheRead()
+        {
+            string text = "module m;\n" +
+                string.Concat(Enumerable.Range(0, 1_000).Select(i => $"  localparam logic [1048575:0] P{i} = 1048576'd{i};\n")) +
+                "endmodule\n";
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            SyntaxTree tree = SyntaxReader.ReadText(text, "wide.sv");
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.IsTrue(tree.HasErrors, "a thousand numbers of a million bits are more than a read may hold");
+            Assert.Contains(DiagnosticCodes.BadNumber, Codes(tree));
+            Assert.AreEqual(1, Codes(tree).Count(c => c == DiagnosticCodes.BadNumber), "said once");
+            Assert.Less(allocated, 64_000_000, $"{allocated:N0} bytes allocated reading them");
+        }
+
+        [Test]
+        public void WideLiteralsWithinTheBudget_AreRead()
+        {
+            string text = "module m;\n" +
+                string.Concat(Enumerable.Range(0, 60).Select(i => $"  localparam logic [1048575:0] P{i} = 1048576'd{i};\n")) +
+                "endmodule\n";
+            Clean(text);
+        }
+
         [Test]
         public void ALongFlatFile_IsReadQuickly()
         {
