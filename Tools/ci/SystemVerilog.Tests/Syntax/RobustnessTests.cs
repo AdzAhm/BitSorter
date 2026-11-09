@@ -144,6 +144,24 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
         }
 
         /// <summary>
+        /// The 16d sweep's review: a read stopped as too deep went on to fault the text it left unread -- a ']' or a ';'
+        /// missing, the module never ending -- errors for what is not wrong, after the one that is.
+        /// </summary>
+        [TestCase("assign y = ", "(", "a[0]", ")", ";")]
+        [TestCase("assign y = ", "a[0] ^ ", "a[1]", "", ";")]
+        [TestCase("initial ", "begin ", "y = 1;", " end", "")]
+        [TestCase("typedef ", "struct { ", "logic a;", " } s;", " t;")]
+        public void AStoppedRead_SaysNothingOfWhatItLeftUnread(string start, string open, string middle, string close, string end)
+        {
+            int times = Parser.MaxHeight + 10;
+            string deep = start + string.Concat(Enumerable.Repeat(open, times)) + middle + string.Concat(Enumerable.Repeat(close, times)) + end;
+            string text = "module m (input logic [7:0] a, output logic y);\n  " + deep + "\n  assign y = a[2] ^ a[3];\nendmodule\n";
+            SyntaxTree tree = SyntaxReader.ReadText(text, "deep.sv");
+            Assert.AreEqual(new[] { DiagnosticCodes.TooDeep }, tree.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.Code).ToArray(),
+                string.Join("\n", tree.Diagnostics));
+        }
+
+        /// <summary>
         /// The 16d sweep: generate regions inside each other, an enum based on an enum, and a struct inside a struct each
         /// recursed with no count of how deep, so enough of them overflowed the stack rather than stopping the read.
         /// </summary>
