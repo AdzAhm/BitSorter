@@ -38,7 +38,30 @@ namespace BitSorter.Board
         /// Null where <paramref name="reading"/> is what <paramref name="netlist"/> -- the netlist of the instance at
         /// <paramref name="path"/> in <paramref name="design"/> -- does; else the first thing it does otherwise.
         /// </summary>
-        public static string Why(ControllerReading reading, Design design, RtlNetlist netlist, string path)
+        public static string Why(ControllerReading reading, Design design, RtlNetlist netlist, string path) =>
+            Why(reading, design, netlist, path, out _);
+
+        /// <summary>
+        /// The same, with what the check cost: how many trials it made -- each the netlist worked out once -- and how many
+        /// values it made at random for them. A reading is checked again whenever its module is drawn again -- after any edit of
+        /// the project while it is up -- so the tests hold what a check costs in these rather than in time.
+        /// </summary>
+        public static string Why(ControllerReading reading, Design design, RtlNetlist netlist, string path, out (int Trials, long Values) cost)
+        {
+            var tally = new Tally();
+            string why = Check(reading, design, netlist, path, tally);
+            cost = (tally.Trials, tally.Values);
+            return why;
+        }
+
+        /// <summary>What a check has cost so far.</summary>
+        private sealed class Tally
+        {
+            public int Trials;
+            public long Values;
+        }
+
+        private static string Check(ControllerReading reading, Design design, RtlNetlist netlist, string path, Tally tally)
         {
             if (reading == null || design == null || netlist == null)
                 throw new ArgumentNullException(reading == null ? nameof(reading) : design == null ? nameof(design) : nameof(netlist));
@@ -83,6 +106,7 @@ namespace BitSorter.Board
             {
                 foreach (int s in read)
                     values[s] = Random(random, design.Signals[s].Width);
+                tally.Values += read.Count;
             }
 
             // What the logic reads that nothing in it works out: the inputs, and what registers hold, but the state's.
@@ -134,6 +158,7 @@ namespace BitSorter.Board
                     values[register] = machine.Codes[s].Resize(design.Signals[register].Width);
                     if (letGo >= 0)
                         values[letGo] = machine.LetGo.Value.Constant.Value.Resize(design.Signals[letGo].Width);
+                    tally.Trials++;
                     RtlEvaluator.Evaluate(netlist, values, nets);
                     int to = machine.StateOf(nets[nextNet]);
                     MachineArrow? arrow = null;
@@ -202,6 +227,7 @@ namespace BitSorter.Board
                         {
                             Randomise();
                             values[subject] = at;
+                            tally.Trials++;
                             RtlEvaluator.Evaluate(netlist, values, nets, heldNet, at);
                             for (int c = 0; c < table.Columns.Count; c++)
                                 if (table.Rows[r].Cells[c].Constant is LogicVec constant && NetOf(netlist, Signal(table.Columns[c])) is int net && net >= 0
