@@ -755,6 +755,33 @@ endmodule"), 1);
             Assert.AreEqual("1001", Now(sim, "y"));
         }
 
+        /// <summary>
+        /// A for's list that begins with a declaration declares every variable in it, each with the type before it (IEEE 1800,
+        /// 12.7.1: <c>for (int i = 0, j = 7; ...)</c> declares j an int too), as ModelSim runs it; Icarus 12 cannot read the
+        /// list at all. BitSorter declared only i and assigned j wherever a j was found -- refused, or a module's own j written
+        /// over without a word (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AForsDeclarations_DeclareEveryVariable_EachWithTheTypeBeforeIt()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    integer j = 100;
+    function automatic bit is_pal(input logic [7:0] v);
+        for (int i = 0, j = 7; i < j; i++, j--)
+            if (v[i] != v[j]) return 0;
+        return 1;
+    endfunction
+    initial begin
+        for (int i = 0, k = 3; i < k; i++, k--) $display(""%0d %0d"", i, k);
+        for (int i = 0, byte b = 8'd250; i < 2; i++, b++) $display(""b %0d %0d"", i, b);
+        $display(""%b %b %0d"", is_pal(8'b1001_1001), is_pal(8'b1001_1000), j);
+    end
+endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            CollectionAssert.AreEqual(new[] { "0 3", "1 2", "b 0 -6", "b 1 -5", "1 0 100" }, Printed(Run(e.Design, 10)), "ModelSim's lines, probed");
+        }
+
         [Test]
         public void ALoopsOwnVariable_IsNotRecorded_AndAVcdLeavesItOut()
         {
