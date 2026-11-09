@@ -180,5 +180,52 @@ namespace BitSorter.Board.Tests
             Assert.Less(made, 128 * Megabyte, "each pass read every header not yet found, twice");
             Assert.Less(seconds, 1);
         }
+
+        /// <summary>
+        /// A written module's text is cut from its file with what the file said between the modules before it -- its defines,
+        /// includes and conditionals -- since it saw them there, so a module carries every define above it, and a file of
+        /// modules with defines between them carries the square of them, each module's text parsed with its own. A hundred and
+        /// twenty modules, each after sixty defines of its own, carried 6.4 MB and made 824 MB in 4.8 s; two hundred after two hundred
+        /// each ran for more than ten minutes.
+        /// </summary>
+        [Test]
+        public void AFileOfModulesWithDefinesBetweenThem_CarriesNoMoreThanAFile_AndSaysWhy()
+        {
+            var text = new StringBuilder();
+            for (int m = 0; m < 120; m++)
+            {
+                for (int d = 0; d < 60; d++)
+                    text.Append("`define W").Append(m).Append('_').Append(d).Append(" 1\n");
+                text.Append("module m").Append(m).Append(" (input logic clk, output logic q);\n    always_ff @(posedge clk) q <= ~q;\nendmodule\n");
+            }
+
+            var clock = Stopwatch.StartNew();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            ProjectImport import = ProjectImporter.Import(new[] { new SourceFile("many.sv", text.ToString()) });
+            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            double seconds = clock.Elapsed.TotalSeconds;
+            TestContext.WriteLine($"{made / (double)Megabyte:F1} MB in {seconds:F2} s");
+
+            Assert.IsFalse(import.Succeeded, "refused");
+            StringAssert.Contains("says so much between its modules", string.Join("\n", import.Notes), "saying why");
+            Assert.Less(made, 128 * Megabyte, "what it carried was parsed with each module");
+        }
+
+        /// <summary>The pair of the one above: a table of a thousand defines over a hundred modules, each using one, is carried whole.</summary>
+        [Test]
+        public void ATableOfDefinesOverAHundredModules_IsCarriedIntoEach()
+        {
+            var text = new StringBuilder();
+            for (int d = 0; d < 1000; d++)
+                text.Append("`define OP").Append(d).Append(" 7'd").Append(d % 128).Append('\n');
+            for (int m = 0; m < 100; m++)
+                text.Append("module m").Append(m).Append(" (input logic clk, output logic [6:0] q);\n    always_ff @(posedge clk) q <= `OP")
+                    .Append(m).Append(";\nendmodule\n");
+
+            (_, _, ProjectImport import) = Imported(new SourceFile("table.sv", text.ToString()));
+
+            Assert.AreEqual(100, import.Project.Modules.Count);
+            StringAssert.Contains("`define OP999 ", import.Project.Find("m99").Source, "every define it saw above it");
+        }
     }
 }
