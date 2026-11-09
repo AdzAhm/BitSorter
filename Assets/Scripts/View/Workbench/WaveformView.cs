@@ -434,12 +434,10 @@ namespace BitSorter.View
                     PlaceBusLabels(row, middle, palette);
                 WriteLegibly(row, palette);
 
-                _model.RowSwallowed(row, _swallowed);
-                foreach (double at in _swallowed)
+                _model.RowSwallowedIn(row, View, _swallowed);
+                for (int i = 0; i < _swallowed.Count; i++)
                 {
-                    if (!View.Shows(at))
-                        continue;
-
+                    double at = _swallowed[i];
                     if (glitches == _glitchLabels.Count)
                         _glitchLabels.Add(WorkbenchPanel.StageLabel(Rect, "glitch swallowed", Vector2.zero, UiType.Micro, palette.TextDim,
                             TextAlignmentOptions.MidlineLeft, 140f));

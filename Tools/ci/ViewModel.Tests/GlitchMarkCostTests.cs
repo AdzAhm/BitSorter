@@ -37,14 +37,8 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>What the waves read of a row's glitch marks for one frame: those the view shows, up to the playhead.</summary>
-        private static void Frame(WorkbenchModel model, int row, WaveView view, List<double> all, List<double> shown)
-        {
-            shown.Clear();
-            model.RowSwallowed(row, all);
-            foreach (double at in all)
-                if (view.Shows(at))
-                    shown.Add(at);
-        }
+        private static void Frame(WorkbenchModel model, int row, WaveView view, List<double> shown) =>
+            model.RowSwallowedIn(row, view, shown);
 
         [Test]
         public void ARowsGlitchMarks_AreReadAsFarAsTheViewShows_NotFromTheRunsStart()
@@ -58,19 +52,18 @@ namespace BitSorter.ViewModel.Tests
             var view = new WaveView(1000f);
             view.Fit((long)model.End);
             Assert.IsTrue(view.ShowRange(model.End - 30, model.End - 10), "sanity: twenty units of the run shown");
-            var all = new List<double>();
             var shown = new List<double>();
 
-            Frame(model, row, view, all, shown);   // warmed
+            Frame(model, row, view, shown);   // warmed
             var marks = new List<double>();
             model.RowSwallowed(row, marks, model.End);
-            CollectionAssert.AreEqual(marks.Where(view.Shows).OrderBy(t => t), shown.OrderBy(t => t), "the marks the view shows, and those alone");
+            CollectionAssert.AreEqual(marks.Where(view.Shows).OrderBy(t => t), shown, "the marks the view shows, and those alone, in time order");
             Assert.That(shown.Count, Is.InRange(1, 8), "sanity: a handful in view");
 
             const int frames = 200;
             var watch = Stopwatch.StartNew();
             for (int i = 0; i < frames; i++)
-                Frame(model, row, view, all, shown);
+                Frame(model, row, view, shown);
             double each = watch.Elapsed.TotalMilliseconds * 1000 / frames;
             TestContext.WriteLine($"{model.RowSwallowedCount(row)} marks on the row, {shown.Count} in view: {each:F1} microseconds a frame");
             Assert.Less(each, 10, "a frame's read of the row's marks, in microseconds: the marks in view, not the run's");

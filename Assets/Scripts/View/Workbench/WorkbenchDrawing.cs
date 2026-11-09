@@ -887,10 +887,9 @@ namespace BitSorter.View
             {
                 (int, int) mark = painter.Mark();
                 float middle = RowMiddle(row);
-                model.RowSwallowed(row, Swallowed);
-                foreach (double at in Swallowed)
-                    if (view.Shows(at))
-                        painter.Cross(new Vector2(WaveX(at, view), middle), 4f, 1.6f, palette.Unknown);
+                model.RowSwallowedIn(row, view, Swallowed);
+                for (int i = 0; i < Swallowed.Count; i++)
+                    painter.Cross(new Vector2(WaveX(Swallowed[i], view), middle), 4f, 1.6f, palette.Unknown);
 
                 if (!painter.Fits(mark))
                     break;

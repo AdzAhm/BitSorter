@@ -66,8 +66,9 @@ namespace BitSorter.ViewModel
     ///
     /// **What it reads per frame does not grow with the run.** Transitions are recorded in the order
     /// they are scheduled, so the ones that can be on their way at a moment are a window found by
-    /// binary search, not a walk of the whole run; a gate's flash and a row's count of swallowed
-    /// changes are binary searches too.
+    /// binary search, not a walk of the whole run; a gate's flash, a row's count of swallowed
+    /// changes and the swallowed changes a view shows (<see cref="RowSwallowedIn"/>) are binary
+    /// searches too.
     ///
     /// Time here is a double, in the run's time units (nanoseconds as shown): the engine's time is
     /// an integer, and the moments between are where a change is part-way down its wire.
@@ -729,18 +730,35 @@ namespace BitSorter.ViewModel
                     into.Add(ended);
         }
 
+        /// <summary>
+        /// A row's swallowed changes that <paramref name="view"/> shows, up to now, in time order: what a frame of the waves
+        /// marks. Found by binary search in the row's moments, kept in time order, so a frame reads the marks in view and no
+        /// more -- the waves took every mark from the run's start at each redraw and tested each against the view (the 16d
+        /// sweep).
+        /// </summary>
+        public void RowSwallowedIn(int row, WaveView view, List<double> into)
+        {
+            into.Clear();
+            List<double> times = _swallowedTimes[row];
+            double until = Math.Min(Time, view.End);
+            for (int i = Before(times, view.Start, inclusive: false); i < times.Count && times[i] <= until; i++)
+                into.Add(times[i]);
+        }
+
         /// <summary>How many changes on their way to a row's signal are swallowed so far in the run: what its glitch marks can cost.</summary>
         public int RowSwallowedCount(int row) => _swallowedOf[row].Count;
 
         /// <summary>How many of them have been swallowed by now: how many marks the row's glitches show.</summary>
-        public int RowSwallowedSoFar(int row)
+        public int RowSwallowedSoFar(int row) => Before(_swallowedTimes[row], Time, inclusive: true);
+
+        /// <summary>How many of <paramref name="times"/>, in order, come before <paramref name="at"/> -- or at it, when <paramref name="inclusive"/>.</summary>
+        private static int Before(List<double> times, double at, bool inclusive)
         {
-            List<double> times = _swallowedTimes[row];
             int low = 0, high = times.Count;
             while (low < high)
             {
                 int mid = (low + high) >> 1;
-                if (times[mid] <= Time) low = mid + 1;
+                if (times[mid] < at || inclusive && times[mid] == at) low = mid + 1;
                 else high = mid;
             }
 
