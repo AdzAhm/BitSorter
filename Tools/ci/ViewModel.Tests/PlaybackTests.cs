@@ -134,6 +134,54 @@ endmodule", "t");
             Assert.AreEqual("12", model.RowText(0, model.RowTrack(0).IndexAt(5)));
         }
 
+        /// <summary>
+        /// A drawing of code's wire no signal holds reads what a step carried on past a <c>$stop</c> settles on, at the moment it
+        /// was read at while suspended: the model kept what it had worked out by the moment alone, and the step carried on is the
+        /// same moment with other values (the 16d sweep, waves-8, where what it is kept by became the step).
+        /// </summary>
+        [Test]
+        public void ADrawingOfCode_ReadsWhatAStepCarriedOnSettlesOn_AtTheMomentItWasReadAt()
+        {
+            BitSorter.Board.ProjectImport import = BitSorter.Board.ProjectImporter.Import(new List<BitSorter.Board.SourceFile>
+            {
+                new BitSorter.Board.SourceFile("inc.sv", "module inc (input logic [3:0] a, output logic [3:0] y);\n" +
+                                                         "    assign y = ~(a + 4'd1);\n" +
+                                                         "endmodule\n"),
+                new BitSorter.Board.SourceFile("inc_tb.sv", "module inc_tb;\n" +
+                                                            "    logic [3:0] a, y;\n" +
+                                                            "    inc dut (.a(a), .y(y));\n" +
+                                                            "    initial begin\n" +
+                                                            "        a = 0;\n" +
+                                                            "        #5 a = 9;\n" +
+                                                            "        $stop;\n" +
+                                                            "        a = 12;\n" +
+                                                            "        #5 $finish;\n" +
+                                                            "    end\n" +
+                                                            "endmodule\n"),
+            });
+            Assert.IsTrue(import.Succeeded, string.Join("\n", import.Notes));
+            var session = new WorkbenchSession(import.Project, Ticking(0.001));
+            session.Finish();
+            Assert.IsTrue(session.Run.Suspended, "sanity: at the $stop");
+            Assert.IsTrue(session.ShowsDrawingOfCode, "sanity: the written top drawn");
+            WorkbenchModel model = session.Run.Model;
+            SchematicLayout layout = model.Layout;
+            int adder = layout.Parts.Single(p => p.Symbol == PartSymbol.Operator && p.Name == "+").Part.Id;
+            int sum = Enumerable.Range(0, layout.Nets.Count).Single(n => layout.Nets[n].Source.Part == adder);
+            Assert.IsTrue(layout.Drawn.Has(sum), "sanity: a + 1 is no signal");
+
+            model.Seek(5);
+            Assert.IsTrue(model.NetValue(sum).TryGetUInt64(out ulong suspended));
+            Assert.AreEqual(10UL, suspended, "sanity: 9 + 1, as the step stood when it was suspended");
+
+            Assert.IsTrue(session.Run.RunOn(20));
+            session.Run.Finish();
+            Assert.AreSame(model, session.Run.Model, "sanity: the same model, grown");
+            model.Seek(5);
+            Assert.IsTrue(model.NetValue(sum).TryGetUInt64(out ulong carriedOn));
+            Assert.AreEqual(13UL, carriedOn, "12 + 1, what the step settled on once it was carried on");
+        }
+
         [Test]
         public void TheSlicer_RunsOn_OnlyARunSuspendedOrAtItsHorizon()
         {
