@@ -444,6 +444,65 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(new Placement(4, 0), session.Project.TopModule.Layout.PlacementOf(and), "one step");
         }
 
+        /// <summary>
+        /// An edit made while a drag is held -- Q, Ctrl+Z or Delete, which the view takes from the keys mid-drag -- is kept,
+        /// and the drag goes on from where the edit left the parts. The release wrote back the placements the drag began
+        /// with: a turn made mid-drag was undone by it, an undo was undone, and a part deleted was refused as no part at all
+        /// (the 16d sweep).
+        /// </summary>
+        [Test]
+        public void AnEditMadeWhileADragIsHeld_IsKept_AndTheDragGoesOnFromWhereItLeftTheParts()
+        {
+            (WorkbenchSession session, CanvasEditor editor, int a, int _, int and, int _) = Editing();
+            Placement Of(int part) => session.Project.TopModule.Layout.PlacementOf(part);
+            EditResult? Drag(BoardPoint from, BoardPoint to, Action midway, int[] parts)
+            {
+                editor.Selection.Box(parts, new int[0], extend: false);
+                editor.Do(new CanvasCommand(CanvasGesture.BeginMove, from: from));
+                editor.Do(new CanvasCommand(CanvasGesture.MoveTo, to, from));
+                midway();
+                return editor.Do(new CanvasCommand(CanvasGesture.EndMove, to, from));
+            }
+
+            // Q, and the drawing made again at the frame's end, as the view makes it, before the release.
+            Placement turned = default;
+            EditResult? moved = Drag(new BoardPoint(4, 0), new BoardPoint(5, 0), () =>
+            {
+                Assert.IsTrue(editor.Turn(1).Done);
+                editor.Relaid();
+                turned = Of(and);
+            }, new[] { and });
+            Assert.IsTrue(moved.HasValue && moved.Value.Done, moved?.Refusal);
+            Assert.AreEqual(new Placement(new BoardPoint(turned.Position.X + 1, turned.Position.Y), 1), Of(and),
+                "still turned, and a cell on from where the turn left it");
+            Assert.IsTrue(session.Undo());
+            editor.Relaid();
+            Assert.AreEqual(turned, Of(and), "two steps: the move, then the turn");
+            Assert.IsTrue(session.Undo());
+            editor.Relaid();
+
+            // Ctrl+Z, undoing a move made before the drag: the drag goes on from where the undo put the part.
+            Assert.IsTrue(session.Move(new Dictionary<int, Placement> { [and] = new Placement(8, 0) }).Done);
+            editor.Relaid();
+            moved = Drag(new BoardPoint(8, 0), new BoardPoint(9, 0), () =>
+            {
+                Assert.IsTrue(session.Undo());
+                editor.Relaid();
+            }, new[] { and });
+            Assert.IsTrue(moved.HasValue && moved.Value.Done, moved?.Refusal);
+            Assert.AreEqual(new Placement(5, 0), Of(and), "a cell on from (4, 0), where the undo put it -- not from (8, 0), which it undid");
+
+            // A part deleted mid-drag -- the one held, at that -- and let go in the same frame, before the view has drawn the
+            // edit: the rest of the selection still moves, and nothing is refused.
+            Assert.AreEqual(new Placement(1, 1), Of(a), "sanity");
+            moved = Drag(new BoardPoint(5, 0), new BoardPoint(6, 0), () =>
+                Assert.IsTrue(session.Remove(new List<int> { and }, new List<int>()).Done), new[] { a, and });
+            Assert.IsTrue(moved.HasValue && moved.Value.Done, moved?.Refusal);
+            Assert.IsNull(editor.Refusal);
+            Assert.AreEqual(new Placement(2, 1), Of(a));
+            Assert.IsFalse(editor.Moving);
+        }
+
         [Test]
         public void ABoxLetGo_SelectsWhatItTouches_AndIsDrawnWhileItIsDrawn()
         {
