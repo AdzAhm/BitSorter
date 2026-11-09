@@ -246,6 +246,7 @@ namespace BitSorter.Sim
                 p.Emit(OpCode.End);
                 r.Compiling = false;
 
+                _instructions += p.Code.Count;
                 bool ok = !p.Failed && FitsInAnExpression(r, p);
                 if (!ok)
                 {
@@ -373,6 +374,15 @@ namespace BitSorter.Sim
             /// </summary>
             private void Inline(Proc p, Scope scope, CallStatement call, SubroutineEntry r)
             {
+                // Each call counted one, whatever its body: a chain of empty tasks calling each other doubles too.
+                if (!InstructionsFit(p.Here + 1, call.Location))
+                {
+                    p.Failed = true;
+                    return;
+                }
+
+                _instructions++;
+
                 if (!EnsureFrame(r))
                 {
                     p.Failed = true;

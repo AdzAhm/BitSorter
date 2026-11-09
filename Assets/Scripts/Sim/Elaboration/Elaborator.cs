@@ -76,6 +76,17 @@ namespace BitSorter.Sim
         public const int MaxParts = 1 << 18;
 
         /// <summary>
+        /// How many instructions a whole design's processes and functions may hold between them, each call of a task written
+        /// in place counted one besides its body's: 524,288, where the corpus's most is 350, and a 65,536-word ROM written as
+        /// a case some 131,000. Each costs about a kilobyte as it is made, measured: 65,536 timed writes, 131,073
+        /// instructions, made 121 MB, and 65,536 copies of a one-line task 126 MB. A task is written in place wherever it is
+        /// called, so tasks each calling the one below twice wrote two to the power of their number of copies -- 33 million
+        /// from 25 tasks of a few hundred bytes -- and a generate loop's every round compiles its processes again (the Part
+        /// 16d sweep).
+        /// </summary>
+        public const int MaxInstructions = 1 << 19;
+
+        /// <summary>
         /// Elaborates <paramref name="tree"/> from <paramref name="top"/>, or from the one module that
         /// nothing instantiates when no top is named.
         /// </summary>
@@ -323,6 +334,29 @@ namespace BitSorter.Sim
                 Error(at, ElaborationCodes.TooLarge, $"Here the design comes to more than {MaxParts.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} " +
                     "parts -- instances, generate blocks, assigns, gates and processes together -- more than BitSorter will simulate. " +
                     "Does a generate loop, or a loop inside one, go round more times than meant?");
+                _stopped = true;
+                return false;
+            }
+
+            /// <summary>The instructions compiled into the design's processes and functions so far, and the task calls written in place.</summary>
+            private long _instructions;
+
+            /// <summary>
+            /// Whether <paramref name="more"/> instructions beside those compiled already keep the design within
+            /// <see cref="MaxInstructions"/>: asked as each process is compiled and each task call is written in place, so tasks
+            /// that call tasks stop where they pass it. Past it the design is refused, said once at <paramref name="at"/>, and
+            /// the elaboration stopped.
+            /// </summary>
+            private bool InstructionsFit(long more, SourceLocation at)
+            {
+                if (_stopped)
+                    return false;
+                if (_instructions + more <= MaxInstructions)
+                    return true;
+
+                Error(at, ElaborationCodes.TooLarge, $"Here the design's processes come to more than {MaxInstructions.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} " +
+                    "instructions, every task written in again wherever it is called -- more than BitSorter will simulate. Does a task call " +
+                    "another, or a loop make a process, more times than meant?");
                 _stopped = true;
                 return false;
             }

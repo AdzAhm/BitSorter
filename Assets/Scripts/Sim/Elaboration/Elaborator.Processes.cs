@@ -157,6 +157,10 @@ namespace BitSorter.Sim
                     return null;
                 }
 
+                // Past the design's instructions -- a generate loop's every round compiles its processes again -- nothing more is.
+                if (!InstructionsFit(0, block.Location))
+                    return null;
+
                 var p = new Proc($"{scope.Path}.{kind}@{block.Location.Line}") { At = block.Location, Line = block.Location.Line, Kind = block.Kind };
 
                 switch (block.Kind)
@@ -210,7 +214,10 @@ namespace BitSorter.Sim
                     return null;
 
                 LintLatches(scope, block);
-                return Made(p, kind);
+                List<ProcessInfo> made = Made(p, kind);
+                foreach (ProcessInfo info in made)
+                    _instructions += info.Code.Length;   // the process and its forks' branches
+                return made;
             }
 
             /// <summary>

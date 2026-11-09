@@ -4823,6 +4823,11 @@ verifiers, re-checked on the code, and fixed as a failing test and then its fix.
   one with x or z bits, and a size cast to no width or past the widest set the builder's `Failed` and said nothing, and a
   caller takes `Failed` as said: the assign or the whole process went, and the design ran without a word. Each is an error
   at its place now (SV0310, SV0323, SV0304, SV0318).
+- **A whole design is held to 524,288 instructions** (`Elaborator.MaxInstructions`): its processes' and functions', each
+  call of a task written in place counted one besides its body, asked as each process is compiled and each call written
+  in. A task is written into its caller wherever it is called, so 25 tasks each calling the one below twice wrote 33
+  million copies, and a generate loop compiles its processes again every round; nothing counted either. The corpus's most
+  is 350, and a 65,536-word ROM written as a case some 131,000.
 
 ---
 
@@ -4893,6 +4898,10 @@ two kinds of call need them:
   outputs back and the signals with them. A process holds at most `Simulator.MaxCallDepth` (10,000) such calls under
   way before the run stops; a `disable` of the task leaves every one, and a `disable` of a block in it every call made
   from inside the outermost call's block, which goes on after it with its own signals back (9.6.2).
+
+  A task that calls itself is refused (`SV0309`): written in place it would never end. And tasks calling each other
+  are held to the design's instructions (`Elaborator.MaxInstructions`, Part 16d): written in place, each calling the
+  one below twice wrote two to the power of their number of copies.
 - **Its own signals are the design's own working variables**, made once, the first time a call needs them,
   and shared by every call of a static function or task: static storage, the standard's default. **An automatic
   task gives each call written in its own** -- the first the task's, every later one a frame made for it, with its

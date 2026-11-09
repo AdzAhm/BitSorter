@@ -722,6 +722,17 @@ endmodule", 20);
             Assert.IsNull(e.Design);
         }
 
+        /// <summary>A generate loop's rounds each compile its process again, and are held to the same instructions.</summary>
+        [Test]
+        public void AProcessInAGenerateLoop_IsHeldToTheDesignsInstructions()
+        {
+            string body = string.Concat(Enumerable.Repeat("y[i] = ~y[i]; ", 300));
+            Elaboration e = Elaborate("module t (input logic [2047:0] a); logic [2047:0] y; for (genvar i = 0; i < 2048; i++) begin : g " +
+                $"always @(a[i]) begin {body}end end endmodule");
+            StringAssert.Contains("instructions", e.Diagnostics.Single(d => d.Code == ElaborationCodes.TooLarge).Message);
+            Assert.IsNull(e.Design);
+        }
+
         /// <summary>The pair of the refusal: the same tasks, a thousand copies deep, are written in and run.</summary>
         [Test]
         public void TasksCallingTasks_AThousandCopies_AreWrittenInAndRun()
