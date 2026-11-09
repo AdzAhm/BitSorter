@@ -371,6 +371,22 @@ namespace BitSorter.SystemVerilog.Tests.Syntax
             Assert.AreEqual(bits, literal.Value.Format(Radix.Binary));
         }
 
+        /// <summary>
+        /// The 16d sweep: a size cast's size may be any constant primary, a parenthesised expression among them (IEEE 1800,
+        /// 6.24.1), but only a number, a keyword or a name was looked behind for the apostrophe, so (W+1)'(a + b) left it
+        /// over and the read said 'Missing ;' where Icarus and ModelSim size the sum to five bits.
+        /// </summary>
+        [Test]
+        public void ASizeCastsSize_MayBeAnExpressionInParentheses()
+        {
+            var cast = (CastExpression)Expr("(W + 1)'(a + b)");
+            Assert.IsInstanceOf<ParenthesizedExpression>(cast.Width, "the size, as written");
+            Assert.AreEqual("W + 1", Printer.Print(((ParenthesizedExpression)cast.Width).Inner));
+            Assert.AreEqual("a + b", Printer.Print(cast.Value));
+            Assert.AreEqual("(W + 1)'(a + b)", Printer.Print(cast), "printed back as written");
+            Assert.AreEqual("(a + b)", Printer.Print(Expr("(a + b)")), "and parentheses with no apostrophe after them are as ever");
+        }
+
         [Test]
         public void ConcatenationAndReplication_AsTheWorkshopsWriteThem()
         {
