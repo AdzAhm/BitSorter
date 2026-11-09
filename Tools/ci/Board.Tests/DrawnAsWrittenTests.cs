@@ -212,6 +212,46 @@ namespace BitSorter.Board.Tests
                 "endmodule\n", "typed");
         }
 
+        // -----------------------------------------------------------------
+        // A bit is named by its range (import-export-6)
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void ABitSelect_TakesTheBitItsRangeNames()
+        {
+            // a[2] of [4:1] is the second bit up, offset 1; b[0] of [0:3] is the top bit (IEEE 1800, 7.4.5).
+            AssertDrawnRunsAsWritten(
+                "module bits (input logic [4:1] a, input logic [0:3] b, output logic y, output logic z);\n" +
+                "    assign y = a[2];\n" +
+                "    assign z = b[0];\n" +
+                "endmodule\n", "bits", mustDraw: true);
+        }
+
+        [Test]
+        public void AMuxsSelect_IsReadByItsRange()
+        {
+            AssertDrawnRunsAsWritten(
+                "module chooser (input logic [0:1] s, input logic d0, input logic d1, input logic d2, input logic d3, output logic y);\n" +
+                "    assign y = s[1] ? (s[0] ? d3 : d2) : (s[0] ? d1 : d0);\n" +
+                "endmodule\n", "chooser");
+        }
+
+        [Test]
+        public void AnArrayOfBlocks_TakesTheBitsItsRangeNames()
+        {
+            // Copy i takes a[i] and gives y[i]: a[0] of [0:3] is its top bit, y[0] of [3:0] its bottom one.
+            AssertDrawnRunsAsWritten(
+                "module flip (input logic x, output logic y);\n" +
+                "    assign y = ~x;\n" +
+                "endmodule\n" +
+                "module flips (input logic [0:3] a, output logic [3:0] y);\n" +
+                "    genvar i;\n" +
+                "    for (i = 0; i < 4; i++) begin : u\n" +
+                "        flip f (.x(a[i]), .y(y[i]));\n" +
+                "    end\n" +
+                "endmodule\n", "flips");
+        }
+
         [TestCase("input bit a", "bit")]
         [TestCase("input logic a [1:0]", "array")]
         [TestCase("input integer a", "integer")]
