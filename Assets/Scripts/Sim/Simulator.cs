@@ -1203,14 +1203,17 @@ namespace BitSorter.Sim
 
         private void Append(FileText file, string text, bool endLine)
         {
+            // Full, it stays as it was: a shorter write after one left out would end the file on what came after.
+            if (file.Full)
+                return;
+
             int room = MaxFileCharacters - file.Text.Length;
             int length = text.Length + (endLine ? 1 : 0);
             if (length > room)
             {
-                if (!file.Full)
-                    _history.Message(_now, Severity.Error,
-                        $"{file.Name} has reached {MaxFileCharacters.ToString("N0", CultureInfo.InvariantCulture)} characters, the most a file a run " +
-                        "writes may hold, so what is written to it after is left out.");
+                _history.Message(_now, Severity.Error,
+                    $"{file.Name} has reached {MaxFileCharacters.ToString("N0", CultureInfo.InvariantCulture)} characters, the most a file a run " +
+                    "writes may hold, so what is written to it after is left out.");
                 file.Full = true;
                 return;
             }
