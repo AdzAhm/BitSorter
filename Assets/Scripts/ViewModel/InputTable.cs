@@ -266,7 +266,10 @@ namespace BitSorter.ViewModel
             }
             if (Breakpoints.TryParseValue(typed, width, out value, out error))
                 return true;
-            error = error?.Replace(typed, shown);   // what was typed, not the literal it was made into
+            // What was typed, not the literal it was made into -- and nothing to put back when the separators were all there was
+            // (the 16d sweep: "_" left nothing, and replacing nothing threw).
+            if (typed.Length > 0)
+                error = error?.Replace(typed, shown);
             return false;
         }
 
