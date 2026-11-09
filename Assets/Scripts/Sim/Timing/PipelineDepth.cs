@@ -25,7 +25,8 @@ namespace BitSorter.Sim
     /// written: counted towards a loop and towards reaching an output -- a state machine written in one process is a
     /// loop -- but never as a register crossed, so a pipeline's enable or reset leaves it a pipeline. An output no input's
     /// value reaches is counted along its decisions instead, each crossing the register it decides: a registered comparator
-    /// writing 1 or 0 is one stage (the 16d sweep). A condition that reads a register makes its process's writes
+    /// writing 1 or 0 is one stage (the 16d sweep). A condition worked out from a register -- read itself, or through
+    /// logic between, as <c>assign tick = (cnt == 3)</c> decodes a count (the 16d sweep) -- makes its process's writes
     /// <see cref="Sequenced"/>.
     ///
     /// A clock -- what an edge waits on -- starts no path and is no condition. The first review of this found each of
@@ -93,7 +94,8 @@ namespace BitSorter.Sim
             foreach (TimingArc arc in graph.Arcs)
                 build.Data(arc.From, arc.To, 0);
 
-            // What every register writes, for whether a condition reads one; and every clock, first, for none is a condition.
+            // What every register writes, for whether a condition is worked out from one; and every clock, first, for none is
+            // a condition.
             var registerBits = new HashSet<int>();
             var clocks = new HashSet<int>();
             foreach (TimingRegister register in graph.Registers)
@@ -118,7 +120,7 @@ namespace BitSorter.Sim
                         build.Data(junction, q, 1);
                     continue;
                 }
-                follows[register] = Follow(register.Process, design, first, build, registerBits, clocks);
+                follows[register] = Follow(register.Process, design, first, build, clocks);
             }
 
             // A clock starts no path: its edge is when a stage is taken, not a value passed on.
@@ -134,13 +136,18 @@ namespace BitSorter.Sim
             bool[] on = Between(n, inputs, graph.Outputs, all);
             bool loop = !InOrder(n, on, all, out List<int> wayOrder);
 
+            // A condition worked out from a register, through any logic between -- assign tick = (cnt == 3) -- says when its
+            // writes are loaded (the 16d sweep: only a condition that was a register's bit itself was asked).
+            bool[] fromRegister = Reach(n, new List<int>(registerBits), v => ThroughLogic(data[v]));
+
             bool sequenced = false, mixed = false, unfollowed = false;
             (int, EdgeKind)? seen = null;
             foreach (KeyValuePair<TimingRegister, Followed> each in follows)
             {
                 if (!Touches(each.Key, on))
                     continue;
-                sequenced |= each.Value.Sequenced;
+                foreach (int d in each.Value.Decisions)
+                    sequenced |= d >= 0 && d < n && fromRegister[d];
                 unfollowed |= each.Value.Unfollowed;
                 if (seen == null)
                     seen = each.Value.Clock;
@@ -198,7 +205,10 @@ namespace BitSorter.Sim
         private sealed class Followed
         {
             public (int, EdgeKind) Clock;
-            public bool Sequenced;
+
+            /// <summary>The bits its conditions read, worked out through its blocking temporaries.</summary>
+            public IReadOnlyCollection<int> Decisions = Array.Empty<int>();
+
             public bool Unfollowed;
         }
 
@@ -216,8 +226,7 @@ namespace BitSorter.Sim
         /// a blocking temporary followed to what it holds at that point; its conditions, through a junction, into every bit
         /// it writes, as no stage.
         /// </summary>
-        private static Followed Follow(ProcessInfo process, Design design, int[] first, Builder build, HashSet<int> registerBits,
-            HashSet<int> clocks)
+        private static Followed Follow(ProcessInfo process, Design design, int[] first, Builder build, HashSet<int> clocks)
         {
             Instruction[] code = process.Code;
             var followed = new Followed { Clock = (-1, EdgeKind.Any) };
@@ -311,10 +320,8 @@ namespace BitSorter.Sim
             {
                 int conditions = build.Junction();
                 foreach (int d in decisions)
-                {
                     build.Condition(d, conditions);
-                    followed.Sequenced |= registerBits.Contains(d);
-                }
+                followed.Decisions = decisions;
                 // Into what it decides, through the register it is written in: what a way of decisions alone counts.
                 foreach (int w in written)
                     build.Condition(conditions, w, 1);
@@ -564,6 +571,16 @@ namespace BitSorter.Sim
                 yield break;
             foreach ((int to, int _) in edges)
                 yield return to;
+        }
+
+        /// <summary>Where <paramref name="edges"/> go through logic alone: the arcs that cross no register.</summary>
+        private static IEnumerable<int> ThroughLogic(List<(int To, int Weight)> edges)
+        {
+            if (edges == null)
+                yield break;
+            foreach ((int to, int weight) in edges)
+                if (weight == 0)
+                    yield return to;
         }
 
         /// <summary>Every bit reached from <paramref name="starts"/> along <paramref name="step"/>, the starts included.</summary>

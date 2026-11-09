@@ -4151,8 +4151,10 @@ extra", beside the course read, which gives both for a K-stage pipeline).
   output no input's value reaches is counted along its decisions**, each crossing the register it decides (the 16d sweep:
   a registered comparator writing 1 or 0, or a decoder writing constants, read as within the period, and a flag set by an
   input beside a value two stages on was left out of the count; they are one stage, and 1 to 2). A
-  condition reading a register makes the process's writes **sequenced**, as a multicycle machine's are. A clock, what an
-  edge waits on, starts no path and is no condition.
+  condition worked out from a register makes the process's writes **sequenced**, as a multicycle machine's are -- the
+  register read by the condition itself, or through logic between it and the condition: the 16d sweep found a count
+  decoded by an assign, `if (tick)`, taken for a 1-stage pipeline of a register loaded every fourth clock. A clock, what
+  an edge waits on, starts no path and is no condition.
 - **What it says** (`TimingView`, after the period lines of a design with registers): LATENCY, "K clock periods: every path
   from an input to an output passes K registers, a K-stage pipeline", with K times the clock period, and THROUGHPUT, one
   result each period whatever K is. Anything else, in this order: it has no outputs (the processors); not worked out,
