@@ -320,5 +320,54 @@ namespace BitSorter.Board.Tests
             Assert.IsFalse(converted.Done);
             StringAssert.Contains("no testbench", converted.Refusal);
         }
+
+        /// <summary>
+        /// CONVERT's run of the testbench records what it reads -- each signal's changes -- and not the transitions in flight the
+        /// waves draw, which it never reads: a conversion makes no more than compiling, elaborating and running the testbench so
+        /// does, and the tracks it records. It recorded them, 25 MB of a 16,384-vector testbench's where 16 do, and twice the
+        /// time, at every table INPUTS made under a written testbench (the 16d sweep, waves-2).
+        /// </summary>
+        [Test]
+        public void Converting_MakesWhatARunOfTheTestbenchRecordingNoTransitionsDoes()
+        {
+            Project project = Imported(
+                ("add8.sv", "module add8 (input logic [7:0] a, input logic [7:0] b, output logic [8:0] y);\n" +
+                            "    assign y = a + b;\n" +
+                            "endmodule\n"),
+                ("add8_tb.sv", "module add8_tb;\n" +
+                               "    logic [7:0] a, b;\n" +
+                               "    logic [8:0] y;\n" +
+                               "    integer i;\n" +
+                               "    add8 dut (.a(a), .b(b), .y(y));\n" +
+                               "    initial begin\n" +
+                               "        for (i = 0; i < 16384; i = i + 1) begin\n" +
+                               "            {a, b} = i;\n" +
+                               "            #1;\n" +
+                               "        end\n" +
+                               "        $stop;\n" +
+                               "    end\n" +
+                               "endmodule\n"));
+            long end = project.Stimulus?.StopTime ?? 0;
+            long Run()
+            {
+                long before = System.GC.GetAllocatedBytesForCurrentThread();
+                CompiledProject compiled = BoardCompiler.Compile(project);
+                Elaboration elaboration = compiled.Elaborate();
+                new Simulator(elaboration.Design, null, new SimOptions { Files = ProjectFiles.ForRun(project), RecordTransitions = false }).RunTo(end);
+                return System.GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+            long Convert()
+            {
+                long before = System.GC.GetAllocatedBytesForCurrentThread();
+                Assert.IsTrue(BenchConverter.Convert(project).Succeeded);
+                return System.GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+
+            Run();
+            Convert();   // each warmed: a first call pays for what it is the first to make
+            long run = Run(), converted = Convert();
+            TestContext.WriteLine($"a run recording no transitions: {run >> 20} MB; a conversion: {converted >> 20} MB");
+            Assert.Less(converted, run + (4 << 20), "a conversion, past such a run: its tracks");
+        }
     }
 }
