@@ -558,6 +558,42 @@ namespace BitSorter.Board.Tests
             Assert.IsNull(b.Current.Parts.FirstOrDefault(p => p.Name == "y"), "no step left behind by either: one undo takes y away");
         }
 
+        /// <summary>
+        /// A group is held to the rules as the one step it is, the document it ends on: an error one edit in it makes -- a second
+        /// driver on y -- and a later one mends is no refusal, and the group is one step for undo. Its refusal, where the end
+        /// still has the error, is that error, as <see cref="AGroup_AsksTheRulesOnceAtItsEnd_AndKnowsWhatItHasJoined"/> holds
+        /// (the review of the 16d fixes: since b3b8c3aa a group is no longer refused an edit at a time, and the architecture
+        /// says so).
+        /// </summary>
+        [Test]
+        public void AGroup_IsCheckedAsTheDocumentItEndsOn_SoAnErrorItMendsIsNoRefusal()
+        {
+            var b = new Bench();
+            int a = b.Input("a"), y = b.Output("y");
+            Project before = b.Project;
+
+            EditResult mended = b.Editor.Group(() =>
+            {
+                int g = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 0)));
+                int h = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 2)));
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(a, "out"), Endpoint.At(g, "a")));
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(g, "y"), Endpoint.At(y, "in")));
+                Bench.Must(b.Editor.Connect(b.Module, Endpoint.At(h, "y"), Endpoint.At(y, "in")));   // two drive y: an error
+                return b.Editor.RemoveParts(b.Module, new[] { h });                                   // and mended
+            });
+
+            Assert.IsTrue(mended.Done, mended.Refusal);
+            Assert.AreEqual(1, b.Current.Parts.OfType<GatePart>().Count(), "sanity: the group's own end, one gate driving y");
+            Assert.IsFalse(b.Editor.Diagnostics.Any(d => d.IsError), string.Join("\n", b.Editor.Diagnostics.Select(d => d.Message)));
+
+            int extra = Bench.Must(b.Editor.Add(b.Module, new GatePart { Kind = GateKind.Not, Inputs = 1 }, new Placement(3, 4)));
+            StringAssert.Contains("both drive one wire", b.Editor.Connect(b.Module, Endpoint.At(extra, "y"), Endpoint.At(y, "in")).Refusal,
+                "sanity: the second driver, alone, is an error the rules refuse");
+            Assert.IsTrue(b.Editor.Undo(), "the extra gate");
+            Assert.IsTrue(b.Editor.Undo(), "the group");
+            Assert.AreSame(before, b.Project, "one step");
+        }
+
         [Test]
         public void Undo_GivesBackTheVeryDocumentBefore_AndRedoTheOneAfter()
         {

@@ -1357,7 +1357,10 @@ on an input's row, undo and redo -- is 9b-3b-2.
   inside it a wire at a time, never the netlist worked out again for each -- so a paste, MAKE BLOCK or a drawn import
   (a module's parts and wires one group, read again an element at a time only where the group is refused, to say
   where) costs the circuit's size, not its square (the 16d sweep: 2.4 to 4 GB for a 64-bit adder, 40 to 92 MB
-  after, `BigDrawingTests`). An input taken away takes its stimulus with it, or the delete would be refused.
+  after, `BigDrawingTests`). So a group is held to the rules as the one step it is: an error one edit in it makes and
+  a later one mends refuses nothing, and a group refused is refused with the first error new to the document it would
+  end on, not the edit that made it -- no caller reads the rules' word in the middle of a group (the review of the 16d
+  fixes looked at each). An input taken away takes its stimulus with it, or the delete would be refused.
 - **An edit is drawn at once.** A move, a turn or a mirror changes nothing the circuit does, so it is drawn again
   over the same run (`RunSession.Relayout`) and nothing replays. A part placed or taken away, an undo or a redo
   is drawn at once over the run there is -- a new gate shows no value for a frame or so -- and replayed as an

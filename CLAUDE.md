@@ -170,7 +170,12 @@ stretch that way.
 - **Undo is a stack of whole documents, not inverse operations** (`BoardEditor`).
   The document is immutable, so a snapshot is a reference rather than a copy,
   and every edit is checked by building the document it would make -- one that
-  adds an error is refused with that error, and leaves no step. A drag is one
+  adds an error is refused with that error, and leaves no step. A group of edits
+  -- a paste, MAKE BLOCK, a drawn import -- is one step, checked once as the
+  document it ends on: an error one edit in it makes and a later one mends is no
+  refusal, and one it leaves refuses the whole group with the first error new to
+  that document (the 16d sweep: each edit checked the whole project, so a paste
+  cost the square of the drawing). A drag is one
   step, as a run of scroll notches on one wire was in 4.x. Inverses were
   rejected there because the edits that remove things take wires with them, so
   their inverses are snapshots of part of the board anyway.
