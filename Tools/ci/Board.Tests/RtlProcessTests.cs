@@ -199,6 +199,38 @@ namespace BitSorter.Board.Tests
         }
 
         /// <summary>
+        /// A variable declared static in an automatic function keeps what its last call left (IEEE 1800, 6.21), as a static
+        /// function's own do: memory, not a circuit, and the process calling it a box saying so. An automatic one set from the
+        /// argument as the call begins opens as the circuit it describes. The read dropped the word, and the drawing took the
+        /// static one for an automatic one (the Part 16d sweep).
+        /// </summary>
+        [Test]
+        public void AStaticVariableInAnAutomaticFunction_IsMemory_AndAnAutomaticOneACircuit()
+        {
+            RtlNetlist kept = Boxed(Elaborate(
+                "module keep (input logic [3:0] a, output logic [3:0] y);\n" +
+                "    function automatic logic [3:0] total(input logic [3:0] v);\n" +
+                "        static logic [3:0] sum;\n" +
+                "        sum = sum + v;\n" +
+                "        return sum;\n" +
+                "    endfunction\n" +
+                "    always_comb y = total(a);\n" +
+                "endmodule\n", "keep"), "keep", 8);
+            Assert.AreEqual(1, kept.Count(RtlKind.Process), "a box: what sum's last call left is memory");
+            StringAssert.Contains("a static variable's memory", Box(kept).Why);
+
+            RtlNetlist opened = Opened(Elaborate(
+                "module twice (input logic [3:0] a, output logic [3:0] y);\n" +
+                "    function automatic logic [3:0] doubled(input logic [3:0] v);\n" +
+                "        logic [3:0] d = v + v;\n" +
+                "        return d;\n" +
+                "    endfunction\n" +
+                "    always_comb y = doubled(a);\n" +
+                "endmodule\n", "twice"), "twice", 6);
+            Assert.AreEqual(0, opened.Count(RtlKind.Process), "opened, not a box");
+        }
+
+        /// <summary>
         /// An assign inside an always (M4) runs now, and is no circuit: its variable follows a value whatever the process does
         /// after, which no gate or flip-flop does. A box, saying so.
         /// </summary>
