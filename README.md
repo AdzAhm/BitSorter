@@ -10,7 +10,7 @@ critical path, see the truth table and the state diagram the circuit makes, chec
 your work against thirty-five Exercises, and take a project in from ModelSim and
 back out again. It runs in a browser and on Windows.
 
-![Drawing and wiring: a half adder drawn from XOR and AND gates, wired from pin to pin, then run, with the values travelling the wires.](Docs/gifs/draw-and-wire.gif)
+https://github.com/user-attachments/assets/6a1562a4-2837-4ba8-ade4-51901979df2e
 
 Version 5.0.0.
 
@@ -103,6 +103,8 @@ adder written as code, a traffic light, a two-bit ALU, a check of whether a 4-bi
 number is prime (the one to open LOGIC on: its truth table, its K-map and its smallest
 sum of products), a sequence detector and a seven segment decoder. `S` steps through
 them, and on through the three RISC-V processors.
+
+![Drawing and wiring: a half adder drawn from XOR and AND gates, wired from pin to pin, then run, with the values travelling the wires.](Docs/gifs/draw-and-wire.gif)
 
 ### Drawing a circuit
 
