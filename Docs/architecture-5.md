@@ -5385,8 +5385,10 @@ two kinds of call need them:
   lifetime is its own, else its place's** (6.21; Part 16d -- the read had dropped the word, and a block's variables
   were static wherever they were): one in an automatic function or task, or declared `automatic`, is made as each
   call begins, the arguments in -- its initializer, which may read them, worked out then, else its type's start --
-  and one in a block, each time the block is entered; one declared `static` in an automatic routine keeps its value
-  from one call to the next, every call's frame sharing it and a call back into the task leaving it be, and an
+  and one in a block, each time the block is entered; one declared `static` in an automatic routine, or in a block of
+  one, keeps its value from one call to the next, every call's frame sharing it and a call back into the task leaving
+  it be (a block's was made again in each call's frame, so a second call written in counted from the start, until the
+  fix of 2026-11-10: `_framedStatics`), and an
   `initial`'s or an `always`'s blocks' are static unless written `automatic`. Icarus 12 reads no lifetime written
   on a variable ("not yet supported"), so the corpus holds only a routine's own; ModelSim's lines hold the rest
   (`SubroutineTests`, `ProcessTests`). A function called again while it is running --

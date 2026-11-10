@@ -496,6 +496,14 @@ namespace BitSorter.Sim
             /// </summary>
             private readonly HashSet<int> _kept = new HashSet<int>();
 
+            /// <summary>
+            /// Variables declared static in a block of an automatic task, by their declaration and the block's path: the task's,
+            /// one for every call (IEEE 1800, 6.21). Each call written in has a frame of its own, its blocks with it
+            /// (<see cref="Scope.Frame"/>), so a static met in a later call's block is the one the first call's made -- each was
+            /// made again, and a second call written in counted from the start (ModelSim's line, probed 2026-11-10).
+            /// </summary>
+            private readonly Dictionary<(Declarator, string), SignalEntry> _framedStatics = new Dictionary<(Declarator, string), SignalEntry>();
+
             /// <summary>Where a block is, for <see cref="_blocks"/>: its path, and inside an automatic task's call that call's number.</summary>
             private static string Where(Scope scope) => scope.FrameOf == 0 ? scope.Path : scope.Path + "#" + scope.FrameOf;
 
@@ -661,6 +669,16 @@ namespace BitSorter.Sim
                                 continue;
                             }
 
+                            // A static in a block of an automatic task's call is the task's: met in another call's frame, it is the
+                            // one made in the first (_framedStatics).
+                            bool framed = !isAutomatic && scope.FrameOf != 0;
+                            if (framed && _framedStatics.TryGetValue((declarator, scope.Path), out SignalEntry shared))
+                            {
+                                scope.TryDeclare(declarator.Name, shared);
+                                p.Locals.Add(shared.Signal.Index);
+                                continue;
+                            }
+
                             LogicVec? initial = null;
                             if (declarator.Initializer != null && !isAutomatic)
                             {
@@ -679,6 +697,9 @@ namespace BitSorter.Sim
                                 p.Failed = true;
                                 continue;
                             }
+
+                            if (framed)
+                                _framedStatics[(declarator, scope.Path)] = entry;
 
                             if (!recorded || isAutomatic)
                                 p.Locals.Add(entry.Signal.Index);
