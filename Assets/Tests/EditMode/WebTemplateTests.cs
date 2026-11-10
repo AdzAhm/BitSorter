@@ -205,6 +205,30 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
+        /// A link to the page says what BitSorter is where it is shared, and shows it: a description, and an Open Graph title,
+        /// description and picture -- the picture the template's own, 1200 by 630, at the address the page is published at.
+        /// The page said only its name (2026-11-10).
+        /// </summary>
+        [Test]
+        public void ALinkToThePage_SaysWhatItIs_AndShowsIt()
+        {
+            string page = Read("index.html");
+            foreach (string tag in new[] { "name=\"description\"", "property=\"og:title\"", "property=\"og:description\"", "property=\"og:image\"",
+                         "name=\"twitter:card\"" })
+                StringAssert.Contains(tag, page, $"the page has no {tag}");
+            StringAssert.Contains("SystemVerilog simulator", page, "and says what BitSorter is");
+            StringAssert.DoesNotContain("puzzle", page.ToLowerInvariant().Replace("bitsorter 4.x", string.Empty), "never the 4.x game's words for it");
+            StringAssert.Contains("https://adzahm.github.io/BitSorter/TemplateData/preview.png", page, "the picture at the address the page is published at");
+
+            string picture = Path.Combine(Application.dataPath, Template, "TemplateData", "preview.png");
+            Assert.IsTrue(File.Exists(picture), "the picture is the template's own");
+            var image = new Texture2D(2, 2);
+            Assert.IsTrue(image.LoadImage(File.ReadAllBytes(picture)), "sanity: it reads as an image");
+            Assert.AreEqual((1200, 630), (image.width, image.height), "the size link previews draw at");
+            UnityEngine.Object.DestroyImmediate(image);
+        }
+
+        /// <summary>
         /// The loading screen keeps still for a reader who has asked for reduced motion.
         /// </summary>
         /// <remarks>

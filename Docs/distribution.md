@@ -61,12 +61,15 @@ config.autoSyncPersistentDataPath = true;
 ```
 
 `WebGLBuild` selects it with `PlayerSettings.WebGL.template = "PROJECT:BitSorter"`.
-The template was made for that line, and does three more things the stock one
+The template was made for that line, and does four more things the stock one
 does not: it fits the canvas to the window as the window changes, it caps the
-device pixel ratio at 1.5, and it loads under BitSorter's own loading screen
+device pixel ratio at 1.5, it loads under BitSorter's own loading screen
 instead of Unity's logo and loading bar, in the default look's colours
-(`Docs/architecture-5.md`, "As built in Part 16: the loading screen"). If it is
-ever regenerated from Unity's stock copy, all four must be re-applied.
+(`Docs/architecture-5.md`, "As built in Part 16: the loading screen"), and it says
+what BitSorter is wherever a link to it is shared: a description, Open Graph and
+Twitter tags, and `TemplateData/preview.png`, 1200 by 630, the workbench on the
+reference circuit (`WebTemplateTests.ALinkToThePage_SaysWhatItIs_AndShowsIt`). If it
+is ever regenerated from Unity's stock copy, all five must be re-applied.
 
 **Still worth testing by hand**, because it depends on the browser: solve the first
 Exercise, reload the page, and check EXERCISES still marks it solved. Private/incognito
