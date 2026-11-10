@@ -14,8 +14,11 @@ longer matches the code, say so and correct it in the same change. Do not
 quietly work around a stale paragraph, and do not treat one as binding
 just because it is written down here.
 
-## 5.0 (branch `v5`)
-BitSorter was re-founded as a SystemVerilog simulator for the course, with the
+## 5.0 (released 2026-11-10)
+**5.0.0 is released** (tag `v5.0.0`): on GitHub Pages, and on Windows as a zip on its
+GitHub release. It was built on a branch of its own, `v5`, a PR a part, and `main`
+was fast-forwarded to it at the release, when `v5` and every merged branch were
+deleted; work since is a PR on `main`. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
 thirty levels kept as side *Exercises* (the brief's decisions, 2026-10-11).
 **`Docs/architecture-5.md` is the architecture, the data model and the parts --
 read it before any 5.0 work.** 5.0 was built beside the 4.x game, which Part 15

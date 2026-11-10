@@ -39,6 +39,15 @@ namespace BitSorter.View.Editor
                 return;
             }
 
+            // The editor on WebGL first (2026-11-10): a build for WebGL made while it was on another platform -- as a Windows
+            // build leaves it -- failed to compile the player's scripts, WebGLInput, used under UNITY_WEBGL, not being found.
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL &&
+                !EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL))
+            {
+                Debug.LogError("BitSorter: cannot build, the editor could not be switched to WebGL.");
+                return;
+            }
+
             string root = Directory.GetParent(Application.dataPath).FullName;
             string target = Path.Combine(root, OutputFolder);
 

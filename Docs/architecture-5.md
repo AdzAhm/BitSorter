@@ -4956,7 +4956,7 @@ bloom gone, what was written about BitSorter and what it said to the user still 
   version, Windows or a browser, the look, what was drawn or written, the expected waves against the shown) and say not to paste
   the course's material; the pull request template asks for `dotnet test` and an Icarus comparison. **The workflow is `tests.yml`,
   "Tests"**, no longer `logic-core.yml`, "LogicCore tests": its steps are as they were, and the job is still `test`, which is what
-  a required check names (neither `v5` nor `main` has branch protection). The repository's `level` label wants renaming to
+  a required check names (`main` has no branch protection; nor had `v5`, deleted at the release). The repository's `level` label wants renaming to
   `exercise`.
 - **The version is 5.0.0**: `bundleVersion` in the player settings is its one source, read by the start page, the credits
   (`Application.version`) and the browser template (`PRODUCT_VERSION`). `VersionTests` (`Tools/ci/Repo.Tests`) hold the README and
@@ -5308,7 +5308,8 @@ exercises, each fixed with a test that failed first.
 
 ## 11. The parts
 
-Each part is one pull request into `v5`, ends with every suite green, and leaves something usable.
+Each part is one pull request into `v5` -- the branch 5.0 was built on until the 5.0.0 release (2026-11-10), when `main`
+was fast-forwarded to it and it was deleted -- ends with every suite green, and leaves something usable.
 
 | Part | What it delivers |
 | --- | --- |
