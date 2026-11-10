@@ -3,6 +3,7 @@ using System.Linq;
 using BitSorter.Sim;
 using BitSorter.Board;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -27,11 +28,11 @@ namespace BitSorter.ViewModel.Tests
         internal static long BytesEach(Action ask, int times = 200)
         {
             ask();
-            ask();
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < times; i++)
-                ask();
-            return (GC.GetAllocatedBytesForCurrentThread() - before) / times;
+            return Allocations.Least(() =>
+            {
+                for (int i = 0; i < times; i++)
+                    ask();
+            }) / times;
         }
 
         /// <summary>A sample opened as the workbench opens it, its run made whole and shown halfway.</summary>

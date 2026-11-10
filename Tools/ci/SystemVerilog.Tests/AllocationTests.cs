@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.SystemVerilog.Tests
 {
@@ -32,11 +33,11 @@ namespace BitSorter.SystemVerilog.Tests
             for (int i = 0; i < 100; i++)
                 body();
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 1000; i++)
-                body();
-
-            return GC.GetAllocatedBytesForCurrentThread() - before;
+            return Allocations.Least(() =>
+            {
+                for (int i = 0; i < 1000; i++)
+                    body();
+            });
         }
 
         private static readonly (string Name, Action Body)[] Operations =

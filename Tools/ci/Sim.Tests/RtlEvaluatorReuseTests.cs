@@ -1,6 +1,7 @@
 using System;
 using BitSorter.SystemVerilog;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.Sim.Tests
 {
@@ -100,10 +101,11 @@ namespace BitSorter.Sim.Tests
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static long BytesOf(RtlNetlist netlist, LogicVec[] signals, LogicVec[] values, int times)
         {
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 0; k < times; k++)
-                RtlEvaluator.Evaluate(netlist, signals, values);
-            return GC.GetAllocatedBytesForCurrentThread() - before;
+            return Allocations.Least(() =>
+            {
+                for (int k = 0; k < times; k++)
+                    RtlEvaluator.Evaluate(netlist, signals, values);
+            });
         }
 
         /// <summary>

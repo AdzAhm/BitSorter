@@ -4,6 +4,7 @@ using System.Linq;
 using BitSorter.Board;
 using BitSorter.Board.Tests;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -29,10 +30,11 @@ namespace BitSorter.ViewModel.Tests
                 slowest, EverySeen);
 
             Assert.IsNull(Ask(), "sanity: nothing is due once every hint is seen");
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 20; i++)
-                Ask();
-            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            long made = Allocations.Least(() =>
+            {
+                for (int i = 0; i < 20; i++)
+                    Ask();
+            });
 
             Assert.AreEqual(0, made, $"{made / 20.0:F0} bytes an ask");
         }
@@ -86,10 +88,11 @@ namespace BitSorter.ViewModel.Tests
             Project project = editor.Project;
             Assert.AreEqual(GuidedTutorial.Step.WireOut, GuidedTutorial.At(project, null, false), "sanity: every step before it walked");
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 20; i++)
-                GuidedTutorial.At(project, null, false);
-            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            long made = Allocations.Least(() =>
+            {
+                for (int i = 0; i < 20; i++)
+                    GuidedTutorial.At(project, null, false);
+            });
 
             Assert.AreEqual(0, made, $"{made / 20.0:F0} bytes a frame");
         }

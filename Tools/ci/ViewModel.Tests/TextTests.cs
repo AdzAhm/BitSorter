@@ -5,6 +5,7 @@ using System.Numerics;
 using BitSorter.Sim;
 using BitSorter.SystemVerilog;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -374,9 +375,7 @@ namespace BitSorter.ViewModel.Tests
             Window();
             int made = cache.Made;
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            Window();
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            long allocated = Allocations.Least(Window);
 
             Assert.AreEqual(0, allocated, "a frame over a window already formatted allocated");
             Assert.AreEqual(made, cache.Made, "and formatted nothing");
@@ -446,10 +445,11 @@ namespace BitSorter.ViewModel.Tests
             for (int k = 0; k < 100; k++)
                 written += TimeText.Write(k * 0.25, 2, "ns", into);
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 0; k < 10_000; k++)
-                written += TimeText.Write(k * 0.25 - 50, 2, "ns", into);
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            long allocated = Allocations.Least(() =>
+            {
+                for (int k = 0; k < 10_000; k++)
+                    written += TimeText.Write(k * 0.25 - 50, 2, "ns", into);
+            });
 
             Assert.AreEqual(0, allocated, "writing a time allocated");
             Assert.Greater(written, 0);

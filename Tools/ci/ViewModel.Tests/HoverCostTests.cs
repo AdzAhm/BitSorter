@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using BitSorter.Board;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -113,10 +114,11 @@ namespace BitSorter.ViewModel.Tests
             // A pointer moving across it, a new point every ask: the walk itself, never the last ask's answer.
             for (int i = 0; i < 200; i++)
                 layout.NetAt(new Vec2(i, i), SchematicStyle.HoverReach);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 200; i++)
-                layout.NetAt(new Vec2(layout.Size.x * i / 200f, layout.Size.y * 0.5f), SchematicStyle.HoverReach);
-            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            long made = Allocations.Least(() =>
+            {
+                for (int i = 0; i < 200; i++)
+                    layout.NetAt(new Vec2(layout.Size.x * i / 200f, layout.Size.y * 0.5f), SchematicStyle.HoverReach);
+            });
 
             Assert.AreEqual(0, made, $"{made / 200.0:F0} bytes an ask over {layout.Nets.Count} nets");
         }

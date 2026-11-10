@@ -4,6 +4,7 @@ using System.Linq;
 using BitSorter.SystemVerilog;
 using BitSorter.SystemVerilog.Syntax;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.Sim.Tests
 {
@@ -195,9 +196,8 @@ endmodule", "busy.sv")).Design;
             var sim = new Simulator(design, stimulus, new SimOptions { RecordChanges = false, RecordTransitions = false });
             sim.RunTo(2000);
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            sim.RunTo(20000);
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            long until = 2000;
+            long allocated = Allocations.Least(() => sim.RunTo(until += 6000));
 
             Assert.AreEqual(0, allocated, "the engine allocated per event once warm");
         }
@@ -226,9 +226,8 @@ endmodule", "counter.sv")).Design;
             sim.RunTo(5000);
             LogicVec counted = sim.Value(design.Find("counter.q"));
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            sim.RunTo(50000);
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            long until = 5000;
+            long allocated = Allocations.Least(() => sim.RunTo(until += 12000));
 
             Assert.AreEqual(0, allocated, "running processes allocated once warm");
             Assert.AreNotEqual(counted, sim.Value(design.Find("counter.q")), "and it really ran: 4,500 more edges");

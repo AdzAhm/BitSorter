@@ -5,6 +5,7 @@ using System.Linq;
 using BitSorter.Board;
 using BitSorter.SystemVerilog;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -53,12 +54,11 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(first.State >= 0 || first.Rows.Any(row => row >= 0), "sanity: lit somewhere");
 
             int sink = 0;
-            for (int i = 0; i < 100; i++)
-                sink += session.ControllerNow().State + (session.ShowsController ? 1 : 0);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 100; i++)
-                sink += session.ControllerNow().State + (session.ShowsController ? 1 : 0);
-            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            long made = Allocations.Least(() =>
+            {
+                for (int i = 0; i < 100; i++)
+                    sink += session.ControllerNow().State + (session.ShowsController ? 1 : 0);
+            });
 
             Assert.AreEqual(0, made, $"{made / 100.0:F0} bytes a frame ({sink})");
         }

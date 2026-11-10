@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -684,18 +685,13 @@ namespace BitSorter.ViewModel.Tests
                 WaveView.Spans(closer, timeOf, times.Length, closer.Start, closer.End, spans);
             }
 
-            // Warmed with the very calls measured, and the least of three measures taken: the runtime's own now and then is
-            // not the cutter's -- 1,632 bytes once in CI and once in a loaded local run, never alone. A cutter that allocated
-            // would show it in every measure.
-            CutBoth();
-            long least = long.MaxValue;
-            for (int measure = 0; measure < 3; measure++)
+            // Warmed with the very calls measured, and the least of three measures taken (Allocations): the runtime's own now
+            // and then is not the cutter's -- 1,632 bytes once in CI and once in a loaded local run, never alone.
+            long least = Allocations.Least(() =>
             {
-                long before = GC.GetAllocatedBytesForCurrentThread();
                 for (int k = 0; k < 20; k++)
                     CutBoth();
-                least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
-            }
+            });
 
             Assert.AreEqual(0, least, "cutting spans into a list with room allocated");
             Assert.IsNotEmpty(spans);

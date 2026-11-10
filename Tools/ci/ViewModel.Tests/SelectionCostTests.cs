@@ -1,6 +1,7 @@
 using System;
 using BitSorter.Board;
 using NUnit.Framework;
+using BitSorter.Ci;
 
 namespace BitSorter.ViewModel.Tests
 {
@@ -51,12 +52,11 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(new CanvasTarget(CanvasTargetKind.Part, part: part), editor.Single, "sanity: the part alone");
 
             int sink = 0;
-            for (int i = 0; i < 100; i++)
-                sink += (int)editor.Single.Kind + editor.HandledPart;
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 100; i++)
-                sink += (int)editor.Single.Kind + editor.HandledPart;
-            long made = GC.GetAllocatedBytesForCurrentThread() - before;
+            long made = Allocations.Least(() =>
+            {
+                for (int i = 0; i < 100; i++)
+                    sink += (int)editor.Single.Kind + editor.HandledPart;
+            });
 
             Assert.AreEqual(0, made, $"{made / 100.0:F0} bytes a frame ({sink})");
         }

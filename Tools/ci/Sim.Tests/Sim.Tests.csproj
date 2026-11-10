@@ -26,6 +26,7 @@
   <!-- The elaborator's tests read the oracle corpus, which RepoRoot finds from wherever the tests run. -->
   <ItemGroup>
     <Compile Include="../Shared/RepoRoot.cs" Link="Shared/RepoRoot.cs" />
+    <Compile Include="../Shared/Allocations.cs" Link="Shared/Allocations.cs" />
   </ItemGroup>
 
   <ItemGroup>
