@@ -9,8 +9,8 @@ reports, Exercise ideas, new Exercises, fixes and features.
 This file is the practical guide. The architecture and the reasons for it live in
 [Docs/architecture-5.md](Docs/architecture-5.md), and the rules and the decisions behind
 them in [CLAUDE.md](CLAUDE.md). You do not need to read either before reporting a bug.
-Skim both before changing code. [Docs/design.md](Docs/design.md) is the design notes of the
-4.x puzzle game this began as, kept for the history.
+Skim both before changing code. [Docs/design.md](Docs/design.md) holds the design notes of
+versions up to 4.0.0, kept for the history.
 
 ## Issues
 

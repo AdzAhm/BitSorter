@@ -19,18 +19,7 @@ Version 5.0.0.
 | Version | Where |
 | --- | --- |
 | **BitSorter 5.0, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
-| **BitSorter 5.0, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. |
-| **BitSorter 4.0.0**, the puzzle game this began as | [Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter). Its source is the `v4.0.0` tag. |
-
-BitSorter began as a puzzle game in which bits fell through logic gates into bins.
-5.0 rebuilt it as a simulator for the course. The game's thirty levels live on as the
-first thirty Exercises, and 4.0.0 is still played where it was released. It is not
-part of 5.0. On Windows, and at the GitHub Pages address 4.0.0 was first released at,
-the two share one save, and 5.0 carries over what the names still mean -- the levels
-solved, as Exercises solved, and the hints seen -- but not 4.x's boards, free-play
-circuits or blocks: the first time 5.0 saves, they are left out of the file. To go back
-to 4.0.0 with them, keep a copy of `progress.json` first ("Your progress", below, says
-where it is).
+| **BitSorter 5.0, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. Faster than the browser, and for bigger designs. |
 
 **Want to help?** Bug reports, exercise ideas and code are all welcome.
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the project
@@ -368,6 +357,11 @@ If the file is ever damaged, say by a crash part way through saving, BitSorter s
 fresh rather than refusing to open, and keeps a copy of the damaged file beside it as
 `progress.json.unreadable`.
 
+**Older versions.** Versions up to 4.0.0 are on
+[Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter),
+their source at the `v4.0.0` tag. 5.0 reads what they solved as solved Exercises, but
+not their circuits; to go back to 4.0.0 with them, keep a copy of `progress.json` first.
+
 Your progress file itself is never uploaded. Nothing is compared against anyone else
 either: every number BitSorter shows is about the circuit in front of you, or the one you
 built last time.
@@ -380,8 +374,8 @@ Two events come from BitSorter itself, and nothing else does:
 
 | Event | Sent when | Data |
 | --- | --- | --- |
-| `levelStarted` | The first time an exercise is opened in a session | `levelName`, the exercise's id; for the first thirty, the file name of the 4.x level they came from |
-| `levelSolved` | The first time an exercise is solved in a session | `levelName`, the exercise's id; for the first thirty, the file name of the 4.x level they came from |
+| `levelStarted` | The first time an exercise is opened in a session | `levelName`, the exercise's id |
+| `levelSolved` | The first time an exercise is solved in a session | `levelName`, the exercise's id |
 
 `levelName` is the identifier, like `half-adder` — not a display title and not
 anything you typed. The pair exists to answer one question: which exercise people
