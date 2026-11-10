@@ -482,6 +482,42 @@ endmodule");
             CollectionAssert.AreEqual(new[] { "1 1 11 21 11 21" }, Printed(sim), "ModelSim's line, probed");
         }
 
+        /// <summary>
+        /// A variable declared static in a block of an automatic task is the task's, one for every call, whichever call of it
+        /// it is reached through (IEEE 1800, 6.21): each call written in has a frame of its own (Ahmad's decision, 2026-11-03),
+        /// and a static in its blocks was made in each, so the second call written in counted from 0 again. The automatic one
+        /// beside it starts each call afresh. ModelSim's line (probed, 2026-11-10); Icarus 12 reads no lifetime written on a
+        /// variable.
+        /// </summary>
+        [Test]
+        public void AStaticInABlockOfAnAutomaticTask_IsOneForEveryCall()
+        {
+            Elaboration e = Elaborate(@"
+module t;
+    task automatic counted(output int r);
+        begin : b
+            static int calls = 0;
+            int mine = 0;
+            calls++;
+            mine++;
+            r = calls * 10 + mine;
+        end
+    endtask
+
+    int r1, r2, r3;
+    initial begin
+        counted(r1);
+        counted(r2);
+        counted(r3);
+        $display(""%0d %0d %0d"", r1, r2, r3);
+    end
+endmodule");
+            Assert.IsEmpty(e.Diagnostics, string.Join("\n", e.Diagnostics));
+            var sim = new Simulator(e.Design, null, null);
+            sim.RunTo(1);
+            CollectionAssert.AreEqual(new[] { "11 21 31" }, Printed(sim), "ModelSim's line, probed");
+        }
+
         [Test]
         public void AFunctionCallingAFunction_AndOneGivingAnInt()
         {
