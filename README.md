@@ -357,11 +357,6 @@ If the file is ever damaged, say by a crash part way through saving, BitSorter s
 fresh rather than refusing to open, and keeps a copy of the damaged file beside it as
 `progress.json.unreadable`.
 
-**Older versions.** Versions up to 4.0.0 are on
-[Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter),
-their source at the `v4.0.0` tag. 5.0 reads what they solved as solved Exercises, but
-not their circuits; to go back to 4.0.0 with them, keep a copy of `progress.json` first.
-
 Your progress file itself is never uploaded. Nothing is compared against anyone else
 either: every number BitSorter shows is about the circuit in front of you, or the one you
 built last time.
@@ -517,6 +512,17 @@ Bug reports, Exercise ideas and code are all welcome. [CONTRIBUTING.md](CONTRIBU
 covers opening an issue (there are forms for bugs, features and Exercise ideas), what each
 label means, the Exercise file format, setting up the project, the rules the code keeps,
 tests, and forking the repository and sending a pull request.
+
+---
+
+## History
+
+BitSorter began as a puzzle game in which bits fell through logic gates into bins, and
+5.0 rebuilt it as a simulator; the game's thirty levels became the first thirty
+Exercises. Versions up to 4.0.0 are on
+[Unity Play](https://play.unity.com/en/games/c22f4580-98a3-4fcd-a844-e9d731257c83/bitsorter),
+their source at the `v4.0.0` tag. 5.0 reads what they solved as solved Exercises, but
+not their circuits; to go back to 4.0.0 with them, keep a copy of `progress.json` first.
 
 ---
 
