@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using BitSorter.Ci;
 using BitSorter.SystemVerilog;
 using NUnit.Framework;
 
@@ -23,6 +24,9 @@ namespace BitSorter.Sim.Tests
         /// <summary>A 64-bit array's header: its object header, method table and length.</summary>
         private const int ArrayHeader = 24;
 
+        /// <summary>The stretches measured: 100 to 400 ns, 400 to 700, 700 to 1000 and 1000 to 1300.</summary>
+        private const long Start = 100, Stretch = 300, End = 1300;
+
         [Test]
         public void ARecordingRun_AllocatesItsHistoryAndNothingElse()
         {
@@ -41,18 +45,51 @@ namespace BitSorter.Sim.Tests
             // the JIT compiled again part-way through a stretch -- on-stack replacement, guided by what tiered PGO had seen --
             // was counted against the run, a few hundred bytes to a few KB in one full suite run in two, and none with
             // DOTNET_TieredPGO=0 or DOTNET_JitObjectStackAllocation=0 (the 16d fixes).
-            new Simulator(design, null, new SimOptions { Files = files, RecordChanges = true, RecordTransitions = true }).RunTo(1300);
+            new Simulator(design, null, Recording(files)).RunTo(End);
 
-            var sim = new Simulator(design, null, new SimOptions { Files = files, RecordChanges = true, RecordTransitions = true });
-            sim.RunTo(100);
-
-            long recorded = 0;
-            for (long from = 100; from < 1300; from += 300)
+            // A stretch of a run cannot be run again in place, so the whole account is taken Allocations.Measures times, each
+            // on a run of its own, and a stretch's excess is the least of them, as Allocations.Least takes a measure's: the
+            // runtime's one-time work lands in one account at most, which warming once did not always keep out -- 3,936 bytes
+            // in one CI run of the 5.0.0 release's clean-up, and none in the other run of the same commit (2026-11-10) -- and
+            // work that allocated would show in every one.
+            long[] least = null;
+            for (int measure = 0; measure < Allocations.Measures; measure++)
             {
+                long[] excess = Excesses(design, files);
+                if (least == null)
+                    least = excess;
+                else
+                    for (int i = 0; i < least.Length; i++)
+                        least[i] = Math.Min(least[i], excess[i]);
+            }
+
+            for (int i = 0; i < least.Length; i++)
+            {
+                long from = Start + i * Stretch;
+                Assert.AreEqual(0, least[i], $"{from} to {from + Stretch} ns: what the run allocated beyond its history's growth");
+            }
+        }
+
+        private static SimOptions Recording(MemorySimFiles files) =>
+            new SimOptions { Files = files, RecordChanges = true, RecordTransitions = true };
+
+        /// <summary>
+        /// One account of a fresh run: for each stretch, what running through it allocated beyond what its history grew by.
+        /// </summary>
+        private static long[] Excesses(Design design, MemorySimFiles files)
+        {
+            var sim = new Simulator(design, null, Recording(files));
+            sim.RunTo(Start);
+
+            var excess = new long[(End - Start) / Stretch];
+            long recorded = 0;
+            for (int s = 0; s < excess.Length; s++)
+            {
+                long from = Start + s * Stretch;
                 long[] changes = Changes(design, sim);
                 int transitions = sim.History.TransitionCount, messages = sim.History.Messages.Count;
-                long bytes = Allocated(sim, from + 300);
-                Assert.AreEqual(from + 300, sim.Now, "sanity: the run goes on past the stretch");
+                long bytes = Allocated(sim, from + Stretch);
+                Assert.AreEqual(from + Stretch, sim.Now, "sanity: the run goes on past the stretch");
                 Assert.AreEqual(messages, sim.History.Messages.Count, "sanity: a stretch the run prints nothing in");
 
                 long grown = Grown(transitions, sim.History.TransitionCount, FirstTransitionPlaces, Unsafe.SizeOf<Transition>());
@@ -62,10 +99,12 @@ namespace BitSorter.Sim.Tests
                     grown += Grown(changes[i], now[i], FirstChangePlaces, Unsafe.SizeOf<ValueChange>());
                     recorded += now[i] - changes[i];
                 }
-                Assert.AreEqual(grown, bytes, $"{from} to {from + 300} ns: what the run allocated beyond its history's growth");
+
+                excess[s] = bytes - grown;
             }
 
             Assert.Greater(recorded, 5000, "sanity: the stretches recorded thousands of changes");
+            return excess;
         }
 
         /// <summary>
