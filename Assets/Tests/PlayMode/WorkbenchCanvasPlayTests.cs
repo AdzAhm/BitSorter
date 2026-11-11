@@ -2425,7 +2425,9 @@ namespace BitSorter.PlayMode.Tests
             margin.ForceMeshUpdate();
             StringAssert.StartsWith("1 -", margin.text, "sanity: line 1 starts a block, its marker beside its number");
 
-            // Where each line's number ends: the right edge of its last digit, as the margin lays it out.
+            // Where each line's number ends: where the pen stands after its last digit, as the margin lays it out -- the advance,
+            // which every digit of the code's monospaced face shares, not the ink's edge, which differs by a fraction of a pixel
+            // from a 1 to a 3.
             var ends = new System.Collections.Generic.List<float>();
             TMP_TextInfo info = margin.textInfo;
             for (int line = 0; line < info.lineCount; line++)
@@ -2434,7 +2436,7 @@ namespace BitSorter.PlayMode.Tests
                 float end = float.NaN;
                 for (int i = row.firstCharacterIndex; i <= row.lastCharacterIndex && i < info.characterCount; i++)
                     if (char.IsDigit(info.characterInfo[i].character))
-                        end = info.characterInfo[i].topRight.x;
+                        end = info.characterInfo[i].xAdvance;
                 if (!float.IsNaN(end))
                     ends.Add(end);
             }

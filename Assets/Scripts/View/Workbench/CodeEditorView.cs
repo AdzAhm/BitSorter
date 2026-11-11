@@ -87,6 +87,13 @@ namespace BitSorter.View
         /// <summary>What colours its code (5.1).</summary>
         public CodeInkView Ink => _ink;
         private TextMeshProUGUI _gutter, _status;
+
+        /// <summary>
+        /// What ends a margin line with no fold's marker: a marker drawn clear, as wide as " -" in the code's face, so every
+        /// number ends against the same edge (5.1). Not spaces, which a right-aligned TextMesh Pro line does not count; and
+        /// a colour tag, not alpha's, which has no closing tag and would be written out as text.
+        /// </summary>
+        private const string UnmarkedLine = "<color=#00000000> -</color>";
         private Button _revert;
         private readonly List<TextMeshProUGUI> _problemLabels = new List<TextMeshProUGUI>();
         private readonly List<CodeMark> _listed = new List<CodeMark>();
@@ -780,8 +787,10 @@ namespace BitSorter.View
                 else
                     numbers.Append(number);
 
-                // A fold's marker: - while open, + while folded, in plain letters for the same reason.
-                numbers.Append(starts.Contains(line - 1) ? (_view.IsFolded(line - 1) ? " +" : " -") : "  ");
+                // A fold's marker: - while open, + while folded, in plain letters for the same reason. A line with none takes
+                // a marker no one sees, never two spaces: the margin is right-aligned, and TextMesh Pro leaves trailing spaces
+                // out when it aligns, so "8  " stood as "8", two characters right of "7 -" (Ahmad, 2026-11-11).
+                numbers.Append(starts.Contains(line - 1) ? (_view.IsFolded(line - 1) ? " +" : " -") : UnmarkedLine);
             }
 
             WorkbenchPanel.SetText(_gutter, numbers.ToString());
