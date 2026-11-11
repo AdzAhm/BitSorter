@@ -57,6 +57,7 @@ namespace BitSorter.PlayMode.Tests
             // As PanelPlayTests explains: the game never runs with read-value caching, and its
             // self-check fails a test on a queued key with every assertion passing.
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
 
             _keyboard = InputSystem.AddDevice<Keyboard>();
             InputSystem.AddDevice<Mouse>();

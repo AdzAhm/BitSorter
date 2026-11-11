@@ -119,6 +119,7 @@ namespace BitSorter.PlayMode.Tests
             // As PanelPlayTests explains: InputTestFixture turns on a read-value cache and its self-check, which the game
             // itself never runs with.
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
 
             InputSystem.AddDevice<Keyboard>();
             _mouse = InputSystem.AddDevice<Mouse>();
