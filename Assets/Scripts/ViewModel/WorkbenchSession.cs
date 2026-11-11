@@ -906,7 +906,7 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// Whether a module opens as the controller it is: the reading is the whole of it, and it is a state machine or sets
         /// several signals a row -- a control table. A one-output case is a function, which its drawing and the LOGIC tab show
-        /// better: the "Is it prime?" and seven-segment samples stay drawings (the review of 15h-6e). The traffic light, whose
+        /// better: the seven-segment sample stays a drawing (the review of 15h-6e). The traffic light, whose
         /// counter the diagram leaves out, opens on its drawing too; DIAGRAM shows it.
         /// </summary>
         public static bool OpensAsController(ControllerReading reading)

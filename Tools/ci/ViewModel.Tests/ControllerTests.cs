@@ -148,8 +148,9 @@ namespace BitSorter.ViewModel.Tests
         }
 
         /// <summary>
-        /// A one-output case is a function, which its drawing and the LOGIC tab show better: the prime and seven-segment samples
-        /// open on their drawings, though a reading is there for DIAGRAM; the sequence detector, a state machine, on its diagram.
+        /// A one-output case is a function, which its drawing and the LOGIC tab show better: the seven-segment sample opens on its
+        /// drawing, though a reading is there for DIAGRAM; "Is it prime?", worked out by a loop since 5.1, has no reading at all;
+        /// the sequence detector, a state machine, opens on its diagram.
         /// </summary>
         [TestCase("Is it prime?", false)]
         [TestCase("Seven segments", false)]

@@ -613,6 +613,65 @@ namespace BitSorter.ViewModel.Tests
         // Written as code (Part 15h-4d)
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// "Is it prime?" (5.1) works the answer out for any width, where a case once listed the primes up to 13: at its four bits
+        /// it says 1 exactly at 2, 3, 5, 7, 11 and 13, with n counted through all sixteen values 10 ps apart.
+        /// </summary>
+        [Test]
+        public void IsItPrime_SaysOneExactlyAtThePrimes_AtFourBits()
+        {
+            CollectionAssert.AreEqual(new ulong[] { 2, 3, 5, 7, 11, 13 }, PrimesOf(WorkbenchSamples.IsItPrime(), 4));
+        }
+
+        /// <summary>
+        /// Widened in its testbench -- N set to 6, as its comment says to -- it is right for every value from 0 to 63, held to a
+        /// sieve: the case it replaced said 0 for every number from 16 up.
+        /// </summary>
+        [Test]
+        public void IsItPrime_WidenedToSixBits_IsRightForEveryValue()
+        {
+            var editor = new BoardEditor(WorkbenchSamples.IsItPrime());
+            Module bench = editor.Project.Find("prime_tb");
+            EditResult widened = editor.SetSource("prime_tb", bench.Source.Replace("localparam N = 4;", "localparam N = 6;"));
+            Assert.IsTrue(widened.Done, widened.Refusal);
+
+            var sieve = new List<ulong>();
+            for (ulong v = 2; v < 64; v++)
+                if (Enumerable.Range(2, (int)v - 2).All(d => v % (ulong)d != 0))
+                    sieve.Add(v);
+            CollectionAssert.AreEqual(sieve, PrimesOf(editor.Project, 6));
+        }
+
+        /// <summary>The sample's module is the oracle corpus's <c>behavioural/prime.sv</c>, word for word: Icarus is held to what the sample runs.</summary>
+        [Test]
+        public void IsItPrime_IsTheModuleTheOracleRuns()
+        {
+            string corpus = System.IO.File.ReadAllText(BitSorter.Ci.RepoRoot.Combine("Tools/ci/Oracle/corpus/behavioural/prime.sv")).Replace("\r\n", "\n");
+            StringAssert.Contains(WorkbenchSamples.PrimeSource, corpus);
+        }
+
+        /// <summary>The values of n at which <paramref name="project"/>'s run says prime, n counted through all 2^<paramref name="bits"/> values 10 ps apart.</summary>
+        private static List<ulong> PrimesOf(Project project, int bits)
+        {
+            double now = 0;
+            var session = new WorkbenchSession(project, () => now += 0.01);
+            session.Finish();
+            WorkbenchModel model = session.Run.Model;
+            int n = Row(model, "n[" + (bits - 1) + ":0]"), prime = Row(model, "is_prime");
+            Assert.GreaterOrEqual(n, 0, "sanity: n is a row, " + bits + " bits wide");
+            Assert.GreaterOrEqual(prime, 0, "sanity: is_prime is a row");
+
+            var primes = new List<ulong>();
+            for (int step = 0; step < 1 << bits; step++)
+            {
+                double settled = step * 10 + 5;
+                Assert.AreEqual((ulong)step, Value(model, n, settled), "sanity: n counts");
+                if (Value(model, prime, settled) == 1)
+                    primes.Add((ulong)step);
+            }
+            return primes;
+        }
+
         /// <summary>A sample written as code imports, opens as the drawing of its code, and its testbench runs it to its stop with nothing to say.</summary>
         [TestCaseSource(nameof(WrittenNames))]
         public void AWrittenSample_OpensAsItsDrawing_AndItsTestbenchRunsToItsStop(string name)

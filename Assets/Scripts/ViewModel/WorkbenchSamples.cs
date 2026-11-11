@@ -68,7 +68,7 @@ namespace BitSorter.ViewModel
                     "A 2-bit ALU written as code, its adder two full adders: LOGIC tables all 64 inputs, GATES opens its operators, and a double-click on adder steps inside.",
                     TwoBitAlu),
                 ("Is it prime?",
-                    "Whether a 4-bit number is prime, written as one case: LOGIC shows its truth table, its K-map and the smallest sum of products.",
+                    "Whether a number is prime, worked out for any width -- set N in its testbench; at four bits LOGIC shows its truth table, its K-map and the smallest sum of products.",
                     IsItPrime),
                 ("Sequence detector",
                     "Finds 1 0 1 in a stream of bits, overlapping, written as code: a Mealy machine, its output reading the input too -- STATES draws its three states.",
@@ -254,7 +254,7 @@ namespace BitSorter.ViewModel
         public static Project TwoBitAlu() => Written(("fa.sv", FullAdderGatesSource), ("add2.sv", Add2Source), ("alu2.sv", Alu2Source), ("alu2_tb.sv", Alu2BenchSource));
 
         /// <summary>Whether a 4-bit number is prime: four inputs -- for LOGIC's truth table, K-map and smallest sum of products.</summary>
-        public static Project IsItPrime() => Written(("prime4.sv", Prime4Source), ("prime4_tb.sv", Prime4BenchSource));
+        public static Project IsItPrime() => Written(("prime.sv", PrimeSource), ("prime_tb.sv", PrimeBenchSource));
 
         /// <summary>A 1-0-1 detector, overlapping: three states, a Mealy machine -- for STATES beside the traffic light's Moore.</summary>
         public static Project SequenceDetector() => Written(("seq101.sv", Seq101Source), ("seq101_tb.sv", Seq101BenchSource));
@@ -508,31 +508,47 @@ namespace BitSorter.ViewModel
             "    end\n" +
             "endmodule\n";
 
-        private const string Prime4Source =
-            "// Is a 4-bit number prime? 2, 3, 5, 7, 11 and 13 are.\n" +
-            "// Four inputs, so the LOGIC tab shows its truth table, its K-map and the\n" +
-            "// smallest sum of products.\n" +
-            "module prime4 (\n" +
-            "    input  logic [3:0] n,\n" +
-            "    output logic       prime\n" +
+        /// <summary>
+        /// The "Is it prime?" module (5.1): whether n is prime worked out for any width -- more than 1, and no number from 2 up to
+        /// its square root dividing it -- where until 5.1 a case listed the primes up to 13, and a wider n answered 0 from 16 up
+        /// without a word. The oracle corpus runs the same module at six bits (<c>behavioural/prime.sv</c>), and SampleTests
+        /// holds the two the same.
+        /// </summary>
+        public const string PrimeSource =
+            "// Is it prime? A number is prime when it is more than 1 and no number from\n" +
+            "// 2 up to its square root divides it, so this works it out for any width of\n" +
+            "// n: set N in the testbench to try wider numbers. At four bits the LOGIC tab\n" +
+            "// shows its truth table, its K-map and the smallest sum of products.\n" +
+            "module prime #(\n" +
+            "    parameter N = 4         // how many bits n has\n" +
+            ") (\n" +
+            "    input  logic [N-1:0] n,\n" +
+            "    output logic         is_prime\n" +
             ");\n" +
-            "    always_comb\n" +
-            "        case (n)\n" +
-            "            4'd2, 4'd3, 4'd5, 4'd7, 4'd11, 4'd13: prime = 1'b1;\n" +
-            "            default:                            prime = 1'b0;\n" +
-            "        endcase\n" +
+            "    // Hardware has no loop that runs while n says so: this one runs a fixed\n" +
+            "    // number of times, every i below 2**((N+1)/2) -- at least the square root\n" +
+            "    // of the largest n -- and is built as that many copies of its body.\n" +
+            "    always_comb begin\n" +
+            "        is_prime = (n > 1);\n" +
+            "        for (int i = 2; i < 2 ** ((N + 1) / 2); i++)\n" +
+            "            if (i * i <= n && n % i == 0)\n" +
+            "                is_prime = 1'b0;\n" +
+            "    end\n" +
             "endmodule\n";
 
-        private const string Prime4BenchSource =
-            "// Counts n through all sixteen values, 10 ps apart.\n" +
-            "module prime4_tb;\n" +
-            "    logic [3:0] n = 4'd0;\n" +
-            "    logic       prime;\n" +
+        /// <summary>The prime sample's testbench: n counted through every value it can take, N wide.</summary>
+        public const string PrimeBenchSource =
+            "// Counts n through every value it can take, 10 ps apart. N is how wide n is:\n" +
+            "// change it here, and the run, the waves and the LOGIC tab follow.\n" +
+            "module prime_tb;\n" +
+            "    localparam N = 4;\n" +
+            "    logic [N-1:0] n = '0;\n" +
+            "    logic         is_prime;\n" +
             "\n" +
-            "    prime4 dut (.n(n), .prime(prime));\n" +
+            "    prime #(.N(N)) dut (.n(n), .is_prime(is_prime));\n" +
             "\n" +
             "    initial begin\n" +
-            "        repeat (16) #10 n = n + 4'd1;\n" +
+            "        repeat (2 ** N) #10 n = n + 1'b1;\n" +
             "        $stop;\n" +
             "    end\n" +
             "endmodule\n";
