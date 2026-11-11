@@ -5368,6 +5368,22 @@ and the CODE tab's listing on both builds wrote it all in the text's colour.
   caret and column the input field counts. A still text is read once; bold and italic would need markup, so a comment
   is grey on the desktop where the browser's is italic too.
 
+**As built in 5.1: code folding** (Ahmad, 2026-11-11, pointing at Notepad++'s margin: "the +/- thing in code that expands
+and unexpands things").
+- **Where code folds** (`CodeFolds`, the view-model's): every block of more than one line -- a keyword's, from its opening
+  word to the one that ends it, an ending meeting the nearest opening of its kind; a bracket's; a `/* */`, and a run of
+  two or more `//` lines -- comments and strings passed over by `CodeColouring`'s reading, one fold to a line, the one
+  reaching furthest. The browser's editor folds by `Tools/codemirror/src/folds.js`, the same rules written again for
+  CodeMirror's `foldService`; `test/folds.fixture.json` is read by both builds' tests, so the two cannot drift apart unseen.
+- **Folded, a block is one line**: its first, a mark, and its last line's text, as CodeMirror shows it. Folds are a view:
+  no step, nothing saved, and an edit keeps every fold it does not touch.
+- **On the desktop the field shows a folded view** (`FoldedView`) and the document never sees a fold: an edit of what
+  shows is taken back to the code -- the change between the two shown texts mapped through the folds -- and the whole code
+  handed to `CodeDocument`, so drafts, apply, undo and REVERT are as they were. The mark is one thing: a deletion that
+  takes any of it takes the block it hides, text typed inside it goes after the block. A place sent to inside a fold --
+  a fault clicked, `GoTo` -- opens it; Tab and Ctrl+/ open every fold first, editing whole lines. The margin is drawn from
+  the view: the code's own numbers, a folded block's passed over, and a - or + in plain letters, which the code's face has.
+
 ---
 
 ## 11. The parts

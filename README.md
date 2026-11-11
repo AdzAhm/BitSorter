@@ -175,7 +175,9 @@ until it does.
 
 Code is coloured as SystemVerilog, in the editor and the CODE tab alike, on the desktop and
 in a browser: keywords, numbers and strings, comments, and system tasks and operators each
-in a colour of the look in use, every one readable against the background.
+in a colour of the look in use, every one readable against the background. A **-** in the
+margin folds a block -- a module, a `begin … end`, a port list, a comment -- to one line, and
+**+** opens it; `Ctrl`+`Shift`+`[` and `]` do the same where the caret is.
 
 ### The drawing of code
 

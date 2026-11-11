@@ -600,7 +600,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-two states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-three states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -613,7 +613,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1) -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -962,7 +962,15 @@ stretch that way.
   as Ctrl+Enter does. TextMesh Pro's field had only Ctrl+A, C, V and X -- Tab typed a
   tab and Ctrl+Z did nothing -- and the browser's CodeMirror had the rest but find;
   it takes `@codemirror/search` now (Ctrl+F, Ctrl+D), and the keyboard map lists the
-  lot under IN THE CODE. CodeMirror's undo starts from the block's code
+  lot under IN THE CODE. **Code folds, in both builds alike** (5.1, Ahmad: "the +/- thing in code that expands and
+  unexpands things"): a - or + in the margin by each line a block starts on -- a keyword's, `module` to `endmodule` and
+  `begin` to `end` among them, a bracket's of more than one line, a `/* */` or a run of `//` lines (`CodeFolds`; the
+  browser's `folds.js` held to the same answer by a fixture both builds' tests read) -- Ctrl+Shift+[ and ] folding and
+  opening the block round the caret and Ctrl+Alt+[ and ] every block. A folded block shows on one line, `module ha ( …
+  endmodule`. On the desktop the field shows a folded view of the code (`FoldedView`) and every edit is taken back to the
+  code itself, so the document, its drafts and its undo never see a fold: text typed on a folded line lands where it
+  shows, a deletion that takes a fold's mark takes the block it hides, a place sent to inside a fold opens it, and the
+  margin keeps the code's own line numbers. CodeMirror's undo starts from the block's code
   (`CodeMirrorBridge.Load`): put in as a change, it was a step of that undo, and Ctrl+Z
   after the first thing typed left the editor empty (the 14g browser smoke test). **In a browser the page's code editor
   counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame) -- its box,
