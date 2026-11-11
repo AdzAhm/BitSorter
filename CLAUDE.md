@@ -606,7 +606,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-four states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-five states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -619,7 +619,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1) -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1), a row dragged by its name (79, 5.1) -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -941,6 +941,15 @@ stretch that way.
   takes Escape before the workbench does. **The parts are a panel of the shell**
   (Part 11b), and **the splitter over the dock is a shell control**, so a drag on
   it is never the circuit's; the wheel over the waves' names scrolls their rows.
+  **A row's name dragged up or down moves the row** (5.1, asked 2026-11-11; `WavePointer`,
+  `WaveList.DropGap` and `MoveTo`): past four pixels a press on a name is a drag, a line
+  shows where it would go, kept to the row's level -- a signal in a group within its
+  group, a header carrying its group among the top-level rows, never into a group -- the
+  rows scroll at the window's ends, and Escape puts it back; a header opens or shuts on
+  the release of a click on its name, so the same press can carry it. **Once a row is
+  moved by hand the list keeps its order** (`WaveList.OrderedByHand`): an edit of the
+  circuit adds a port's row at the end and takes one away, and no longer puts every
+  port's row back in the layout's order (Part 10e), which would have undone the drag.
   **A right-click on a BLOCKS row in PARTS deletes its module** (Part 14g), after a
   question -- Ctrl+Z still brings it back -- and is refused, saying where, while a
   block of it is placed or other code makes one. Deleting a block leaves its module,

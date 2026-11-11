@@ -5487,6 +5487,27 @@ design lacks), and each processor names what the course reads one by ("the most 
 They are the same in every program, since PROGRAM changes only what is run, and nothing new is saved. `StartingRowsTests`
 holds every key to its design, so a rename in a processor's code cannot drop a row without a test going red.
 
+**As built in 5.1: a row dragged by its name moves** (Ahmad, 2026-11-11: rows put in another order by dragging them up or
+down by their names, "make sure there is no bug of this").
+- **The gesture** (`WavePointer`, the view-model's): a plain press on a name selects the row as before; moved more than
+  four pixels up or down it is a drag of the row, and the release puts it down in the gap it was last over. Shift and Ctrl
+  still select, and a value is never a handle. A group's header opens or shuts on the release of a click on its name rather
+  than its press, so the same press can carry the group. Escape lets a dragged row go where it was.
+- **Where it may go** (`WaveList.DropGap`, `MoveTo`): a row keeps its level, as `WaveList.Move` always did -- a signal in a
+  group goes between its group's own signals, a header carries its whole group among the top-level rows, and a top-level
+  row never goes into a group. The gap nearest the pointer that it may go to is the one shown, by a line in the accent
+  across the names and the waves; one where it is already shows none.
+- **Past the window's top or foot the rows scroll** a row every tenth of a second of the game's clock, so a row can be taken
+  anywhere in a long list.
+- **The bug it would have had**: after any edit of the circuit, `WaveList.FollowPorts` put every port's row back in the
+  layout's order (Part 10e, so the rows read as they will when the circuit is opened again). A row dragged would have
+  jumped back at the next edit. Once a row has been moved by hand the list keeps its own order (`OrderedByHand`): a port
+  placed goes at the end, one taken away goes, and nothing is sorted. The order lasts while the circuit is open, as
+  renames and groups do; the rows are not saved.
+- The status line over a name says so, and the keyboard map lists DRAG A NAME. `CursorTests` and `SignalListTests` hold
+  the gesture and the levels, and a Play Mode test drags the full adder's cout over a, cancels a drag with Escape, and
+  tidies the circuit after; shot 79 is a row held over another, its line showing.
+
 ---
 
 ## 11. The parts
