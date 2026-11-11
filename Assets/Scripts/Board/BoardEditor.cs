@@ -783,7 +783,8 @@ namespace BitSorter.Board
 
         /// <summary>
         /// A written module's text, all of it in one step. Refused, with its first error, when the text does not read as
-        /// the module or would break a block of it -- a pin taken away under a wire, say.
+        /// the module or would break a block of it -- a pin taken away under a wire, say. Under a written testbench the run is
+        /// measured again in the same step (<see cref="StoppingWhereItStops"/>), since the new text can move its <c>$stop</c>.
         /// </summary>
         public EditResult SetSource(string module, string source)
         {
@@ -796,7 +797,7 @@ namespace BitSorter.Board
             if (source == m.Source)
                 return EditResult.Ok();
 
-            return Commit(Project.WithModule(m with { Source = source }));
+            return Commit(StoppingWhereItStops(Project.WithModule(m with { Source = source })));
         }
 
         /// <summary>
@@ -809,7 +810,29 @@ namespace BitSorter.Board
                 return EditResult.Refused("No module to put in.");
             if (!TryModule(replacement.Name, out Module _, out EditResult refused))
                 return refused;
-            return Commit(Project.WithModule(replacement));
+            return Commit(StoppingWhereItStops(Project.WithModule(replacement)));
+        }
+
+        /// <summary>
+        /// <paramref name="next"/> with its written testbench's run measured again to where it now stops (5.1): an edit of the
+        /// testbench's text, or of the code it tests, can move its <c>$stop</c>, and the run was cut where the last text had
+        /// stopped -- "Is it prime?" widened to six bits in its testbench still ended where four bits do. Measured as the
+        /// import measures it (<see cref="ProjectImporter.RunEnd"/>), so a testbench that never stops costs what its import
+        /// did, each time it is applied. A project with no written testbench, or one that does not elaborate -- which the
+        /// edit's own check then refuses -- is left as it is.
+        /// </summary>
+        private static Project StoppingWhereItStops(Project next)
+        {
+            if (next.Bench == null || next.Stimulus == null)
+                return next;
+            CompiledProject compiled = BoardCompiler.Compile(next);
+            if (!compiled.Succeeded)
+                return next;
+            Sim.Elaboration elaboration = compiled.Elaborate();
+            if (elaboration.HasErrors)
+                return next;
+            long end = ProjectImporter.RunEnd(next, elaboration, out _);
+            return end == next.Stimulus.End ? next : next with { Stimulus = next.Stimulus with { End = end } };
         }
 
         /// <summary>

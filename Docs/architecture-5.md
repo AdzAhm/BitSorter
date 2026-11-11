@@ -5388,6 +5388,16 @@ and unexpands things").
   a fault clicked, `GoTo` -- opens it; Tab and Ctrl+/ open every fold first, editing whole lines. The margin is drawn from
   the view: the code's own numbers, a folded block's passed over, and a - or + in plain letters, which the code's face has.
 
+**As built in 5.1: an edited testbench is run to its new `$stop`** (found widening "Is it prime?" to six bits in its own
+testbench, where the run still ended at 160 ps, where four bits stop). A written testbench's run was measured to where it
+stops as it was imported, and again as its PROGRAM was chosen (Part 15h-6c), but not as code was applied, so a testbench
+lengthened in the editor was cut off where its old text stopped, and one shortened ran on past its own `$stop`. Applying a
+written module's text under a written testbench now measures the run again in the same step
+(`BoardEditor.StoppingWhereItStops`, as the import does, `ProjectImporter.RunEnd`) -- the testbench's own text, or the code
+it tests, which can move the stop just as well -- and the CODE switch's writing of a drawn module as code with it. An undo
+puts the end back with the text. A testbench that never stops costs what its import did, about half a second, each time it
+is applied; the import has already said to end it with `$stop`. `WrittenBenchRunTests` (red, then the fix).
+
 ---
 
 ## 11. The parts
