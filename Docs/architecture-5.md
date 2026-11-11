@@ -5387,6 +5387,10 @@ and unexpands things").
   takes any of it takes the block it hides, text typed inside it goes after the block. A place sent to inside a fold --
   a fault clicked, `GoTo` -- opens it; Tab and Ctrl+/ open every fold first, editing whole lines. The margin is drawn from
   the view: the code's own numbers, a folded block's passed over, and a - or + in plain letters, which the code's face has.
+  A line with neither ends in a - drawn clear (`<color=#00000000>`), never in two spaces: the margin is right-aligned, and
+  TextMesh Pro leaves trailing spaces out when it aligns, so every number on a line a block starts on stood two letters left
+  of the rest (Ahmad: "the minus and plus move the numbers to the left"). A Play Mode test holds every number's last digit
+  to one x, marked or not.
 
 **As built in 5.1: an edited testbench is run to its new `$stop`** (found widening "Is it prime?" to six bits in its own
 testbench, where the run still ended at 160 ps, where four bits stop). A written testbench's run was measured to where it
