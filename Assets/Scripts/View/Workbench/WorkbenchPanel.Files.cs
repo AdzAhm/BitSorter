@@ -309,7 +309,7 @@ namespace BitSorter.View
 
         /// <summary>
         /// What the notice adds for inputs nothing drives (Part 15g, <see cref="InputTable.Undriven"/>): which, that they read z
-        /// and what they feed x, and the three ways to drive them. A design imported without its testbench showed grey dashes and
+        /// and what they feed x, and the ways to drive them. A design imported without its testbench showed grey dashes and
         /// red hatching, and nothing said why (Ahmad's import, 2026-10-28).
         /// </summary>
         private static string Undriven(Project project)
@@ -321,7 +321,7 @@ namespace BitSorter.View
                 ? string.Join(", ", undriven)
                 : string.Join(", ", new List<string>(undriven).GetRange(0, 3)) + " and " + (undriven.Count - 3).ToString(CultureInfo.InvariantCulture) + " more";
             return ". Nothing drives " + names + " yet, so " + (undriven.Count == 1 ? "it reads" : "they read") +
-                " z and what they feed x: give them values in INPUTS, double-click their waves, or import the testbench too";
+                " z and what they feed x: give them values in INPUTS, or import the testbench too";
         }
 
         /// <summary>The project what the transcript's notes say was said about; null for none.</summary>

@@ -601,7 +601,7 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>
         /// The plan's exit for Part 10b: a half adder built from nothing with the fixture's own mouse -- two inputs, an
         /// XOR and an AND, two outputs, wired by dragging pin to pin, the AND's inputs dragged onto the XOR's wires as
-        /// taps -- then its inputs flipped by double-clicks on the waveform, and its sum and carry read there.
+        /// taps -- then its inputs flipped from the session (the waves change no input since 5.1), and its sum and carry read there.
         /// </summary>
         [UnityTest]
         public IEnumerator AHalfAdder_BuiltFromNothingWithTheMouse_AddsOnTheWaveform()

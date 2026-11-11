@@ -110,8 +110,8 @@ namespace BitSorter.ViewModel
     /// <remarks>
     /// - **On the waves or the axis:** a press places the second cursor and a drag moves it through the
     ///   waves; with Shift it seeks the playhead and a drag scrubs it, and a press within
-    ///   <see cref="GrabPixels"/> of the playhead takes hold of it. A double-click on a row's wave changes
-    ///   the input it shows -- the first click has put the cursor there already -- and scrubs nothing.
+    ///   <see cref="GrabPixels"/> of the playhead takes hold of it. A double-click is two clicks: the waves
+    ///   change no input since 5.1, which INPUTS sets.
     ///
     ///   **They were the other way round until Part 15h.** The waves are drawn only up to the playhead,
     ///   so a click back in a finished run hid everything after it; the second cursor reads any moment
