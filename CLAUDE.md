@@ -606,7 +606,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-five states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-six states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -619,7 +619,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1), a row dragged by its name (79, 5.1) -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1), a row dragged by its name (79, 5.1), every value whole and a value's tip (80, 5.1) -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -950,6 +950,13 @@ stretch that way.
   moved by hand the list keeps its order** (`WaveList.OrderedByHand`): an edit of the
   circuit adds a port's row at the end and takes one away, and no longer puts every
   port's row back in the layout's order (Part 10e), which would have undone the drag.
+  **A bus's value reads without zooming in** (5.1, Ahmad chose both, 2026-11-11, and then
+  asked for the values column to expand): a box too narrow for its whole value shows as
+  much as fits and an ellipsis where three characters fit (`ValueFit.Kept`; it was blank);
+  the pointer on a box puts up a tip with the row's name and width, the whole value and its
+  time; and VALUES + at the head of the values column, or W, widens it to the widest value
+  any row can hold in its radix (`ValueText.MaxChars`, so it never moves while the run
+  plays), VALUES - cutting them again -- the waves starting further right by as much.
   **A right-click on a BLOCKS row in PARTS deletes its module** (Part 14g), after a
   question -- Ctrl+Z still brings it back -- and is refused, saying where, while a
   block of it is placed or other code makes one. Deleting a block leaves its module,

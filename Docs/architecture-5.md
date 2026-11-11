@@ -5508,6 +5508,31 @@ down by their names, "make sure there is no bug of this").
   the gesture and the levels, and a Play Mode test drags the full adder's cout over a, cancels a drag with Escape, and
   tidies the circuit after; shot 79 is a row held over another, its line showing.
 
+**As built in 5.1: a bus's value reads without zooming in** (Ahmad, 2026-11-11, at a 64-bit value: "I have to zoom in a lot
+to see the value"; he chose cutting and a tip both, and then asked for "something to expand and unexpand" the values
+column).
+- **Over a box, as much of its value as fits** (`ValueFit.Kept`). A box had a label only where the whole value fitted -- 22
+  units and 7 a character after the first, since Part 9b -- so a 32-bit value wanted 85 units in hex and 239 in binary, and
+  a narrower box was blank. Now one too narrow shows the value's first characters and an ellipsis, read from its start as a
+  viewer writes one, where at least three characters fit; fewer say nothing a reader could use, and the box stays blank.
+  The ellipsis is one character where the waves' face has it, three dots where it has not. A cut label is handed to its
+  text as characters, and only when its value or its cut changes, so a frame of playback makes no string and lays out no
+  text that has not changed.
+- **The pointer on a box shows the whole of it** (`ValueFit.Tip`, `WaveformView.ShowTip`): the row's name and width, the
+  value in its radix with its mark, never cut, and the time it holds -- "to now" for the box the playhead is in, which
+  holds on as the run plays. It is kept inside the waves' window, above the pointer where there is no room below, as wide
+  as its words or the window, a value wider wrapping. It is up while nothing is held, no popup is open and no row is
+  dragged; a one-bit row has none. Its words are made only when the pointer moves to another box.
+- **The values column shows every value whole at a click** on VALUES + at its head, or W (`WorkbenchCommand.Values`), and
+  VALUES - cuts them again. Whole, it is as wide as the widest value any row can hold in its radix -- `ValueText.MaxChars`,
+  written for this in Part 9b and never used until now -- its mark included, up to 480 units and never more than 45% of the
+  waveform, so it never moves while the run plays; the waves start further right by as much, as they do for a long name.
+  The choice is the student's while BitSorter runs, every circuit alike, and is not saved.
+- `ValueFitTests` holds the cut and the tip's words, and a Play Mode test the single-cycle processor's run: its pc cut to
+  its boxes, the tip on a box and none on clk, the column widened at a click on its head and cut again with W. Shot 80 is
+  the processor with every value whole and the tip up; every waves shot with a box too narrow for its value gains its cut
+  label.
+
 ---
 
 ## 11. The parts
