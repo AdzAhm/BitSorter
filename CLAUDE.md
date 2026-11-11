@@ -717,10 +717,10 @@ stretch that way.
   code works the value out. **An exercise open puts GOAL and CHECK at the
   controls' row's right end** in its place, the chip beside them made room for: GOAL its brief,
   the hint behind SHOW THE HINT, and CHECK the grade, every failed check a
-  TRANSCRIPT line at its moment -- and WRITE IT (Part 15e), which turns the answer
-  into code held to the library and the stock as a drawing is, and DRAW IT back,
-  asking first, which draws the code as its gates (Part 15g; it put back the
-  exercise as it starts) and says why where it cannot. **The circuit's window is the canvas's** (Part 10a):
+  TRANSCRIPT line at its moment. An answer is written as code through the CODE switch every circuit
+  has (5.1), under the exercise's header (`Exercise.Written`), held to the library and the stock as a
+  drawing is; WRITE IT and DRAW IT stood beside GOAL and CHECK until then (Parts 15e, 15g), and went
+  at Ahmad's choice (2026-11-11), DRAW IT's code drawn back into gates with them. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
@@ -757,13 +757,19 @@ stretch that way.
   it back. **An operator part**
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
-  15h-4) to place. **A written module is shown as the drawing of its code, or as its
+  15h-4) to place. **Every circuit has the CODE / DRAWING switch at its window's top right** (5.1,
+  Ahmad: "just a button to switch to the code and edit it", everywhere): over a drawn circuit CODE shows
+  it as it prints, to type into, and changes nothing (`WorkbenchSession.DrawnAsCode`, `TextOf`; a blank
+  circuit shows + CODE's template, an exercise's answer its header), DRAWING going back as it was; the
+  first text that applies makes it a written module, one step that Ctrl+Z takes back, and until then
+  its drawing takes no edit (`CodeShownRefusal`); an exercise answered by drawing alone shows none
+  (`CodeAllowed`). **A written module is shown as the drawing of its code, or as its
   code** (Part 15h-4): **it opens as its drawing** (15h-4d: a double-click on a written
   block showed its code, and Ahmad wanted the drawing first) -- unless CODE was chosen
   for it, which is kept for each module, or its code cannot be drawn; + CODE,
-  WRITE IT, an imported course template and an exercise answered in code open on the
+  an imported course template and an exercise answered in code open on the
   code, to be typed into (`WorkbenchSession.ShowCodeOf`), and text typed and not yet
-  applied -- into any written module, on screen, behind its drawing or stepped out
+  applied -- into any module, a drawn one's typed as code included, on screen, behind its drawing or stepped out
   of, each a draft the save keeps -- is what EXPORT, the hand-in, the lock and
   CHECK apply first, or are refused by, saying whose it is
   (`WorkbenchSession.ApplyTyping`, `WhyTypingStops`; the 16d sweep: it was the

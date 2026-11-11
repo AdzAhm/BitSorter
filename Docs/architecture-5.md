@@ -5331,6 +5331,28 @@ outside Unity first by a console program driven with keystrokes). The start page
   a test that imports answers the next choice itself (`SaveGuard.AnswerTheNextChoice`), an answer that never outlives the
   import it was for. While a test runs `FileImport.OpenFolder` makes the folder and opens no window.
 
+**As built in 5.1: one CODE / DRAWING switch on every circuit** (Ahmad, 2026-11-11: "there should be just a button to
+switch to the code and edit it ... I saw it but not everywhere"; and "I open a new circuit and I want to code instead of
+putting blocks"). It stood only over a written module, so a drawn circuit -- his half adder exported and imported again,
+gates only and so drawn -- had no way to its code but the CODE tab's, read only, and an exercise had its own WRITE IT and
+DRAW IT on the controls' row.
+- **Over a drawn circuit, CODE shows it as code and changes nothing** (`WorkbenchSession.DrawnAsCode`). The editor's
+  document holds the module as it prints (`TextOf`: the CODE tab's text from its `module` line, `BoardPrinter.ModuleText`),
+  a blank module + CODE's template, and an exercise's top the exercise's header over it (the session's `writtenAs`, given
+  as it opens). DRAWING before anything applies goes back with no step, the drawing as it was.
+- **The first text that applies makes it written** (`SetSourceOf`: `ReplaceModule` with the module as that text makes it,
+  its name, comment and id count kept): one step, which Ctrl+Z takes back to the drawing, layout and all. Text that does not
+  apply is a draft as any written module's -- kept, saved, set aside by an edit of the drawing, whose printed text moves
+  under it (`CodeDocument.Behind`). Until it applies the drawing takes no edit (`CodeShownRefusal`): a key pressed with
+  the code up would otherwise change what it hides.
+- **Exercises** take the switch in place of WRITE IT and DRAW IT (Ahmad's choice). CODE shows the answer under its header,
+  as WRITE IT wrote it, and what a written answer is held to is said the first time one becomes code
+  (`WorkbenchSession.DrawnWritten`). DRAW IT's drawing of the code back into gates went with it, `Exercise.Drawn` and its
+  tests too, being used nowhere else: the drawing of a written answer is DRAWING, and the drawn answer itself is Ctrl+Z.
+  An exercise answered by drawing alone shows no CODE over a drawn module (`CodeAllowed`; every exercise allows code today).
+- **Its place**: the switch at the top right over every circuit, FIT, the padlock and TIDY stepping left of it as they
+  did over code. The keyboard map lists it among the circuit's gestures.
+
 ---
 
 ## 11. The parts

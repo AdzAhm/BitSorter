@@ -166,11 +166,18 @@ The **CODE** tab in the dock prints a drawn circuit as the SystemVerilog it make
 only. The lines that the selected parts come from are marked and scrolled into view, and a
 click on a line selects the parts it makes.
 
+**CODE**, at the circuit's top right, is on every circuit. Over a drawing it shows the
+circuit as code, ready to type into, and changes nothing yet; **DRAWING** goes back. The
+first thing you type that applies makes the circuit code, and `Ctrl`+`Z` draws it again. A
+new circuit shows a starter module, so NEW CIRCUIT, then CODE, is a circuit written from
+scratch. Code that does not read is kept as a draft, marked, and the circuit stays drawn
+until it does.
+
 ### The drawing of code
 
 A written module is shown as the drawing of its code, or as its code. It opens as its
-drawing, laid out in columns from the netlist the code builds; CODE and DRAWING, in the
-code's top strip, turn between the two. Every part of the drawing comes from a line of the code,
+drawing, laid out in columns from the netlist the code builds; CODE and DRAWING turn
+between the two. Every part of the drawing comes from a line of the code,
 which the inspector names, and says first what the code's comment on that line says.
 
 - **GATES** opens every operator and mux of four bits or fewer, and a sum or a difference of
@@ -249,9 +256,10 @@ many gates it took and how fast it settles, beside your best, and offers the nex
 
 ![CHECK: an Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card.](Docs/gifs/check.gif)
 
-**WRITE IT** answers an Exercise in SystemVerilog instead: your drawing becomes code,
-gate for gate, and you carry on typing. It is held to the same parts as a drawing and
-graded the same way. **DRAW IT** goes back to drawing, and draws your code as its gates.
+**CODE** answers an Exercise in SystemVerilog instead: your drawing shown as code, gate
+for gate, under a header with the goal and the parts it may use, and once what you type
+applies, the answer is code. It is held to the same parts as a drawing and graded the same
+way. DRAWING shows the drawing of your code.
 Some Exercises open on a circuit with something wrong in it, for you to find.
 
 New to it? **TUTORIAL**, on the start page and in HELP, walks you through the first
