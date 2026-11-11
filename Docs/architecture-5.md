@@ -2259,7 +2259,8 @@ template is imported, then exported filled.
 
 - **The FILE menu brings a project in** (`FileImport`). On a desktop and in the editor, IMPORT reads every file in the
   Import folder beside the save -- the folders in it too, each file by its path inside it -- and OPEN THE IMPORT FOLDER
-  makes it and opens it in the system's file browser. In a browser, IMPORT A PROJECT'S FILES and IMPORT A PROJECT'S
+  makes it and opens it in the system's file browser (*since 5.1 a desktop picks any folder or files in Windows' Open
+  dialog, and both items are gone*: see "As built in 5.1"). In a browser, IMPORT A PROJECT'S FILES and IMPORT A PROJECT'S
   FOLDER open the page's own file picker (`BitSorterFiles.jslib`), which reads what is picked as text and keeps it
   until the game takes it a frame or so later -- the pull the code editor's bridge uses, so nothing in the page calls
   into the game. Tests read a scratch folder (`FileImport.Redirected`, set by `SaveGuard`), never the player's.
@@ -5309,7 +5310,26 @@ input changing the input"). A double-click on an input's wave flipped a one-bit 
 a bus or an x its value in SET (Part 9b-3, `WaveGesture.EditInput`). It went, and SET with it: the waves only read the run,
 a double-click on them is two clicks that place the cursor, and an input is set in INPUTS (Part 15g), which does all the
 gesture did and more. `BoardEditor.InvertInput` and `WorkbenchSession.InvertInput`, the document's commands, stay, with
-their tests. The legend line, the keyboard map and the README no longer name the gesture.
+their tests. The legend line, the keyboard map and the README no longer name the gesture. The notice after a design is
+imported without its testbench still offered it, until a test caught it (red, then the fix).
+
+**As built in 5.1: an import reads any folder on Windows** (Ahmad, 2026-11-11: "why can't I import from any folder?").
+A desktop read only the Import folder beside the save (Part 13d), since Unity gives a built game no file dialog. FILE now
+offers what a browser does, IMPORT A PROJECT'S FOLDER and IMPORT A PROJECT'S FILES, and on Windows each opens Windows' own
+Open dialog (`WindowsFileDialog`, the Common Item Dialog through COM interop, which the Windows build's Mono runs; held
+outside Unity first by a console program driven with keystrokes). The start page's IMPORT A PROJECT asks for a folder.
+- **Chosen and imported as the dialog closes** (`FileImport.Choose`): it is modal, so the call returns with the folder or
+  the files, or null on Cancel, which changes nothing. It opens in Documents the first time and where it was left after
+  that, which Windows keeps for the program itself (`SetDefaultFolder`); the plan's preference for it was not needed.
+- **A folder chosen a level too high is not walked to its end** (`FileImport.ReadFolder`): the walk goes folder by
+  folder, passes over hidden names, links and folders it may not list, and stops at the first file past what an import
+  takes, which the workbench refuses saying to choose the folder that holds just the project. Files chosen come in each
+  by its name (`ReadFiles`), under the same limits.
+- **COMPARE WITH MODELSIM'S RUN still reads the Import folder** (Ahmad's choice): with OPEN THE IMPORT FOLDER gone from
+  the menu, COMPARE opens the folder itself when it finds no dump there, beside the notice saying where it is.
+- **No test opens the dialog.** It waits for a person, so `SaveGuard` sets `FileImport.Chooser` to one that cancels, and
+  a test that imports answers the next choice itself (`SaveGuard.AnswerTheNextChoice`), an answer that never outlives the
+  import it was for. While a test runs `FileImport.OpenFolder` makes the folder and opens no window.
 
 ---
 

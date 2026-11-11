@@ -289,10 +289,10 @@ The **FILE** menu keeps your circuits and takes a project's files in and gives t
 - **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named, and
   OPEN A CIRCUIT lists them all; RENAME and DELETE work on any but MY CIRCUIT, and DELETE
   asks first. Each is kept as you leave it, and each exports under its own name.
-- **Import.** On a desktop, put a project's files, its `.sv` files, any files they
-  `` `include ``, and the memory images `$readmemh` reads, in the Import folder (FILE,
-  OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files or a folder.
-  The project opens as a circuit of its own, named after it, and nothing you already have
+- **Import.** FILE, IMPORT A PROJECT'S FOLDER, or IMPORT A PROJECT'S FILES, and pick them
+  wherever they are: a project's `.sv` files, any files they `` `include ``, and the memory
+  images `$readmemh` reads. On Windows the picker is Windows' own, and opens where you left
+  it last time. The project opens as a circuit of its own, named after it, and nothing you already have
   is replaced. A module made only of gates is drawn; any other module is kept as the code
   you wrote. Your testbench runs as written, `$display` and all. Anything the import could
   not read is listed in the TRANSCRIPT with its file and line. An import takes up to 200
@@ -303,8 +303,9 @@ The **FILE** menu keeps your circuits and takes a project's files in and gives t
 - **Export.** EXPORT PROJECT saves a zip of every file the project is, with a `run.do`:
   unzip it, and in ModelSim type `do run.do`.
 - **Compare with ModelSim.** The `run.do` also has ModelSim save every signal to
-  `modelsim.vcd`. Put that file in the Import folder (in a browser, pick it), and FILE,
-  COMPARE WITH MODELSIM'S RUN holds BitSorter's run to ModelSim's: it says they agree, or
+  `modelsim.vcd`. Put that file in BitSorter's Import folder (COMPARE opens it for you if
+  it finds none there; in a browser, you pick the file), and FILE, COMPARE WITH MODELSIM'S
+  RUN holds BitSorter's run to ModelSim's: it says they agree, or
   takes the waves to the first moment they differ and names the signal and both values
   in the TRANSCRIPT.
 - **Hand in.** Import a homework file that says `// Put your code here`, and its module

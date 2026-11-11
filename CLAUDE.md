@@ -300,7 +300,10 @@ stretch that way.
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
   the save, the PlayerPrefs settings, the workbench's exports (`FileSaver`, Part
   9b-4) and its Import folder (`FileImport`, Part 13d) at scratch copies before the
-  scene loads (see "Never move the player's save" below), and every fixture then
+  scene loads (see "Never move the player's save" below), and has every import's
+  Windows Open dialog cancelled unless the test answers it (`FileImport.Chooser`,
+  `SaveGuard.AnswerTheNextChoice`; 5.1) -- the dialog is modal and waits for a person,
+  so one opened by a test would hold the run up for ever -- and every fixture then
   turns analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad, and an
   exercise opened or solved would otherwise post real events from a test run,
   into the one measurement the game collects.
