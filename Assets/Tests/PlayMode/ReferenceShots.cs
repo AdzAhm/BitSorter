@@ -1827,6 +1827,41 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
         }
 
+        /// <summary>
+        /// 5.1: a bus's value read without zooming in -- the single-cycle processor's run whole, its 32-bit values cut to their
+        /// boxes, the values column showing every value whole (VALUES -), and the tip over a box of pc with the whole of it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot80_WorkbenchValuesWholeAndTip()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int single = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Single-cycle RISC-V")
+                    single = i;
+            workbench.ShowSample(single);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(workbench.Session.Run.Model.End);
+            yield return Frames(2);
+            workbench.ToggleValues();
+            yield return Frames(2);
+
+            int pc = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "pc");
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Set(mouse.position, workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.3, pc));
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.WholeValues, "sanity: every value whole");
+            Assert.IsNotNull(workbench.ValueTip, "sanity: the tip over pc");
+            yield return Capture("80-workbench-values-whole-and-tip");
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

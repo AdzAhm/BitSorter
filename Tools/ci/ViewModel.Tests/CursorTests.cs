@@ -242,6 +242,15 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("ToggleGroup 0", Run(pointer, value), "its value, as before");
         }
 
+        /// <summary>A click on the head of the values column shows every value whole, or cuts them again (5.1); the right button nothing.</summary>
+        [Test]
+        public void AClickOnTheValuesHead_ShowsEveryValueWhole_OrCutsThemAgain()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("ToggleValues", Run(pointer, On(WaveRegion.ValuesHead)));
+            Assert.AreEqual("", Run(pointer, On(WaveRegion.ValuesHead, button: 1)));
+        }
+
         [Test]
         public void AltAndAPressOnTheCircuit_AddsTheWiresSignal_AndWithoutAltItIsTheCircuits()
         {

@@ -206,4 +206,54 @@ namespace BitSorter.ViewModel
             });
         }
     }
+
+    /// <summary>
+    /// A bus's value fitted to the room it has on the waves (5.1, Ahmad: a 64-bit value read only zoomed far in): over a box,
+    /// as much of it as fits, and the words of the tip that shows one whole where the pointer is. The values column's room for
+    /// every value whole is <see cref="ValueText.MaxChars"/>'s.
+    /// </summary>
+    /// <remarks>
+    /// Measured as the waves have measured a box's label since Part 9b: 22 units and 7 a character after the first, the
+    /// Micro type's digits with room either side. A box had its value only where the whole of it fitted, so a 32-bit value in
+    /// hex wanted 85 units and in binary 239, and a box narrower was blank. **Cut, a value is read from its first character**,
+    /// as a viewer writes one, with an ellipsis after it -- and only where three characters fit, two and the ellipsis, since
+    /// fewer say nothing a reader could use.
+    /// </remarks>
+    public static class ValueFit
+    {
+        /// <summary>The room a box's label of <paramref name="characters"/> characters takes, in the waves' units.</summary>
+        public static float Room(int characters) => 22f + 7f * (characters - 1);
+
+        /// <summary>The fewest characters a cut label shows, the ellipsis among them.</summary>
+        public const int FewestShown = 3;
+
+        /// <summary>
+        /// How many characters of a value <paramref name="length"/> long a box <paramref name="room"/> units wide shows: all of
+        /// them where they fit, with <paramref name="cut"/> false; else as many as fit with an ellipsis taking
+        /// <paramref name="ellipsis"/> characters' room after them, with <paramref name="cut"/> true, where
+        /// <see cref="FewestShown"/> fit; else none.
+        /// </summary>
+        public static int Kept(int length, float room, int ellipsis, out bool cut)
+        {
+            cut = false;
+            if (length <= 0)
+                return 0;
+            if (room > Room(length))
+                return length;
+
+            // The most characters with room for them: Room(n) < room.
+            int fit = (int)Math.Ceiling((room - 22f) / 7f);
+            if (fit < FewestShown || fit - ellipsis < 1)
+                return 0;
+            cut = true;
+            return Math.Min(length - 1, fit - ellipsis);
+        }
+
+        /// <summary>
+        /// What the tip over a bus's box says: the row's name and its width, the whole value in its radix -- never cut -- and the
+        /// stretch of time it holds, from <paramref name="from"/> to <paramref name="to"/>, written as the waves write times.
+        /// </summary>
+        public static string Tip(string name, int bits, string value, string from, string to) =>
+            name + ", " + bits + (bits == 1 ? " bit" : " bits") + "\n" + value + "\n" + from + " to " + to;
+    }
 }

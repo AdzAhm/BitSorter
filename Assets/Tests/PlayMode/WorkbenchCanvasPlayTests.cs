@@ -4752,6 +4752,77 @@ namespace BitSorter.PlayMode.Tests
             CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "an edit keeps the order made by hand");
         }
 
+        /// <summary>
+        /// A bus's value reads without zooming in (5.1, Ahmad: a 64-bit value read only zoomed far in): over the single-cycle
+        /// processor's run, whole, a box too narrow for its value shows as much of it as fits and an ellipsis; the pointer on a
+        /// box puts up a tip with the whole value, the row's width and its time, and on a one-bit row none; and VALUES + over
+        /// the values column -- or W -- shows every value whole there, VALUES - cutting them again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ABusValue_IsCutToItsBox_WholeInATip_AndTheValuesColumnWidens()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleIndex("Single-cycle RISC-V") + 1);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(workbench.Session.Run.Model.End);
+            yield return null;
+            yield return null;
+            int pc = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "pc");
+            int clk = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "clk");
+            Assert.GreaterOrEqual(pc, 0, "sanity: the processor opens on pc");
+
+            // Cut to its box: two characters and an ellipsis at the least, each the start of a value.
+            string[] labels = workbench.BusLabelsOf(pc).ToArray();
+            string[] cut = labels.Where(l => l.EndsWith("\u2026") || l.EndsWith("...")).ToArray();
+            Assert.IsNotEmpty(cut, "boxes too narrow for a 32-bit value show part of it: " + string.Join(" | ", labels.Take(8)));
+            foreach (string label in cut)
+            {
+                string kept = label.TrimEnd('.', '\u2026');
+                Assert.GreaterOrEqual(kept.Length, 1, "at least a character of the value");
+                StringAssert.IsMatch("^[0-9A-FXZ]+$", kept, "the value's first characters, in hex");
+            }
+
+            // A tip with the whole value where the pointer is, on a box.
+            Vector2 onPc = workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.5, pc);
+            Move(_mouse.position, onPc);
+            yield return null;
+            yield return null;
+            string tip = workbench.ValueTip;
+            Assert.IsNotNull(tip, "a tip on pc's box");
+            StringAssert.StartsWith("pc[31:0], 32 bits\n", tip);
+            string[] lines = tip.Split('\n');
+            StringAssert.IsMatch("^[0-9A-F]{8}h$", lines[1], "the whole value, eight hex digits and its h: " + lines[1]);
+            StringAssert.Contains(" to ", lines[2], "the time it holds");
+
+            Move(_mouse.position, workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.5, clk));
+            yield return null;
+            yield return null;
+            Assert.IsNull(workbench.ValueTip, "no tip on a one-bit row");
+
+            // The values column: cut to begin with, whole at a click on its head, cut again with W.
+            Assert.IsFalse(workbench.WholeValues);
+            Assert.AreEqual(WaveformView.ValuesCutCaption, workbench.ValuesHeadText);
+            Assert.IsFalse(workbench.ReadoutWhole(pc), "sanity: a 32-bit value cut to the column");
+            Move(_mouse.position, workbench.ValuesHeadOnScreen);
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.ValuesHead), workbench.StatusText, "the status line says what its head does");
+            yield return ClickAtScreen(workbench.ValuesHeadOnScreen);
+            Assert.IsTrue(workbench.WholeValues, "a click on its head");
+            Assert.AreEqual(WaveformView.ValuesWholeCaption, workbench.ValuesHeadText);
+            for (int row = 0; row < workbench.List.Lines.Count; row++)
+                Assert.IsTrue(workbench.ReadoutWhole(row), $"row {row}'s value whole");
+            CollectionAssert.AreEqual(new[] { "clk", "rst" }.Concat(WorkbenchSamples.StartingRows("Single-cycle RISC-V")).ToArray(),
+                workbench.List.AllSignals.Select(s => s.Key).ToArray(), "the rows as they were");
+
+            yield return Tap(_keyboard.wKey);
+            Assert.IsFalse(workbench.WholeValues, "W cuts them again");
+            Assert.IsFalse(workbench.ReadoutWhole(pc));
+        }
+
         /// <summary>BitSorter launched onto a sample opens it on the program the save kept for it.</summary>
         [UnityTest]
         public IEnumerator ALaunchOntoASample_OpensItOnTheProgramKeptForIt()

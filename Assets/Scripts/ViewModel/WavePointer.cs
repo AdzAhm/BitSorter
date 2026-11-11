@@ -25,6 +25,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>A button, the slider, a popup, the add list -- anything with clicks of its own, which win.</summary>
         Control,
+
+        /// <summary>The head of the values column -- VALUES + or VALUES - -- which shows every value whole or cuts them again (5.1).</summary>
+        ValuesHead,
     }
 
     /// <summary>What a gesture asks the workbench to do.</summary>
@@ -62,6 +65,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Put <see cref="WaveCommand.Row"/> down in the gap <see cref="WaveCommand.To"/> (<see cref="WaveList.MoveTo"/>).</summary>
         DropRow,
+
+        /// <summary>Show every value in the values column whole, or cut them to it again (5.1).</summary>
+        ToggleValues,
     }
 
     /// <summary>One thing a gesture asks for.</summary>
@@ -251,6 +257,11 @@ namespace BitSorter.ViewModel
                 case WaveRegion.Schematic:
                     if (press.Button == 0 && press.Alt)
                         into.Add(new WaveCommand(WaveGesture.AddWireSignal));
+                    return;
+
+                case WaveRegion.ValuesHead:
+                    if (press.Button == 0)
+                        into.Add(new WaveCommand(WaveGesture.ToggleValues));
                     return;
             }
         }

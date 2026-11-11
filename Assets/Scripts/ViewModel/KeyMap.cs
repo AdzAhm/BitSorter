@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold, Names }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold, Names, ValuesHead }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -81,6 +81,8 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
             new KeyMapEntry("CLICK A NAME", "select its row; SHIFT or CTRL for more"),
             new KeyMapEntry("DRAG A NAME", "up or down to move its row; ESC puts it back"),
+            new KeyMapEntry("CLICK VALUES +", "over the values: every value whole; VALUES - cuts them again"),
+            new KeyMapEntry("POINT AT A BOX", "a bus's whole value, its width and its time"),
         };
 
         /// <summary>
@@ -146,6 +148,7 @@ namespace BitSorter.ViewModel
                 case WorkbenchCommand.Group:
                 case WorkbenchCommand.Radix:
                 case WorkbenchCommand.Names:
+                case WorkbenchCommand.Values:
                 case WorkbenchCommand.ClearCursor:
                 case WorkbenchCommand.PageUp:
                 case WorkbenchCommand.PageDown:
@@ -211,6 +214,8 @@ namespace BitSorter.ViewModel
                 case PointerArea.Names:
                     // A row's name is its handle (5.1): the one gesture there nothing else on screen says.
                     return "rows:  click to select  ·  drag a name up or down to move its row  ·  right-click for its menu  ·  ? every key";
+                case PointerArea.ValuesHead:
+                    return "values:  click to show every value whole, or cut them to the column  ·  W does it too  ·  ? every key";
                 case PointerArea.Waves:
                     return "waves:  click for a cursor  ·  shift-click to move the playhead  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
                 case PointerArea.Blocks:

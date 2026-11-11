@@ -396,7 +396,13 @@ namespace BitSorter.View
 
         /// <summary>Where a row's name is on the screen: somewhere to click it.</summary>
         public Vector2 RowNameOnScreen(int row) =>
-            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(WorkbenchDrawing.NameRight - 20f, -WorkbenchDrawing.RowMiddle(row), 0f)));
+            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(
+                new Vector3(WorkbenchDrawing.NameRight - _wave.ValuesExtra - 20f, -WorkbenchDrawing.RowMiddle(row), 0f)));
+
+        /// <summary>Where the head of the values column is on the screen -- VALUES + or VALUES - -- somewhere to click it.</summary>
+        public Vector2 ValuesHeadOnScreen =>
+            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(
+                new Vector3(WorkbenchDrawing.ReadoutLeft - _wave.ValuesExtra + 12f, -(WorkbenchDrawing.WaveTop - 10f), 0f)));
 
         /// <summary>Where a moment is on the screen, over row <paramref name="row"/>'s wave.</summary>
         public Vector2 WaveScreenPointOf(double time, int row) => _wave.ScreenPointOf(time, row);
@@ -593,6 +599,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
                 case WorkbenchCommand.Names: ToggleNames(); break;
+                case WorkbenchCommand.Values: ToggleValues(); break;
                 case WorkbenchCommand.Unit: NextUnit(); break;
                 case WorkbenchCommand.Undo: UndoEdit(); break;
                 case WorkbenchCommand.Redo: RedoEdit(); break;
@@ -827,6 +834,80 @@ namespace BitSorter.View
             ScrollWavesBy(edge * WorkbenchDrawing.RowHeight);
         }
 
+        // Whether the values column shows every value whole (5.1): the student's choice while BitSorter runs, every circuit alike.
+        private bool _wholeValues;
+
+        /// <summary>Whether the values column shows every value whole.</summary>
+        public bool WholeValues => _wholeValues;
+
+        /// <summary>Whether row <paramref name="row"/>'s value fits the values column whole.</summary>
+        public bool ReadoutWhole(int row) => _wave.ReadoutWhole(row);
+
+        /// <summary>What the head of the values column says: VALUES + or VALUES -.</summary>
+        public string ValuesHeadText => _wave.ValuesHeadText;
+
+        /// <summary>What the labels over a bus row's boxes say now, left to right.</summary>
+        public IEnumerable<string> BusLabelsOf(int row) => _wave.BusLabelsOf(row);
+
+        /// <summary>Every value in the values column whole, as wide as the widest a row can hold, or cut to the column again (5.1).</summary>
+        public void ToggleValues()
+        {
+            _wholeValues = !_wholeValues;
+            if (_stage != null)
+                RebuildStage(keepViews: true);
+        }
+
+        // What the tip was last made for -- the row, the change it shows, its radix, the list's version (its names) and whether
+        // the value still holds at the playhead -- so it is written again only when the pointer moves to another box, and a
+        // frame of playback under it makes no string: -1 for none.
+        private int _tipFor = -1, _tipChange = -1, _tipListVersion = -1;
+        private WaveRadix _tipRadix;
+        private bool _tipToNow;
+        private string _tipSays;
+        private readonly char[] _tipTime = new char[TimeText.MaxLength(TimeText.MaxDecimals, "ms")];
+
+        /// <summary>What the tip over a bus's box says, or null while it is down: what a test reads.</summary>
+        public string ValueTip => _wave?.TipText;
+
+        /// <summary>
+        /// The tip over a bus's box under the pointer (5.1): its row's name and width, the whole value in its radix, and the time
+        /// it holds -- up while the pointer is on a box and nothing is held, a popup is open or a row is dragged.
+        /// </summary>
+        private void TipOver(Mouse mouse, Vector2 pointer, bool overControl)
+        {
+            bool held = mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed;
+            if (held || overControl || ShellPopup.AnyOpen || _pointer.HoldsRow
+                || !_wave.BusBoxAt(pointer, out int row, out int change, out double from, out double to))
+            {
+                _wave.HideTip();
+                return;
+            }
+
+            WaveRadix radix = _model.RowRadix(row);
+            bool toNow = to >= _model.Time - 1e-9;   // the box the playhead is in: it holds on as the run plays
+            if (row != _tipFor || change != _tipChange || radix != _tipRadix || _list.Version != _tipListVersion || toNow != _tipToNow)
+            {
+                _tipFor = row;
+                _tipChange = change;
+                _tipRadix = radix;
+                _tipListVersion = _list.Version;
+                _tipToNow = toNow;
+                string value = WaveformView.Readout(_model.RowText(row, change), radix, true);
+                _tipSays = toNow
+                    ? ValueFit.Tip(_list.LabelOf(_list.Lines[row]), _model.RowBits(row), value, TimeWords(from, _model.Unit), "now")
+                    : ValueFit.Tip(_list.LabelOf(_list.Lines[row]), _model.RowBits(row), value, TimeWords(from, null), TimeWords(to, _model.Unit));
+            }
+
+            _wave.ShowTip(pointer, _tipSays);
+        }
+
+        /// <summary>A time as the waves write one, to a tenth where it is not whole, with <paramref name="unit"/> after it where there is one.</summary>
+        private string TimeWords(double time, string unit)
+        {
+            int decimals = Math.Abs(time - Math.Round(time)) < 1e-9 ? 0 : 1;
+            return new string(_tipTime, 0, TimeText.Write(time, decimals, unit, _tipTime));
+        }
+
         /// <summary>Lets go of a row being dragged by its name without moving it -- Escape -- and says whether one was.</summary>
         private bool CancelRowDrag()
         {
@@ -894,6 +975,10 @@ namespace BitSorter.View
 
                 case WaveGesture.DragRow:
                     _rowDraggedTo = command.To;
+                    break;
+
+                case WaveGesture.ToggleValues:
+                    ToggleValues();
                     break;
 
                 case WaveGesture.DropRow:
@@ -1190,7 +1275,7 @@ namespace BitSorter.View
         /// <summary>Opens the + SIGNAL list over the waveform's toolbar.</summary>
         public void OpenPicker()
         {
-            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(-_wave.NamesExtra, 0f, 0f)));
+            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(-_wave.NamesExtra - _wave.ValuesExtra, 0f, 0f)));
             _picker.Open(_model.Signals, at);
         }
 
@@ -1500,6 +1585,7 @@ namespace BitSorter.View
                     return;
                 _dragging = _canvasPointer.Dragging;
                 Hover(pointer);
+                TipOver(mouse, pointer, overControl);
             }
 
             Light();
@@ -1994,7 +2080,8 @@ namespace BitSorter.View
             TopLeft(_wavesContent, Vector2.zero, new Vector2(waves.width, WavesAt.y + WorkbenchDrawing.WaveHeight(_model.RowCount)));
             _wavesWidth = waves.width;
             _wave = new WaveformView(_model, _layers, _wavesContent, WavesAt, waves.width - 2f * WavesAt.x, palette, _appliedNames, keepWave,
-                _appliedHeaders, clip: _wavesClip);
+                _appliedHeaders, clip: _wavesClip, wholeValues: _wholeValues);
+            _tipFor = -1;
 
             // Where waves that scroll are: a thin bar down the window's right, there only when they do.
             _wavesThumb = UiTheme.Panel_("scroll", _stage, palette.Muted);
