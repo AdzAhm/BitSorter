@@ -5429,6 +5429,26 @@ a desktop build and the editor alone (`WorkbenchPanel.Quits`): a browser's tab i
   a double-click quitting nothing, the answer quitting, QUIT over the start page, and the keeping, in the frame of an
   edit so that only the answer can have written it; reference shot 78 is the question up.
 
+**As built in 5.1: drawing only when something changes** (Ahmad, 2026-11-11: "we need a good optimization for that", with
+Task Manager showing the Windows build at about 56% of the GPU sitting still). The desktop build drew every frame at the
+screen's rate whatever happened. Now, while nothing happens, it draws one frame in ten (`IdleRendering.IdleInterval`)
+through Unity's `OnDemandRendering`, which keeps running the frames -- input, the clock, a slice of work -- and skips only
+the drawing.
+- **What counts as something happening** is gathered by the view each frame (`WorkbenchPanel.Idle.cs`) into `IdleFacts`,
+  and the rule is the view-model's (`IdleRendering`, held under dotnet): input -- the pointer moved, a mouse button or a
+  key down, the wheel (`UiText.AnyKeyDown`, so the keyboard is still read in one place) -- the window resized, the run
+  playing or still being made, LOGIC, STATES or TIMING still working a slice a frame, a panel fading or the credits
+  rising, or the drawing drawn again (`Redraw`). Every frame is drawn while any of them holds and for a second after the
+  last (`Linger`), which covers a toast, a gate's flash and a stage made again once a window stands still. The one ambient
+  animation, a field's caret, still blinks at a tenth of the rate.
+- **A desktop build's alone, never the editor's**, as the frame cap is: the tests and the reference shots draw every frame,
+  every shot identical. `WorkbenchIdlePlayTests` turns it on: a still second gives one frame in ten, a key every frame at
+  once, PLAY every frame for as long as it plays, and off every frame however still. Not in a browser yet, where it has not
+  been tried.
+- **The frame-rate counter counts the frames drawn** (`OnDemandRendering.willCurrentFrameRender`), so it says what reaches
+  the screen and drops when the window sits still.
+- Measured by Ahmad in Task Manager on the Windows build: 56% of the GPU still before; after, to be measured.
+
 ---
 
 ## 11. The parts

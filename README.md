@@ -341,7 +341,10 @@ browser's tab.
 default so the frame rate keeps to your screen's, and with it off a frame cap from 30 to
 240 frames a second, or none. FPS COUNTER, on Windows and in a browser, puts a small
 frame-rate counter in the top-right corner. A browser keeps fullscreen and the frame rate
-to itself, so the counter is the one display switch there.
+to itself, so the counter is the one display switch there. On Windows, while nothing on
+screen moves, BitSorter draws one frame in ten to spare the graphics card, and goes back to
+every frame the moment you move the mouse, press a key or play; the counter shows the
+frames drawn, so it drops when the window sits still.
 
 **STYLE** chooses the look: **Schematic**, the default; **Schematic Light**, the same on
 paper, for a report's screenshots; **Neon Board**; and **Classic**. BitSorter loads again
