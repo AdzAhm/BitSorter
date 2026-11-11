@@ -303,7 +303,9 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(clean.StepInto(add));
             Assert.IsTrue(clean.Code.Frame(0), "its pause long over");
             Assert.AreEqual(fixedUp, clean.Project.Find("add4").Source, "with none, applied as it is shown");
-            Assert.IsEmpty(clean.Drafts, "and a draft of a module there is not, or that is drawn, is no draft");
+            CollectionAssert.AreEquivalent(new Dictionary<string, string> { ["adder"] = "not written" }, clean.Drafts,
+                "a draft of a module there is not is no draft -- but a drawn one's is, since 5.1: text typed into it as code, not yet applied");
+            Assert.IsFalse(clean.Project.TopModule.IsWritten, "and the drawn module stays drawn until its text applies");
         }
 
         /// <summary>

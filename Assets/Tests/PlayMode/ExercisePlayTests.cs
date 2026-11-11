@@ -70,6 +70,15 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
+        /// <summary>The CODE / DRAWING switch at the circuit's top right pressed (5.1: where WRITE IT was), and two frames.</summary>
+        private static IEnumerator PressTheCodeSwitch(WorkbenchPanel workbench)
+        {
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "the CODE / DRAWING switch is up");
+            workbench.DrawingSwitch.onClick.Invoke();
+            yield return null;
+            yield return null;
+        }
+
         private IEnumerator Tap(KeyControl key)
         {
             Press(key);
@@ -240,27 +249,34 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("SOLVED", workbench.ExerciseStatus("half-adder"));
         }
 
+        /// <summary>
+        /// The CODE switch over an exercise's drawn answer (5.1, where WRITE IT stood on the controls' row): the answer shown as
+        /// code under the exercise's header, nothing written until what is typed applies -- then a written answer that CHECK
+        /// grades, with what it is held to said once -- reopened on its code, and DRAWING showing the drawing of it.
+        /// </summary>
         [UnityTest]
-        public IEnumerator WriteIt_TurnsTheAnswerToCode_ThatChecks_AndDrawIt_AsksAndTurnsItBack()
+        public IEnumerator TheCodeSwitch_ShowsTheAnswerUnderItsHeader_AndWhatIsTypedMakesItCode_ThatChecks()
         {
             yield return TestScene.LoadSimulator();
             WorkbenchPanel workbench = Workbench;
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();
-            Assert.IsTrue(Shown(WorkbenchPanel.CodeButton), "an exercise that may be answered in code offers it");
+            Assert.IsNull(ShellPanel.Find<UnityEngine.UIElements.Button>("Workbench write it"), "WRITE IT is gone from the controls' row");
 
-            yield return Click(WorkbenchPanel.CodeButton);
+            yield return PressTheCodeSwitch(workbench);
             WorkbenchSession session = workbench.Session;
-            Assert.IsTrue(session.Project.TopModule.IsWritten, "the top written");
-            Assert.IsTrue(session.ShowsCode, "and the circuit's window shows its code");
-            StringAssert.Contains("answered in code", session.Project.TopModule.Source);
-            Assert.AreEqual(WorkbenchPanel.DrawItCaption, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.CodeButton).text);
+            Assert.IsTrue(session.ShowsCode, "the circuit's window shows the answer's code");
+            Assert.IsFalse(session.Project.TopModule.IsWritten, "and nothing is written until something typed applies");
+            StringAssert.Contains("answered in code", session.Code.Text, "under the exercise's header, as WRITE IT wrote it");
 
-            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string header = session.Code.Text.Substring(0, session.Code.Text.IndexOf("module "));
             EditResult typed = session.SetSource(header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
                 "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n");
             Assert.IsTrue(typed.Done, typed.Refusal);
+            Assert.IsTrue(session.Project.TopModule.IsWritten, "written now");
+            yield return null;
+            Assert.AreEqual(WorkbenchPanel.AnsweredInCode, workbench.ChipText, "and the chip says what a written answer is held to");
             yield return Click(WorkbenchPanel.CheckButton);
             Assert.IsTrue(workbench.LastGrade.Solved, string.Join("\n", workbench.LastGrade.Faults.Concat(workbench.LastGrade.Problems)));
             Assert.AreEqual(2, workbench.LastGrade.Gates, "its gates counted from the code");
@@ -277,11 +293,9 @@ namespace BitSorter.PlayMode.Tests
             if (workbench.ExerciseCard.IsOpen)
                 workbench.ExerciseCard.Close();
 
-            yield return Click(WorkbenchPanel.CodeButton);
-            Assert.IsTrue(session.Project.TopModule.IsWritten, "DRAW IT asks first");
-            yield return Click(AskMenu.YesItem);
-            Assert.IsFalse(workbench.Session.Project.TopModule.IsWritten, "drawn again");
-            Assert.AreEqual(WorkbenchPanel.WriteItCaption, ShellPanel.Find<UnityEngine.UIElements.Button>(WorkbenchPanel.CodeButton).text);
+            yield return PressTheCodeSwitch(workbench);
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "DRAWING: the drawing of the written answer, where DRAW IT made it a drawing again");
+            Assert.IsTrue(workbench.Session.Project.TopModule.IsWritten, "still code: Ctrl+Z is the way back to the drawn answer");
         }
 
         /// <summary>
@@ -297,11 +311,11 @@ namespace BitSorter.PlayMode.Tests
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();
-            yield return Click(WorkbenchPanel.CodeButton);
+            yield return PressTheCodeSwitch(workbench);
             WorkbenchSession session = workbench.Session;
             Assert.IsTrue(session.ShowsCode, "sanity: the answer's code on screen");
 
-            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string header = session.Code.Text.Substring(0, session.Code.Text.IndexOf("module "));
             string solving = header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
                 "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
             EditResult applied = session.SetSource(solving);
@@ -340,11 +354,11 @@ namespace BitSorter.PlayMode.Tests
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();
-            yield return Click(WorkbenchPanel.CodeButton);
+            yield return PressTheCodeSwitch(workbench);
             WorkbenchSession session = workbench.Session;
-            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE shows the answer's code");
 
-            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string header = session.Code.Text.Substring(0, session.Code.Text.IndexOf("module "));
             string ports = "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n";
             string swapped = header + ports + "    xor #1 g1 (carry, a, b);\n    and #1 g2 (sum, a, b);\nendmodule\n";
             string solved = header + ports + "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
@@ -396,11 +410,11 @@ namespace BitSorter.PlayMode.Tests
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();
-            yield return Click(WorkbenchPanel.CodeButton);
+            yield return PressTheCodeSwitch(workbench);
             WorkbenchSession session = workbench.Session;
-            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE shows the answer's code");
 
-            string header = session.Project.TopModule.Source.Substring(0, session.Project.TopModule.Source.IndexOf("module "));
+            string header = session.Code.Text.Substring(0, session.Code.Text.IndexOf("module "));
             string solved = header + "module half_adder (input logic a, input logic b, output logic sum, output logic carry);\n" +
                 "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
             session.Code.Type(solved, Time.timeAsDouble * 1000.0);   // on the editor's clock: inside its pause

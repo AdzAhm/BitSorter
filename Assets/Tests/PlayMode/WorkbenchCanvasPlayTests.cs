@@ -3148,6 +3148,82 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A new circuit written in code (5.1, Ahmad: "I open a new circuit and I want to code instead of putting blocks"): NEW
+        /// CIRCUIT, then CODE at the circuit's top right shows the starter + CODE gives a block, nothing changed; what is typed and
+        /// applied makes it written without a part placed; DRAWING shows the drawing of it, and Ctrl+Z gives the blank back.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ANewCircuit_IsWrittenInCode_FromTheCodeSwitch()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("adder in code");
+            yield return null;
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("adder in code"), workbench.DocumentKey, "sanity: the new circuit open");
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "a drawn circuit, even a blank one, has the switch");
+            Project blank = workbench.Session.Project;
+            string module = blank.Top;
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            Assert.IsTrue(workbench.Session.ShowsCode, "CODE: its code");
+            CodeDocument code = workbench.Session.Code;
+            Assert.AreEqual(WrittenModules.Template(module), code.Text, "the starter, to type over");
+            Assert.AreSame(blank, workbench.Session.Project, "nothing changed yet");
+
+            string typed = "module " + module + " (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            code.Type(typed, Time.timeAsDouble * 1000.0);
+            EditResult applied = code.Apply();   // Ctrl+Enter
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            yield return null;
+            Assert.IsTrue(Top(workbench).IsWritten, "written: a circuit made without a part placed");
+            Assert.AreEqual(typed, Top(workbench).Source);
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "DRAWING: the drawing of the code");
+
+            Assert.IsTrue(workbench.Session.Undo());
+            yield return null;
+            Assert.AreSame(blank.TopModule, Top(workbench), "Ctrl+Z: the blank circuit back");
+        }
+
+        /// <summary>
+        /// A project imported that is gates only comes in drawn (Ahmad's, 2026-11-11: a half adder exported and imported again,
+        /// with no way to edit its code): CODE is at its top right, its code shown and, the import locked, what is typed refused
+        /// saying how to unlock it; unlocked, it applies and the circuit is written.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADrawnImport_HasItsCode_ReadOnlyWhileLocked_TheStudentsOnceUnlocked()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.Import(new[] { new SourceFile("ha.sv", "module ha (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor g1 (sum, a, b);\n    and g2 (carry, a, b);\nendmodule\n") });
+            yield return null;
+            Assert.IsFalse(Top(workbench).IsWritten, "sanity: gates only, so it is drawn");
+            Assert.IsTrue(workbench.Session.Locked, "sanity: an import opens locked");
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "CODE at its top right, where only TIDY, the padlock and FIT were");
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            CodeDocument code = workbench.Session.Code;
+            Assert.IsNotNull(code, "its code shown");
+            StringAssert.Contains("module ha", code.Text);
+            code.Type("// the half adder, mine now\n" + code.Text, Time.timeAsDouble * 1000.0);
+            EditResult refused = code.Apply();
+            Assert.IsFalse(refused.Done, "locked");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, refused.Refusal, "refused saying how to unlock it");
+            Assert.IsFalse(Top(workbench).IsWritten);
+
+            workbench.Session.Locked = false;   // the padlock pressed
+            EditResult applied = code.Apply();
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            yield return null;
+            Assert.IsTrue(Top(workbench).IsWritten, "unlocked, its code is the student's to change");
+        }
+
+        /// <summary>
         /// FILE, COMPARE WITH MODELSIM'S RUN (Part 15i-5): the newest .vcd in the Import folder held to the run -- here the run's
         /// own dump, which agrees, then the same with one value changed, which is found at its moment and said at the head of
         /// the TRANSCRIPT, the run taken there.
@@ -3556,9 +3632,9 @@ namespace BitSorter.PlayMode.Tests
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();   // its brief opens over the circuit
-            yield return Click(WorkbenchPanel.CodeButton);   // WRITE IT
+            yield return Click(WorkbenchPanel.DrawingSwitchName);   // CODE, where WRITE IT was before 5.1
             WorkbenchSession session = workbench.Session;
-            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE shows the answer's code");
             CodeDocument code = session.Code;
             code.Type(code.Text + "// typed, and not applied\n", Time.timeAsDouble * 1000.0);   // on the editor's clock: inside its pause
             Assert.IsTrue(code.Pending, "sanity: typed and not applied");

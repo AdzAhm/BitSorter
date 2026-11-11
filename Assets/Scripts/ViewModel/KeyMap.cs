@@ -60,6 +60,7 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("MIDDLE-DRAG", "pan; or SPACE and drag"),
             new KeyMapEntry("WHEEL", "zoom about the pointer"),
             new KeyMapEntry("ALT-CLICK", "a wire to add its signal to the waveform"),
+            new KeyMapEntry("CLICK CODE", "at the top right: the circuit as code, to type into; DRAWING back"),
         };
 
         /// <summary>

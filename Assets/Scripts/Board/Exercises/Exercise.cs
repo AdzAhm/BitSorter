@@ -604,74 +604,6 @@ namespace BitSorter.Board
             return new Module { Name = top.Name, Comment = top.Comment, Source = Brief(project) + body, NextId = top.NextId };
         }
 
-        /// <summary>
-        /// <paramref name="project"/>'s top drawn again: its code drawn (Part 15g), as an import draws gate-level code -- a
-        /// written answer is held to gates only, so it nearly always can be -- or, where it cannot, the exercise's own top as
-        /// it opens, its ports or its start circuit (Part 15e), with why the code was not drawn in <paramref name="notDrawn"/>.
-        /// Either counts its ids on from where the written one had got to. Null, with <paramref name="problems"/>, when the
-        /// exercise itself does not open.
-        /// </summary>
-        public Module Drawn(Project project, List<string> problems, List<string> notDrawn = null)
-        {
-            Module written = project.TopModule;
-            int nextId = written?.NextId ?? 1;
-            if (written != null && written.IsWritten)
-            {
-                Module fromCode = DrawnFromCode(project, notDrawn ?? new List<string>());
-                if (fromCode != null)
-                    return fromCode with { Comment = written.Comment, NextId = Math.Max(fromCode.NextId, nextId) };
-            }
-
-            Project opened = ToProject(problems);
-            Module top = opened?.TopModule;
-            if (top == null)
-                return null;
-            return top with { NextId = Math.Max(top.NextId, nextId) };
-        }
-
-        /// <summary>
-        /// The written top of <paramref name="project"/> drawn, as an import draws structural code (<see cref="BoardImporter"/>):
-        /// the project printed -- its cells, its drawn modules, its written ones as written -- and read again, the top drawn
-        /// over the others, which stay as they are. Null, with why, where it is not drawable or would not be the top it was.
-        /// </summary>
-        private static Module DrawnFromCode(Project project, List<string> why)
-        {
-            CompiledProject compiled = BoardCompiler.Compile(project);
-            if (!compiled.Succeeded)
-            {
-                why.Add("the code does not compile");
-                return null;
-            }
-
-            // The top read as the student wrote it, not as it prints -- under a header and perhaps a timescale -- so what the
-            // import says is at the lines the editor shows (the 15g-1 review).
-            var printed = new List<PrintedSource>();
-            foreach (PrintedSource source in BoardPrinter.Print(compiled))
-                printed.Add(source.Path == project.Top + ".sv" ? new PrintedSource(source.Path, project.TopModule.Source) : source);
-            (MemorySourceFiles files, List<string> paths) = BoardPrinter.AsSources(printed);
-            paths.Remove(compiled.Testbench + ".sv");
-            SyntaxTree tree = SyntaxReader.ReadAll(paths, files);
-
-            var others = new List<Module>();
-            foreach (Module module in project.Modules)
-                if (module.IsWritten && module.Name != project.Top)
-                    others.Add(module);
-            ImportResult imported = BoardImporter.Import(tree, project.Top, others, project.Files);
-            if (!imported.Succeeded)
-            {
-                why.AddRange(imported.Problems);
-                return null;
-            }
-
-            Module top = imported.Project.Find(project.Top);
-            if (top == null || top.IsWritten)
-            {
-                why.Add("its top did not come back drawn");
-                return null;
-            }
-            return top;
-        }
-
         /// <summary>The comment a written answer opens with: the exercise, its goal, and what it may be built of.</summary>
         private string Brief(Project project)
         {
@@ -699,14 +631,8 @@ namespace BitSorter.Board
         private static string PrintedTop(Project project)
         {
             foreach (PrintedSource printed in BoardPrinter.Print(project))
-            {
-                string text = printed.Text ?? "";
-                int at = text.StartsWith("module " + project.Top, StringComparison.Ordinal) ? 0 : text.IndexOf("\nmodule " + project.Top + " ", StringComparison.Ordinal);
-                if (at < 0)
-                    at = text.IndexOf("\nmodule " + project.Top + "(", StringComparison.Ordinal);
-                if (at >= 0)
-                    return text.Substring(at == 0 ? 0 : at + 1);
-            }
+                if (BoardPrinter.ModuleText(printed.Text, project.Top) is string text)
+                    return text;
             return null;
         }
 

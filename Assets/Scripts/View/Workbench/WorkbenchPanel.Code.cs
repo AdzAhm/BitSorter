@@ -81,7 +81,7 @@ namespace BitSorter.View
             _drawingSwitch.onClick.AddListener(() =>
             {
                 if (_session != null)
-                    _session.DrawCode(!_session.ShowsDrawingOfCode);
+                    _session.DrawCode(_session.ShowsCode);   // over code, the drawing; over any drawing, drawn or of code, the code
                 UiTheme.Defocus();
             });
             Show(_drawingSwitch, false);
@@ -191,12 +191,15 @@ namespace BitSorter.View
             });
         }
 
-        /// <summary>The switch shown over a written module, saying what it turns to, and kept over the code's editor.</summary>
+        /// <summary>
+        /// The switch shown over every circuit (5.1; over a written module alone until then), saying what it turns to -- CODE
+        /// over a drawing, DRAWING over code -- and kept over the code's editor.
+        /// </summary>
         private void TickDrawingSwitch()
         {
             if (_drawingSwitch == null)
                 return;
-            bool shown = _session != null && _session.ShowsWritten && !PageShowing;
+            bool shown = _session != null && _session.CanShowCode && !PageShowing;
             if (shown != _drawingSwitchShown)
             {
                 Show(_drawingSwitch, shown);
@@ -227,9 +230,9 @@ namespace BitSorter.View
                     TopLeft(gatesRect, gatesAt, new Vector2(GatesWidth, 32f));
             }
 
-            // TIDY beside them while some of the drawing is put by hand; over a drawn circuit, left of the padlock while it is not
-            // laid out as TIDY would lay it.
-            bool tidy = gates ? _session.CanTidy : _session != null && !shown && !PageShowing && _session.CanTidy;
+            // TIDY beside them while some of the drawing of code is put by hand; over a drawn circuit, left of the padlock while it
+            // is not laid out as TIDY would lay it (never over code: CanTidy says so).
+            bool tidy = gates ? _session.CanTidy : _session != null && !PageShowing && !_session.ShowsWritten && _session.CanTidy;
             if (tidy != _tidySwitchShown && _tidySwitch != null)
             {
                 Show(_tidySwitch, tidy);
@@ -237,28 +240,28 @@ namespace BitSorter.View
                     _tidySwitch.transform.SetAsLastSibling();
                 _tidySwitchShown = tidy;
             }
+
+            // FIT steps left of the switches while they are up -- since 5.1 over a drawn circuit too, where CODE is.
+            float fitRight = shown ? -(8f + CodeEditorView.SwitchRoom + (controller ? ControllerSwitchWidth + 8f : 0f) + (gates ? GatesWidth + 8f : 0f)
+                + (gates && tidy ? TidyWidth + 8f : 0f)) : -8f;
+            if (_fit != null)
+            {
+                var fit = _fit.GetComponent<RectTransform>();
+                if (!Mathf.Approximately(fit.anchoredPosition.x, fitRight))
+                    TopRight(fit, new Vector2(fitRight, 8f), new Vector2(72f, 32f));
+            }
             if (tidy && _tidySwitch != null)
             {
                 float left = gates ? gatesLeft - 8f - TidyWidth
-                    : window - 8f - 72f - KeyRoom - (Lockable ? 8f + LockWidth : 0f) - 8f - TidyWidth;   // clear of FIT's key, F, and the padlock
+                    : window + fitRight - 72f - KeyRoom - (Lockable ? 8f + LockWidth : 0f) - 8f - TidyWidth;   // clear of FIT's key, F, and the padlock
                 Vector2 at = CornerOf(_regions.Circuit) + new Vector2(left, 8f);
                 var rect = _tidySwitch.GetComponent<RectTransform>();
                 if (rect.anchoredPosition != new Vector2(at.x, -at.y))
                     TopLeft(rect, at, new Vector2(TidyWidth, 32f));
             }
-
-            // FIT steps left of the switches while they are up.
-            if (_fit != null)
-            {
-                float right = shown ? -(8f + CodeEditorView.SwitchRoom + (controller ? ControllerSwitchWidth + 8f : 0f) + (gates ? GatesWidth + 8f : 0f)
-                    + (tidy ? TidyWidth + 8f : 0f)) : -8f;
-                var fit = _fit.GetComponent<RectTransform>();
-                if (!Mathf.Approximately(fit.anchoredPosition.x, right))
-                    TopRight(fit, new Vector2(right, 8f), new Vector2(72f, 32f));
-            }
             if (!shown)
                 return;
-            string caption = _session.ShowsDrawingOfCode ? CodeCaption : DrawingCaption;
+            string caption = _session.ShowsCode ? DrawingCaption : CodeCaption;
             if (_drawingCaption.text != caption)
                 _drawingCaption.text = caption;
             string gatesCaption = _session.ShowsGatesOfCode ? BoxesCaption : GatesCaption;

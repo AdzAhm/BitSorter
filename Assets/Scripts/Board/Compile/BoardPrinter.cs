@@ -56,6 +56,26 @@ namespace BitSorter.Board
             return source.Substring(at);
         }
 
+        /// <summary>
+        /// Module <paramref name="module"/>'s own code in <paramref name="printed"/>, a file this printer made: from its
+        /// <c>module</c> line to the file's end, past the unit and the comment it heads the file with -- the text a drawn module
+        /// is typed into as (5.1) and an exercise's answer is written as (Part 15e). Null where the file holds no such module.
+        /// </summary>
+        public static string ModuleText(string printed, string module)
+        {
+            if (printed == null || module == null)
+                return null;
+            foreach (string opening in new[] { "module " + module + " ", "module " + module + "(", "module " + module + ";" })
+            {
+                if (printed.StartsWith(opening, System.StringComparison.Ordinal))
+                    return printed;
+                int at = printed.IndexOf("\n" + opening, System.StringComparison.Ordinal);
+                if (at >= 0)
+                    return printed.Substring(at + 1);
+            }
+            return null;
+        }
+
         public static IReadOnlyList<PrintedSource> Print(CompiledProject compiled)
         {
             var printed = new List<PrintedSource>();

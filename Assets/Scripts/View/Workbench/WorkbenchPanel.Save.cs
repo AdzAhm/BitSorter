@@ -108,9 +108,16 @@ namespace BitSorter.View
 
             // A circuit opens with the code typed into it and not applied, as the save kept it (Ahmad, 2026-11-03); a sample is
             // never written, and opens as it is made.
-            WorkbenchSession opened = WorkbenchSession.TryOpen(MyCircuit(), clock, out string why, DraftsOf(_documentKey));
+            // An exercise's drawn answer reads as code under the exercise's header, as WRITE IT wrote it before 5.1 -- and, where
+            // the exercise is answered by drawing alone, not at all.
+            Exercise exercise = _exercise;
+            WorkbenchSession opened = WorkbenchSession.TryOpen(MyCircuit(), clock, out string why, DraftsOf(_documentKey),
+                exercise != null ? (project, module) => module == project.Top ? exercise.Written(project).Source : null : (Func<Project, string, string>)null);
             if (opened != null)
+            {
+                opened.CodeAllowed = exercise == null || exercise.Code;
                 return opened;
+            }
 
             _couldNotOpen = _exercise != null ? _exercise.Title
                 : _documentKey == WorkbenchSamples.MyCircuitKey ? "MY CIRCUIT" : Documents.NameOf(_documentKey);

@@ -112,14 +112,18 @@ namespace BitSorter.ViewModel
             Check();
         }
 
-        /// <summary>The written module edited.</summary>
+        /// <summary>The module edited: a written one, or since 5.1 a drawn one typed as code until what is typed makes it written.</summary>
         public string Module { get; }
 
         /// <summary>The text as the editor has it.</summary>
         public string Text { get; private set; }
 
-        /// <summary>The module's text in the document: the last text that applied.</summary>
-        public string Applied => _session.Project.Find(Module)?.Source;
+        /// <summary>
+        /// The module's text in the document: the last text that applied -- or, for a drawn module, the code it prints as
+        /// (<see cref="WorkbenchSession.TextOf"/>), which changes with its drawing as a written module's text changes with an
+        /// undo.
+        /// </summary>
+        public string Applied => _session.TextOf(Module);
 
         /// <summary>
         /// Whether the editor's text is not the document's: typed and not yet applied, or refused. Never while the editor is
@@ -370,10 +374,11 @@ namespace BitSorter.ViewModel
 
             Project project = _session.Project;
             Module module = project.Find(Module);
-            if (module == null || !module.IsWritten)
+            if (module == null)
                 return false;
 
-            Project edited = project.WithModule(module with { Source = Text });
+            // A drawn module is held to the rules as the written module the text would make it (5.1).
+            Project edited = project.WithModule(module.IsWritten ? module with { Source = Text } : WorkbenchSession.AsWritten(module, Text));
             List<BoardDiagnostic> before = new List<BoardDiagnostic>(_session.Editor.Diagnostics);
             List<BoardDiagnostic> after = BoardRules.Check(edited);
             foreach (BoardDiagnostic d in after)

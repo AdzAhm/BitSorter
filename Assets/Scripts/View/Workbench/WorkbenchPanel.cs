@@ -1462,6 +1462,7 @@ namespace BitSorter.View
             RefreshHierarchy();
             RefreshPartsPanel();
             TickCode();
+            TickAnsweredInCode();
             TickDrawingSwitch();
             TickController();
             RefreshProgramChip();
