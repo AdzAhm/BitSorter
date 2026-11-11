@@ -22,8 +22,12 @@ namespace BitSorter.View.Editor
     /// and a little CPU at startup. Enabled here, because one build that runs everywhere is worth
     /// more than two builds that each run in one place.
     ///
-    /// Data caching keeps the downloaded data in IndexedDB, so a returning player does not fetch
-    /// the whole thing again.
+    /// Data caching keeps the downloaded data in IndexedDB, and since 5.1 the template's
+    /// config.cacheControl keeps the wasm and the framework there too: Unity's loader fetched them
+    /// with "no-store", so every launch downloaded the 7.5 MB wasm again. Each is revalidated on the
+    /// next visit, which Pages answers with a 304 while the file is the same (Docs/distribution.md,
+    /// "A faster launch"). Brotli stays: the same measurements found no compression faster to a
+    /// first frame on a line as slow as 10 Mbit/s.
     /// </remarks>
     public static class WebGLBuild
     {
