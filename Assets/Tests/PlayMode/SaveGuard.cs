@@ -76,6 +76,10 @@ namespace BitSorter.PlayMode.Tests
                 Directory.Delete(ScratchImports, true);
             FileImport.Redirected = ScratchImports;
 
+            // Windows' Open dialog is modal and waits for a person: one opened by a test would hold the run up until someone
+            // closed it. Every import a test asks for is cancelled unless the test answers it itself, after the scene loads.
+            FileImport.Chooser = Cancel;
+
             // The reporting setting and the display settings live in PlayerPrefs, not in the save
             // file, and the fixtures need reporting off. They used to read the real value, overwrite
             // it, and put it back in OneTimeTearDown -- which made the developer's own settings
@@ -87,6 +91,31 @@ namespace BitSorter.PlayMode.Tests
             Preferences.Redirected = new Dictionary<string, int>();
         }
 
+        /// <summary>What an import's chooser answers while a test runs and has not answered it itself: Cancel.</summary>
+        internal static string[] Cancel(bool folder)
+        {
+            AskedForAFolder = folder;
+            return null;
+        }
+
+        /// <summary>Whether the last import asked was for a folder, rather than files; null before one is asked.</summary>
+        internal static bool? AskedForAFolder { get; private set; }
+
+        /// <summary>
+        /// What Windows' Open dialog answers the next import with, in place of a person -- a folder, or files -- and Cancel after
+        /// that: an answer never outlives the import it was given for.
+        /// </summary>
+        internal static void AnswerTheNextChoice(params string[] chosen)
+        {
+            AskedForAFolder = null;
+            FileImport.Chooser = folder =>
+            {
+                FileImport.Chooser = Cancel;
+                AskedForAFolder = folder;
+                return chosen;
+            };
+        }
+
         /// <summary>Hands saving, loading and the machine's settings back to the real ones.</summary>
         internal static void Release()
         {
@@ -94,6 +123,7 @@ namespace BitSorter.PlayMode.Tests
             Preferences.Redirected = null;
             FileSaver.Redirected = null;
             FileImport.Redirected = null;
+            FileImport.Chooser = null;
 
             if (File.Exists(Scratch))
                 File.Delete(Scratch);

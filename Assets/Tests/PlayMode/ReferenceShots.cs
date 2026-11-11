@@ -920,7 +920,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return Frames(2);
             workbench.Pause();
             workbench.Session.Finish();
@@ -955,7 +955,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return Frames(2);
             workbench.Pause();
             workbench.Session.Finish();

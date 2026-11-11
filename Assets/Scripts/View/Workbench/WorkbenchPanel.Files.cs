@@ -81,17 +81,9 @@ namespace BitSorter.View
                 case FileAction.ExportSubmission:
                     ExportSubmission();
                     break;
-                case FileAction.ImportFolder:
-                    ImportFromFolder();
-                    break;
-                case FileAction.OpenImportFolder:
-                    FileImport.OpenFolder();
-                    Notice("put a project's files in " + FileImport.Folder + ", then FILE, IMPORT");
-                    break;
                 case FileAction.ImportFiles:
                 case FileAction.ImportPickedFolder:
-                    _comparing = false;   // a COMPARE whose picker was cancelled never said so (the 15i-5 review)
-                    FileImport.Pick(action == FileAction.ImportPickedFolder);
+                    ChooseAndImport(action == FileAction.ImportPickedFolder);
                     break;
                 case FileAction.ConvertTestbench:
                     AskConvert();
@@ -132,7 +124,9 @@ namespace BitSorter.View
                 path = FileImport.NewestDump();
                 if (path == null)
                 {
-                    Notice("put the " + ProjectExport.ModelSimDump + " ModelSim wrote in " + FileImport.Folder + ", then FILE, COMPARE WITH MODELSIM'S RUN");
+                    // Opened, as OPEN THE IMPORT FOLDER did before 5.1, when IMPORT read only that folder.
+                    FileImport.OpenFolder();
+                    Notice("put the " + ProjectExport.ModelSimDump + " ModelSim wrote in " + FileImport.Folder + ", opened for you, then FILE, COMPARE WITH MODELSIM'S RUN");
                     return;
                 }
                 size = new System.IO.FileInfo(path).Length;
@@ -238,17 +232,66 @@ namespace BitSorter.View
             return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
         }
 
-        /// <summary>A project from every file in the Import folder (<see cref="FileImport.ReadFolder"/>), as a circuit of its own; the folder made if it is not there.</summary>
-        public void ImportFromFolder()
+        /// <summary>
+        /// IMPORT A PROJECT'S FOLDER, or its FILES: in a browser the page's own picker, whose files come a frame or a few later
+        /// (<see cref="Picked"/>); on a desktop, since 5.1, Windows' Open dialog (<see cref="FileImport.Choose"/>), the folder
+        /// or the files chosen imported as it closes, and Cancel changing nothing.
+        /// </summary>
+        private void ChooseAndImport(bool folder)
         {
-            List<SourceFile> files = FileImport.ReadFolder();
-            if (files.Count == 0)
+            _comparing = false;   // a COMPARE whose picker was cancelled never said so (the 15i-5 review)
+            if (FileImport.Picks)
             {
-                Notice("the Import folder is empty: put a project's files in " + FileImport.Folder + ", then FILE, IMPORT");
+                FileImport.Pick(folder);
                 return;
             }
 
+            string[] chosen = FileImport.Choose(folder);
+            if (chosen == null || chosen.Length == 0)
+                return;   // cancelled
+            if (folder)
+            {
+                ImportFrom(chosen[0]);
+                return;
+            }
+
+            List<SourceFile> files = FileImport.ReadFiles(chosen);
+            if (files.Count == 0)
+            {
+                Notice("nothing to import: a hidden file, whose name starts with a dot, is never a project's");
+                return;
+            }
             Import(files);
+        }
+
+        /// <summary>
+        /// A project from every file in <paramref name="folder"/> and the folders in it (<see cref="FileImport.ReadFolder"/>),
+        /// as a circuit of its own -- refused, saying why, for a folder that cannot be read, holds nothing, or holds more files
+        /// than an import takes, which is a folder chosen a level too high.
+        /// </summary>
+        public void ImportFrom(string folder)
+        {
+            string name = System.IO.Path.GetFileName((folder ?? "").TrimEnd('/', '\\'));
+            if (name.Length == 0)
+                name = folder;
+            List<SourceFile> files;
+            try
+            {
+                files = FileImport.ReadFolder(folder);
+            }
+            catch (System.Exception e) when (e is System.IO.IOException || e is System.UnauthorizedAccessException)
+            {
+                Notice(name + " could not be read: " + e.Message);
+                return;
+            }
+
+            if (files.Count == 0)
+                Notice(name + " is empty: choose the folder that holds a project's .sv files");
+            else if (files.Count > ProjectImporter.MaxFiles)
+                Notice(name + " holds more than " + ProjectImporter.MaxFiles.ToString(CultureInfo.InvariantCulture) +
+                    " files, more than an import takes: choose the folder that holds just the project");
+            else
+                Import(files);
         }
 
         /// <summary>

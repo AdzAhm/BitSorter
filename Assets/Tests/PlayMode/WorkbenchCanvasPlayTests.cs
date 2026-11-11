@@ -2961,7 +2961,10 @@ namespace BitSorter.PlayMode.Tests
             "    end\n" +
             "endmodule\n";
 
-        /// <summary>The files of a project put in the Import folder -- redirected while a test runs -- which is emptied first.</summary>
+        /// <summary>
+        /// The files of a project put in the Import folder -- redirected while a test runs -- which is emptied first: the folder a
+        /// test's import chooses, as the player chooses any folder in Windows' Open dialog (5.1), and where COMPARE finds a dump.
+        /// </summary>
         private static void PutInTheImportFolder(params (string Name, string Text)[] files)
         {
             Assert.IsNotNull(FileImport.Redirected, "sanity: the Import folder is the test's scratch one, never the player's");
@@ -2977,9 +2980,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// FILE, IMPORT reads the Import folder as a circuit of its own, named after its project (Part 13d, 15a): the testbench
-        /// runs the design as written, what the import said is in the TRANSCRIPT with its file and line, and a file that does
-        /// not read is named there.
+        /// FILE, IMPORT A PROJECT'S FOLDER reads the folder chosen as a circuit of its own, named after its project (Part 13d,
+        /// 15a; any folder on a desktop since 5.1): the testbench runs the design as written, what the import said is in the
+        /// TRANSCRIPT with its file and line, and a file that does not read is named there.
         /// </summary>
         [UnityTest]
         public IEnumerator FileImport_BringsTheProjectInAsACircuit_RunByItsTestbench()
@@ -2991,7 +2994,11 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
 
             yield return Click(WorkbenchPanel.FileButton);
-            yield return Click(FileMenu.ActionItem + FileAction.ImportFolder);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ImportPickedFolder) && workbench.FileMenu.Offers(FileAction.ImportFiles),
+                "a desktop offers the folder and the files, chosen in Windows' Open dialog, as a browser does");
+            SaveGuard.AnswerTheNextChoice(FileImport.Folder);
+            yield return Click(FileMenu.ActionItem + FileAction.ImportPickedFolder);
+            Assert.AreEqual(true, SaveGuard.AskedForAFolder, "the dialog was asked for a folder");
             Assert.IsFalse(workbench.Ask.IsOpen, "an import asks nothing: it touches no circuit already there");
             yield return null;
             workbench.Pause();
@@ -3015,6 +3022,107 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Session.SetUnit("ns").Done);
             yield return null;
             Assert.IsFalse(workbench.Transcript.Lines.Any(l => l.Text.StartsWith("broken.sv:")), "what the import said goes with the first edit");
+        }
+
+        /// <summary>
+        /// FILE, IMPORT A PROJECT'S FILES (5.1 on a desktop): the files chosen in Windows' Open dialog, from a folder anywhere,
+        /// come in as a project, each by its name.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FilesChosen_ComeInAsAProject_EachByItsName()
+        {
+            PutInTheImportFolder(("deep/inside/mux2.sv", ImportedMux), ("deep/inside/mux2_tb.sv", ImportedMuxBench));
+            string inside = System.IO.Path.Combine(FileImport.Folder, "deep", "inside");
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            SaveGuard.AnswerTheNextChoice(System.IO.Path.Combine(inside, "mux2.sv"), System.IO.Path.Combine(inside, "mux2_tb.sv"));
+            yield return Click(FileMenu.ActionItem + FileAction.ImportFiles);
+            Assert.AreEqual(false, SaveGuard.AskedForAFolder, "the dialog was asked for files");
+            yield return null;
+
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey, "a circuit of its own, named after its project");
+            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench, "run by its testbench");
+            Assert.AreEqual("mux2", workbench.Session.Project.Top);
+        }
+
+        /// <summary>
+        /// An import whose dialog is cancelled -- the folder's or the files' -- changes nothing: the circuit open stays open, as it
+        /// was, and nothing is said. The two tests above are its pair: the same clicks, answered, do import.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnImportCancelled_ChangesNothing()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();   // the run settled, so the chip says one thing until something is said
+            yield return null;
+            string key = workbench.DocumentKey;
+            Project before = workbench.Session.Project;
+            string chip = workbench.ChipText;
+
+            foreach (FileAction action in new[] { FileAction.ImportPickedFolder, FileAction.ImportFiles })
+            {
+                yield return Click(WorkbenchPanel.FileButton);
+                yield return Click(FileMenu.ActionItem + action);   // the guard cancels every import a test does not answer
+                yield return null;
+                Assert.AreEqual(action == FileAction.ImportPickedFolder, SaveGuard.AskedForAFolder, $"{action}: the dialog was asked");
+                Assert.AreEqual(key, workbench.DocumentKey, $"{action}: the circuit open stays open");
+                Assert.AreSame(before, workbench.Session.Project, $"{action}: as it was");
+                Assert.AreEqual(chip, workbench.ChipText, $"{action}: and nothing is said");
+            }
+        }
+
+        /// <summary>
+        /// A folder chosen that cannot make a project is refused, saying why: one with nothing in it, and one with more files
+        /// than an import takes -- a folder chosen a level too high, Documents or a drive, whose walk stops as soon as it is
+        /// past the limit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFolderChosenEmpty_OrALevelTooHigh_IsRefused_SayingWhy()
+        {
+            var many = new System.Collections.Generic.List<(string, string)>();
+            for (int i = 0; i < ProjectImporter.MaxFiles + 40; i++)
+                many.Add(($"project{i % 7}/file{i}.sv", "// nothing\n"));
+            PutInTheImportFolder(many.ToArray());
+            string empty = System.IO.Path.Combine(FileImport.Folder, "empty");
+            System.IO.Directory.CreateDirectory(empty);
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            string key = workbench.DocumentKey;
+
+            workbench.ImportFrom(empty);
+            yield return null;
+            Assert.AreEqual(key, workbench.DocumentKey, "nothing imported from an empty folder");
+            StringAssert.StartsWith("empty is empty", workbench.ChipText);
+
+            workbench.ImportFrom(FileImport.Folder);
+            yield return null;
+            Assert.AreEqual(key, workbench.DocumentKey, "nothing imported from a folder of too many files");
+            StringAssert.Contains($"holds more than {ProjectImporter.MaxFiles} files", workbench.ChipText);
+            StringAssert.Contains("choose the folder that holds just the project", workbench.ChipText);
+        }
+
+        /// <summary>The start page's IMPORT A PROJECT asks Windows' Open dialog for a folder on a desktop, and imports it.</summary>
+        [UnityTest]
+        public IEnumerator TheStartPagesImport_AsksForAFolder_AndBringsItIn()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: BitSorter opens on its start page");
+
+            SaveGuard.AnswerTheNextChoice(FileImport.Folder);
+            yield return Click(WorkbenchPanel.StartImportItem);
+            yield return null;
+            Assert.AreEqual(true, SaveGuard.AskedForAFolder, "a folder was asked for");
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey, "and the project came in");
+            Assert.IsFalse(workbench.StartPageShowing, "opened, over the start page");
         }
 
         /// <summary>
@@ -3153,7 +3261,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.AreEqual("slow", workbench.Session.Project.Top, "sanity: imported, the design its top");
             workbench.Pause();
@@ -3192,12 +3300,12 @@ namespace BitSorter.PlayMode.Tests
             yield return Place(workbench, "and", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
             Project mine = workbench.Session.Project;
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.AreEqual("mux2", workbench.Session.Project.Top, "sanity: imported");
             Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey);
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.IsFalse(workbench.Ask.IsOpen, "nothing to ask");
             Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2 2"), workbench.DocumentKey, "the same project again, numbered");
@@ -3530,7 +3638,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.ShowInputs();
@@ -3596,7 +3704,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.ShowInputs();
@@ -3626,7 +3734,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.Session.Finish();
@@ -3668,7 +3776,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.IsTrue(workbench.Session.Locked, "an import opens locked");
             workbench.Session.DrawCode(false);   // its code, which opens as its drawing (Part 15h-4d)
@@ -3843,7 +3951,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.FileMenu.Close();
             yield return null;
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.Session.Finish();
@@ -3898,7 +4006,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
 
             yield return Click(WorkbenchPanel.FileButton);

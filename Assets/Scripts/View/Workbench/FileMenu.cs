@@ -34,16 +34,13 @@ namespace BitSorter.View
         /// <summary>The course's template files, each with the student's code between its markers (Part 13e).</summary>
         ExportSubmission,
 
-        /// <summary>A project from the Import folder, as a circuit of its own (Part 13d, 15a; a desktop and the editor).</summary>
-        ImportFolder,
-
-        /// <summary>The Import folder opened in the system's file browser (Part 13d; a desktop and the editor).</summary>
-        OpenImportFolder,
-
-        /// <summary>A project from files the player picks, as a circuit of its own (Part 13d, 15a; a browser).</summary>
+        /// <summary>
+        /// A project from files the player picks, as a circuit of its own (Part 13d, 15a): in the page's picker in a browser,
+        /// in Windows' Open dialog on a desktop (5.1, where a desktop read only the Import folder).
+        /// </summary>
         ImportFiles,
 
-        /// <summary>A project from a folder the player picks, as a circuit of its own (Part 13d, 15a; a browser).</summary>
+        /// <summary>A project from a folder the player picks, as a circuit of its own, picked as <see cref="ImportFiles"/>'s are.</summary>
         ImportPickedFolder,
 
         /// <summary>The written testbench turned into the stimulus, so the inputs are set on the waves (Part 13c, 13d).</summary>
@@ -56,9 +53,8 @@ namespace BitSorter.View
     /// <summary>
     /// The FILE menu, from the chip beside SAMPLE (Part 13): the student's circuits -- NEW, OPEN, and RENAME and DELETE for
     /// one of their own (Part 15a) -- then what goes out of the workbench and what comes in. A shell menu like the waves'
-    /// EXPORT, holding Escape while it is open. What it offers depends on where the game runs -- a desktop reads the Import
-    /// folder, a browser picks files -- CONVERT only while a testbench drives the inputs, and EXPORT FOR SUBMISSION only
-    /// while a module came from a course template.
+    /// EXPORT, holding Escape while it is open. CONVERT is offered only while a testbench drives the inputs, and EXPORT FOR
+    /// SUBMISSION only while a module came from a course template.
     /// </summary>
     public sealed class FileMenu : WaveMenu
     {
@@ -67,7 +63,7 @@ namespace BitSorter.View
 
         private const float ItemWidth = 420f;
 
-        private ShellButton _reload, _rename, _delete, _backToImported, _export, _submission, _compare, _importFolder, _openFolder, _importFiles, _importPicked, _convert;
+        private ShellButton _reload, _rename, _delete, _backToImported, _export, _submission, _compare, _importFiles, _importPicked, _convert;
 
         public static FileMenu Build(ShellPanel shell, Transform owner, SchematicPalette palette, Action<FileAction> onChoose)
         {
@@ -84,9 +80,6 @@ namespace BitSorter.View
                 () => onChoose?.Invoke(FileAction.ExportSubmission));
             menu._compare = menu.Item(ActionItem + FileAction.CompareModelSim, "COMPARE WITH MODELSIM'S RUN",
                 () => onChoose?.Invoke(FileAction.CompareModelSim));
-            menu._importFolder = menu.Item(ActionItem + FileAction.ImportFolder, "IMPORT A PROJECT FROM THE IMPORT FOLDER",
-                () => onChoose?.Invoke(FileAction.ImportFolder), breakBefore: true);
-            menu._openFolder = menu.Item(ActionItem + FileAction.OpenImportFolder, "OPEN THE IMPORT FOLDER", () => onChoose?.Invoke(FileAction.OpenImportFolder));
             menu._importFiles = menu.Item(ActionItem + FileAction.ImportFiles, "IMPORT A PROJECT'S FILES", () => onChoose?.Invoke(FileAction.ImportFiles),
                 breakBefore: true);
             menu._importPicked = menu.Item(ActionItem + FileAction.ImportPickedFolder, "IMPORT A PROJECT'S FOLDER", () => onChoose?.Invoke(FileAction.ImportPickedFolder));
@@ -107,8 +100,6 @@ namespace BitSorter.View
                 FileAction.ExportProject => _export,
                 FileAction.ExportSubmission => _submission,
                 FileAction.CompareModelSim => _compare,
-                FileAction.ImportFolder => _importFolder,
-                FileAction.OpenImportFolder => _openFolder,
                 FileAction.ImportFiles => _importFiles,
                 FileAction.ImportPickedFolder => _importPicked,
                 FileAction.ConvertTestbench => _convert,
@@ -130,7 +121,6 @@ namespace BitSorter.View
         {
             Offer(_reload, held);
             Offer(_backToImported, imported && circuitShown);
-            bool picks = FileImport.Picks;
             ownCircuit &= circuitShown;
             hasTestbench &= circuitShown;
             hasTemplate &= circuitShown;
@@ -139,10 +129,6 @@ namespace BitSorter.View
             Offer(_export, circuitShown);
             Offer(_submission, hasTemplate);
             Offer(_compare, circuitShown);
-            Offer(_importFolder, !picks);
-            Offer(_openFolder, !picks);
-            Offer(_importFiles, picks);
-            Offer(_importPicked, picks);
             Offer(_convert, hasTestbench);
             Show(screenPoint);
         }

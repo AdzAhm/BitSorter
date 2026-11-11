@@ -434,7 +434,7 @@ namespace BitSorter.View
             VisualElement start = Column(columns, "START", palette, first: true);
             Item(start, StartNewItem, "NEW CIRCUIT", AskNewCircuit, palette);
             Item(start, StartOpenItem, "OPEN A CIRCUIT", OpenOpenMenu, palette);
-            Item(start, StartImportItem, "IMPORT A PROJECT", () => FileChosen(FileImport.Picks ? FileAction.ImportFiles : FileAction.ImportFolder), palette);
+            Item(start, StartImportItem, "IMPORT A PROJECT", () => FileChosen(FileImport.Picks ? FileAction.ImportFiles : FileAction.ImportPickedFolder), palette);
             Heading(start, "HELP", palette, 28f);
             Item(start, StartTutorialItem, "TUTORIAL", StartTutorial, palette);
             Item(start, StartKeysItem, "KEYBOARD MAP", () => { if (!_keyMap.IsOpen) _keyMap.Toggle(); }, palette);
