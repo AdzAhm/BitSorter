@@ -110,6 +110,43 @@ namespace BitSorter.ViewModel
             return chip.AsReadOnly();
         }
 
+        /// <summary>
+        /// The rows a sample opens on after its top's ports, by their keys below the design (<see cref="SignalIndex.KeyOf"/>),
+        /// in their order (<see cref="WaveList.OfPorts(WorkbenchModel, IReadOnlyList{string})"/>); none for most, whose ports
+        /// show them working.
+        /// </summary>
+        /// <remarks>
+        /// **A processor's top has two ports, <c>clk</c> and <c>rst</c>** -- its memories are inside it -- so every program
+        /// opened on those two rows alone (5.1, Ahmad: "only these in the wave form in all programs"; "the most important
+        /// ones"). Each names the signals the course reads a processor by -- the textbook's PC, Instr, ALUResult, WriteData,
+        /// MemWrite, ReadData, RegWrite and Result: the instruction's address and the instruction, what the ALU worked out
+        /// (the data memory's address), what a store writes and whether it does, what a load reads, whether a register is
+        /// written and with what -- the multicycle processor its state and instruction register in place of what a load
+        /// reads, the pipelined one its stall and its flush, and its stages' own copies; ten rows at most with clk and rst
+        /// where it can, which a dock shows without scrolling. The same in every program, since PROGRAM changes only what
+        /// is run.
+        /// <c>StartingRowsTests</c> holds every key to its design, so a rename in the code cannot drop a row unseen.
+        /// </remarks>
+        public static IReadOnlyList<string> StartingRows(string sample)
+        {
+            switch (sample)
+            {
+                case "Single-cycle RISC-V": return SingleCycleRows;
+                case "Multicycle RISC-V": return MulticycleRows;
+                case "Pipelined RISC-V": return PipelinedRows;
+                default: return Array.Empty<string>();
+            }
+        }
+
+        private static readonly string[] SingleCycleRows =
+            { "pc", "instr", "data_addr", "write_data", "mem_we", "read_data", "rf_we", "datapath.wb" };   // the textbook's eight
+
+        private static readonly string[] MulticycleRows =
+            { "control.state", "pc", "datapath.ir", "data_addr", "write_data", "mem_we", "rf_we", "datapath.wb" };
+
+        private static readonly string[] PipelinedRows =
+            { "pc", "id_instr", "stall", "redirect", "ex_result", "wb_rf_we", "wb_rd", "wb_value", "mem_we" };   // a dock shows ten rows: the write-back's before the store's
+
         /// <summary>How long the full adder's testbench holds each combination of its inputs, in nanoseconds.</summary>
         public const long FullAdderStep = 6;
 
