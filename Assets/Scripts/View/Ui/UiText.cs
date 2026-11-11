@@ -62,5 +62,18 @@ namespace BitSorter.View
         /// <see cref="Keyboard"/>, which is null while a field holds them, so the two never both answer one press.
         /// </summary>
         public static UnityEngine.InputSystem.Keyboard FieldKeys => UnityEngine.InputSystem.Keyboard.current;
+
+        /// <summary>
+        /// Whether any key is down, typed into a field or not: for the workbench's drawing while nothing happens (5.1,
+        /// <c>WorkbenchPanel.Idle</c>), which answers no key -- it only draws every frame while one is.
+        /// </summary>
+        public static bool AnyKeyDown
+        {
+            get
+            {
+                UnityEngine.InputSystem.Keyboard keyboard = UnityEngine.InputSystem.Keyboard.current;
+                return keyboard != null && keyboard.anyKey.isPressed;
+            }
+        }
     }
 }

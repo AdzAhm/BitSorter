@@ -445,6 +445,7 @@ namespace BitSorter.View
                 _tracker.ProgressReset -= ProgressWasReset;
             if (_launchWatch > 0)
                 Preferences.SetInt(OpeningKey, 0);   // unloaded, not stopped: a look changed, a test done (Part 16b)
+            StopIdling();
         }
 
         /// <summary>Opens the workbench, building it the first time, and plays the run from the start.</summary>
@@ -1349,6 +1350,7 @@ namespace BitSorter.View
         private void Update()
         {
             WatchTheLaunch();
+            TickIdle();   // how often the window is drawn, asked first whatever is up (5.1)
             if (!IsShowing || _model == null)
                 return;
 
@@ -2187,6 +2189,7 @@ namespace BitSorter.View
         {
             if (_model == null || Root == null)
                 return;
+            _redrawnFrame = UnityEngine.Time.frameCount;   // drawn again: every frame is, for a while (WorkbenchPanel.Idle)
 
             // A zoomed waveform pages on after the playhead before anything is drawn for the moment.
             _wave.Follow(_model.Time);
