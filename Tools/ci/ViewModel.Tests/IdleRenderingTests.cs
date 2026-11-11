@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace BitSorter.ViewModel.Tests
 {
     /// <summary>
-    /// <see cref="IdleRendering"/> (5.1): every frame drawn while anything happens and for a second after, else one in ten --
+    /// <see cref="IdleRendering"/> (5.1): every frame drawn while anything happens and for a second after, else one in four --
     /// each kind of happening alone enough to draw every frame again at once.
     /// </summary>
     public class IdleRenderingTests
@@ -17,7 +17,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(1, idle.Frame(100.0, Nothing), "a launch is something happening");
             Assert.AreEqual(1, idle.Frame(100.5, Nothing));
             Assert.AreEqual(1, idle.Frame(100.999, Nothing), "still inside the second");
-            Assert.AreEqual(IdleRendering.IdleInterval, idle.Frame(101.0, Nothing), "a second of nothing: one frame in ten");
+            Assert.AreEqual(IdleRendering.IdleInterval, idle.Frame(101.0, Nothing), "a second of nothing: one frame in four");
             Assert.AreEqual(IdleRendering.IdleInterval, idle.Frame(500.0, Nothing), "and so on while nothing happens");
             Assert.AreEqual(IdleRendering.IdleInterval, idle.Interval);
         }
@@ -40,7 +40,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(facts.Any);
             Assert.AreEqual(1, idle.Frame(5.01, facts), "the frame it happens in is drawn, and every one after");
             Assert.AreEqual(1, idle.Frame(5.9, Nothing), "for a second after");
-            Assert.AreEqual(IdleRendering.IdleInterval, idle.Frame(6.01, Nothing), "then one in ten again");
+            Assert.AreEqual(IdleRendering.IdleInterval, idle.Frame(6.01, Nothing), "then one in four again");
         }
 
         /// <summary>The pair to the above: with nothing happening, nothing makes it draw every frame.</summary>

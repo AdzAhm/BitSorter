@@ -8,9 +8,11 @@ namespace BitSorter.View
     /// <summary>
     /// Drawing only when something changes (5.1, Ahmad: "we need a good optimization for that"): the Windows build drew every
     /// frame at the screen's rate with nothing moving, about 56% of the GPU in Task Manager. While nothing happens the window is
-    /// drawn one frame in ten (<see cref="IdleRendering"/>, Unity's <see cref="OnDemandRendering"/>); input is read every frame,
-    /// so the first frame of anything done is drawn at once. In a desktop build alone, as the frame cap is: never in the editor,
-    /// so every test and reference shot is drawn every frame, unless a test asks (<see cref="ThrottlesWhenIdle"/>).
+    /// drawn one frame in four (<see cref="IdleRendering"/>, Unity's <see cref="OnDemandRendering"/>) of a loop held to twenty a
+    /// second (<see cref="FrameRate.SetIdle"/>), since every frame run, drawn or not, was handed to the screen and copied to a
+    /// laptop's display chip; input is read every frame, so the first frame of anything done is drawn at once, and from it the
+    /// player's own VSYNC and FRAME CAP. In a desktop build alone, as the frame cap is: never in the editor, so every test and
+    /// reference shot is drawn every frame, unless a test asks (<see cref="ThrottlesWhenIdle"/>).
     /// </summary>
     public sealed partial class WorkbenchPanel
     {
@@ -39,6 +41,7 @@ namespace BitSorter.View
             {
                 if (OnDemandRendering.renderFrameInterval != 1)
                     OnDemandRendering.renderFrameInterval = 1;
+                FrameRate.SetIdle(false);
                 return;
             }
 
@@ -57,6 +60,7 @@ namespace BitSorter.View
             int interval = _idle.Frame(UnityEngine.Time.unscaledTimeAsDouble, facts);
             if (OnDemandRendering.renderFrameInterval != interval)
                 OnDemandRendering.renderFrameInterval = interval;
+            FrameRate.SetIdle(interval != 1);   // fewer frames run as well as drawn, where the settings apply (5.1)
         }
 
         /// <summary>The pointer moved, a mouse button or a key is down, or the wheel turned.</summary>
@@ -69,11 +73,12 @@ namespace BitSorter.View
             return UiText.AnyKeyDown;
         }
 
-        /// <summary>Every frame drawn again once the workbench is gone: a look changed, a test done.</summary>
+        /// <summary>Every frame drawn again once the workbench is gone, at the player's own rate: a look changed, a test done.</summary>
         private void StopIdling()
         {
             if (OnDemandRendering.renderFrameInterval != 1)
                 OnDemandRendering.renderFrameInterval = 1;
+            FrameRate.SetIdle(false);
         }
     }
 }

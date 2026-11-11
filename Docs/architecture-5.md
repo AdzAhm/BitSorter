@@ -5451,7 +5451,17 @@ the drawing.
   been tried.
 - **The frame-rate counter counts the frames drawn** (`OnDemandRendering.willCurrentFrameRender`), so it says what reaches
   the screen and drops when the window sits still.
-- Measured by Ahmad in Task Manager on the Windows build: 56% of the GPU still before; after, to be measured.
+- Measured by Ahmad in Task Manager on the Windows build: 56% of the GPU still before.
+- **And fewer frames run** (item 16, measured first). Sitting still afterwards, with one frame in ten drawn, a recorder of
+  the GPU engines' counters by process found the 3D engine at about 6% but the copy engine at 20 to 30%: Ahmad's laptop
+  drives its display from the integrated chip, so every frame the discrete one hands to the screen is copied across, and
+  `OnDemandRendering` skips the drawing of a frame but still runs and presents it. Playing -- every frame drawn -- the copy
+  engine went no higher; with VSYNC off and the cap at 240 it was 20%, at 30 it was 2.7% and the 3D engine 1.5%. So the
+  copies follow the frames run. While idle the loop is now held to twenty a second with vertical sync off
+  (`FrameRate.SetIdle`, `IdleRate`), one in four of them drawn (`IdleRendering.IdleInterval`, five a second, which still
+  shows a caret blinking), and the player's own settings are put back the frame anything happens -- input is read every
+  frame, so that frame is at most a twentieth of a second late. A desktop build's alone, as before: `FrameRate.Applies`
+  is false in the editor and a browser, where `Idle` is still told and the tests read it.
 
 **As built in 5.1: the Windows build ships only the code it runs** (Ahmad, 2026-11-11: "never ship things/code/libraries
 that are never used (make sure of that)"). Managed stripping was off for Windows, which shipped 150 managed libraries --

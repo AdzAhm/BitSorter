@@ -91,6 +91,40 @@ namespace BitSorter.View
             }
         }
 
+        /// <summary>The frames a second the loop runs at while nothing happens (<see cref="Idle"/>), whatever the settings.</summary>
+        public const int IdleRate = 20;
+
+        /// <summary>
+        /// Whether the workbench is idle -- nothing has happened for a second (<c>IdleRendering</c>) -- and the loop held to
+        /// <see cref="IdleRate"/> with vertical sync off, where the settings apply (5.1). Set by the workbench every frame; the
+        /// player's own settings are put back the frame anything happens.
+        /// </summary>
+        /// <remarks>
+        /// **Drawing less was not enough** (measured on Ahmad's laptop, 2026-11-11). <c>OnDemandRendering</c> skips drawing a
+        /// frame but still runs it and hands it to the screen, and on a laptop whose display hangs off the integrated chip every
+        /// frame handed over is copied there from the discrete one: still, at a 240 cap, the copy engine ran at about 20% and
+        /// the 3D engine 10% while one frame in ten was drawn; at a 30 cap, 2.7% and 1.5%. The copies follow the frames run,
+        /// not those drawn, so idle runs fewer. Input is still read every frame, so the first after a still second is at most a
+        /// twentieth of a second late, and every frame from it is at the player's own rate again.
+        /// </remarks>
+        public static bool Idle { get; private set; }
+
+        /// <summary>Holds the loop to <see cref="IdleRate"/> while <paramref name="idle"/>, or puts the player's settings back.</summary>
+        public static void SetIdle(bool idle)
+        {
+            if (Idle == idle)
+                return;
+            Idle = idle;
+            Apply();
+        }
+
+        /// <summary>
+        /// What a pair of settings sets while the workbench is <paramref name="idle"/>: vertical sync off and the loop at
+        /// <see cref="IdleRate"/>, whatever they say; else what they set (<see cref="SettingsFor(bool, int)"/>).
+        /// </summary>
+        public static (int vSyncCount, int targetFrameRate) SettingsFor(bool vSync, int cap, bool idle) =>
+            idle ? (0, IdleRate) : SettingsFor(vSync, cap);
+
         /// <summary>What a pair of settings sets: vertical sync, and the target frame rate.</summary>
         /// <remarks>
         /// With vertical sync on there is no cap to set -- it would be ignored -- so the target goes
@@ -153,7 +187,7 @@ namespace BitSorter.View
             if (!Applies)
                 return;
 
-            (int vSyncCount, int targetFrameRate) settings = SettingsFor(VSync, Cap);
+            (int vSyncCount, int targetFrameRate) settings = SettingsFor(VSync, Cap, Idle);
             QualitySettings.vSyncCount = settings.vSyncCount;
             Application.targetFrameRate = settings.targetFrameRate;
         }

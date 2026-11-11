@@ -1242,10 +1242,13 @@ a cap would hold every Play Mode test to it. Nothing in the game runs better or
 worse for the frame rate: the simulation keeps its own clock and every
 animation counts time.
 
-**While nothing happens, a desktop build draws one frame in ten** (5.1, Ahmad: "we
-need a good optimization for that", at about 56% of the GPU sitting still;
-`IdleRendering`, the view-model's, and `WorkbenchPanel.Idle.cs`, through Unity's
-`OnDemandRendering`). Every frame is drawn while the student does anything -- the
+**While nothing happens, a desktop build runs twenty frames a second and draws one in
+four** (5.1, Ahmad: "we need a good optimization for that", at about 56% of the GPU sitting
+still; `IdleRendering`, the view-model's, and `WorkbenchPanel.Idle.cs`, through Unity's
+`OnDemandRendering` and `FrameRate.SetIdle`, vertical sync off; the player's own VSYNC and
+FRAME CAP back the frame anything happens). Drawing less alone was not enough: every frame
+run was still handed to the screen, and a hybrid laptop copies each to its display chip --
+measured on Ahmad's, still, the copy engine at about 20% at a 240 cap and 2.7% at 30. Every frame is drawn while the student does anything -- the
 pointer moved, a button or a key down, the wheel -- the window is resized, the run
 plays or is still being made, LOGIC, STATES or TIMING is still working a slice a
 frame, a panel fades or the credits rise, or the drawing was drawn again, and for a
@@ -1267,7 +1270,7 @@ every panel on a canvas of its own sorted above the interface's; it takes no
 clicks. It writes in the workbench's text colour (`SchematicPalette.Current.Text`),
 since the workbench is what it is over -- the interface's near-white could not be
 seen on Schematic Light's paper (1.01:1). It counts the frames drawn over half a second of real time -- not those
-run, which are ten for every one drawn while nothing happens (5.1) -- and hands TextMeshPro its digits in
+run, which are four for every one drawn while nothing happens (5.1) -- and hands TextMeshPro its digits in
 a reused buffer (`SetCharArray`) rather than formatting a string, because it
 redraws by design. `FrameRateCounterPlayTests` holds the counting frames to no
 allocation and a redraw to two: in the editor, and only there, `SetCharArray` also

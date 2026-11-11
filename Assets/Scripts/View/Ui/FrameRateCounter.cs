@@ -90,7 +90,7 @@ namespace BitSorter.View
             if (!on)
                 return;
 
-            // The frames drawn, not those run: while nothing happens the workbench draws one in ten (5.1, WorkbenchPanel.Idle),
+            // The frames drawn, not those run: while nothing happens the workbench draws one in four (5.1, WorkbenchPanel.Idle),
             // and the counter says what reaches the screen.
             if (UnityEngine.Rendering.OnDemandRendering.willCurrentFrameRender)
                 _frames++;

@@ -46,13 +46,17 @@ namespace BitSorter.ViewModel
     /// <summary>
     /// How often the window is drawn (5.1, Ahmad: "we need a good optimization for that", at about 56% of the GPU with
     /// nothing moving): every frame while anything happens and for <see cref="Linger"/> after, else one frame in
-    /// <see cref="IdleInterval"/> -- 16 a second on a 165 Hz screen, 6 on a 60 Hz one, which still shows a caret blinking.
-    /// Input is read every frame either way, so the first frame of anything done is drawn at once.
+    /// <see cref="IdleInterval"/>. Input is read every frame either way, so the first frame of anything done is drawn at once.
     /// </summary>
+    /// <remarks>
+    /// While idle a desktop build also runs fewer frames, twenty a second (the view's <c>FrameRate.IdleRate</c>): skipping the
+    /// drawing alone still handed every frame to the screen, and a laptop's display chip copied each one. One in four of
+    /// those is five drawn a second, which still shows a caret blinking; it was one in ten of the screen's rate.
+    /// </remarks>
     public sealed class IdleRendering
     {
         /// <summary>One frame in this many drawn while nothing happens.</summary>
-        public const int IdleInterval = 10;
+        public const int IdleInterval = 4;
 
         /// <summary>How long, in seconds, every frame is drawn after the last thing that happened: a toast, a flash, a stage made again once a window stands still.</summary>
         public const double Linger = 1.0;

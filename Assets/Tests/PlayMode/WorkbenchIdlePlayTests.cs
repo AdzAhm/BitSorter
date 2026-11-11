@@ -11,7 +11,7 @@ using Object = UnityEngine.Object;
 namespace BitSorter.PlayMode.Tests
 {
     /// <summary>
-    /// Drawing only when something changes (5.1): with nothing happening for a second the window is drawn one frame in ten,
+    /// Drawing only when something changes (5.1): with nothing happening for a second the window is drawn one frame in four,
     /// and a key or PLAY draws every frame again at once. A desktop build's alone, so these turn it on themselves
     /// (<see cref="WorkbenchPanel.ThrottlesWhenIdle"/>); the editor, every other test and the reference shots draw every frame.
     /// The second counted is real time, which the tests' driven clock does not touch, so the waits cap in real seconds.
@@ -53,6 +53,7 @@ namespace BitSorter.PlayMode.Tests
         {
             yield return TestScene.Clear();
             Assert.AreEqual(1, OnDemandRendering.renderFrameInterval, "the workbench gone, every frame is drawn again");
+            Assert.IsFalse(FrameRate.Idle, "and run at the player's own rate");
         }
 
         private static T Find<T>() where T : Object => Object.FindFirstObjectByType<T>();
@@ -67,7 +68,7 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
         }
 
-        /// <summary>Frames until one in ten is drawn, capped at <paramref name="seconds"/> of real time.</summary>
+        /// <summary>Frames until one in four is drawn, capped at <paramref name="seconds"/> of real time.</summary>
         private static IEnumerator UntilIdle(WorkbenchPanel workbench, double seconds)
         {
             double until = Time.unscaledTimeAsDouble + seconds;
@@ -82,13 +83,15 @@ namespace BitSorter.PlayMode.Tests
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
 
             yield return UntilIdle(workbench, 5.0);
-            Assert.AreEqual(IdleRendering.IdleInterval, workbench.DrawInterval, "a still second: one frame in ten");
+            Assert.AreEqual(IdleRendering.IdleInterval, workbench.DrawInterval, "a still second: one frame in four");
             Assert.AreEqual(IdleRendering.IdleInterval, OnDemandRendering.renderFrameInterval, "and Unity told so");
+            Assert.IsTrue(FrameRate.Idle, "and the loop held to twenty a second, where the settings apply (5.1)");
 
             Press(_keyboard.shiftKey);
             yield return null;
             Assert.AreEqual(1, workbench.DrawInterval, "a key down: every frame drawn at once");
             Assert.AreEqual(1, OnDemandRendering.renderFrameInterval);
+            Assert.IsFalse(FrameRate.Idle, "at the player's own rate at once");
             Release(_keyboard.shiftKey);
             yield return null;
         }
@@ -105,6 +108,7 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.IsTrue(workbench.Playing, "sanity: playing");
             Assert.AreEqual(1, workbench.DrawInterval, "PLAY draws every frame at once");
+            Assert.IsFalse(FrameRate.Idle, "at the player's own rate");
 
             double until = Time.unscaledTimeAsDouble + 1.5;   // past the second it would linger anyway
             while (Time.unscaledTimeAsDouble < until && workbench.Playing)
@@ -124,6 +128,7 @@ namespace BitSorter.PlayMode.Tests
             while (Time.unscaledTimeAsDouble < until)
             {
                 Assert.AreEqual(1, OnDemandRendering.renderFrameInterval);
+                Assert.IsFalse(FrameRate.Idle, "nor run fewer");
                 yield return null;
             }
         }
