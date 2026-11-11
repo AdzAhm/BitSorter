@@ -1725,6 +1725,44 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Folds.All, "sanity: all three folded");
             Assert.IsTrue(workbench.IsFitted, "sanity: the circuit fitted to its window");
             yield return Capture("76-workbench-panels-folded");
+
+            // Opened again: the folds are kept between launches, so a shot after this one would find them folded.
+            workbench.TogglePanels();
+            yield return Frames(2);
+            Assert.IsFalse(workbench.Folds.All, "the panels open again for the shots after");
+        }
+
+        /// <summary>
+        /// 5.1: code folded -- the written adder's port list folded to one line from the margin's marker, the margin's numbers
+        /// passing over what it hides and its marker a +, and the code in its colours.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot77_WorkbenchCodeFolded()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            workbench.Session.DrawCode(false);
+            yield return Frames(2);
+
+            string source = WorkbenchSamples.AdderSource;
+            int ports = source.Substring(0, source.IndexOf(") (", System.StringComparison.Ordinal)).Count(c => c == '\n');
+            workbench.CodeView.ToggleFold(ports);   // the port list's ( on the line that closes the parameters
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.CodeView.Folding.IsFolded(ports), "sanity: the port list folded");
+            yield return Capture("77-workbench-code-folded");
         }
 
         private const string DrawnAlu =

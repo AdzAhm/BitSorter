@@ -5,12 +5,13 @@
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, highlightSpecialChars } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab, redo } from "@codemirror/commands";
-import { StreamLanguage, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
+import { StreamLanguage, bracketMatching, indentOnInput, indentUnit, codeFolding, foldGutter, foldKeymap } from "@codemirror/language";
 import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { setDiagnostics, lintGutter } from "@codemirror/lint";
 import { search, searchKeymap, searchPanelOpen, closeSearchPanel } from "@codemirror/search";
 import { blockState, gameText } from "./game-text.js";
 import { lookIn, restyled } from "./theme.js";
+import { verilogFolds } from "./folds.js";
 
 const state = {
   host: null,         // the box over the canvas
@@ -98,9 +99,11 @@ const api = {
       ours,
       lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
       indentOnInput(), bracketMatching(), highlightActiveLine(), lintGutter(),
+      // Folding (5.1): the +/- in the margin, as the desktop's editor has it, by the same rules (folds.js).
+      verilogFolds, codeFolding({ placeholderText: "…" }), foldGutter({ markerDOM: foldMarker }),
       indentUnit.of("    "), EditorState.tabSize.of(4),
       search({ top: true }),
-      keymap.of([indentWithTab, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
+      keymap.of([indentWithTab, ...searchKeymap, ...foldKeymap, ...defaultKeymap, ...historyKeymap]),
       StreamLanguage.define(verilog),
       look,
       state.locked.of(EditorState.readOnly.of(false)),
@@ -239,3 +242,11 @@ const api = {
 };
 
 window.BitSorterCode = api;
+
+/** A fold's marker in the margin (5.1): - while it is open, + while it is folded, as the desktop's editor draws them. */
+function foldMarker(open) {
+  const marker = document.createElement("span");
+  marker.className = "cm-bitsorterFold";
+  marker.textContent = open ? "-" : "+";
+  return marker;
+}

@@ -1,0 +1,30 @@
+{
+  "about": "Where SystemVerilog folds (5.1): each file and its folds, [first line, last line] from 1, one to a line, the one reaching furthest. Read by both builds' tests -- Tools/ci/ViewModel.Tests/CodeFoldsTests.cs (CodeFolds, the desktop's) and test/folds.test.mjs (src/folds.js, the browser's) -- so the two hold to one answer.",
+  "files": [
+    {
+      "name": "a module, its parameters, its ports, an always and a case",
+      "code": "module counter #(\n    parameter N = 4\n) (\n    input  logic clk,\n    output logic [N-1:0] q\n);\n    always_ff @(posedge clk) begin\n        case (q)\n            4'd9: q <= 0;\n            default: q <= q + 1;\n        endcase\n    end\nendmodule\n",
+      "folds": [[1, 13], [3, 6], [7, 12], [8, 11]]
+    },
+    {
+      "name": "comments: a block, a run of line comments, and keywords inside a comment and a string",
+      "code": "/* A block\n   comment */\n// one\n// two\n// three\nmodule m; // module in a comment\n    initial $display(\"begin end\");\nendmodule\n",
+      "folds": [[1, 2], [3, 5], [6, 8]]
+    },
+    {
+      "name": "a class: an extern function with no end, a function, a fork and a wait fork",
+      "code": "class c;\n    extern function void f();\n    function void g();\n        fork\n            a = 1;\n        join\n        wait fork;\n    endfunction\nendclass\n",
+      "folds": [[1, 9], [3, 8], [4, 6]]
+    },
+    {
+      "name": "an instance's parameters and connections",
+      "code": "module top;\n    logic a, b, y;\n    and2 #(\n        .D(2)\n    ) u1 (\n        .a(a),\n        .b(b),\n        .y(y)\n    );\nendmodule\n",
+      "folds": [[1, 10], [3, 5], [5, 9]]
+    },
+    {
+      "name": "an end with no opening, a module never ended, and a begin never ended",
+      "code": "end\nmodule m (\n    input a\n);\nbegin\n",
+      "folds": [[2, 4]]
+    }
+  ]
+}

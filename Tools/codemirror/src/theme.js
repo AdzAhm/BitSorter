@@ -38,6 +38,10 @@ export function themeOf(c) {
     ".cm-panel.cm-search input[type=checkbox]:focus-visible": { outline: "1px solid " + c.accent, outlineOffset: "1px" },
     ".cm-searchMatch": { backgroundColor: c.selection, outline: "1px solid " + c.muted },
     ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: c.selection, outline: "1px solid " + c.accent },
+    // Folding (5.1): the margin's - and +, and a folded block's mark, in the game's colours.
+    ".cm-foldGutter .cm-gutterElement": { color: c.muted, cursor: "pointer", padding: "0 4px" },
+    ".cm-foldGutter .cm-gutterElement:hover": { color: c.text },
+    ".cm-foldPlaceholder": { backgroundColor: "transparent", border: "1px solid " + c.muted, color: c.text, padding: "0 4px" },
   }, { dark: c.dark });
 
   return [look, syntaxHighlighting(codeWords(c))];

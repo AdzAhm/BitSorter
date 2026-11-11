@@ -2400,6 +2400,101 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(code.Field.text, AdderText(workbench), "Ctrl+S applied the code");
         }
 
+        /// <summary>
+        /// Code folds (5.1, Ahmad: "the +/- thing in code that expands and unexpands things"): a click on the margin's - on line
+        /// 1 folds the module to one line, the margin's numbers passing over what it hides; text typed on the folded line lands
+        /// in the code where it shows, nothing hidden lost; + opens it whole again; Ctrl+Shift+[ folds the block the caret is
+        /// in and Ctrl+Shift+] opens it; and a place sent to inside a fold opens it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Code_Folds_FromTheMargin_AndWhatIsTypedOnAFoldedLineLandsInPlace()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("folding");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string source = "module " + module + " (\n    input logic a, b,\n    output logic s, c\n);\n    always_comb begin\n" +
+                "        s = a ^ b;\n        c = a & b;\n    end\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(source, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+            CodeEditorView code = workbench.CodeView;
+            TMP_Text margin = code.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "numbers");
+            StringAssert.StartsWith("1 -", margin.text, "line 1 starts a block: its marker, open");
+
+            // A click on line 1's marker, through the event system, at the line as the margin lays it out.
+            IEnumerator ClickMarginLine(int shownLine)
+            {
+                margin.ForceMeshUpdate();
+                TMP_LineInfo row = margin.textInfo.lineInfo[shownLine];
+                Vector3 local = new Vector3(row.lineExtents.max.x - 4f, (row.ascender + row.descender) * 0.5f, 0f);
+                Vector2 screen = margin.rectTransform.TransformPoint(local);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(margin.gameObject,
+                    new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = screen },
+                    UnityEngine.EventSystems.ExecuteEvents.pointerClickHandler);
+                yield return null;
+                yield return null;
+            }
+
+            yield return ClickMarginLine(0);
+            Assert.IsTrue(code.Folding.IsFolded(0), "the module folded");
+            Assert.AreEqual(code.Folding.Shown, code.Field.text, "the field shows it folded");
+            StringAssert.StartsWith("module " + module + " (", code.Field.text);
+            StringAssert.EndsWith("endmodule\n", code.Field.text, "on one line: its first, the mark, its last");
+            Assert.AreEqual(2, code.Field.text.Split('\n').Length, "one line, and the empty one after it");
+            StringAssert.StartsWith("1 +\n10", margin.text, "the margin's numbers pass over what it hides, its marker folded");
+            Assert.AreEqual(source, code.Code.Text, "the code itself untouched");
+
+            // Typed on the folded line: in the code where it shows.
+            code.Field.text = code.Field.text.Replace("module " + module + " (", "module " + module + " /* mine */ (");
+            yield return null;
+            string typed = source.Replace("module " + module + " (", "module " + module + " /* mine */ (");
+            Assert.AreEqual(typed, code.Code.Text, "typed where it shows, nothing it hides lost");
+            Assert.IsTrue(code.Folding.IsFolded(0), "and the fold kept");
+
+            yield return ClickMarginLine(0);
+            Assert.AreEqual(typed, code.Field.text, "+ opened it whole");
+
+            // Ctrl+Shift+[ in the always's body folds the begin; Ctrl+Shift+] opens it.
+            int bodyLine = typed.Substring(0, typed.IndexOf("c = a & b")).Count(ch => ch == '\n') + 1;
+            code.GoTo(bodyLine, 9);
+            yield return null;
+            Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
+            Press(_keyboard.leftCtrlKey);
+            yield return null;   // a frame between: two keys pressed in one frame, the test's keyboard keeps only the second
+            Press(_keyboard.leftShiftKey);
+            yield return null;
+            yield return Tap(_keyboard.leftBracketKey);
+            Release(_keyboard.leftShiftKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            int begin = typed.Substring(0, typed.IndexOf("always_comb")).Count(ch => ch == '\n');
+            Assert.IsTrue(code.Folding.IsFolded(begin), "Ctrl+Shift+[ folded the block the caret was in");
+            Assert.AreEqual(typed, code.Code.Text, "and typed no bracket");
+
+            Press(_keyboard.leftCtrlKey);
+            yield return null;
+            Press(_keyboard.leftShiftKey);
+            yield return null;
+            yield return Tap(_keyboard.rightBracketKey);
+            Release(_keyboard.leftShiftKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.IsFalse(code.Folding.IsFolded(begin), "Ctrl+Shift+] opened it");
+
+            // A place sent to inside a fold -- a fault's line clicked -- opens it.
+            code.ToggleFold(begin);
+            yield return null;
+            Assert.IsTrue(code.Folding.IsFolded(begin), "sanity: folded again");
+            code.GoTo(bodyLine, 9);
+            yield return null;
+            Assert.IsFalse(code.Folding.IsFolded(begin), "going inside opened it");
+        }
+
         /// <summary>+ CODE (Part 12d) asks for a name, makes the module from its template, and puts a block of it in hand to place.</summary>
         [UnityTest]
         public IEnumerator PlusCode_AsksForAName_AndPutsABlockOfItInHand()
