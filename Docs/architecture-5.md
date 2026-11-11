@@ -5449,6 +5449,15 @@ the drawing.
   the screen and drops when the window sits still.
 - Measured by Ahmad in Task Manager on the Windows build: 56% of the GPU still before; after, to be measured.
 
+**As built in 5.1: the Windows build ships only the code it runs** (Ahmad, 2026-11-11: "never ship things/code/libraries
+that are never used (make sure of that)"). Managed stripping was off for Windows, which shipped 150 managed libraries --
+Vehicles, Cloth, AR, `System.Net.Http`, the AI assistant's runtime modules -- while the browser build had stripped at
+Medium since 5.0. Windows strips at Medium now: 87 libraries, 99.3 MB on disk down to 79.5 MB, the zip 37.2 MB down to
+30.2 MB, with DirectX 12 kept at Ahmad's choice. Windows' Open dialog is kept whole by a `link.xml` (COM calls by slot,
+so a stripped method would shift the rest), the linker's debug symbols are deleted by the build script, and
+`StrippingTests` holds both builds at Medium and the `link.xml` to the dialog's COM types. Every library still shipped is
+accounted for in `Docs/distribution.md`, "What the Windows build ships".
+
 ---
 
 ## 11. The parts

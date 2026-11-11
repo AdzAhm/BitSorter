@@ -475,6 +475,64 @@ The build is **unsigned**, so Windows SmartScreen warns that the publisher is no
 recognised. That is expected for an unsigned binary and is mentioned in the
 README, but tell testers directly or they will assume it is broken.
 
+### What the Windows build ships (5.1)
+
+Ahmad, 2026-11-11: "never ship things/code/libraries that are never used (make sure of that)". The Windows build had
+**managed stripping off**, so it shipped every managed library it could be given -- 150 of them -- while the browser build
+had stripped at Medium since 5.0. Since 5.1 Windows strips at Medium too (`managedStrippingLevel: Standalone: 2`), and
+`StrippingTests` (Repo.Tests) holds both targets there.
+
+| v5.1 `b84b93f5`, built 2026-11-11 | Before (stripping off) | After (Medium) |
+|---|---|---|
+| On disk | 99,312,297 bytes, 190 files | 79,484,897 bytes, 127 files |
+| Zipped (Compress-Archive, Optimal) | 37,205,820 bytes | 30,225,367 bytes |
+| Managed libraries | 150 | 87 |
+
+**Gone: 63 libraries**, none of which BitSorter reaches:
+- **the AI assistant's runtime modules**, `Unity.AI.MCP.Runtime` and `Unity.AI.Tracing`: a package for working in the
+  editor, which the player never needs;
+- **engine modules for features BitSorter has no part of**: Vehicles, Cloth, Wind, TerrainPhysics, PhysX, Umbra
+  (occlusion), Substance, VirtualTexturing, VectorGraphics, AR, GameCenter, cluster rendering, DSPGraph, ScreenCapture,
+  Localization, Streaming, ContentLoad, HotReload, the AMD and NVIDIA plug-in modules, global illumination, crash and
+  performance reporting, and the web request modules for asset bundles, audio, textures and WWW;
+- **.NET libraries nothing calls**: `System.Net.Http`, `System.Transactions`, `System.EnterpriseServices`,
+  `System.Security`, `System.IO.Compression`, `System.ComponentModel.Composition`, `System.Memory`, `netstandard` and
+  others;
+- **the render pipeline's shader-library and config assemblies**, and four Unity Services core assemblies the analytics
+  never calls.
+
+**Kept: 87 libraries**, each cut down to what is reached from BitSorter's own code, the scene, or a library that is:
+- **BitSorter's five**: SystemVerilog, Sim, Board, ViewModel and View.
+- **The runtime**: `mscorlib`, `System`, `System.Core`, `Mono.Security`, `System.Configuration`, `System.Numerics`.
+- **What draws and reads input**: the core, UI Toolkit (the shell), uGUI and TextMesh Pro (the drawings), text and
+  fonts, the Input System, URP with its 2D renderer.
+- **The analytics**: Unity Services Analytics and the core pieces it calls, and `Newtonsoft.Json`, which it uses for its
+  events. `System.Xml`, `System.Data`, `System.Drawing` and `System.Runtime.Serialization` (2.2 MB together) are most
+  likely kept by Newtonsoft.Json, which refers to them for its XML and DataSet converters; nothing of BitSorter's own uses
+  them. The analytics is the one thing that sends data anywhere (README, "What it collects"), so it stays.
+- **Small engine modules a kept library refers to**: Terrain, VR, XR, Animation, Audio, Tilemap, Physics, Particle
+  System and the rest, most of them 10 to 30 KB once stripped -- a reference from URP or uGUI to one of their types keeps
+  the module, but only the types reached.
+- **Native files the managed code cannot change**: `UnityPlayer.dll` (34 MB), the Mono runtime (`MonoBleedingEdge`,
+  8.8 MB), Unity's default resources (5.6 MB) and **DirectX 12** (`D3D12`, 4.6 MB), kept at Ahmad's choice (2026-11-11:
+  "Keep directX 12 dont change for 11").
+
+**Two things a stripped build needs, both held:**
+- **Windows' Open dialog is kept whole** (`Assets/Scripts/View/Ui/link.xml`). It reaches the Common Item Dialog through
+  COM interop, and COM calls an interface's methods by their place in it: a method stripped as unused would shift every
+  one after it, and IMPORT would call the wrong one with nothing to say so. The file keeps every COM type and the struct
+  marshalled to it, and `StrippingTests` holds it to the types the code declares. The stripped `BitSorter.View.dll` was
+  compared with the unstripped one: all five types have the same members, in the same order.
+- **No debug symbols** (`WindowsBuild.TidyUp`). Stripping writes a `.pdb` beside every library it strips, 75 files and
+  4.2 MB, which only put line numbers in a stack trace in the player's log; the build deletes them, as it deletes
+  Unity's `_DoNotShip` folder, and ships none, as it did before stripping.
+
+The browser build's code is the same and has stripped at Medium in production since 5.0, so what every build shares
+was already proven stripped; what this changed is the Windows-only code -- the Open dialog, fullscreen, the Import
+folder, opening a folder in Explorer, QUIT -- which Ahmad smoke-tests on the build, since a Claude session never launches
+it on the real save.
+
+
 ---
 
 ## GitHub Releases
@@ -488,7 +546,7 @@ release exists and is marked latest.
 ### The zip
 
 Zip `Build/Windows/` **inside a containing folder**, so unzipping produces one
-`BitSorter/` folder rather than 185 loose files in someone's Downloads:
+`BitSorter/` folder rather than 127 loose files (190 before 5.1 stripped the code) in someone's Downloads:
 
 ```text
 BitSorter-5.0.0-Windows.zip
@@ -504,7 +562,8 @@ BitSorter-5.0.0-Windows.zip
 **This is the opposite of what itch.io wants**, above, where `index.html` has to be
 at the archive root with no containing folder. Same project, two archives, opposite
 rule. Around 40 MB compressed, from 104 MB on disk (4.0.0). The 5.0.0 release candidate (v5 `72d5c43f`,
-2026-11-09) is 38,155,881 bytes zipped, from 99,282,083 on disk in 190 files; 5.0.0 as released, 38,156,003.
+2026-11-09) is 38,155,881 bytes zipped, from 99,282,083 on disk in 190 files; 5.0.0 as released, 38,156,003. 5.1
+strips the Windows build's code (above): 79,484,897 bytes on disk in 127 files.
 
 `Build/` is gitignored, so the zip can sit next to the build without any risk of
 being committed.
