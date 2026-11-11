@@ -47,6 +47,7 @@ namespace BitSorter.PlayMode.Tests
         {
             base.Setup();
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
             _keyboard = InputSystem.AddDevice<Keyboard>();
             _mouse = InputSystem.AddDevice<Mouse>();
             _mouse.MakeCurrent();
