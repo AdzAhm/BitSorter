@@ -364,6 +364,18 @@ stretch that way.
   stop moving must say no more than that: one that waits for the very thing a test
   is about to assert makes every such assertion pass by construction.
 
+  **Nor may a run mind the focus going.** Unity tells the event system when the
+  editor goes behind another window (`OnApplicationFocus`), and the Input System's
+  UI module drops every click and key after it unless input runs in the
+  background -- which the player does (Run In Background) and `InputTestFixture`'s
+  test runtime did not. So every fixture with a simulated keyboard and mouse sets
+  `InputSystem.runInBackground` after `base.Setup()` (`PlayModeFixtureRulesTests`).
+  On 2026-11-11 a window put in front of the editor mid-run dropped a test's click
+  into RUN TO; the code field it was to take the keyboard from kept it, and the
+  test went red at an Escape some 170 frames on. A check that a field has the
+  keyboard asks for that field (`ShellPanel.Typing`), not `UiText.Typing`, which
+  any field selected answers.
+
   **Run them from the PlayMode tab, never the Player tab.** The Player tab is a
   different thing wearing the same name: it builds a player for the active target
   and runs the tests inside it. With WebGL active that means linking a
