@@ -5368,6 +5368,10 @@ and the CODE tab's listing on both builds wrote it all in the text's colour.
   caret and column the input field counts. A still text is read once; bold and italic would need markup, so a comment
   is grey on the desktop where the browser's is italic too.
 
+**As built in 5.1: the radixes said in full** (Ahmad, 2026-11-11, at the row's menu: "should there be also decimal?"). Both
+decimals were there, as UNSIGNED and SIGNED; they are UNSIGNED DECIMAL and SIGNED DECIMAL now (`WaveRowMenu.Caption`), the
+menu's items widened to hold them, and a test measures that every radix's caption fits its item.
+
 **As built in 5.1: code folding** (Ahmad, 2026-11-11, pointing at Notepad++'s margin: "the +/- thing in code that expands
 and unexpands things").
 - **Where code folds** (`CodeFolds`, the view-model's): every block of more than one line -- a keyword's, from its opening

@@ -801,6 +801,18 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.RowMenuOpen, "a right-click on a row's name opens its menu");
             Assert.IsTrue(workbench.List.Lines[s].Selected, "and selects the row");
 
+            // Each radix said in full (5.1): both decimals say they are, and every caption fits its item.
+            Assert.AreEqual("UNSIGNED DECIMAL", WaveRowMenu.Caption(WaveRadix.Unsigned));
+            Assert.AreEqual("SIGNED DECIMAL", WaveRowMenu.Caption(WaveRadix.Signed));
+            yield return null;
+            foreach (WaveRadix radix in new[] { WaveRadix.Binary, WaveRadix.Octal, WaveRadix.Hex, WaveRadix.Unsigned, WaveRadix.Signed })
+            {
+                UnityEngine.UIElements.Button item = ShellPanel.Find<UnityEngine.UIElements.Button>(WaveRowMenu.RadixItem + radix);
+                Vector2 needs = item.MeasureTextSize(item.text, 0f, UnityEngine.UIElements.VisualElement.MeasureMode.Undefined, 0f,
+                    UnityEngine.UIElements.VisualElement.MeasureMode.Undefined);
+                Assert.LessOrEqual(needs.x, item.contentRect.width, $"{item.text} fits its item");
+            }
+
             yield return Click(WaveRowMenu.RadixItem + WaveRadix.Unsigned);
             Assert.IsFalse(workbench.RowMenuOpen, "choosing closes it");
             Assert.AreEqual(WaveRadix.Unsigned, workbench.Model.RowRadix(s));
