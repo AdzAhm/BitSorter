@@ -2401,6 +2401,51 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// The margin's numbers stand in one column, a line with a fold's marker and a line without alike (Ahmad, 2026-11-11: "the
+        /// minus and plus move the numbers to the left"). The margin is right-aligned, and a line with no marker was padded with
+        /// two spaces, which TextMesh Pro leaves out when it aligns: "8  " stood as "8", "7 -" two characters to its left.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheMarginsNumbers_StandInOneColumn_WithAFoldsMarkerOrWithout()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("column");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string source = "module " + module + " (\n    input logic a, b,\n    output logic s, c\n);\n    always_comb begin\n" +
+                "        s = a ^ b;\n        c = a & b;\n    end\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(source, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+            TMP_Text margin = workbench.CodeView.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "numbers");
+            margin.ForceMeshUpdate();
+            StringAssert.StartsWith("1 -", margin.text, "sanity: line 1 starts a block, its marker beside its number");
+
+            // Where each line's number ends: the right edge of its last digit, as the margin lays it out.
+            var ends = new System.Collections.Generic.List<float>();
+            TMP_TextInfo info = margin.textInfo;
+            for (int line = 0; line < info.lineCount; line++)
+            {
+                TMP_LineInfo row = info.lineInfo[line];
+                float end = float.NaN;
+                for (int i = row.firstCharacterIndex; i <= row.lastCharacterIndex && i < info.characterCount; i++)
+                    if (char.IsDigit(info.characterInfo[i].character))
+                        end = info.characterInfo[i].topRight.x;
+                if (!float.IsNaN(end))
+                    ends.Add(end);
+            }
+
+            Assert.GreaterOrEqual(ends.Count, 9, "sanity: every line of the module has its number");
+            for (int line = 1; line < ends.Count; line++)
+                Assert.AreEqual(ends[0], ends[line], 0.5f,
+                    $"line {line + 1}'s number ends at {ends[line]:F1}, line 1's at {ends[0]:F1}: the numbers are not in one column");
+        }
+
+        /// <summary>
         /// Code folds (5.1, Ahmad: "the +/- thing in code that expands and unexpands things"): a click on the margin's - on line
         /// 1 folds the module to one line, the margin's numbers passing over what it hides; text typed on the folded line lands
         /// in the code where it shows, nothing hidden lost; + opens it whole again; Ctrl+Shift+[ folds the block the caret is
