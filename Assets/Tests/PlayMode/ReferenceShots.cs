@@ -1765,6 +1765,28 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("77-workbench-code-folded");
         }
 
+        /// <summary>
+        /// 5.1: QUIT at the window's bottom right, at the status line's right end, asking first -- its question above it, never
+        /// under the pointer, so a double-click cannot answer it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot78_WorkbenchQuitAsking()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            yield return Frames(2);
+            workbench.AskToQuit();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Ask.IsOpen, "sanity: QUIT asking");
+            Assert.AreEqual(WorkbenchPanel.QuitQuestion, workbench.Ask.Question);
+            yield return Capture("78-workbench-quit-asking");
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

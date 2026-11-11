@@ -1354,6 +1354,7 @@ namespace BitSorter.View
 
             Fit();
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
+            TickQuit();   // over the pages too, which return below (5.1)
 
             WatchTheSave();   // held: said, and the question to reload asked, as it is found
             OpenPendingGoal();   // an exercise's brief, once GOAL has its place (Part 15d)

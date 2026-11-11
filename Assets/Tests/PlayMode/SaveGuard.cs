@@ -80,6 +80,10 @@ namespace BitSorter.PlayMode.Tests
             // closed it. Every import a test asks for is cancelled unless the test answers it itself, after the scene loads.
             FileImport.Chooser = Cancel;
 
+            // QUIT's answer quits nothing while a test runs: in the editor Application.Quit does nothing, but a quit that worked
+            // would end the run. A test that presses QUIT puts its own in, to count it (5.1).
+            WorkbenchPanel.Quitter = () => { };
+
             // The reporting setting and the display settings live in PlayerPrefs, not in the save
             // file, and the fixtures need reporting off. They used to read the real value, overwrite
             // it, and put it back in OneTimeTearDown -- which made the developer's own settings
@@ -124,6 +128,7 @@ namespace BitSorter.PlayMode.Tests
             FileSaver.Redirected = null;
             FileImport.Redirected = null;
             FileImport.Chooser = null;
+            WorkbenchPanel.Quitter = Application.Quit;
 
             if (File.Exists(Scratch))
                 File.Delete(Scratch);

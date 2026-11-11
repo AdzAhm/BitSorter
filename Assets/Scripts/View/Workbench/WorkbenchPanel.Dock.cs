@@ -99,6 +99,7 @@ namespace BitSorter.View
                 TextAnchor.MiddleCenter);
             ShellTheme.Ellipsis(_status);
             _shell.Root.Add(_status);
+            BuildQuit(palette);   // at its right end, in a desktop build (5.1)
         }
 
         /// <summary>Where the pointer was when the status line last named its gestures.</summary>
@@ -579,7 +580,8 @@ namespace BitSorter.View
             Place(_sidePanel, _regions.Side);
             Place(_splitter, _regions.Splitter);
             Place(_dockPanel, _regions.Dock);
-            Place(_status, _regions.Status);
+            Place(_status, ShellLayout.StatusTextIn(_regions.Status, _quit != null));
+            Place(_quit, ShellLayout.QuitIn(_regions.Status));
             ScrollParts(0f);
             ScrollHierarchy(0f);
             PlaceTranscript();
