@@ -743,7 +743,7 @@ namespace BitSorter.View
                     _pressedWhere = pointer;
                 }
 
-                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1, Clicks = left ? _clicks : 1 };
+                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1, Clicks = left ? _clicks : 1, Y = pointer.y };
                 if (overControl)
                     press.Region = WaveRegion.Control;
                 else if (InView(pointer, out _))
@@ -777,9 +777,16 @@ namespace BitSorter.View
                     _pointer.Move(time, _commands);
                 }
             }
+            else if (_pointer.HoldsRow && mouse.leftButton.isPressed)
+            {
+                // A row's name held: past a few pixels up or down, a drag of the row, the rows scrolling at the window's ends (5.1).
+                if (_pointer.MovingRow)
+                    ScrollWhileARowIsDragged(pointer);
+                _pointer.MoveRow(pointer.y, _wave.GapAt(pointer), _commands);
+            }
 
             if (!mouse.leftButton.isPressed && !left)
-                _pointer.Release();
+                _pointer.Release(_commands);
 
             for (int i = 0; i < _commands.Count; i++)
             {
@@ -789,7 +796,51 @@ namespace BitSorter.View
             }
 
             _commands.Clear();
+
+            // The line where a dragged row would go, kept to its level, every frame it is dragged: the rows may scroll under it,
+            // or be built again, without the pointer moving to another gap.
+            if (_wave != null)
+                _wave.ShowDrop(_pointer.MovingRow ? _list.DropGap(_pointer.RowDragged, _rowDraggedTo) : -1);
         }
+
+        // The gap a row dragged by its name was last over, and how long it has been held at the window's top or foot.
+        private int _rowDraggedTo = -1;
+        private float _rowScrollHeld;
+
+        /// <summary>How often a row held at the window's top or foot scrolls the rows a row, in seconds of the game's clock.</summary>
+        public const float RowDragScrollSeconds = 0.1f;
+
+        /// <summary>A row dragged to the window's top or foot scrolls the rows a row every <see cref="RowDragScrollSeconds"/> it is held there.</summary>
+        private void ScrollWhileARowIsDragged(Vector2 pointer)
+        {
+            int edge = _wave.EdgeAt(pointer);
+            if (edge == 0)
+            {
+                _rowScrollHeld = 0f;
+                return;
+            }
+
+            _rowScrollHeld += UnityEngine.Time.deltaTime;
+            if (_rowScrollHeld < RowDragScrollSeconds)
+                return;
+            _rowScrollHeld = 0f;
+            ScrollWavesBy(edge * WorkbenchDrawing.RowHeight);
+        }
+
+        /// <summary>Lets go of a row being dragged by its name without moving it -- Escape -- and says whether one was.</summary>
+        private bool CancelRowDrag()
+        {
+            if (!_pointer.Cancel())
+                return false;
+            _wave?.ShowDrop(-1);
+            return true;
+        }
+
+        /// <summary>Whether a row is being dragged by its name: what a test waits on.</summary>
+        public bool DraggingARow => _pointer.MovingRow;
+
+        /// <summary>The gap the line showing where a dragged row would go stands in, or -1.</summary>
+        public int RowDropShown => _wave != null ? _wave.DropShown : -1;
 
         /// <summary>A moment as a click there means it: on an edge of the row under the pointer within 8 px, else a whole unit, within the run.</summary>
         private double Snapped(double time, int row)
@@ -839,6 +890,18 @@ namespace BitSorter.View
 
                 case WaveGesture.AddWireSignal:
                     AddWire();
+                    break;
+
+                case WaveGesture.DragRow:
+                    _rowDraggedTo = command.To;
+                    break;
+
+                case WaveGesture.DropRow:
+                    _wave.ShowDrop(-1);
+                    _rowDraggedTo = -1;
+                    int dropAt = _list.DropGap(command.Row, command.To);
+                    if (dropAt >= 0 && _list.MoveTo(command.Row, dropAt))
+                        RowsChanged();
                     break;
             }
         }
@@ -1377,7 +1440,7 @@ namespace BitSorter.View
                     HideExercises();
                 else if (StartPageShowing)
                     LeaveHome();
-                else
+                else if (!CancelRowDrag())   // a row dragged by its name goes back where it was (5.1)
                     LetGoOnCanvas();
                 return;
             }

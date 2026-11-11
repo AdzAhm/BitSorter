@@ -4666,6 +4666,92 @@ namespace BitSorter.PlayMode.Tests
                 "the full adder on its ports alone");
         }
 
+        /// <summary>
+        /// A row dragged by its name moves (5.1, asked by Ahmad, 2026-11-11, "make sure there is no bug of this"): the full
+        /// adder's cout, held by its name and dragged above a, goes on top, a line showing where while it is held; Escape
+        /// while a row is held puts it back; and an edit of the circuit afterwards -- which put every port's row back in the
+        /// layout's order (Part 10e) -- keeps the order made by hand.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ARowDraggedByItsName_Moves_EscapePutsItBack_AndAnEditKeepsTheOrder()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleIndex("Full adder") + 1);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            string[] Keys() => workbench.List.AllSignals.Select(s => s.Key).ToArray();
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, Keys(), "sanity: the full adder's rows");
+
+            // Over a name, the status line says a name is a handle.
+            Move(_mouse.position, workbench.RowNameOnScreen(4));
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Names), workbench.StatusText);
+
+            // cout pressed by its name: moved two pixels it is still a click.
+            Vector2 from = workbench.RowNameOnScreen(4);
+            Press(_mouse.leftButton);
+            yield return null;
+            Move(_mouse.position, from + new Vector2(0f, 2f));
+            yield return null;
+            Assert.IsFalse(workbench.DraggingARow, "two pixels: a click so far");
+
+            // Dragged up over a, a little above its middle: the line stands over a, and nothing has moved yet.
+            Vector2 rowStep = workbench.RowNameOnScreen(0) - workbench.RowNameOnScreen(1);
+            Vector2 aboveA = workbench.RowNameOnScreen(0) + rowStep * 0.4f;
+            for (int step = 1; step <= 4; step++)
+            {
+                Move(_mouse.position, Vector2.Lerp(from, aboveA, step / 4f));
+                yield return null;
+            }
+
+            Assert.IsTrue(workbench.DraggingARow, "past four pixels, a drag of the row");
+            Assert.AreEqual(0, workbench.RowDropShown, "the line over a, where it would go");
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, Keys(), "nothing moved while it is held");
+
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "let go over a: cout on top");
+            Assert.AreEqual(-1, workbench.RowDropShown, "and the line gone");
+            Assert.IsTrue(workbench.List.Lines[0].Selected, "the row moved, selected");
+
+            // a dragged to the foot, and Escape while it is held: back where it was.
+            Vector2 a = workbench.RowNameOnScreen(1);
+            Move(_mouse.position, a);
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            for (int step = 1; step <= 4; step++)
+            {
+                Move(_mouse.position, Vector2.Lerp(a, workbench.RowNameOnScreen(4) - rowStep * 0.4f, step / 4f));
+                yield return null;
+            }
+
+            Assert.AreEqual(5, workbench.RowDropShown, "sanity: the line under the last row");
+            Press(_keyboard.escapeKey);
+            yield return null;
+            Release(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsFalse(workbench.DraggingARow, "Escape let it go");
+            Assert.AreEqual(-1, workbench.RowDropShown, "the line gone with it");
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "and put down nowhere");
+            Assert.IsTrue(workbench.IsOpen, "Escape took the drag, and nothing else");
+
+            // An edit of the circuit: the order made by hand stays.
+            Assert.IsTrue(workbench.Session.CanTidy, "sanity: an edit to make");
+            Assert.IsTrue(workbench.Session.Tidy().Done);
+            yield return UntilReplayed(workbench);
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "an edit keeps the order made by hand");
+        }
+
         /// <summary>BitSorter launched onto a sample opens it on the program the save kept for it.</summary>
         [UnityTest]
         public IEnumerator ALaunchOntoASample_OpensItOnTheProgramKeptForIt()

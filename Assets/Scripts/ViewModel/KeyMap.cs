@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold, Names }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -80,6 +80,7 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("WHEEL", "zoom time about the pointer; SHIFT and the wheel moves through it"),
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
             new KeyMapEntry("CLICK A NAME", "select its row; SHIFT or CTRL for more"),
+            new KeyMapEntry("DRAG A NAME", "up or down to move its row; ESC puts it back"),
         };
 
         /// <summary>
@@ -207,6 +208,9 @@ namespace BitSorter.ViewModel
                     return "panel:  click to show it  ·  H hides or shows them all  ·  ? every key";
                 case PointerArea.Circuit:
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
+                case PointerArea.Names:
+                    // A row's name is its handle (5.1): the one gesture there nothing else on screen says.
+                    return "rows:  click to select  ·  drag a name up or down to move its row  ·  right-click for its menu  ·  ? every key";
                 case PointerArea.Waves:
                     return "waves:  click for a cursor  ·  shift-click to move the playhead  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
                 case PointerArea.Blocks:

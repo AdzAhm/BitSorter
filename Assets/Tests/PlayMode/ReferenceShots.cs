@@ -1787,6 +1787,46 @@ namespace BitSorter.PlayMode.Tests
             yield return Capture("78-workbench-quit-asking");
         }
 
+        /// <summary>
+        /// 5.1: a row dragged by its name -- the reference's last row held over its second, the line showing where it would
+        /// go, and the row selected as the press selected it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot79_WorkbenchRowDragged()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            yield return Frames(2);
+
+            int last = workbench.List.Lines.Count - 1;
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Vector2 from = workbench.RowNameOnScreen(last);
+            Vector2 up = workbench.RowNameOnScreen(0) - workbench.RowNameOnScreen(1);
+            Vector2 to = workbench.RowNameOnScreen(1) + up * 0.4f;   // just over the second row
+            Set(mouse.position, from);
+            yield return Frames(2);
+            Press(mouse.leftButton);
+            yield return Frames(2);
+            for (int step = 1; step <= 4; step++)
+            {
+                Set(mouse.position, Vector2.Lerp(from, to, step / 4f));
+                yield return Frames(1);
+            }
+
+            yield return Frames(30);
+            Assert.IsTrue(workbench.DraggingARow, "sanity: a row held by its name");
+            Assert.AreEqual(1, workbench.RowDropShown, "sanity: the line over the second row");
+            yield return Capture("79-workbench-row-dragged");
+
+            Release(mouse.leftButton);
+            yield return Frames(2);
+        }
+
         private const string DrawnAlu =
             "module add4 #(\n" +
             "    parameter N = 4\n" +

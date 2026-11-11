@@ -396,6 +396,100 @@ endmodule
             CollectionAssert.AreEqual(before, list.Lines.Select(l => l.Signal.Key));
         }
 
+        private static string[] Labels(WaveList list) => list.Lines.Select(list.LabelOf).ToArray();
+
+        /// <summary>
+        /// A row dragged by its name goes into the gap it is put down in (5.1): <see cref="WaveList.DropGap"/> says where
+        /// that is nearest the pointer, and -1 where it would change nothing; what was selected stays selected.
+        /// </summary>
+        [Test]
+        public void ARowPutDownInAGap_GoesThere_AndAGapWhereItIsAlreadyIsNone()
+        {
+            WaveList list = Ports(FullAdder());
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, Labels(list), "sanity: the full adder's rows");
+            list.Select(4);
+
+            Assert.AreEqual(-1, list.DropGap(4, 4), "over itself");
+            Assert.AreEqual(-1, list.DropGap(4, 5), "under itself");
+            Assert.AreEqual(0, list.DropGap(4, 0));
+            Assert.AreEqual(5, list.DropGap(0, 9), "past the last line, the last gap");
+            Assert.IsFalse(list.MoveTo(4, 5), "where it is, nothing");
+            Assert.IsFalse(list.OrderedByHand);
+
+            int version = list.Version;
+            Assert.IsTrue(list.MoveTo(4, 0));
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Labels(list), "cout on top");
+            Assert.IsTrue(list.Lines[0].Selected, "still selected, where it went");
+            Assert.Greater(list.Version, version);
+            Assert.IsTrue(list.OrderedByHand);
+
+            Assert.IsTrue(list.MoveTo(1, 5));
+            CollectionAssert.AreEqual(new[] { "cout", "b", "cin", "s", "a" }, Labels(list), "a to the foot");
+        }
+
+        /// <summary>
+        /// A row keeps its level as it is dragged, as <see cref="WaveList.Move"/> does: a signal in a group goes only between
+        /// its group's signals, a header carries its whole group among the top-level rows, and a top-level row is never put
+        /// inside a group -- the gap nearest the pointer that it may go to.
+        /// </summary>
+        [Test]
+        public void ADraggedRow_KeepsItsLevel_AndAHeaderCarriesItsGroup()
+        {
+            WorkbenchModel model = FullAdder();
+            WaveList list = Ports(model);
+            list.Select(1);
+            list.Select(2, extend: true);
+            WaveGroup group = list.GroupSelected("in");
+            CollectionAssert.AreEqual(new[] { "a", "in", "b", "cin", "s", "cout" }, Labels(list), "sanity: b and cin grouped");
+
+            // b, in the group, may go only between the group's signals: over b, between, or under cin.
+            Assert.AreEqual(-1, list.DropGap(2, 0), "pulled above its group: the nearest place it may go is where it is");
+            Assert.AreEqual(4, list.DropGap(2, 9), "pulled under it: under cin, the group's last place");
+            Assert.IsFalse(list.MoveTo(2, 0), "never out of its group");
+            Assert.IsFalse(list.MoveTo(2, 6), "nor under it");
+            Assert.IsTrue(list.MoveTo(2, 4), "under cin, within it");
+            CollectionAssert.AreEqual(new[] { "cin", "b" }, group.Signals.Select(s => s.Key).ToArray());
+
+            // a, at the top level, never goes inside the group: a gap inside it is the nearer of the group's edges.
+            Assert.AreEqual(-1, list.DropGap(0, 1), "just over the header is where a is already");
+            Assert.AreEqual(4, list.DropGap(0, 3), "inside the group: under it, the nearer edge");
+            Assert.IsFalse(list.MoveTo(0, 3), "never inside");
+
+            // The header carries the group, its signals with it.
+            Assert.IsTrue(list.MoveTo(1, 6));
+            CollectionAssert.AreEqual(new[] { "a", "s", "cout", "in", "cin", "b" }, Labels(list), "the group at the foot, whole");
+            Assert.AreEqual(-1, list.DropGap(3, 5), "inside its own group: where it is");
+            Assert.IsTrue(list.MoveTo(3, 0));
+            CollectionAssert.AreEqual(new[] { "in", "cin", "b", "a", "s", "cout" }, Labels(list), "and to the top");
+
+            list.Toggle(group);
+            Assert.IsTrue(list.MoveTo(0, 4), "shut, it is one line");
+            CollectionAssert.AreEqual(new[] { "a", "s", "cout", "in" }, Labels(list));
+        }
+
+        /// <summary>
+        /// Once a row has been moved by hand, an edit of the circuit keeps the list's order: a port placed goes at the end
+        /// and one taken away goes, and no row is put back in the layout's order (5.1, Ahmad: "make sure there is no bug of
+        /// this" -- Part 10e's rule put every port's row back in the layout's order after any edit).
+        /// </summary>
+        [Test]
+        public void AnOrderMadeByHand_SurvivesAnEditOfTheCircuit_APortPlacedAndOneTakenAway()
+        {
+            WaveList list = Ports(FullAdder());
+            string[] ports = list.AllSignals.Select(s => s.Key).ToArray();
+            Assert.IsTrue(list.MoveTo(4, 0), "cout to the top");
+
+            string[] now = ports.Where(k => k != "cin").Concat(new[] { "x" }).ToArray();
+            Assert.IsTrue(list.FollowPorts(ports, now));
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "s", "x" }, list.AllSignals.Select(s => s.Key).ToArray(),
+                "cout still on top; cin gone; x at the end");
+
+            // And the layout's order moving, which put the rows back in it before, moves none of them.
+            string[] moved = new[] { now[1], now[0] }.Concat(now.Skip(2)).ToArray();
+            Assert.IsFalse(list.FollowPorts(now, moved), "no row added or taken away: no change");
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "s", "x" }, list.AllSignals.Select(s => s.Key).ToArray());
+        }
+
         [Test]
         public void EveryRow_IsFoundAgain_InADesignBuiltAgain_UnderAnotherTestbench()
         {

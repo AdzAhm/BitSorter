@@ -53,18 +53,28 @@ namespace BitSorter.ViewModel
 
         /// <summary>Open the menu for the moment <see cref="WaveCommand.Time"/>: a breakpoint there, set or taken away.</summary>
         TimeMenu,
+
+        /// <summary>
+        /// <see cref="WaveCommand.Row"/> is being dragged by its name, over the gap <see cref="WaveCommand.To"/>: show where
+        /// it would go (<see cref="WaveList.DropGap"/>).
+        /// </summary>
+        DragRow,
+
+        /// <summary>Put <see cref="WaveCommand.Row"/> down in the gap <see cref="WaveCommand.To"/> (<see cref="WaveList.MoveTo"/>).</summary>
+        DropRow,
     }
 
     /// <summary>One thing a gesture asks for.</summary>
     public readonly struct WaveCommand
     {
-        public WaveCommand(WaveGesture gesture, double time = 0, int row = -1, bool extend = false, bool toggle = false)
+        public WaveCommand(WaveGesture gesture, double time = 0, int row = -1, bool extend = false, bool toggle = false, int to = -1)
         {
             Gesture = gesture;
             Time = time;
             Row = row;
             Extend = extend;
             Toggle = toggle;
+            To = to;
         }
 
         public WaveGesture Gesture { get; }
@@ -73,7 +83,10 @@ namespace BitSorter.ViewModel
         public bool Extend { get; }
         public bool Toggle { get; }
 
-        public override string ToString() => $"{Gesture} t={Time} row={Row}{(Extend ? " extend" : "")}{(Toggle ? " toggle" : "")}";
+        /// <summary>The gap a dragged row is over: 0 above the first line, the lines' count under the last.</summary>
+        public int To { get; }
+
+        public override string ToString() => $"{Gesture} t={Time} row={Row}{(Extend ? " extend" : "")}{(Toggle ? " toggle" : "")}{(To >= 0 ? " to=" + To : "")}";
     }
 
     /// <summary>A press as the view sees it: where, with what, and what is under it.</summary>
@@ -100,6 +113,9 @@ namespace BitSorter.ViewModel
 
         /// <summary>Which press of a quick run this is, as the view counts them: 2 for the second of a double-click.</summary>
         public int Clicks;
+
+        /// <summary>How high on the screen the press is, in pixels: what a row's drag is measured from (<see cref="WavePointer.MoveRow"/>).</summary>
+        public float Y;
     }
 
     /// <summary>
@@ -120,6 +136,12 @@ namespace BitSorter.ViewModel
     /// - **On a row's name or value:** a press selects the row -- with Shift every row to it, with Ctrl
     ///   in or out of the selection -- and a press on a group's mark opens or shuts it. The right button
     ///   opens the row's menu.
+    /// - **A row's name held and moved more than <see cref="RowDragPixels"/> up or down drags the row** (5.1, asked by Ahmad,
+    ///   2026-11-11: rows put in another order by dragging them up or down by their names): each gap it is over is a
+    ///   <see cref="WaveGesture.DragRow"/>, and the release puts it down there (<see cref="WaveGesture.DropRow"/>);
+    ///   <see cref="Cancel"/> -- Escape -- puts it down nowhere. Only a plain press drags: with Shift or Ctrl it selects, as it
+    ///   did. A group's header opens or shuts on the release of a press on its name, not the press, so that the same press
+    ///   can carry the group instead.
     /// - **On the circuit with Alt held:** adds the wire's signal. Without Alt the circuit's own drag and
     ///   hover are the panel's, as they were.
     /// - **A press on a control is never a gesture**, nor is anything until its release: the slider
@@ -130,17 +152,37 @@ namespace BitSorter.ViewModel
         /// <summary>How near the playhead, in pixels, a press takes hold of it.</summary>
         public const float GrabPixels = 6f;
 
-        private enum Hold { None, Scrubbing, MovingSecond }
+        /// <summary>How far a row's name is moved up or down, in pixels, before the press is a drag of the row and not a click.</summary>
+        public const float RowDragPixels = 4f;
+
+        private enum Hold { None, Scrubbing, MovingSecond, RowPressed, MovingRow }
 
         private Hold _hold;
 
-        /// <summary>Whether a press is being dragged: moving the second cursor or scrubbing the playhead.</summary>
-        public bool Dragging => _hold != Hold.None;
+        // The row held by its name, where on the screen it was pressed, whether its release opens or shuts a group, and the
+        // gap it was last over.
+        private int _row = -1, _gap = -1;
+        private float _pressY;
+        private bool _toggleOnRelease;
+
+        /// <summary>Whether a press is being dragged through time: moving the second cursor or scrubbing the playhead.</summary>
+        public bool Dragging => _hold == Hold.Scrubbing || _hold == Hold.MovingSecond;
+
+        /// <summary>Whether a row's name is held: pressed, and perhaps being dragged (<see cref="MoveRow"/>).</summary>
+        public bool HoldsRow => _hold == Hold.RowPressed || _hold == Hold.MovingRow;
+
+        /// <summary>Whether a row is being dragged by its name, past <see cref="RowDragPixels"/>.</summary>
+        public bool MovingRow => _hold == Hold.MovingRow;
+
+        /// <summary>The row being dragged, or -1.</summary>
+        public int RowDragged => _hold == Hold.MovingRow ? _row : -1;
 
         /// <summary>A button pressed: what it asks for, added to <paramref name="into"/>.</summary>
         public void Press(WavePress press, List<WaveCommand> into)
         {
             _hold = Hold.None;
+            _row = _gap = -1;
+            _toggleOnRelease = false;
 
             switch (press.Region)
             {
@@ -175,11 +217,35 @@ namespace BitSorter.ViewModel
                     if (press.Row < 0)
                         return;
                     if (press.Button == 1)
+                    {
                         into.Add(new WaveCommand(WaveGesture.RowMenu, row: press.Row));
-                    else if (press.Button == 0 && press.OnGroupMark)
-                        into.Add(new WaveCommand(WaveGesture.ToggleGroup, row: press.Row));
-                    else if (press.Button == 0)
+                        return;
+                    }
+
+                    if (press.Button != 0)
+                        return;
+
+                    // A plain press on a name may become a drag of the row: a header's opening or shutting waits for the
+                    // release, so that a drag carries the group instead (5.1).
+                    bool mayDrag = press.Region == WaveRegion.Names && !press.Shift && !press.Ctrl;
+                    if (mayDrag)
+                    {
+                        _hold = Hold.RowPressed;
+                        _row = press.Row;
+                        _pressY = press.Y;
+                        _toggleOnRelease = press.OnGroupMark;
+                    }
+
+                    if (press.OnGroupMark)
+                    {
+                        if (!mayDrag)
+                            into.Add(new WaveCommand(WaveGesture.ToggleGroup, row: press.Row));
+                    }
+                    else
+                    {
                         into.Add(new WaveCommand(WaveGesture.SelectRow, row: press.Row, extend: press.Shift, toggle: press.Ctrl));
+                    }
+
                     return;
 
                 case WaveRegion.Schematic:
@@ -198,7 +264,51 @@ namespace BitSorter.ViewModel
                 into.Add(new WaveCommand(WaveGesture.MoveSecond, time));
         }
 
-        /// <summary>The button let go: whatever was held is let go with it.</summary>
-        public void Release() => _hold = Hold.None;
+        /// <summary>
+        /// The pointer at <paramref name="y"/> on the screen, over the gap <paramref name="gap"/> between the rows, with a
+        /// row's name still held: past <see cref="RowDragPixels"/> from the press, a drag of the row, which says each new gap
+        /// it is over.
+        /// </summary>
+        public void MoveRow(float y, int gap, List<WaveCommand> into)
+        {
+            if (_hold == Hold.RowPressed && System.Math.Abs(y - _pressY) > RowDragPixels)
+            {
+                _hold = Hold.MovingRow;
+                _toggleOnRelease = false;
+            }
+
+            if (_hold != Hold.MovingRow || gap == _gap)
+                return;
+            _gap = gap;
+            into.Add(new WaveCommand(WaveGesture.DragRow, row: _row, to: gap));
+        }
+
+        /// <summary>The button let go: whatever was held is let go with it, asking nothing.</summary>
+        public void Release() => Release(null);
+
+        /// <summary>
+        /// The button let go: a row dragged is put down in the gap it was last over, and a group's header pressed by its name
+        /// and not dragged opens or shuts -- each added to <paramref name="into"/>; whatever else was held is let go.
+        /// </summary>
+        public void Release(List<WaveCommand> into)
+        {
+            if (into != null && _hold == Hold.MovingRow && _gap >= 0)
+                into.Add(new WaveCommand(WaveGesture.DropRow, row: _row, to: _gap));
+            else if (into != null && _hold == Hold.RowPressed && _toggleOnRelease)
+                into.Add(new WaveCommand(WaveGesture.ToggleGroup, row: _row));
+            _hold = Hold.None;
+            _row = _gap = -1;
+            _toggleOnRelease = false;
+        }
+
+        /// <summary>Lets go of a row being dragged without putting it anywhere -- Escape -- and says whether one was.</summary>
+        public bool Cancel()
+        {
+            if (_hold != Hold.MovingRow)
+                return false;
+            _hold = Hold.None;
+            _row = _gap = -1;
+            return true;
+        }
     }
 }

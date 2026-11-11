@@ -215,6 +215,73 @@ namespace BitSorter.View
                 TextAlignmentOptions.Center, 90f);
             WorkbenchPanel.Show(_secondLabel, false);
             WorkbenchPanel.Show(_spanLabel, false);
+
+            // Where a row dragged by its name would go (5.1): a line across the names and the waves, over everything else.
+            _drop = UiTheme.Panel_("drop line", Rect, palette.Accent);
+            _drop.sprite = null;
+            _drop.raycastTarget = false;
+            WorkbenchPanel.Show(_drop, false);
+        }
+
+        // -----------------------------------------------------------------
+        // A row dragged by its name (5.1)
+        // -----------------------------------------------------------------
+
+        /// <summary>How thick the line is that shows where a dragged row would go.</summary>
+        public const float DropThickness = 2f;
+
+        private readonly Image _drop;
+        private int _dropGap = -1;
+
+        /// <summary>The gap the drop line stands in, or -1 while there is none: what a test reads.</summary>
+        public int DropShown => _dropGap;
+
+        /// <summary>Puts the line that shows where a dragged row would go in the gap <paramref name="gap"/> -- 0 over the first row -- or takes it down for -1.</summary>
+        public void ShowDrop(int gap)
+        {
+            if (gap > Rows)
+                gap = -1;
+            if (gap == _dropGap)
+                return;
+            _dropGap = gap;
+            WorkbenchPanel.Show(_drop, gap >= 0);
+            if (gap >= 0)
+                WorkbenchPanel.TopLeft(_drop.rectTransform,
+                    new Vector2(-NamesExtra, WorkbenchDrawing.WaveTop + gap * WorkbenchDrawing.RowHeight - DropThickness / 2f),
+                    new Vector2(_width + NamesExtra, DropThickness));
+        }
+
+        /// <summary>
+        /// The gap between rows nearest a point on the screen, at any height -- 0 over the first row, <see cref="Rows"/> under
+        /// the last -- where a row dragged there would go before <c>WaveList.DropGap</c> keeps it to its level.
+        /// </summary>
+        public int GapAt(Vector2 screenPoint)
+        {
+            if (Rect == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
+                return -1;
+            int gap = Mathf.RoundToInt((-local.y - WorkbenchDrawing.WaveTop) / WorkbenchDrawing.RowHeight);
+            return Mathf.Clamp(gap, 0, Rows);
+        }
+
+        /// <summary>How near the window's top or foot, in pixels on the screen, a dragged row scrolls the rows.</summary>
+        public const float ScrollEdgePixels = 16f;
+
+        private static readonly Vector3[] ClipCorners = new Vector3[4];
+
+        /// <summary>
+        /// Which way a row dragged to a point on the screen scrolls the rows: -1 at the window's top or above it, 1 at its foot
+        /// or below it, within <see cref="ScrollEdgePixels"/>, and 0 between.
+        /// </summary>
+        public int EdgeAt(Vector2 screenPoint)
+        {
+            if (_clip == null)
+                return 0;
+            _clip.GetWorldCorners(ClipCorners);   // the overlay's world is the screen's pixels
+            if (screenPoint.y >= ClipCorners[1].y - ScrollEdgePixels)
+                return -1;
+            if (screenPoint.y <= ClipCorners[0].y + ScrollEdgePixels)
+                return 1;
+            return 0;
         }
 
         /// <summary>How many rows it shows.</summary>

@@ -113,8 +113,8 @@ namespace BitSorter.View
                 ? Editor != null && Editor.PinOver.Kind == CanvasTargetKind.Pin ? PointerArea.Pin
                     : Editor != null && Editor.HandleOver ? PointerArea.Handle
                     : PointerArea.Circuit
-                : _wave != null && _wavesClip != null && _wavesClip.gameObject.activeSelf && _wave.RegionAt(pointer, out _, out _, out _)
-                    ? PointerArea.Waves
+                : _wave != null && _wavesClip != null && _wavesClip.gameObject.activeSelf && _wave.RegionAt(pointer, out WaveRegion region, out int row, out _)
+                    ? region == WaveRegion.Names && row >= 0 ? PointerArea.Names : PointerArea.Waves
                     : BlockRowAt(pointer) != null ? PointerArea.Blocks
                     : PointerArea.Elsewhere;
             if (area == _statusArea)
