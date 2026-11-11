@@ -5471,6 +5471,22 @@ wasm and the framework, as the data already was, revalidated against Pages, whic
 A return visit at 10 Mbit/s went from 8.7 s to about 3 s. `Docs/distribution.md`, "A faster launch", has the numbers;
 `BrowserLaunchTests` holds the rule.
 
+**As built in 5.1: a processor opens on the rows that show it working** (Ahmad, 2026-11-11: every RISC-V processor showed
+"only these in the wave form in all programs", `clk` and `rst`). A circuit opens on a row for each port of its top, and a
+processor's top has only those two, its memories being inside it. A sample may now name rows it opens on after its ports
+(`WorkbenchSamples.StartingRows`, by the keys `SignalIndex` gives them; `WaveList.OfPorts(model, extra)` passes over any the
+design lacks), and each processor names what the course reads one by ("the most important ones", Ahmad), ten rows with
+`clk` and `rst` where it can, which a dock shows without scrolling:
+- **single-cycle:** the textbook's eight -- `pc`, `instr`, `data_addr` (the ALU's result, the data memory's address),
+  `write_data`, `mem_we`, `read_data`, `rf_we` and `datapath.wb`, the value written back;
+- **multicycle:** the same but `read_data`, with its controller's `state` and the instruction register `datapath.ir`;
+- **pipelined:** `pc`, the decode stage's `id_instr`, `stall`, `redirect` (a flush), the execute stage's `ex_result`, the
+  write-back's `wb_rf_we`, `wb_rd` and `wb_value`, then `mem_we` -- last, since a dock shows ten rows and the value written
+  back is the one to see.
+
+They are the same in every program, since PROGRAM changes only what is run, and nothing new is saved. `StartingRowsTests`
+holds every key to its design, so a rename in a processor's code cannot drop a row without a test going red.
+
 ---
 
 ## 11. The parts

@@ -4663,6 +4663,33 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual("SUM", saved.SamplePrograms("Pipelined RISC-V")["PROGRAM"], "written to the save, for the next launch");
         }
 
+        /// <summary>
+        /// Every processor opens on the rows that show it working, after clk and rst (5.1, Ahmad: every program showed only
+        /// those two), each found in its run; and another sample opens on its ports alone, as before.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AProcessor_OpensOnTheRowsThatShowItWorking()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            foreach (string name in new[] { "Single-cycle RISC-V", "Multicycle RISC-V", "Pipelined RISC-V" })
+            {
+                workbench.ShowSample(SampleIndex(name) + 1);
+                yield return null;
+                yield return null;
+                string[] keys = workbench.List.AllSignals.Select(s => s.Key).ToArray();
+                CollectionAssert.AreEqual(new[] { "clk", "rst" }.Concat(WorkbenchSamples.StartingRows(name)).ToArray(), keys,
+                    $"{name}: clk and rst, then the rows it names");
+                Assert.IsTrue(workbench.List.AllSignals.All(s => s.Signal >= 0), $"{name}: every row found in its run");
+            }
+
+            workbench.ShowSample(SampleIndex("Full adder") + 1);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, workbench.List.AllSignals.Select(s => s.Key).ToArray(),
+                "the full adder on its ports alone");
+        }
+
         /// <summary>BitSorter launched onto a sample opens it on the program the save kept for it.</summary>
         [UnityTest]
         public IEnumerator ALaunchOntoASample_OpensItOnTheProgramKeptForIt()

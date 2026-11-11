@@ -1620,8 +1620,9 @@ namespace BitSorter.View
             ShowRunTo("");
             MakeTexts();
 
-            // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
-            _list = WaveList.OfPorts(_model);
+            // Its rows start as the layout's, one per port, each in its own radix, and no second cursor -- a sample's then the
+            // rows it names, a processor's top having only clk and rst (5.1).
+            _list = WaveList.OfPorts(_model, _sample > 0 ? WorkbenchSamples.StartingRows(WorkbenchSamples.Chip[_sample].Name) : null);
             _cursors.Clear();
             _appliedNames = new string[0];
             _appliedHeaders = new bool[0];

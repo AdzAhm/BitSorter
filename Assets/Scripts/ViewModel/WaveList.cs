@@ -110,7 +110,15 @@ namespace BitSorter.ViewModel
         /// ports -- 1.5 MB, inside every import limit -- built some 300,000 of them in one frame (browser-5); + SIGNAL adds any
         /// of the rest.
         /// </summary>
-        public static WaveList OfPorts(WorkbenchModel model)
+        public static WaveList OfPorts(WorkbenchModel model) => OfPorts(model, null);
+
+        /// <summary>
+        /// A model's rows as a circuit opens, as <see cref="OfPorts(WorkbenchModel)"/>, then the signals <paramref name="extra"/>
+        /// names by their keys, in its order -- the rows a sample shows itself working on beyond its top's ports
+        /// (<see cref="WorkbenchSamples.StartingRows"/>, 5.1: a processor's top has only <c>clk</c> and <c>rst</c>). A key the
+        /// design does not have is passed over, never a row showing nothing.
+        /// </summary>
+        public static WaveList OfPorts(WorkbenchModel model, IReadOnlyList<string> extra)
         {
             var keys = new List<string>();
             foreach (WaveRow row in model.Layout.Rows)
@@ -120,6 +128,11 @@ namespace BitSorter.ViewModel
                 if (model.Session.Design.TryFind(row.Signal, out BitSorter.Sim.SignalId id))
                     keys.Add(model.Signals.KeyOf(id.Index));
             }
+
+            if (extra != null)
+                for (int i = 0; i < extra.Count && keys.Count < MostRowsOpened; i++)
+                    if (extra[i] != null && model.Signals.TryFind(extra[i], out _))
+                        keys.Add(extra[i]);
             return new WaveList(model.Signals, keys);
         }
 
