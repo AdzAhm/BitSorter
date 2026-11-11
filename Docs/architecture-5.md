@@ -5513,8 +5513,11 @@ to see the value"; he chose cutting and a tip both, and then asked for "somethin
 column).
 - **Over a box, as much of its value as fits** (`ValueFit.Kept`). A box had a label only where the whole value fitted -- 22
   units and 7 a character after the first, since Part 9b -- so a 32-bit value wanted 85 units in hex and 239 in binary, and
-  a narrower box was blank. Now one too narrow shows the value's first characters and an ellipsis, read from its start as a
-  viewer writes one, where at least three characters fit; fewer say nothing a reader could use, and the box stays blank.
+  a narrower box was blank. Now one too narrow first leaves out the value's leading zeros, in binary, octal and hex -- cut
+  from its first character, a 32-bit address read 000... in every box, which says nothing, where 6C is the value -- and
+  still too long, shows its first characters and an ellipsis, read from its start as a viewer writes one, where at least
+  three characters fit; fewer say nothing a reader could use, and the box stays blank. A box with room writes the value
+  whole, zeros and all, as every other place does.
   The ellipsis is one character where the waves' face has it, three dots where it has not. A cut label is handed to its
   text as characters, and only when its value or its cut changes, so a frame of playback makes no string and lays out no
   text that has not changed.

@@ -227,7 +227,7 @@ namespace BitSorter.View
             _readouts = new TextMeshProUGUI[rows];
             _busLabels = new List<TextMeshProUGUI>[rows];
             _busLabelOf = new List<string>[rows];
-            _busLabelKept = new List<int>[rows];
+            _busLabelKept = new List<long>[rows];
             _readoutInk = new Color[rows];
             _inkWorkedOut = new Color[rows];     // clear, which no ground nor band is: every row is worked out the first time
             _underWorkedOut = new Color[rows];
@@ -258,7 +258,7 @@ namespace BitSorter.View
                 {
                     _busLabels[row] = new List<TextMeshProUGUI>();
                     _busLabelOf[row] = new List<string>();
-                    _busLabelKept[row] = new List<int>();
+                    _busLabelKept[row] = new List<long>();
                 }
             }
 
@@ -317,6 +317,8 @@ namespace BitSorter.View
                 return;
             _dropGap = gap;
             WorkbenchPanel.Show(_drop, gap >= 0);
+            if (gap >= 0 && _tip != null && !_tip.gameObject.activeSelf)
+                InFront(_drop.transform);
             if (gap >= 0)
                 WorkbenchPanel.TopLeft(_drop.rectTransform,
                     new Vector2(ColumnsLeft, WorkbenchDrawing.WaveTop + gap * WorkbenchDrawing.RowHeight - DropThickness / 2f),
@@ -682,25 +684,27 @@ namespace BitSorter.View
         /// </summary>
         public static Color BusLabelColour(LogicVec value, SchematicPalette palette) => value.IsKnown ? palette.Text : palette.XBoxWord;
 
-        // Each bus label's text and how much of it it shows, as last handed to it: a label is written again only when either
-        // changes, so a frame of playback lays out no text that has not changed.
+        // Each bus label's text and which of it it shows -- where from and how much, and whether cut -- as last handed to it: a
+        // label is written again only when either changes, so a frame of playback lays out no text that has not changed.
         private readonly List<string>[] _busLabelOf;
-        private readonly List<int>[] _busLabelKept;
+        private readonly List<long>[] _busLabelKept;
 
         // A cut value's characters and its ellipsis, handed to a label as characters, never a string a frame.
         private char[] _cut = new char[64];
         private readonly string _ellipsis;
 
         /// <summary>
-        /// A bus row's values written over its boxes, up to the moment: whole where it fits, else as much of it as fits and an
-        /// ellipsis (<see cref="ValueFit.Kept"/>, 5.1), and nothing in a box with room for fewer than three characters.
+        /// A bus row's values written over its boxes, up to the moment: whole where it fits; else, in binary, octal or hex,
+        /// without its leading zeros, and as much of what is left as fits and an ellipsis (<see cref="ValueFit.Fit"/>, 5.1); and
+        /// nothing in a box with room for fewer than three characters.
         /// </summary>
         private void PlaceBusLabels(int row, float middle, SchematicPalette palette)
         {
             List<TextMeshProUGUI> labels = _busLabels[row];
             List<string> labelOf = _busLabelOf[row];
-            List<int> labelKept = _busLabelKept[row];
+            List<long> labelKept = _busLabelKept[row];
             SignalTrack track = _model.RowTrack(row);
+            bool zeros = _model.RowRadix(row) <= WaveRadix.Hex;   // binary, octal and hex: a leading zero says nothing of the value
             int used = 0;
 
             WorkbenchDrawing.RowSpans(_model, View, row, View.Start, Math.Min(View.End, _model.Time), _spans);
@@ -715,7 +719,7 @@ namespace BitSorter.View
 
                 string text = _model.RowText(row, span.First);
                 float x0 = WorkbenchDrawing.WaveX(span.From, View), x1 = WorkbenchDrawing.WaveX(span.To, View);
-                int kept = ValueFit.Kept(text.Length, x1 - x0, _ellipsis.Length == 1 ? 1 : 2, out bool cut);
+                int kept = ValueFit.Fit(text, zeros, x1 - x0, _ellipsis.Length == 1 ? 1 : 2, out int start, out bool cut);
                 if (kept == 0)
                     continue;
 
@@ -730,14 +734,15 @@ namespace BitSorter.View
                 int at = used++;
                 TextMeshProUGUI label = labels[at];
                 WorkbenchPanel.Show(label, true);
-                if (!ReferenceEquals(labelOf[at], text) || labelKept[at] != kept)
+                long shows = ((long)start << 32) | ((long)kept << 1) | (cut ? 1L : 0L);
+                if (!ReferenceEquals(labelOf[at], text) || labelKept[at] != shows)
                 {
                     labelOf[at] = text;
-                    labelKept[at] = kept;
-                    if (cut)
-                        WriteCut(label, text, kept);
-                    else
+                    labelKept[at] = shows;
+                    if (start == 0 && !cut)
                         label.text = text;
+                    else
+                        WritePart(label, text, start, kept, cut);
                 }
 
                 label.color = BusLabelColour(value, palette);
@@ -748,14 +753,18 @@ namespace BitSorter.View
                 WorkbenchPanel.Show(labels[i], false);
         }
 
-        /// <summary>The first <paramref name="kept"/> characters of <paramref name="text"/> and the ellipsis, handed to <paramref name="label"/> as characters.</summary>
-        private void WriteCut(TextMeshProUGUI label, string text, int kept)
+        /// <summary>
+        /// <paramref name="kept"/> characters of <paramref name="text"/> from <paramref name="start"/>, and the ellipsis where
+        /// <paramref name="cut"/>, handed to <paramref name="label"/> as characters.
+        /// </summary>
+        private void WritePart(TextMeshProUGUI label, string text, int start, int kept, bool cut)
         {
-            int length = kept + _ellipsis.Length;
+            int length = kept + (cut ? _ellipsis.Length : 0);
             if (_cut.Length < length)
                 _cut = new char[length * 2];
-            text.CopyTo(0, _cut, 0, kept);
-            _ellipsis.CopyTo(0, _cut, kept, _ellipsis.Length);
+            text.CopyTo(start, _cut, 0, kept);
+            if (cut)
+                _ellipsis.CopyTo(0, _cut, kept, _ellipsis.Length);
             label.SetCharArray(_cut, 0, length);
         }
 
@@ -843,6 +852,17 @@ namespace BitSorter.View
 
             WorkbenchPanel.TopLeft(_tip.rectTransform, new Vector2(x, -top), new Vector2(width, height));
             WorkbenchPanel.Show(_tip, true);
+            InFront(_tip.transform);
+        }
+
+        /// <summary>
+        /// Puts <paramref name="part"/> in front of everything else the waveform draws: the labels over the boxes and the
+        /// glitches' words are made as the waves are written, after it, and were drawn over the tip.
+        /// </summary>
+        private void InFront(Transform part)
+        {
+            if (part.GetSiblingIndex() != Rect.childCount - 1)
+                part.SetAsLastSibling();
         }
 
         /// <summary>Takes the tip down.</summary>

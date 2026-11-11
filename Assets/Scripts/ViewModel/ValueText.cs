@@ -215,9 +215,13 @@ namespace BitSorter.ViewModel
     /// <remarks>
     /// Measured as the waves have measured a box's label since Part 9b: 22 units and 7 a character after the first, the
     /// Micro type's digits with room either side. A box had its value only where the whole of it fitted, so a 32-bit value in
-    /// hex wanted 85 units and in binary 239, and a box narrower was blank. **Cut, a value is read from its first character**,
-    /// as a viewer writes one, with an ellipsis after it -- and only where three characters fit, two and the ellipsis, since
-    /// fewer say nothing a reader could use.
+    /// hex wanted 85 units and in binary 239, and a box narrower was blank.
+    ///
+    /// **A box too narrow for the whole value first leaves out its leading zeros** (<see cref="Fit"/>), in binary, octal and
+    /// hex: a 32-bit address cut from its first character read <c>000...</c> in every box, which says nothing, where
+    /// <c>6C</c> is the value. The whole of it is in the tip and the values column. **Still too long, it is read from its
+    /// first character**, as a viewer writes one, with an ellipsis after it -- and only where three characters fit, two and
+    /// the ellipsis, since fewer say nothing a reader could use.
     /// </remarks>
     public static class ValueFit
     {
@@ -226,6 +230,37 @@ namespace BitSorter.ViewModel
 
         /// <summary>The fewest characters a cut label shows, the ellipsis among them.</summary>
         public const int FewestShown = 3;
+
+        /// <summary>
+        /// How much of a value's <paramref name="text"/> a box <paramref name="room"/> units wide shows, from
+        /// <paramref name="start"/>: the whole of it where it fits; else, where <paramref name="leadingZeros"/> may be left out,
+        /// the value from its first digit that is not one -- whole, or cut with an ellipsis (<paramref name="cut"/>); else cut
+        /// from its first character. 0 for none. The zeros are left out only where the whole does not fit, so a box with room
+        /// writes a value as every other place does.
+        /// </summary>
+        public static int Fit(string text, bool leadingZeros, float room, int ellipsis, out int start, out bool cut)
+        {
+            start = 0;
+            int length = text?.Length ?? 0;
+            int kept = Kept(length, room, ellipsis, out cut);
+            if (kept == length || !leadingZeros)
+                return kept;
+
+            int zeros = LeadingZeros(text);
+            if (zeros == 0)
+                return kept;
+            start = zeros;
+            return Kept(length - zeros, room, ellipsis, out cut);
+        }
+
+        /// <summary>How many zeros <paramref name="text"/> starts with, leaving at least its last character: <c>0000006C</c> 6, <c>0000</c> 3.</summary>
+        public static int LeadingZeros(string text)
+        {
+            int zeros = 0;
+            while (text != null && zeros < text.Length - 1 && text[zeros] == '0')
+                zeros++;
+            return zeros;
+        }
 
         /// <summary>
         /// How many characters of a value <paramref name="length"/> long a box <paramref name="room"/> units wide shows: all of

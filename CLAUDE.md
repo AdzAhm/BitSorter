@@ -951,8 +951,9 @@ stretch that way.
   circuit adds a port's row at the end and takes one away, and no longer puts every
   port's row back in the layout's order (Part 10e), which would have undone the drag.
   **A bus's value reads without zooming in** (5.1, Ahmad chose both, 2026-11-11, and then
-  asked for the values column to expand): a box too narrow for its whole value shows as
-  much as fits and an ellipsis where three characters fit (`ValueFit.Kept`; it was blank);
+  asked for the values column to expand): a box too narrow for its whole value leaves out
+  its leading zeros first, then shows as much as fits and an ellipsis where three characters
+  fit (`ValueFit.Fit`; it was blank, and cut from its first character an address read 000...);
   the pointer on a box puts up a tip with the row's name and width, the whole value and its
   time; and VALUES + at the head of the values column, or W, widens it to the widest value
   any row can hold in its radix (`ValueText.MaxChars`, so it never moves while the run

@@ -41,6 +41,37 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsFalse(cut);
         }
 
+        /// <summary>
+        /// A box too narrow for a value leaves out its leading zeros first, in binary, octal and hex: a 32-bit address read
+        /// "000..." in every box, which says nothing. Still too long, it is cut from its first digit that is not a zero; and a
+        /// box with room writes the value whole, zeros and all, as every other place does.
+        /// </summary>
+        [Test]
+        public void ABoxTooNarrow_LeavesOutTheLeadingZerosFirst_ThenCutsFromTheFirstDigitLeft()
+        {
+            Assert.AreEqual(8, ValueFit.Fit("0000006C", true, ValueFit.Room(8) + 0.1f, 1, out int start, out bool cut), "room: whole");
+            Assert.AreEqual(0, start);
+            Assert.IsFalse(cut);
+
+            Assert.AreEqual(2, ValueFit.Fit("0000006C", true, ValueFit.Room(3) + 0.1f, 1, out start, out cut), "6C, whole, in room for three");
+            Assert.AreEqual(6, start, "from the 6");
+            Assert.IsFalse(cut);
+
+            Assert.AreEqual(3, ValueFit.Fit("00FE6A1C", true, 50f, 1, out start, out cut), "four fit: FE6 and the ellipsis");
+            Assert.AreEqual(2, start);
+            Assert.IsTrue(cut);
+
+            Assert.AreEqual(3, ValueFit.Fit("0000006C", false, 50f, 1, out start, out cut), "a decimal keeps its characters: cut from the first");
+            Assert.AreEqual(0, start);
+            Assert.IsTrue(cut);
+
+            Assert.AreEqual(1, ValueFit.Fit("00000000", true, ValueFit.Room(3) + 0.1f, 1, out start, out cut), "zero is 0");
+            Assert.AreEqual(7, start);
+            Assert.AreEqual(0, ValueFit.LeadingZeros("XXXX"));
+            Assert.AreEqual(3, ValueFit.LeadingZeros("0000"));
+            Assert.AreEqual(0, ValueFit.LeadingZeros(""));
+        }
+
         [Test]
         public void TheTip_SaysTheName_TheWidth_TheWholeValue_AndItsStretchOfTime()
         {

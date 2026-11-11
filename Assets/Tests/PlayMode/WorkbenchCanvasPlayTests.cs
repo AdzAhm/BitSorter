@@ -4775,8 +4775,10 @@ namespace BitSorter.PlayMode.Tests
             int clk = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "clk");
             Assert.GreaterOrEqual(pc, 0, "sanity: the processor opens on pc");
 
-            // Cut to its box: two characters and an ellipsis at the least, each the start of a value.
+            // Cut to its box: its leading zeros left out first, then two characters and an ellipsis at the least.
             string[] labels = workbench.BusLabelsOf(pc).ToArray();
+            Assert.IsTrue(labels.Any(l => l.Length < 8 && !l.EndsWith("\u2026") && !l.EndsWith("...")),
+                "an address whole without its leading zeros where it fits: " + string.Join(" | ", labels.Take(8)));
             string[] cut = labels.Where(l => l.EndsWith("\u2026") || l.EndsWith("...")).ToArray();
             Assert.IsNotEmpty(cut, "boxes too narrow for a 32-bit value show part of it: " + string.Join(" | ", labels.Take(8)));
             foreach (string label in cut)
@@ -4784,6 +4786,7 @@ namespace BitSorter.PlayMode.Tests
                 string kept = label.TrimEnd('.', '\u2026');
                 Assert.GreaterOrEqual(kept.Length, 1, "at least a character of the value");
                 StringAssert.IsMatch("^[0-9A-FXZ]+$", kept, "the value's first characters, in hex");
+                Assert.IsFalse(kept.Length > 1 && kept[0] == '0', "its leading zeros left out before it is cut: " + label);
             }
 
             // A tip with the whole value where the pointer is, on a box.
