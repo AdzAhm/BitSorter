@@ -3189,6 +3189,54 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// Code is written in its colours (5.1, Ahmad: "all the text is white"), in the editor and in the CODE tab's listing:
+        /// a keyword in the keyword's ink, a comment in the comment's, a name in the text's -- in the mesh drawn, not only in
+        /// what the view says, and with every letter where it was, rich text left off.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Code_IsWrittenInItsColours_InTheEditorAndTheCodeTab()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("coloured");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string code = "// a half adder, coloured\nmodule " + module + " (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(code, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+
+            SchematicPalette palette = SchematicPalette.Current;
+            TMP_Text text = workbench.CodeView.Field.textComponent;
+            Assert.IsFalse(text.richText, "rich text off: every caret and column the text's own");
+            StringAssert.StartsWith(code, text.text, "sanity: the editor shows the code (the field adds a zero-width space after it)");
+            void Holds(TMP_Text shown, CodeInkView ink, string word, BitSorter.ViewModel.CodeKind kind, string where)
+            {
+                int index = shown.text.IndexOf(word, System.StringComparison.Ordinal);
+                Color32 expected = palette.CodeInk(kind);
+                Assert.AreEqual(expected, ink.InkAt(index), $"{where}: '{word}' is {kind}");
+                TMP_CharacterInfo letter = System.Array.Find(shown.textInfo.characterInfo, l => l.index == index && l.isVisible);
+                Color32 drawn = shown.textInfo.meshInfo[letter.materialReferenceIndex].colors32[letter.vertexIndex];
+                Assert.AreEqual((expected.r, expected.g, expected.b), (drawn.r, drawn.g, drawn.b), $"{where}: and drawn so");
+            }
+            Holds(text, workbench.CodeView.Ink, "module", BitSorter.ViewModel.CodeKind.Keyword, "the editor");
+            Holds(text, workbench.CodeView.Ink, "// a half", BitSorter.ViewModel.CodeKind.Comment, "the editor");
+            Holds(text, workbench.CodeView.Ink, "g1", BitSorter.ViewModel.CodeKind.Plain, "the editor");
+            Holds(text, workbench.CodeView.Ink, "#1", BitSorter.ViewModel.CodeKind.Plain, "the editor");
+
+            workbench.ShowCode();
+            yield return null;
+            yield return null;
+            TMP_Text listing = workbench.ListingView.Field.textComponent;
+            Holds(listing, workbench.ListingView.Ink, "module", BitSorter.ViewModel.CodeKind.Keyword, "the CODE tab");
+            Holds(listing, workbench.ListingView.Ink, "endmodule", BitSorter.ViewModel.CodeKind.Keyword, "the CODE tab");
+        }
+
+        /// <summary>
         /// A project imported that is gates only comes in drawn (Ahmad's, 2026-11-11: a half adder exported and imported again,
         /// with no way to edit its code): CODE is at its top right, its code shown and, the import locked, what is typed refused
         /// saying how to unlock it; unlocked, it applies and the circuit is written.

@@ -281,8 +281,8 @@ namespace BitSorter.EditMode.Tests
 
         /// <summary>
         /// Text selected in a code field is seen (Part 16d's sweep): its fill opaque, 1.5:1 apart from the ground, the code on
-        /// it at 4.5:1, and every colour CodeMirror writes code in -- a keyword's accent, a number's 1, a comment's grey, a
-        /// directive's cursor colour -- at 3:1, as it is the least that is seen.
+        /// it at 4.5:1, and every colour code is written in, in either build's editor (<see cref="SchematicPalette.CodeInk"/>,
+        /// 5.1) -- a keyword's, a number's, a comment's, a system name's -- at 3:1, as it is the least that is seen.
         /// </summary>
         [Test]
         public void OnTheCanvas_SelectedCode_IsSeen_AndWhatIsWrittenOnItReads()
@@ -296,8 +296,25 @@ namespace BitSorter.EditMode.Tests
                     $"{look.Name}: the selection against the ground");
                 Assert.GreaterOrEqual(SchematicPalette.Contrast(c.Text, fill), 4.5f, $"{look.Name}: code on the selection");
 
-                foreach ((string what, Color colour) in new[] { ("a keyword", c.Accent), ("a number", c.One), ("a comment", c.Muted), ("a directive", c.Cursor) })
-                    Assert.GreaterOrEqual(SchematicPalette.Contrast(colour, fill), 3f, $"{look.Name}: {what} on the selection");
+                foreach (BitSorter.ViewModel.CodeKind kind in System.Enum.GetValues(typeof(BitSorter.ViewModel.CodeKind)))
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(c.CodeInk(kind), fill), 3f, $"{look.Name}: {kind} code on the selection");
+            }
+        }
+
+        /// <summary>
+        /// Code is written in colours that read (5.1): every kind of it -- a keyword, a number, a string, a comment, a system name,
+        /// an operator, the rest -- at a word's 4.5:1 on the ground, in every look, in the desktop's editor and the browser's alike.
+        /// A 1's colour is held to a wire's 3:1 and no more, so a number is stepped toward the text where it must be.
+        /// </summary>
+        [Test]
+        public void OnTheCanvas_EveryKindOfCode_ReadsOnTheGround()
+        {
+            foreach (Look look in Look.All)
+            {
+                SchematicPalette c = look.Canvas;
+                foreach (BitSorter.ViewModel.CodeKind kind in System.Enum.GetValues(typeof(BitSorter.ViewModel.CodeKind)))
+                    Assert.GreaterOrEqual(SchematicPalette.Contrast(c.CodeInk(kind), c.Ground), SchematicPalette.WordContrast,
+                        $"{look.Name}: {kind} code on the ground");
             }
         }
 

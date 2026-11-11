@@ -72,6 +72,10 @@ namespace BitSorter.View
 
         private RectTransform _root, _body, _gutterView, _gutterText, _problems;
         private TMP_InputField _field;
+        private CodeInkView _ink;
+
+        /// <summary>What colours its code (5.1).</summary>
+        public CodeInkView Ink => _ink;
         private TextMeshProUGUI _gutter, _status;
         private Button _revert;
         private readonly List<TextMeshProUGUI> _problemLabels = new List<TextMeshProUGUI>();
@@ -211,6 +215,7 @@ namespace BitSorter.View
                 text.font = CodeFont.Asset;
                 _gutter.font = CodeFont.Asset;
             }
+            _ink = CodeInkView.On(text, palette);   // SystemVerilog in its colours, as the browser's editor writes it (5.1)
 
             _field = box.gameObject.AddComponent<TMP_InputField>();
             _field.textViewport = area;
@@ -428,7 +433,11 @@ namespace BitSorter.View
             bool dark = palette.Ground.r * 0.2126f + palette.Ground.g * 0.7152f + palette.Ground.b * 0.0722f < 0.5f;
             return "{\"ground\":\"" + Css(palette.Ground) + "\",\"text\":\"" + Css(palette.Text) + "\",\"muted\":\"" + Css(palette.Muted)
                 + "\",\"accent\":\"" + Css(palette.Accent) + "\",\"one\":\"" + Css(palette.One) + "\",\"selection\":\"" + Css(selection)
-                + "\",\"error\":\"" + Css(palette.Unknown) + "\",\"warning\":\"" + Css(palette.Cursor) + "\",\"dark\":" + (dark ? "true" : "false") + "}";
+                + "\",\"error\":\"" + Css(palette.Unknown) + "\",\"warning\":\"" + Css(palette.Cursor)
+                // The code's own inks (5.1), the desktop's: each legible on the ground, as every word is.
+                + "\",\"keyword\":\"" + Css(palette.CodeInk(CodeKind.Keyword)) + "\",\"number\":\"" + Css(palette.CodeInk(CodeKind.Number))
+                + "\",\"comment\":\"" + Css(palette.CodeInk(CodeKind.Comment)) + "\",\"system\":\"" + Css(palette.CodeInk(CodeKind.System))
+                + "\",\"dark\":" + (dark ? "true" : "false") + "}";
         }
 
         /// <summary>The marks as CodeMirror's: JSON, lines and columns from 1.</summary>
