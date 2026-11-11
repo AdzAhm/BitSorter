@@ -173,6 +173,10 @@ new circuit shows a starter module, so NEW CIRCUIT, then CODE, is a circuit writ
 scratch. Code that does not read is kept as a draft, marked, and the circuit stays drawn
 until it does.
 
+Code is coloured as SystemVerilog, in the editor and the CODE tab alike, on the desktop and
+in a browser: keywords, numbers and strings, comments, and system tasks and operators each
+in a colour of the look in use, every one readable against the background.
+
 ### The drawing of code
 
 A written module is shown as the drawing of its code, or as its code. It opens as its

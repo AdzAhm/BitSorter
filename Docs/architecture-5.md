@@ -5353,6 +5353,21 @@ DRAW IT on the controls' row.
 - **Its place**: the switch at the top right over every circuit, FIT, the padlock and TIDY stepping left of it as they
   did over code. The keyboard map lists it among the circuit's gestures.
 
+**As built in 5.1: SystemVerilog in its colours on the desktop** (Ahmad, 2026-11-11: "all the text is white"). The
+browser's editor had coloured code since Part 12f, by CodeMirror's Verilog mode; the desktop's -- a TextMesh Pro field --
+and the CODE tab's listing on both builds wrote it all in the text's colour.
+- **What each character is** (`CodeColouring`, the view-model's, one pass): the browser mode's reading token for token --
+  comments to the line's end or to `*/`, strings with their escapes, `$` names and operators the mode's "meta", back-tick
+  names and delays plain, sized and based literals one number -- with the simulator's own keyword table (`Keywords`), and
+  code half typed never thrown off.
+- **Its colours** (`SchematicPalette.CodeInk`): the browser's mapping, each made `Legible` on the ground at 4.5:1, since a
+  1's colour is held to a wire's 3:1 and the code's colours had been held only to 3:1 on the selection; the browser now
+  takes these inks too (`theme.js`'s `codeWords`), so the two builds agree to the colour.
+- **On the desktop the vertices are coloured** (`CodeInkView`, on the editor's text and the listing's): in TextMesh Pro's
+  `OnPreRenderText`, before the mesh is handed over, with rich text left off -- marked-up text would have moved every
+  caret and column the input field counts. A still text is read once; bold and italic would need markup, so a comment
+  is grey on the desktop where the browser's is italic too.
+
 ---
 
 ## 11. The parts

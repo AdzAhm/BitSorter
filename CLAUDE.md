@@ -542,7 +542,13 @@ stretch that way.
   named for sources and sinks would make two looks share colours by accident.
   Schematic's is the reference's, as Ahmad chose it; Schematic Light is the same
   on paper, for a report's screenshots; Neon Board's and Classic's are made from
-  their own boards' colours. **The workbench's own buttons, chips and slider take
+  their own boards' colours. **Code is written in the palette's code inks** (`SchematicPalette.CodeInk`, 5.1; Ahmad: "all the text is white"):
+  a keyword in the accent, a number or a string in a 1's colour, a comment in the muted grey, a system name or an
+  operator in the cursor's -- as the browser's CodeMirror coloured code since Part 12f -- each `Legible` on the ground at
+  4.5:1, and the browser given the same inks. The desktop's editor and the CODE tab colour their TextMesh Pro vertices
+  as the text is drawn (`CodeInkView`, `CodeColouring` reading each character as CodeMirror's Verilog mode does, with
+  the simulator's own keywords), never marked-up text, so every caret and column stays the text's own.
+  **The workbench's own buttons, chips and slider take
   the canvas's colours too**: Neon Board's bordered panels darken a body whatever
   colour it is given, and on paper every button came out a dark slab. Faint
   colours go through `SchematicPalette.Over`, because the project blends in linear
