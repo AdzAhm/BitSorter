@@ -18,7 +18,9 @@ just because it is written down here.
 **5.0.0 is released** (tag `v5.0.0`): on GitHub Pages, and on Windows as a zip on its
 GitHub release. It was built on a branch of its own, `v5`, a PR a part, and `main`
 was fast-forwarded to it at the release, when `v5` and every merged branch were
-deleted; work since is a PR on `main`. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
+deleted. **What comes after 5.0.0 is built on `v5.1`** (Ahmad, 2026-11-11), made from `main`:
+fixes and additions each a PR into it, and `main` fast-forwarded to it when 5.1.0 is
+released. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
 thirty levels kept as side *Exercises* (the brief's decisions, 2026-10-11).
 **`Docs/architecture-5.md` is the architecture, the data model and the parts --
 read it before any 5.0 work.** 5.0 was built beside the 4.x game, which Part 15
