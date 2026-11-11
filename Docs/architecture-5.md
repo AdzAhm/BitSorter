@@ -5411,6 +5411,24 @@ the primes at four bits and to a sieve widened to six through its testbench -- w
 bits stop (the note above) -- and the oracle corpus runs the same module at six bits (`behavioural/prime.sv`), held
 word for word to the sample.
 
+**As built in 5.1: QUIT** (Ahmad, 2026-11-11: "I couldn't exit the simulator unless I exited full screen"; then, of the
+grey button, "make it red"). A desktop build had no way out in fullscreen but Alt+F4. QUIT stands at the status line's
+right end (`ShellLayout.QuitIn`, the text kept clear of it on both sides by `StatusTextIn`, so it stays in the middle), in
+a desktop build and the editor alone (`WorkbenchPanel.Quits`): a browser's tab is the browser's to close.
+- **Over every page.** The start page and the other pages cover the status line, and BitSorter so often opens on the
+  start page, so QUIT brings itself in front each frame they have come over it -- never in front of a popup, which would
+  cover its own question.
+- **It asks first, above itself** (`AskMenu.AskAbove`, `WaveMenu.ShowAbove`): a question put up at the button's corner
+  would have opened under the pointer, where a double-click's second press answers it.
+- **Red, as RESET PROGRESS is**: the button and its answer outlined and captioned in the colour every error is written in,
+  the caption `Legible` at 4.5:1 -- which every look's x already reads at (4.67 to 6.11), so the reset's button is pixel
+  for pixel as it was, its style moved into `ShellTheme.Destructive` for both to share.
+- **The answer keeps before it quits** what `OnApplicationQuit` keeps -- the circuit at its last edit, and code typed and
+  not applied as its draft -- so they are kept whatever quits (`WorkbenchPanel.Quitter`, which `SaveGuard` makes quit
+  nothing for every test). `WorkbenchQuitPlayTests` holds its place, both reds, the question above it, CANCEL, Escape and
+  a double-click quitting nothing, the answer quitting, QUIT over the start page, and the keeping, in the frame of an
+  edit so that only the answer can have written it; reference shot 78 is the question up.
+
 ---
 
 ## 11. The parts

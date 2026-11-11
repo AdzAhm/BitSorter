@@ -66,7 +66,9 @@ of parts notices; the browser says so, once, if it is ever slow to draw yours ag
 installed and nothing is written outside your own user folder. Windows will probably
 warn that it does not recognise the publisher: the build is unsigned, which is all
 that warning means. "More info", then "Run anyway". There is no build for macOS or
-Linux; use the browser version.
+Linux; use the browser version. **QUIT**, at the window's bottom right, closes it, even
+in fullscreen; it asks first, and everything is saved, code you typed and did not apply
+included, as a draft.
 
 The version you are running is at the foot of the start page, and in the credits. It is
 worth including if you report a bug.

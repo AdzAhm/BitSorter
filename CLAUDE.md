@@ -303,7 +303,8 @@ stretch that way.
   scene loads (see "Never move the player's save" below), and has every import's
   Windows Open dialog cancelled unless the test answers it (`FileImport.Chooser`,
   `SaveGuard.AnswerTheNextChoice`; 5.1) -- the dialog is modal and waits for a person,
-  so one opened by a test would hold the run up for ever -- and every fixture then
+  so one opened by a test would hold the run up for ever -- and QUIT's answer quitting
+  nothing (`WorkbenchPanel.Quitter`; 5.1) -- and every fixture then
   turns analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad, and an
   exercise opened or solved would otherwise post real events from a test run,
   into the one measurement the game collects.
@@ -493,7 +494,12 @@ stretch that way.
   `StateDiagramView`, and the next-state table beside them; with nothing to show,
   LOGIC and STATES say why across their body, never only in the header's dim line --
   a 64-bit ALU's empty tabs looked broken, Part 15h), and a one-line status that
-  names the gestures where the pointer is. **The drawings stay uGUI** -- the
+  names the gestures where the pointer is. **QUIT stands at the status line's right end**
+  (5.1, Ahmad: "I couldn't exit the simulator unless I exited full screen"; `WorkbenchPanel.Quit.cs`),
+  in a desktop build and the editor alone, red as RESET PROGRESS is (`ShellTheme.Destructive`),
+  and over the start page and every other page too, which cover the status line: it asks
+  first, above itself so a double-click cannot answer, and its answer keeps the circuit and
+  the code typed and not applied before it quits. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size, **the waves on whole screen pixels** at any
   dock height, their window, scroll and every line's level (Part 15h-4d: off a
@@ -600,7 +606,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-three states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-four states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -613,7 +619,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1) -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1) -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -680,8 +686,8 @@ stretch that way.
   the run by `RunComparison` -- the first moment and signal they differ at, at the
   TRANSCRIPT's head and the run taken there, a difference from t = 0 that ends said apart, and only as far as the
   dump goes), the question asked before a
-  testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
-  and 15a), the add list and the two fields -- RENAME and
+  testbench is converted or a circuit or a module is deleted, or BitSorter quit (`AskMenu`, Parts 13d, 14g,
+  15a and 5.1), the add list and the two fields -- RENAME and
   BREAK ON VALUE -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
   and with nothing holding it Escape takes down the EXERCISES page, then the start
   page, or puts a part in hand down, and never closes the workbench: BitSorter opens
