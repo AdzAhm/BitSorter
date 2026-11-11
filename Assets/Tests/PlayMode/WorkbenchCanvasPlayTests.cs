@@ -4775,12 +4775,16 @@ namespace BitSorter.PlayMode.Tests
             int clk = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "clk");
             Assert.GreaterOrEqual(pc, 0, "sanity: the processor opens on pc");
 
-            // Cut to its box: its leading zeros left out first, then two characters and an ellipsis at the least.
+            // A box too narrow for the whole value leaves out its leading zeros: pc's addresses whole without them.
             string[] labels = workbench.BusLabelsOf(pc).ToArray();
             Assert.IsTrue(labels.Any(l => l.Length < 8 && !l.EndsWith("\u2026") && !l.EndsWith("...")),
                 "an address whole without its leading zeros where it fits: " + string.Join(" | ", labels.Take(8)));
+
+            // Still too long, cut: an instruction's first characters and an ellipsis, two characters at the least.
+            int instr = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "instr");
+            labels = workbench.BusLabelsOf(instr).ToArray();
             string[] cut = labels.Where(l => l.EndsWith("\u2026") || l.EndsWith("...")).ToArray();
-            Assert.IsNotEmpty(cut, "boxes too narrow for a 32-bit value show part of it: " + string.Join(" | ", labels.Take(8)));
+            Assert.IsNotEmpty(cut, "boxes too narrow for an instruction show part of it: " + string.Join(" | ", labels.Take(8)));
             foreach (string label in cut)
             {
                 string kept = label.TrimEnd('.', '\u2026');
