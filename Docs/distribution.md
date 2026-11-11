@@ -110,13 +110,16 @@ generating the 4.x game's music sample by sample stalled the first frame
 BitSorter has had no sound since Part 16b, and the player ships with audio
 disabled.
 
-### Quit — gone
+### Quit — the desktop's alone
 
 `Application.Quit()` does nothing in a browser; a tab is closed by the browser,
 not by the page. The 4.x game's main menu had a Quit item, compiled out of WebGL
-builds; it went with that menu in Part 16a, and 5.0 has no Quit item and no
-`Application.Quit` call anywhere. The Windows build is closed by its window's own
-close button -- Escape closes what is on top and never the workbench.
+builds; it went with that menu in Part 16a, and 5.0 had no Quit item at all, so
+a fullscreen Windows window could be left only with Alt+F4. 5.1 put **QUIT** at
+the status line's right end (`WorkbenchPanel.Quit.cs`), in a desktop build and
+the editor alone (`WorkbenchPanel.Quits`): it asks first, keeps the circuit and
+the code typed and not applied, then calls `Application.Quit`. A browser build
+has no QUIT, and Escape still closes what is on top and never the workbench.
 
 The circuit open is kept half a second after its last edit, and at once as
 BitSorter loses the focus (`WorkbenchPanel.OnApplicationFocus`). The Windows
