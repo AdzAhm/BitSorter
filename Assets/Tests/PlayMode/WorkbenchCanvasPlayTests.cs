@@ -2308,8 +2308,11 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
             yield return EveryWorkbenchKeyDoesNothing(workbench, "the code");
 
-            // And in a field of the shell's, RUN TO.
+            // And in a field of the shell's, RUN TO -- its own keyboard, asked of the shell: UiText.Typing is the code's as well,
+            // which the Enter above left selected (it reached the code as the event system's submit, there being no platform
+            // key for TextMesh Pro to take), so a click that never reached RUN TO passed every check until Escape (2026-11-11).
             yield return ClickAtScreen(ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField)));
+            Assert.IsTrue(ShellPanel.Typing, "sanity: the click gave RUN TO the keyboard");
             yield return EveryWorkbenchKeyDoesNothing(workbench, "RUN TO");
             Press(_keyboard.escapeKey);
             ShellPanel.SendKey(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField), KeyCode.Escape);
@@ -2333,6 +2336,26 @@ namespace BitSorter.PlayMode.Tests
             Release(_keyboard.leftCtrlKey);
             yield return null;
             Assert.AreEqual(2, Top(workbench).Parts.OfType<BlockPart>().Count(), "Ctrl+V on the circuit pastes the block copied");
+        }
+
+        /// <summary>
+        /// A click is taken with the editor behind another window, as the game's player takes one (Run In Background). On
+        /// 2026-11-11 a full run went red in the test above, "Escape let RUN TO go", and passed alone: the editor lost the focus
+        /// part-way through it, Unity told the event system so (<c>OnApplicationFocus</c>), and the Input System's UI module,
+        /// whose test runtime did not run in the background, dropped every click after it -- the one into RUN TO among them.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AClickOnTheShell_IsTaken_WithTheEditorBehindAnotherWindow()
+        {
+            yield return TestScene.Load();
+
+            // What Unity tells the event system as a window comes in front of the editor, mid-run.
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            events.SendMessage("OnApplicationFocus", false);
+            Assert.IsFalse(events.isFocused, "sanity: the event system has heard that the editor is behind another window");
+
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField)));
+            Assert.IsTrue(ShellPanel.Typing, "the click gave RUN TO the keyboard");
         }
 
         /// <summary>
