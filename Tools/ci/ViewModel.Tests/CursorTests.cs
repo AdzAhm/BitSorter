@@ -186,16 +186,20 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("", Run(pointer, On(WaveRegion.None, 4), 5));
         }
 
+        /// <summary>
+        /// A double-click on a row's wave is two clicks, never an edit of the row's input: the waves only read the run, and
+        /// INPUTS sets the inputs (5.1; a double-click there once flipped the input, or asked its value).
+        /// </summary>
         [Test]
-        public void ADoubleClickOnARowsWave_AsksToEditItsInput_AndScrubsNothing()
+        public void ADoubleClickOnARowsWave_IsTwoClicks_AndAsksNoEdit()
         {
             var pointer = new WavePointer();
             Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2)), "the first click places the cursor, as any does");
-            Assert.AreEqual("EditInput 2", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6), "the second asks to edit row 2, and its drag scrubs nothing");
-            Assert.IsFalse(pointer.Dragging);
+            Assert.AreEqual("PlaceSecond 4, MoveSecond 5, MoveSecond 6", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6),
+                "the second places it again, and its drag moves it, as a single click's does");
 
-            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows there is no input to edit");
-            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "nor on the axis");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows, the same");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "and on the axis");
             Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2, shift: true, clicks: 2), 5).Split(',')[0], "Shift seeks however quick");
         }
 

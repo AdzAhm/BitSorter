@@ -642,7 +642,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(6, Top(workbench).Wires.Count);
             Assert.IsEmpty(workbench.Session.Editor.Diagnostics.Where(d => d.IsError), "a half adder with no errors");
 
-            // Flipped on the waveform: a, then b, each a double-click on its row.
+            // Flipped: a, then b, each over the whole run -- as INPUTS sets them since 5.1, when a double-click on an input's
+            // wave stopped changing it.
             string nameA = Top(workbench).FindPart(a).Name, nameB = Top(workbench).FindPart(b).Name;
             string nameS = Top(workbench).FindPart(sum).Name, nameC = Top(workbench).FindPart(carry).Name;
             workbench.Session.Finish();
@@ -651,13 +652,13 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.AreEqual(("0", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "0 + 0");
 
-            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameA)));
+            Assert.IsTrue(workbench.Session.InvertInput(nameA, 30).Done, "a could not be flipped");
             workbench.Session.Finish();
             yield return null;
             Assert.AreEqual("1", ValueOf(workbench, nameA, 50), "a flipped");
             Assert.AreEqual(("1", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 0");
 
-            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameB)));
+            Assert.IsTrue(workbench.Session.InvertInput(nameB, 30).Done, "b could not be flipped");
             workbench.Session.Finish();
             yield return null;
             Assert.AreEqual(("0", "1"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 1: sum 0, carry 1");
@@ -3631,35 +3632,6 @@ namespace BitSorter.PlayMode.Tests
             yield return Click(WorkbenchPanel.FileButton);
             Assert.IsFalse(workbench.FileMenu.Offers(FileAction.ConvertTestbench), "and CONVERT is not offered without a testbench");
             workbench.FileMenu.Close();
-        }
-
-        /// <summary>
-        /// A double-click on the wave of a written design's input, which its testbench drives, says the testbench drives it and
-        /// how to change it -- never that it is no input of the design, which a 64-bit ALU imported with its testbench was told
-        /// (Ahmad, 2026-10-28): a written top's inputs are its header's, and none is drawn.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator AWrittenDesignsInput_DrivenByItsTestbench_IsSaidToBe()
-        {
-            PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
-                "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
-            yield return TestScene.Load();
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            yield return null;
-            workbench.ImportFromFolder();
-            yield return null;
-            workbench.Pause();
-            workbench.Session.Finish();
-            Assert.IsTrue(workbench.Session.Project.TopModule.IsWritten, "sanity: the design is written code");
-
-            int row = workbench.List.Lines.ToList().FindIndex(line => workbench.List.LabelOf(line) == "a");
-            Assert.GreaterOrEqual(row, 0, "sanity: a has a row");
-            workbench.EditInputAt(row, 5, new Vector2(Screen.width * 0.5f, Screen.height * 0.3f));
-            yield return null;
-
-            StringAssert.DoesNotContain("not an input", workbench.ChipText);
-            StringAssert.Contains("testbench", workbench.ChipText, "the testbench drives it");
-            StringAssert.Contains("CONVERT", workbench.ChipText, "and how to change it");
         }
 
         /// <summary>

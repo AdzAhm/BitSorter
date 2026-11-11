@@ -53,13 +53,6 @@ namespace BitSorter.ViewModel
 
         /// <summary>Open the menu for the moment <see cref="WaveCommand.Time"/>: a breakpoint there, set or taken away.</summary>
         TimeMenu,
-
-        /// <summary>
-        /// Change the input <see cref="WaveCommand.Row"/> shows, where the pointer is: a bit flipped, or a
-        /// value asked for (Part 9b-3). The view works out the moment itself, unsnapped, since an edge
-        /// snapped to could be the far side of the stretch meant.
-        /// </summary>
-        EditInput,
     }
 
     /// <summary>One thing a gesture asks for.</summary>
@@ -161,12 +154,9 @@ namespace BitSorter.ViewModel
 
                     if (press.Button != 0)
                         return;
-                    if (press.Clicks >= 2 && !press.Shift && press.Row >= 0 && press.Region == WaveRegion.Waves)
-                    {
-                        into.Add(new WaveCommand(WaveGesture.EditInput, press.Time, press.Row));
-                        return;
-                    }
 
+                    // A double-click is two clicks: since 5.1 the waves never change an input, which INPUTS sets (Ahmad,
+                    // 2026-11-11: a double-click on an input's wave once flipped it, or asked its value).
                     if (press.Shift || press.FromPlayhead.HasValue && press.FromPlayhead.Value <= GrabPixels)
                     {
                         into.Add(new WaveCommand(WaveGesture.Seek, press.Time));

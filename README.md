@@ -128,7 +128,7 @@ A click on the waves puts a cursor there and a drag moves it through the run; th
 beside the rows are the ones at the cursor. `Shift` and a click moves the playhead, the
 moment the circuit shows. The time between the two is written under the rows. The wheel
 zooms, and a range bar at the legend row's right end shows how much of the run is on
-screen. Double-click an input's wave to set it.
+screen. The waves only show the run: an input is set in INPUTS.
 
 **INPUTS,** beside WAVES, gives the inputs as a table you type in: a column per input,
 a bus one column in binary, hex or decimal, and a row per moment something changes.

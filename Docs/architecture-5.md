@@ -5304,6 +5304,13 @@ exercises, each fixed with a test that failed first.
   FA, settling in 9 ns. Your best: 0 gates, settling in 9 ns." Where every part given is a block, the best says only how fast
   it settled.
 
+**As built in 5.1: the waves never change an input** (Ahmad, 2026-11-11: "I don't want clicking on the wave form of an
+input changing the input"). A double-click on an input's wave flipped a one-bit input over the stretch it was in, and asked
+a bus or an x its value in SET (Part 9b-3, `WaveGesture.EditInput`). It went, and SET with it: the waves only read the run,
+a double-click on them is two clicks that place the cursor, and an input is set in INPUTS (Part 15g), which does all the
+gesture did and more. `BoardEditor.InvertInput` and `WorkbenchSession.InvertInput`, the document's commands, stay, with
+their tests. The legend line, the keyboard map and the README no longer name the gesture.
+
 ---
 
 ## 11. The parts

@@ -78,7 +78,6 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("SHIFT-CLICK", "the playhead there, hiding the waves after it; drag it to scrub"),
             new KeyMapEntry("WHEEL", "zoom time about the pointer; SHIFT and the wheel moves through it"),
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
-            new KeyMapEntry("DOUBLE-CLICK", "an input's wave to set its value"),
             new KeyMapEntry("CLICK A NAME", "select its row; SHIFT or CTRL for more"),
         };
 

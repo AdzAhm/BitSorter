@@ -161,7 +161,7 @@ namespace BitSorter.View
         private static readonly Vector2 WavesAt = new Vector2(5f, 4f);
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
-        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way. Double-click an input to change it.";
+        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
 
         private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
@@ -254,12 +254,6 @@ namespace BitSorter.View
         private WaveSignalPicker _picker;
         private WaveRenameField _rename, _breakField;
 
-        /// <summary>The input SET is asking a value for, how wide it is, and the stretch the value is for (Part 9b-3).</summary>
-        private string _setPort;
-        private int _setWidth;
-        private long _setFrom, _setUntil;
-        private WaveRenameField _setField;
-
         /// <summary>
         /// A double-click: a second left press this soon after the first and this near it. Counted on the
         /// game's clock, which a test drives, so a test's double-click is one whatever the machine's load.
@@ -339,9 +333,6 @@ namespace BitSorter.View
 
         /// <summary>The document shown and its runs; null until the panel has first opened.</summary>
         public WorkbenchSession Session => _session;
-
-        /// <summary>The field a double-click on a bus, or on an x, asks the input's value in; null until the panel has first opened.</summary>
-        public WaveRenameField SetValueField => _setField;
 
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
@@ -840,10 +831,6 @@ namespace BitSorter.View
                     _timeMenu.Open(pointer, Moment(_menuTime), _playback.Breakpoints.HasAt(_menuTime), _playback.Breakpoints.Count > 0);
                     break;
 
-                case WaveGesture.EditInput:
-                    EditInputAt(command.Row, _wave.TimeAtScreen(pointer), pointer);
-                    break;
-
                 case WaveGesture.ToggleGroup:
                     _list.Toggle(_list.Lines[command.Row].Group);
                     RowsChanged();
@@ -980,79 +967,9 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
-        // Editing the document: an input, the unit, undo (Part 9b-3)
+        // Editing the document: the unit, undo (Part 9b-3). An input is set in INPUTS (Part 15g): the waves only read
+        // the run, since 5.1, where a double-click on an input's wave once flipped it or asked its value.
         // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Changes the input row <paramref name="row"/> shows, at <paramref name="time"/>, as a double-click
-        /// on its wave does: a one-bit input that is 0 or 1 there is flipped over the stretch the moment is
-        /// in, and any other -- a bus, an x -- is asked for a value for that stretch. What is not an input
-        /// of the design, and a clock, are refused, and the chip says why. The run is replayed beside the
-        /// one shown, and takes over once it reaches the moment shown.
-        /// </summary>
-        public void EditInputAt(int row, double time, Vector2 screenPoint)
-        {
-            if (_session == null || !RowSignalAt(row, out int signal))
-                return;
-
-            string port = InputOf(signal);
-            if (port == null)
-            {
-                Notice(_list.LabelOf(_list.Lines[row]) + " is not an input of the design, and only an input can be changed");
-                return;
-            }
-
-            // A testbench of the project's own drives every input, and no value is asked for that would only be refused.
-            if (_session.Project.Bench != null)
-            {
-                Notice(BitSorter.Board.BoardRules.BenchDrivesTheInputs(_session.Project));
-                return;
-            }
-
-            // The waves zoom out past the run's end (Part 15h), and there is nothing there to change.
-            if (time > _model.End)
-            {
-                Notice("Past the end of the run there is nothing to change: double-click an input's wave inside the run.");
-                return;
-            }
-
-            BitSorter.Board.Stimulus stimulus = _session.Project.Stimulus;
-            long at = Math.Max(0L, (long)Math.Floor(time + 1e-9));
-            LogicVec? value = BitSorter.Board.StimulusEdits.ValueAt(stimulus, port, at);
-            int width = _model.Session.Design.Signals[signal].Width;
-
-            if (IsClock(stimulus, port) || (width == 1 && value.HasValue && value.Value.IsKnown))
-            {
-                Said(_session.InvertInput(port, at));
-                return;
-            }
-
-            (long from, long until) = BitSorter.Board.StimulusEdits.StretchAt(stimulus, port, at);
-            _setPort = port;
-            _setWidth = width;
-            _setFrom = from;
-            _setUntil = until;
-            _setField.Open("", screenPoint, "SET " + port + " FROM " + Moment(from) + (until == long.MaxValue ? " ON" : " TO " + Moment(until)));
-        }
-
-        /// <summary>
-        /// Gives the input SET was opened for the value typed, over its stretch: a SystemVerilog literal
-        /// fitted to the input, as BREAK ON VALUE reads one. One that does not read is refused, and the
-        /// chip says why.
-        /// </summary>
-        public void SetInputValue(string text)
-        {
-            if (_session == null || _setPort == null)
-                return;
-
-            if (!Breakpoints.TryParseValue(text, _setWidth, out LogicVec value, out string error))
-            {
-                Notice(error);
-                return;
-            }
-
-            Said(_session.SetInput(_setPort, _setFrom, _setUntil, value));
-        }
 
         /// <summary>Counts time in the next unit, s to fs and round, as UNIT does: everything relabelled once the replay takes over, nothing rescaled.</summary>
         public void NextUnit()
@@ -1177,48 +1094,6 @@ namespace BitSorter.View
             else if (StartPageShowing)
                 ShowOnStartPage(words);   // the chip is under the start page (the #84 review)
             Redraw();
-        }
-
-        /// <summary>
-        /// The design's input <paramref name="signal"/> is, by its name, or null: the port inside the design,
-        /// or the testbench's signal of the same name that drives it.
-        /// </summary>
-        private string InputOf(int signal)
-        {
-            string name = _model.Session.Design.Signals[signal].Name;
-            string design = _model.Layout.DesignPath;
-            int dot = design == null ? -1 : design.LastIndexOf('.');
-            string bench = dot > 0 ? design.Substring(0, dot) : null;
-
-            foreach (PortLayout port in _model.Layout.Ports)
-            {
-                if (port.Output)
-                    continue;
-                string own = port.Signal.Substring(port.Signal.LastIndexOf('.') + 1);
-                if (name == port.Signal || (bench != null && name == bench + "." + own))
-                    return own;
-            }
-
-            // A written top's inputs are its header's, drawn nowhere (Part 15g): a double-click on one said it was no input
-            // of the design, where the testbench driving it is what stops it being changed, and the refusal says so.
-            BitSorter.Board.Module top = _session?.Project.TopModule;
-            if (top != null && top.IsWritten)
-                foreach (BitSorter.Board.ModulePort port in BitSorter.Board.WrittenModules.PortsOf(_session.Project, top))
-                    if (port.Direction == BitSorter.SystemVerilog.Syntax.PortDirection.Input
-                        && (name == (string.IsNullOrEmpty(design) ? port.Name : design + "." + port.Name) || (bench != null && name == bench + "." + port.Name)))
-                        return port.Name;
-
-            return null;
-        }
-
-        private static bool IsClock(BitSorter.Board.Stimulus stimulus, string port)
-        {
-            if (stimulus == null)
-                return false;
-            foreach (BitSorter.Board.ClockTrack clock in stimulus.Clocks)
-                if (clock.Port == port)
-                    return true;
-            return false;
         }
 
         /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
@@ -1709,8 +1584,6 @@ namespace BitSorter.View
             _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
             _breakField = WaveRenameField.Build(_shell, transform, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
-            _setField = WaveRenameField.Build(_shell, transform, palette, SetInputValue, WaveRenameField.SetValueName, "SET",
-                "1, 4'b1010, 'hA or x");
             _canvasMenu = CanvasMenu.Build(_shell, transform, palette, CanvasMenuDo);
             _blockName = WaveRenameField.Build(_shell, transform, palette, MakeBlockNamed, WaveRenameField.BlockNameName, "NAME THE NEW BLOCK",
                 "a module's name, half_adder");
@@ -1947,7 +1820,6 @@ namespace BitSorter.View
             _rename.Close();
             _blockName.Close();
             _breakField.Close();
-            _setField.Close();
         }
 
         /// <summary>

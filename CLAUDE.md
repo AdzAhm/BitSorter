@@ -670,9 +670,8 @@ stretch that way.
   TRANSCRIPT's head and the run taken there, a difference from t = 0 that ends said apart, and only as far as the
   dump goes), the question asked before a
   testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
-  and 15a), the add list and the three fields -- RENAME,
-  BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
-  value in -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
+  and 15a), the add list and the two fields -- RENAME and
+  BREAK ON VALUE -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
   and with nothing holding it Escape takes down the EXERCISES page, then the start
   page, or puts a part in hand down, and never closes the workbench: BitSorter opens
   on it, and nothing is behind it (Part 15a). HOME, FILE, EXERCISES, HELP and
