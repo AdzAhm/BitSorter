@@ -5462,6 +5462,9 @@ the drawing.
   shows a caret blinking), and the player's own settings are put back the frame anything happens -- input is read every
   frame, so that frame is at most a twentieth of a second late. A desktop build's alone, as before: `FrameRate.Applies`
   is false in the editor and a browser, where `Idle` is still told and the tests read it.
+- **Measured on the build with it** (Ahmad's laptop, his own settings, VSYNC off and a 240 cap, 2026-11-11): still, the
+  CPU at 0.2%, the 3D engine about 2% and the copy engine 4.8% (medians of 91 still seconds), where they were 1 to 3%, 6%
+  and 20 to 30%; the frame-rate counter read 4 to 6. Moving the mouse put every frame back at once, at his 240.
 
 **As built in 5.1: the Windows build ships only the code it runs** (Ahmad, 2026-11-11: "never ship things/code/libraries
 that are never used (make sure of that)"). Managed stripping was off for Windows, which shipped 150 managed libraries --
