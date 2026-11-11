@@ -3018,6 +3018,28 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
+        /// A design imported without its testbench is said to have inputs nothing drives, and the notice names the ways to drive
+        /// them that there are: INPUTS, or the testbench -- never a double-click on the waves, which since 5.1 changes no input.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADesignImportedAlone_SaysHowToDriveItsInputs_AndOnlyWaysThereAre()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            workbench.Import(new[] { new SourceFile("mux2.sv", ImportedMux) });
+            yield return null;
+            Assert.AreEqual("mux2", workbench.Session.Project.Top, "sanity: imported, with no testbench");
+            Assert.IsNull(workbench.Session.Project.Bench, "sanity: nothing drives its inputs");
+
+            StringAssert.Contains("Nothing drives a, b, s yet", workbench.ChipText, "the inputs nothing drives, named");
+            StringAssert.Contains("give them values in INPUTS", workbench.ChipText);
+            StringAssert.Contains("import the testbench too", workbench.ChipText);
+            StringAssert.DoesNotContain("double-click", workbench.ChipText, "the waves change no input since 5.1");
+        }
+
+        /// <summary>
         /// FILE, COMPARE WITH MODELSIM'S RUN (Part 15i-5): the newest .vcd in the Import folder held to the run -- here the run's
         /// own dump, which agrees, then the same with one value changed, which is found at its moment and said at the head of
         /// the TRANSCRIPT, the run taken there.
