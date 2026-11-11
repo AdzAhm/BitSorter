@@ -880,7 +880,7 @@ stretch that way.
   drag or + and - move it, FIT fits it. DIAGRAM (TABLE for one with no states) or
   DRAWING beside CODE turns between it and the drawing, kept for each module; a module
   the reading is the whole of opens on it where it is a state machine or a table of
-  several signals -- a one-output case, the prime and seven-segment samples, stays its
+  several signals -- a one-output case, the seven-segment sample, stays its
   drawing -- and on it every edit is refused saying to press DRAWING. **Every reading
   is held to the engine before it is shown** (`ControllerCheck`): for every state and
   every value of each input of eight bits or fewer, the others random -- and, for a state

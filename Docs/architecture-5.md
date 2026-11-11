@@ -4158,8 +4158,8 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   the code's own and not checked. The tests hold every corpus, exercise and sample reading to it
   (`ControllerEngine`). Read: the three processors' controllers (11 states and the ALU decoder; two tables each), the
   traffic light (its counter left to the drawing), the multiplier's Mealy control, the sequence detector and the
-  samples' traffic lights -- and, as one-column tables that open on their drawings, "Is it prime?" and the seven
-  segments.
+  samples' traffic lights -- and, as a one-column table that opens on its drawing, the seven segments ("Is it prime?"
+  was another until 5.1 worked it out by a loop).
 - **On the workbench** (`WorkbenchSession.Controller`, `ShowsController`, `DrawController`, `ControllerNow`): DIAGRAM
   (TABLE for tables alone) or DRAWING left of CODE, the choice kept for each module; before any choice a module opens on
   its reading where the reading is whole and a state machine or a table of several signals (`OpensAsController`); GATES
@@ -5397,6 +5397,19 @@ written module's text under a written testbench now measures the run again in th
 it tests, which can move the stop just as well -- and the CODE switch's writing of a drawn module as code with it. An undo
 puts the end back with the text. A testbench that never stops costs what its import did, about half a second, each time it
 is applied; the import has already said to end it with `$stop`. `WrittenBenchRunTests` (red, then the fix).
+
+**As built in 5.1: "Is it prime?" for any width** (Ahmad, 2026-11-11, widening its input in the code: it answered 0 for
+every number from 16 up, without a word). The sample was `prime4`, a `case` listing the primes up to 13. It is now `prime`,
+written from scratch with a width parameter `N`: more than 1, and no `i` from 2 up dividing `n`, tried in an `always_comb`
+`for` loop run a fixed number of times -- every `i` below `2 ** ((N + 1) / 2)`, at least the square root of the largest
+`n` -- with `i * i <= n` in the test inside it, since hardware has no loop that runs while an input says so. Written the
+way synthesis wants a loop's bound (`i < constant`): `i * i < 2 ** N`, the first form, ran the same in BitSorter, Icarus
+and ModelSim, but Icarus warned that it would not synthesize. Its testbench counts `n` through all `2 ** N` values and
+says to change `N` there; at four bits LOGIC still finds its truth table, its K-map and its smallest sum of products, and
+the drawing of its code is drawn. It has no controller reading now, so it no longer has a TABLE. `SampleTests` holds it to
+the primes at four bits and to a sieve widened to six through its testbench -- which found the run cut off where four
+bits stop (the note above) -- and the oracle corpus runs the same module at six bits (`behavioural/prime.sv`), held
+word for word to the sample.
 
 ---
 
