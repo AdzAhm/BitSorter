@@ -151,7 +151,7 @@ last clicked:
 |---|---|---|
 | Compression format | **Brotli** | Smallest download by a wide margin |
 | Decompression fallback | **On** | See below |
-| Data caching | **On** | Returning players do not re-download the data file |
+| Data caching | **On** | Returning players do not re-download the data file -- nor, since 5.1, the code: the template's `config.cacheControl` keeps the wasm and the framework too (below) |
 | Exception support | Explicitly thrown only | Full support costs size and speed; nothing here catches engine faults |
 | Code optimization | **Disk size, with LTO** | The wasm is half the download. Lives in `Library/`, per machine, which is why the script sets it |
 | IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed BitSorter does not need |
@@ -240,6 +240,52 @@ place, so it is on.
 
 If you ever host somewhere you control the headers, turning the fallback off and
 serving `.br` with the right `Content-Encoding` gives a faster start.
+
+### A faster launch (5.1, measured)
+
+Ahmad's item 6 for 5.1 was a faster first launch in a browser, measured before anything was changed. On Pages the
+three big files reach the loader as Brotli it unpacks in JavaScript, and the wasm cannot be compiled until all of it
+has. Two things looked worth trying: another compression, and keeping more of the build in the browser.
+
+**How it was measured** (2026-11-11, v5.1 `05b41354`). Three builds that differ only in compression -- A Brotli as
+shipped, B gzip, C none -- served by a stand-in for Pages that sends what the live site and other github.io sites
+were read to send: `.unityweb` as `application/vnd.unity` with no `Content-Encoding`; HTML, JavaScript, `.wasm`
+(`application/wasm`) and `.data` (`application/octet-stream`) gzipped by the host (three.js's `.bin` and ammo.js's
+`.wasm` on github.io come back gzipped); ETags, and `304` to a conditional request, as Pages answers one. Every run
+on an origin of its own, so nothing was cached unless the run was a return visit; one line shared by every
+connection at 30 or 10 Mbit/s with 40 ms latency, or no limit; the time from opening the page to the loader handing
+over the instance, in the desktop app's browser pane, the variants interleaved. The pages blocked every request to
+another site, so no test load sent analytics.
+
+| First visit, to the first frame | No limit | 30 Mbit/s | 10 Mbit/s |
+|---|---|---|---|
+| A, Brotli (shipped) | 2.9 s (1.0 to 3.2) | 5.5 s (4.2 to 5.7) | 11.5 s |
+| B, gzip | 2.2 s | 6.0 s | -- |
+| C, none: Pages gzips, the browser unpacks and compiles as it downloads | **0.75 s** | 5.2 s | 13.2 s |
+
+| Downloaded | A | B | C |
+|---|---|---|---|
+| wasm + data + framework | 11.0 MB | 14.0 MB | 15.0 MB (Pages' gzip) |
+
+So **C wins only on a fast line**: its 4 MB more costs 3.2 s at 10 Mbit/s and saves at most about 2 s of unpacking.
+B loses to A wherever the line is slow and to C wherever it is fast. **Brotli stays.**
+
+**The return visit was the bigger finding.** Unity's loader keeps only the data file in IndexedDB; it fetches the
+wasm and the framework with `no-store`, so every launch downloaded the 7.5 MB wasm again -- 8.7 s of a return visit
+at 10 Mbit/s. The template now asks it to keep them too (`config.cacheControl`: `must-revalidate` for the wasm, the
+framework and the data). On the next visit the loader asks Pages whether each file changed, Pages answers `304` with
+no body while it has not, and a release's new files, whose ETags differ, are fetched whole.
+
+| Return visit (A) | 30 Mbit/s | 10 Mbit/s | Downloaded |
+|---|---|---|---|
+| Before (`no-store` on the code) | about 5.5 s | 8.7 s | 7.7 MB |
+| After (`must-revalidate`) | 3.1 s | 2.9 to 3.2 s | **900 bytes** |
+
+What is left of a return visit is the loader unpacking the Brotli it kept and the wasm being compiled, about three
+seconds whatever the line. C would skip the unpacking, but its framework fetches the wasm itself and bypasses Unity's
+cache, so it could keep the code only in the browser's own HTTP cache -- which the pane did not, for a file that size --
+and that was not chosen on a guess. `BrowserLaunchTests` (Repo.Tests) holds the template to the rule. It reaches Pages
+with the 5.1.0 release; nothing was published to measure it.
 
 ---
 
@@ -384,7 +430,7 @@ extension tells you which mode the build is in:
 | **On** (ours) | `.unityweb` | The loader, in JavaScript |
 | Off | `.br` | The server, via `Content-Encoding` |
 
-Ours are `.unityweb`. Pages serves them as `application/octet-stream` with no
+Ours are `.unityweb`. Pages serves them as `application/vnd.unity` (read from the live site, 2026-11-11) with no
 `Content-Encoding` header — it has no way to know the bytes are Brotli — and the
 loader recognises the stream and inflates it itself. Confirmed on the real files:
 they start `6b 8d 00 55`, so Brotli, since gzip would start `1f 8b`.

@@ -5458,6 +5458,15 @@ so a stripped method would shift the rest), the linker's debug symbols are delet
 `StrippingTests` holds both builds at Medium and the `link.xml` to the dialog's COM types. Every library still shipped is
 accounted for in `Docs/distribution.md`, "What the Windows build ships".
 
+**As built in 5.1: a return visit to the browser build downloads under a kilobyte** (Ahmad's item 6, "a faster first
+launch", measured first). Three builds differing only in compression were timed against a stand-in for Pages, cold and
+returning, at full speed, 30 and 10 Mbit/s: Brotli stays -- uncompressed, which Pages would gzip and the browser compile
+as it downloads, wins only on a fast line and loses at 10 Mbit/s, and gzip loses both ways. The finding was that Unity's
+loader fetched the 7.5 MB wasm afresh on every launch (`no-store`); the template's `config.cacheControl` now keeps the
+wasm and the framework, as the data already was, revalidated against Pages, which answers `304` while a file is the same.
+A return visit at 10 Mbit/s went from 8.7 s to about 3 s. `Docs/distribution.md`, "A faster launch", has the numbers;
+`BrowserLaunchTests` holds the rule.
+
 ---
 
 ## 11. The parts
