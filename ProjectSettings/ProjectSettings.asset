@@ -646,6 +646,7 @@ PlayerSettings:
     WebGL: 1
   il2cppStacktraceInformation: {}
   managedStrippingLevel:
+    Standalone: 2
     WebGL: 2
   incrementalIl2cppBuild: {}
   suppressCommonWarnings: 1

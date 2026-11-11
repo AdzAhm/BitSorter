@@ -64,17 +64,27 @@ namespace BitSorter.View.Editor
         }
 
         /// <summary>
-        /// Removes the Burst debug folder the build leaves beside the player.
+        /// Removes what the build leaves beside the player that no player uses: the Burst debug folder, and the managed
+        /// libraries' debug symbols.
         /// </summary>
         /// <remarks>
-        /// Unity names it "DoNotShip" and then puts it in the output folder anyway. Deleting it
+        /// Unity names the folder "DoNotShip" and then puts it in the output folder anyway. Deleting it
         /// here means the folder can be zipped and sent as it stands, rather than depending on
         /// whoever does the zipping noticing the name.
+        ///
+        /// The symbols are the linker's (5.1): with managed stripping on, it writes a .pdb beside every library it strips, and
+        /// the build ships them -- 75 files, 4.2 MB. Mono runs without them, and they only put line numbers in a stack trace
+        /// in the player's log; the build shipped none before stripping, and ships none now (Docs/distribution.md).
         /// </remarks>
         private static void TidyUp(string folder)
         {
             foreach (string path in Directory.GetDirectories(folder, "*_DoNotShip"))
                 Directory.Delete(path, true);
+
+            string managed = Path.Combine(folder, Path.GetFileNameWithoutExtension(Executable) + "_Data", "Managed");
+            if (Directory.Exists(managed))
+                foreach (string symbols in Directory.GetFiles(managed, "*.pdb"))
+                    File.Delete(symbols);
         }
     }
 }

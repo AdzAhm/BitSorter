@@ -1,0 +1,18 @@
+<!--
+  What the linker must keep whole although nothing calls it by name (5.1: managed stripping on for Windows, Medium, as the
+  browser build has had since 5.0).
+
+  Windows' Open dialog (WindowsFileDialog, the Common Item Dialog through COM interop). COM calls an interface's methods by
+  their place in it, not by name: a method the linker dropped as unused would shift every one after it, and the dialog would
+  call the wrong one. So each COM type is kept with every member, in its order, and the struct marshalled to it with every
+  field. RepositoryRules (Repo.Tests) holds this file to those types.
+-->
+<linker>
+  <assembly fullname="BitSorter.View">
+    <type fullname="BitSorter.View.WindowsFileDialog/FileOpenDialogClass" preserve="all" />
+    <type fullname="BitSorter.View.WindowsFileDialog/IFileOpenDialog" preserve="all" />
+    <type fullname="BitSorter.View.WindowsFileDialog/IShellItem" preserve="all" />
+    <type fullname="BitSorter.View.WindowsFileDialog/IShellItemArray" preserve="all" />
+    <type fullname="BitSorter.View.WindowsFileDialog/FilterSpec" preserve="all" />
+  </assembly>
+</linker>
