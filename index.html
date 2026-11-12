@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>BitSorter</title>
+    <!-- What a link to the page shows where it is shared, and what a search shows under its name. -->
+    <meta name="description" content="BitSorter: a SystemVerilog simulator for the Digital Systems and Computer Structure course. Draw a circuit or write it, run it on a 4-state event-driven engine with real gate delays, read the waves, and check it against 35 exercises.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="BitSorter: a SystemVerilog simulator">
+    <meta property="og:description" content="Draw a circuit or write it in SystemVerilog, run it with real gate delays, read every signal on the waves, and check it against 35 exercises. Free, in your browser.">
+    <meta property="og:url" content="https://adzahm.github.io/BitSorter/">
+    <meta property="og:image" content="https://adzahm.github.io/BitSorter/TemplateData/preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <style>
+/* The default look's colours, SchematicPalette.Dark's to the digit (WebTemplateTests holds them to it): the page is
+   drawn before BitSorter exists, so it cannot ask. The footer in style.css takes its colours from them too. */
+:root{
+  --ground:#151515;--grid:#282828;--chip:#1D1D1C;--edge:#2C2C2C;--outline:#969696;
+  --text:#F1EFE8;--dim:#C2C0B6;--muted:#9C9A92;--accent:#85B7EB;
+  --v0:#7F77DD;--v1:#D4537E;--vx:#E5484D;--vz:#8A8A86;--bus:#B4AE9C;--playhead:#D4537E;--cursor:#E6C45C;--sel:#272F37;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+
+/* The loading screen, over the canvas until BitSorter is running: a living schematic of its own world. */
+/* ---------- the loading layer ---------- */
+#bs-loading{position:absolute;inset:0;z-index:10;overflow:hidden;background:var(--ground);contain:strict;container-type:size;font-family:var(--sans);color:var(--dim)}
+#bs-loading i{display:block}
+.bs-in,.bs-bg,.bs-L,.bs-d,.bs-pool,.bs-vig{position:absolute;inset:0}
+.bs-in{transition:opacity .3s}
+.bs-done .bs-in{opacity:0}
+.bs-bg,.bs-bg *{pointer-events:none}
+.bs-scene{position:absolute;left:50%;top:50%;width:1600px;height:1000px;margin:-500px 0 0 -800px}
+.bs-L{animation:bs-in 1.8s ease-out both}
+@keyframes bs-in{from{opacity:0}}
+.bs-far{opacity:.26;transform:scale(.94)}
+.bs-mid{opacity:.56;animation-delay:.25s}
+.bs-near{opacity:.15;transform:scale(5);animation-delay:.5s}
+/* one camera drift: the nearer, the further */
+.bs-d{animation:30s ease-in-out infinite alternate}
+.bs-far>.bs-d{animation-name:bs-df}.bs-mid>.bs-d{animation-name:bs-dm}.bs-near>.bs-d{animation-name:bs-dn}
+@keyframes bs-df{from{transform:translate(-9px,-4px)}to{transform:translate(9px,4px)}}
+@keyframes bs-dm{from{transform:translate(-22px,-9px)}to{transform:translate(22px,9px)}}
+@keyframes bs-dn{from{transform:translate(-9px,-3.5px)}to{transform:translate(9px,3.5px)}}
+.bs-grid{position:absolute;inset:-420px -640px;background:radial-gradient(circle,var(--grid) 1.1px,transparent 1.5px) 0 0/16px 16px}
+.bs-L svg{position:absolute;overflow:visible}
+.bs-L text{font:12px var(--mono);fill:var(--muted)}
+.g,.blk{fill:var(--chip);stroke:var(--outline);stroke-width:1.5;stroke-linejoin:round}
+.ld,.ch,.ctl,.row,.bus,.bed,.w0,.w1,.we,.wb{fill:none;stroke:var(--outline);stroke-width:1.5}
+.bed{stroke:var(--edge);stroke-width:6;stroke-linejoin:round;stroke-linecap:round}
+.bs-near .bed{stroke-width:7}.bs-near .g,.bs-near .ld{stroke-width:1}
+.ch{opacity:.7}.ctl{stroke-width:1;stroke-dasharray:4 5}.row{stroke:var(--edge);stroke-width:1}
+.bus{stroke:var(--bus);stroke-width:3;opacity:.55}
+.w0{stroke:var(--v0)}.w1{stroke:var(--v1)}.we{stroke:var(--vz)}.wb{stroke:var(--bus);stroke-width:1.2}
+.bs-L .s{font-size:9px}.bs-L .t{font-size:7px}.bs-L .bl{font-size:13px;letter-spacing:.1em}.bs-L .dg{font-size:11px;font-weight:600}
+.bs-L .eq{fill:var(--dim);font-size:13px;opacity:0;transition:opacity .6s}.bs-L .on{opacity:1}
+.pt .hit{fill:transparent;pointer-events:all;cursor:pointer}
+.pt .ring{fill:none;stroke:var(--accent);stroke-width:1.5;opacity:0;transition:opacity .2s}
+.pt:hover .ring{opacity:1}.pt:hover .g{stroke:var(--text)}
+.jd{fill:var(--outline)}
+.bs-wv{position:absolute;overflow:hidden;opacity:.75}
+.bs-wv svg{animation:bs-scroll 32s linear infinite}
+@keyframes bs-scroll{to{transform:translateX(-1280px)}}
+.bs-ph{position:absolute;width:1.5px;background:var(--playhead)}
+.bw{position:absolute;overflow:hidden}
+.bb{position:absolute;border-radius:9px}
+.hd{position:absolute;left:0;top:0;border-radius:50%}
+/* light */
+.bs-a{position:absolute;border-radius:50%}
+.a0{left:-35%;bottom:-55%;width:95%;height:120%;background:radial-gradient(closest-side,color-mix(in srgb,var(--v0) 15%,transparent),transparent)}
+.a1{right:-30%;top:-55%;width:85%;height:110%;background:radial-gradient(closest-side,color-mix(in srgb,var(--v1) 11%,transparent),transparent)}
+.a2{left:15%;top:22%;width:70%;height:44%;background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 12%,transparent),transparent);animation:bs-br 8s ease-in-out infinite alternate}
+@keyframes bs-br{from{opacity:.5}}
+.bs-pool{background:radial-gradient(ellipse 40% 31% at 50% 48%,color-mix(in srgb,var(--ground) 92%,transparent),color-mix(in srgb,var(--ground) 62%,transparent) 55%,transparent)}
+.bs-vig{background:radial-gradient(ellipse 78% 74%,transparent 52%,color-mix(in srgb,var(--ground) 88%,transparent))}
+/* the foreground */
+.bs-fg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;pointer-events:none;animation:bs-up 1s cubic-bezier(.2,.7,.2,1) .15s both}
+@keyframes bs-up{from{opacity:0;transform:translateY(10px)}}
+.bs-mark{display:block;width:min(560px,80vw);width:min(560px,80cqw);height:auto;overflow:visible;fill:var(--accent);filter:drop-shadow(0 0 22px color-mix(in srgb,var(--accent) 28%,transparent))}
+.bs-sub{margin:clamp(12px,2.4vmin,22px) 0 0;margin:clamp(12px,2.4cqmin,22px) 0 0;font:500 12px/1.4 var(--sans);letter-spacing:.32em;text-indent:.32em;text-transform:uppercase;color:var(--muted);text-align:center}
+.bs-prog{margin-top:clamp(28px,6.5vmin,60px);margin-top:clamp(28px,6.5cqmin,60px);width:min(520px,86vw);width:min(520px,86cqw)}
+.bs-wire{position:relative;height:18px}
+.bs-wire i,.bs-car i{position:absolute}
+.bs-track,.bs-fill{left:0;right:0;top:8px;height:2px;border-radius:1px;background:var(--v0);opacity:.5}
+.bs-fill{background:var(--v1);opacity:1;transform-origin:0;transform:scaleX(0);box-shadow:0 0 8px var(--v1)}
+.bs-fill,.bs-car{transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.bs-full .bs-fill,.bs-full .bs-car{transition-duration:.12s}
+.bs-car{inset:0}
+.bs-head,.bs-halo,.bs-pin{top:4px;left:-5px;width:10px;height:10px;border-radius:50%;box-sizing:border-box;background:var(--v1)}
+.bs-head{background:var(--text);box-shadow:0 0 6px 2px var(--v1),0 0 20px 7px color-mix(in srgb,var(--v1) 40%,transparent)}
+.bs-halo{left:-14px;top:-5px;width:28px;height:28px;border:1px solid var(--v1);background:none;opacity:.35;animation:bs-halo 1.7s ease-out infinite}
+@keyframes bs-halo{from{transform:scale(.3);opacity:.9}to{transform:scale(1.5);opacity:0}}
+.bs-pin+.bs-pin{left:auto;right:-5px;border:2px solid var(--outline);background:var(--ground)}
+.bs-full .bs-pin+.bs-pin{background:var(--v1);border-color:var(--v1);box-shadow:0 0 10px var(--v1)}
+.bs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font:13px/1.3 var(--sans)}
+.bs-status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-reg{display:flex;align-items:center;gap:3px;flex:none}
+.bs-bit{width:7px;height:11px;border-radius:2px;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--v0) 75%,transparent)}
+.bs-bit.on{background:var(--v1);border-color:var(--v1);box-shadow:0 0 6px color-mix(in srgb,var(--v1) 60%,transparent)}
+.bs-pct{margin-left:8px;min-width:4ch;text-align:right;font:500 13px/1 var(--mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){#bs-loading *{animation:none!important}.bs-fill,.bs-car{transition:none}}
+/* a load that failed: everything stands where it is, and the half adder takes no more clicks */
+#bs-loading.bs-stop *{animation-play-state:paused!important}#bs-loading.bs-stop .hit{pointer-events:none}
+    </style>
+  </head>
+  <body>
+    <!-- BITSORTER from IBM Plex Sans Bold as one path, defined once and outside the loading layer, so the footer keeps it -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="bs-wm" viewBox="0 0 5880 710"><path d="M77 0H416Q503 0 552 49Q600 98 600 179Q600 219 590 247Q579 275 562 293Q544 311 520 320Q497 328 470 329V335Q495 335 522 344Q550 353 573 372Q596 392 612 423Q627 454 627 499Q627 540 614 576Q600 613 576 640Q552 667 519 682Q486 698 447 698H77ZM229 570H404Q434 570 452 554Q469 537 469 507V473Q469 443 452 426Q434 410 404 410H229ZM229 286H380Q410 286 427 269Q444 252 444 222V192Q444 162 427 145Q410 128 380 128H229ZM757 698V577H847V121H757V0H1089V121H999V577H1089V698ZM1547 135V698H1395V135H1206V0H1736V135ZM2106 710Q2014 710 1950 678Q1886 647 1841 597L1941 496Q2012 576 2116 576Q2172 576 2199 553Q2226 530 2226 492Q2226 463 2210 444Q2194 424 2145 417L2076 408Q1965 394 1914 341Q1862 288 1862 200Q1862 153 1880 114Q1898 75 1932 47Q1965 19 2014 4Q2062 -12 2124 -12Q2203 -12 2263 13Q2323 38 2366 86L2265 188Q2240 159 2204 140Q2169 122 2115 122Q2064 122 2039 140Q2014 158 2014 190Q2014 226 2034 242Q2053 258 2097 265L2166 276Q2274 293 2326 342Q2378 392 2378 483Q2378 533 2360 575Q2342 617 2308 647Q2273 677 2222 694Q2171 710 2106 710ZM2824 710Q2755 710 2698 687Q2641 664 2601 618Q2561 573 2539 506Q2517 438 2517 349Q2517 260 2539 192Q2561 125 2601 80Q2641 34 2698 11Q2755 -12 2824 -12Q2893 -12 2950 11Q3007 34 3047 80Q3087 125 3109 192Q3131 260 3131 349Q3131 438 3109 506Q3087 573 3047 618Q3007 664 2950 687Q2893 710 2824 710ZM2824 575Q2893 575 2932 530Q2970 485 2970 401V297Q2970 213 2932 168Q2893 123 2824 123Q2755 123 2716 168Q2678 213 2678 297V401Q2678 485 2716 530Q2755 575 2824 575ZM3450 698H3298V0H3629Q3677 0 3716 16Q3755 32 3782 62Q3810 91 3825 132Q3840 173 3840 223Q3840 294 3808 347Q3777 400 3713 424L3850 698H3681L3559 442H3450ZM3610 314Q3644 314 3664 296Q3683 279 3683 245V201Q3683 167 3664 150Q3644 132 3610 132H3450V314ZM4303 135V698H4151V135H3962V0H4492V135ZM4636 698V0H5111V135H4788V278H5065V412H4788V563H5111V698ZM5435 698H5283V0H5614Q5662 0 5701 16Q5740 32 5768 62Q5795 91 5810 132Q5825 173 5825 223Q5825 294 5794 347Q5762 400 5698 424L5835 698H5666L5544 442H5435ZM5595 314Q5629 314 5648 296Q5668 279 5668 245V201Q5668 167 5648 150Q5629 132 5595 132H5435V314Z"/></symbol></svg>
+    <div id="unity-container" class="unity-desktop">
+      <!-- The canvas and the loading layer over it, inset 0, so the layer is the canvas's size at any window size -->
+      <div id="bs-stage">
+        <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+        <div id="bs-loading">
+          <div class="bs-in">
+            <div class="bs-bg" aria-hidden="true"></div>
+            <div class="bs-fg">
+              <svg class="bs-mark" viewBox="0 0 5880 710" role="img" aria-label="BitSorter"><use href="#bs-wm"/></svg>
+              <p class="bs-sub">A SystemVerilog simulator</p>
+              <div class="bs-prog" role="progressbar" aria-label="Loading BitSorter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="bs-wire"><i class="bs-track"></i><i class="bs-fill"></i><i class="bs-pin"></i><i class="bs-pin"></i><i class="bs-car"><i class="bs-halo"></i><i class="bs-head"></i></i></div>
+                <div class="bs-row"><span class="bs-status">powering up</span><span class="bs-reg"><b class="bs-pct">0%</b></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <!-- A small BITSORTER, and full screen. Not a button: one clicked would keep the keyboard, and Space or Enter,
+           which the workbench binds, would press it again. A development build adds its buttons to the title. -->
+      <div id="unity-footer">
+        <div id="unity-build-title"><svg id="bs-footer-mark" viewBox="0 0 5880 710" role="img" aria-label="BitSorter"><use href="#bs-wm"/></svg></div>
+        <div id="unity-fullscreen-button" role="button" aria-label="Full screen" title="Full screen"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4"/></svg></div>
+      </div>
+    </div>
+    <script>
+/* The loading layer's script, before the page's own so that setProgress(p), finishLoading() and stopLoading() are
+   there for the loader's callbacks below. It builds the scene once and starts its animations; nothing runs a frame. */
+/* A living schematic: a tiny 0/1/x engine runs the circuits once, and each change is played as a front travelling
+   its wire, on the compositor. Eggs: the half adder adds (click a, b); x drains from the shift register; 0 & x, 1 | x;
+   a & ~a glitches; bits sorted into bins (4.x); x0 and ZADZ in the far datapath; tx sends HAPPY SIMULATING, 8N1. */
+(function () {
+var L = document.getElementById('bs-loading'); if (!L) return;
+var D = document, still = false, anims = [], timers = [];
+try { still = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+function vc(v) { return 'var(--v' + '01x'[v] + ')'; }
+function H(t, c, p) { var e = D.createElement(t); e.className = c; if (p) p.appendChild(e); return e; }
+function S(t, a, p) { var e = D.createElementNS('http://www.w3.org/2000/svg', t); for (var k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; }
+function st(e, o) { for (var k in o) e.style[k] = typeof o[k] == 'number' ? o[k] + 'px' : o[k]; return e; }
+function tx(x, y, s, c, p, a) { var e = S('text', { x: x, y: y, 'class': c, 'text-anchor': a || 'start' }, p); e.textContent = s; return e; }
+function pd(p) { for (var d = '', i = 0; i < p.length; i += 2) d += (i ? 'L' : 'M') + p[i] + ' ' + p[i + 1]; return d; }
+function now() { return performance.now() / 1000; }
+// for ever, under way at t = 0; reduced motion holds it at one moment
+function play(e, f, o) { if (!e.animate) return; var a = e.animate(f, o); anims.push(a); if (still) { a.pause(); a.currentTime = 7600; } return a; }
+function loop(P, t) { return { duration: P * 1000, delay: (t - P * Math.ceil(t / P)) * 1000, iterations: Infinity }; }
+
+// three depths in a 1600 x 1000 frame, scaled to cover
+var bg = L.querySelector('.bs-bg'), scene = H('div', 'bs-scene', bg);
+function layer(c) { var d = H('div', 'bs-d', H('div', 'bs-L ' + c, scene)); if (c == 'bs-mid') H('i', 'bs-grid', d); return { d: d, svg: S('svg', { width: 1600, height: 1000 }, d) }; }
+var far = layer('bs-far'), mid = layer('bs-mid'), near = layer('bs-near');
+['bs-a a0', 'bs-a a1', 'bs-pool', 'bs-vig', 'bs-a a2'].forEach(function (c) { H('i', c, bg); });
+function fit() { var w = L.clientWidth, h = L.clientHeight; if (w && h) scene.style.transform = 'scale(' + Math.min(Math.max(w / 1600, h / 1000), h / 860) + ')'; }
+// the layer's box is the canvas's, which fitToWindow sizes on the window's resize -- after this would have read it,
+// so it is watched itself, and the window's resize is the fallback where nothing can watch a box
+var ro = window.ResizeObserver ? new ResizeObserver(function () { fit(); }) : null;
+fit(); if (ro) ro.observe(L); else addEventListener('resize', fit);
+
+// parts as the workbench draws them
+var OX = { and: 44, nand: 48, or: 48, xor: 54, not: 40, 'in': 34, inL: -8, src: 0, dff: 60 }, OS = { and: 32, nand: 40, or: 40, xor: 46, not: 34, 'in': 26, inL: 0, dff: 48 },
+    IX = { and: 0, nand: 0, or: 3, xor: 3 }, A = 'M0-16H16A16 16 0 0 1 16 16H0Z', O = 'h8q20 0 32 16q-12 16-32 16h-8q8-16 0-32Z', Q = 'M0-9h18l8 9-8 9h-18Z',
+    SH = { and: A, nand: A, or: 'M0-16' + O, xor: 'M6-16' + O, not: 'M0-12L26 0L0 12Z', dff: 'M0-28h48v56h-48Z', 'in': Q, out: Q, inL: 'M26-9h-18l-8 9 8 9h18Z' },
+    EX = { xor: 'M0-16q8 16 0 32', dff: 'M0 6l8 6-8 6', inL: 'M10 3h3v-6h3v6h3' };
+function draw(g, svg, dv) {
+  var t = g.t, x = g.x, y = g.y, ld = '', G;
+  g.pi = t == 'not' || t == 'out' ? [[x - 12, y]] : t == 'dff' ? [[x - 12, y - 12], [x - 12, y + 12]] : t in IX ? [[x - 12, y - 8], [x - 12, y + 8]] : [];
+  if (t in OX) g.po = [x + OX[t], t == 'dff' ? y - 12 : y];
+  if (t == 'src') return;
+  G = S('g', { transform: 'translate(' + x + ' ' + y + ')' }, svg);
+  function P(d, c) { S('path', { d: d, 'class': c || 'g' }, G); }
+  g.pi.forEach(function (q) { ld += 'M' + (q[0] - x) + ' ' + (q[1] - y) + 'H' + (IX[t] || 0); });
+  if (g.po) ld += 'M' + OS[t] + ' ' + (g.po[1] - y) + 'H' + OX[t];
+  P(ld, 'ld'); P(SH[t]); if (EX[t]) P(EX[t], 'ld');
+  if (t == 'not' || t == 'nand') S('circle', { cx: t == 'not' ? 30 : 36, r: 4, 'class': 'g' }, G);
+  if (t == 'dff') { tx(5, -9, 'D', 's', G); tx(43, -9, 'Q', 's', G, 'end'); }
+  if (g.l) tx(t == 'in' ? -6 : 32, 4, g.l, '', G, t == 'in' ? 'end' : 0);
+  if (dv != null) { g.dg = tx(11, 4, '01x'[dv], 'dg', G, 'middle'); g.dg.style.fill = vc(dv); }
+  return G;
+}
+function logic(t, a, b) {
+  if (t == 'not') return a > 1 ? 2 : 1 - a;
+  if (t == 'xor') return a > 1 || b > 1 ? 2 : a ^ b;
+  if (t == 'or') return a == 1 || b == 1 ? 1 : a > 1 || b > 1 ? 2 : 0;
+  var r = a == 0 || b == 0 ? 0 : a > 1 || b > 1 ? 2 : 1;
+  return t == 'nand' && r < 2 ? 1 - r : r;
+}
+
+// the engine: transport delays on gates and wires
+function engine(o, onSet) {
+  var q = [], E = { now: 0 };
+  E.post = function (t, f) { if (o.live) timers.push(setTimeout(function () { E.now = t; f(); }, Math.max(0, t - now()) * 1000)); else q.push([t, f]); };
+  E.run = function (T) {
+    for (;;) {
+      for (var m = -1, i = 0; i < q.length; i++) if (m < 0 || q[i][0] < q[m][0]) m = i;
+      if (m < 0 || q[m][0] > T) return;
+      var e = q.splice(m, 1)[0]; E.now = e[0]; e[1]();
+    }
+  };
+  E.set = function (n, v) {
+    if (n.v === v) return;
+    var t = E.now; n.v = v; n.h.push([t, v]); if (onSet) onSet(n, v);
+    n.paths.forEach(function (p) { var s = p.sink; if (s) E.post(t + p.len / o.v, function () { E.pin(s.g, s.k, v); }); });
+  };
+  E.pin = function (g, k, v) {
+    var old = g.i[k], t = E.now, r; g.i[k] = v;
+    if (g.t == 'out') return g.show && g.show(v);
+    if (g.t == 'dff') { if (k && old === 0 && v === 1) { r = g.i[0]; E.post(t + .25, function () { E.set(g.n, r); }); } return; }
+    r = logic(g.t, g.i[0], g.i[1]);
+    if (r !== g.p) { g.p = r; E.post(t + g.dl, function () { E.set(g.n, r); }); }
+  };
+  return E;
+}
+
+// a change travelling: a band of its colour slides along each run of the wire
+function wrap(lay, s, w) {
+  var W = H('div', 'bw', lay.d), p = w * 2.5;
+  W.hz = s.y0 == s.y1; W.pd = p;
+  st(W, W.hz ? { left: Math.min(s.x0, s.x1) - w / 2, top: s.y0 - w / 2 - p, width: s.L + w, height: w + 2 * p } : { left: s.x0 - w / 2 - p, top: Math.min(s.y0, s.y1) - w / 2, width: w + 2 * p, height: s.L + w });
+  return (s.W = W);
+}
+function band(W, w, v) {
+  var b = st(H('i', 'bb', W), W.hz ? { top: W.pd, width: '100%', height: w } : { left: W.pd, width: w, height: '100%' });
+  b.style.background = vc(v); b.style.boxShadow = '0 0 ' + w * 2 + 'px ' + vc(v);
+  return b;
+}
+function T(s, f) { return 'translate' + (s.y0 == s.y1 ? 'X(' : 'Y(') + (s.x1 + s.y1 > s.x0 + s.y0 ? f : -f) * s.Lw + 'px)'; }
+// a glint riding a front along its path
+function head(lay, p, t0, P, v, sz, c, once) {
+  var e = st(H('i', 'hd', lay.d), { width: sz, height: sz, marginLeft: -sz / 2, marginTop: -sz / 2, opacity: '0' }), f = [], t = 0, i, a;
+  e.style.background = 'radial-gradient(circle,var(--text) 0 9%,' + c + ' 21% 34%,transparent 66%)';
+  function k(i, o, t) { f.push({ transform: 'translate(' + p[i] + 'px,' + p[i + 1] + 'px)', opacity: o, offset: Math.min(t / P, 1) }); }
+  for (i = 0; i < p.length; i += 2) { if (i) t += (Math.abs(p[i] - p[i - 2]) + Math.abs(p[i + 1] - p[i - 1])) / v; k(i, 1, t); }
+  k(i - 2, 0, t + .3);
+  if (once) { a = e.animate(f, P * 1000); anims.push(a); a.onfinish = function () { e.remove(); }; return; }
+  if (t + .3 < P) k(i - 2, 0, P);
+  play(e, f, loop(P, t0));
+}
+
+// a circuit: parts, wires, a run of three periods, the third played for ever
+function circuit(lay, gs, ws, o) {
+  var byIn = {}, byOut = {}, nets = [], E, P = o.P;
+  gs = gs.map(function (a) {
+    var g = { t: a[0], x: a[1], y: a[2], l: a[3], s: a[4], i: [2, 2], p: 2, dl: { not: .45, xor: .35 }[a[0]] || .3 };
+    g.G = draw(g, lay.svg, a[5]);
+    g.pi.forEach(function (q, j) { byIn[q] = { g: g, k: j }; });
+    if (g.po) byOut[g.po] = g;
+    return g;
+  });
+  ws.forEach(function (p) {
+    var g = byOut[p.slice(0, 2)], n = g.n, len = 0;
+    if (!n) nets.push(n = g.n = { paths: [], segs: [], sk: {}, v: 2, h: [], g: g });
+    for (var i = 0; i + 3 < p.length; i += 2) {
+      var s = { x0: p[i], y0: p[i + 1], x1: p[i + 2], y1: p[i + 3], d: len }, key = p.slice(i, i + 4);
+      s.L = Math.abs(s.x1 - s.x0) + Math.abs(s.y1 - s.y0); s.Lw = s.L + o.w; len += s.L;
+      if (!n.sk[key]) { n.sk[key] = 1; n.segs.push(s); }
+    }
+    n.paths.push({ p: p, len: len, sink: byIn[p.slice(-2)] });
+    S('path', { d: pd(p), 'class': 'bed' }, lay.svg);
+  });
+  nets.forEach(function (n) {   // a dot where a wire branches
+    var a = n.paths[0].p;
+    n.paths.forEach(function (q, k) {
+      q = q.p; for (var i = 2; k && i < q.length && q[i] == a[i] && q[i + 1] == a[i + 1]; i += 2);
+      if (k && i > 2) S('circle', { cx: q[i - 2], cy: q[i - 1], r: 3, 'class': 'jd' }, lay.svg);
+    });
+  });
+  if (o.live) {   // the half adder: all 0, each change played as it happens
+    gs.forEach(function (g) { g.i = [0, 0]; g.p = 0; });
+    nets.forEach(function (n) { n.v = 0; n.segs.forEach(function (s) { band(wrap(lay, s, o.w), o.w, 0); }); });
+    return { gs: gs, E: engine(o, function (n, v) {
+      n.segs.forEach(function (s) {
+        var W = s.W, b = band(W, o.w, v), a;
+        function drop() { while (W.firstChild != b) W.removeChild(W.firstChild); }
+        if (still || !b.animate) return drop();
+        a = b.animate([{ transform: T(s, -1) }, { transform: T(s, 0) }], { duration: s.Lw / o.v * 1000, delay: s.d / o.v * 1000, fill: 'both' });
+        anims.push(a); a.onfinish = drop;
+      });
+      if (!still) n.paths.forEach(function (p) { head(lay, p.p, 0, p.len / o.v + .35, o.v, o.hs, vc(v), 1); });
+    }) };
+  }
+  E = engine(o);
+  gs.forEach(function (g) { if (g.s && g.n) for (var r = 0; r < 3; r++) g.s.forEach(function (e) { E.post(e[0] + r * P, function () { E.set(g.n, e[1]); }); }); });
+  E.run(3 * P);
+  nets.forEach(function (n) {
+    var ch = [];
+    n.h.forEach(function (e) { if (e[0] >= 2 * P) ch.push([e[0] - 2 * P, e[1]]); });
+    n.segs.forEach(function (s) {
+      var W = wrap(lay, s, o.w), tr = s.Lw / o.v, k = ch.length;
+      if (!k) return band(W, o.w, n.v);
+      ch.forEach(function (c, j) {   // in with its change, out with the next
+        var a = c[0] + s.d / o.v, gap = (j + 1 < k ? ch[j + 1][0] : ch[0][0] + P) + s.d / o.v - a;
+        play(band(W, o.w, c[1]), [{ transform: T(s, -1), offset: 0 }, { transform: T(s, 0), offset: Math.min(tr, gap) / P },
+          { transform: T(s, 0), offset: gap / P }, { transform: T(s, 1), offset: Math.min(gap + tr, P) / P }, { transform: T(s, 1), offset: 1 }], loop(P, a));
+      });
+    });
+    if (ch.length < 5) n.paths.forEach(function (p) { ch.forEach(function (c) { head(lay, p.p, c[0], P, o.v, o.hs, vc(c[1])); }); });
+    // a register is x until an edge finds D known: a red band that leaves once
+    if (n.g.t == 'dff' && n.h[0] && n.h[0][0] < P) n.segs.forEach(function (s) {
+      var b = band(s.W, o.w, 2), a = n.h[0][0] + s.d / o.v, du = a + s.Lw / o.v;
+      b.style.transform = T(s, 1);
+      a = play(b, [{ transform: T(s, 0) }, { transform: T(s, 0), offset: a / du }, { transform: T(s, 1) }], du * 1000);
+      if (a) a.onfinish = function () { b.remove(); };
+    });
+  });
+}
+var MID = { P: 12, v: 160, w: 2.5, hs: 16 };
+// shift register; its clock reaches stage 2 first, so data never races it
+circuit(mid, [['in',150,168,'d',[[0,0],[2,1],[8,0]]], ['dff',256,180], ['dff',392,180], ['out',520,168,'q'], ['inL',520,236,'clk',[[0,0],[1,1],[3,0],[5,1],[7,0],[9,1],[11,0]]]],
+  [[184,168,244,168], [316,168,380,168], [452,168,508,168], [512,236,366,236,366,192,380,192], [512,236,366,236,232,236,232,192,244,192]], MID);
+// 0 & x = 0, 1 | x = 1
+circuit(mid, [['in',150,708,'p',[[0,0],[2,1],[5,0],[8,1],[11,0]]], ['in',150,796,'u',[[0,2]],2], ['and',300,716], ['or',300,788], ['out',420,716,'f'], ['out',420,788,'g']],
+  [[184,708,232,708,288,708], [184,708,232,708,232,780,288,780], [184,796,256,796,288,796], [184,796,256,796,256,724,288,724], [344,716,408,716], [348,788,408,788]], MID);
+// a & ~a: a pulse on every rise
+circuit(mid, [['in',1080,704,'a',[[0,0],[1.5,1],[4.5,0],[7.5,1],[10.5,0]]], ['not',1180,752], ['and',1296,712], ['out',1440,712,'y']],
+  [[1114,704,1140,704,1284,704], [1114,704,1140,704,1140,752,1168,752], [1220,752,1256,752,1256,720,1284,720], [1340,712,1428,712]], MID);
+// near: two gates out of focus, five times the size
+circuit(near, [['src',520,512,0,[[0,0],[1,1],[7,0]]], ['src',520,528,0,[[0,0],[4,1],[10,0]]], ['xor',612,520], ['src',868,380,0,[[0,1],[4,0],[7,1]]], ['src',888,380,0,[[0,0],[5,1],[11,0]]], ['nand',920,448]],
+  [[520,512,600,512], [520,528,600,528], [666,520,690,520,690,470,560,470], [868,380,868,440,908,440], [888,380,888,456,908,456], [968,448,1010,448]], { P: 12, v: 40, w: 3, hs: 18 });
+
+// the egg: a half adder that adds
+var c = circuit(mid, [['in',648,724,'a',0,0], ['in',648,812,'b',0,0], ['xor',784,732], ['and',784,804], ['out',908,732,'s',0,0], ['out',908,804,'c',0,0]],
+  [[682,724,720,724,772,724], [682,724,720,724,720,796,772,796], [682,812,744,812,772,812], [682,812,744,812,744,740,772,740], [838,732,896,732], [828,804,896,804]],
+  { live: 1, v: 160, w: 2.5, hs: 16 }), g = c.gs, eq = tx(952, 773, '', 'eq', mid.svg);
+function show(q, v) { q.dg.textContent = v; q.dg.style.fill = vc(v); eq.textContent = g[0].n.v + ' + ' + g[1].n.v + ' = ' + (g[5].i[0] ? '1' : '') + g[4].i[0]; }
+g[4].show = function (v) { show(g[4], v); }; g[5].show = function (v) { show(g[5], v); };
+[g[0], g[1]].forEach(function (q) {
+  q.G.setAttribute('class', 'pt');
+  S('circle', { cx: 34, r: 5, 'class': 'ring' }, q.G);
+  S('rect', { x: -16, y: -14, width: 56, height: 28, 'class': 'hit' }, q.G).addEventListener('click', function () {
+    c.E.now = now(); c.E.set(q.n, 1 - q.n.v); show(q, q.n.v); eq.setAttribute('class', 'eq on');
+  });
+});
+
+// BitSorter 4.x: bits falling into their bins
+S('path', { d: 'M790-60V170M810-60V170M800 200V212H752V262M800 212H848V262', 'class': 'ch' }, mid.svg);
+S('path', { d: 'M778 170H822L832 200H768Z', 'class': 'g' }, mid.svg);
+S('path', { d: 'M734 262V300H770V262M830 262V300H866V262', 'class': 'ld' }, mid.svg);
+tx(752, 320, '0', '', mid.svg, 'middle').style.fill = vc(0); tx(848, 320, '1', '', mid.svg, 'middle').style.fill = vc(1);
+[1, 0, 0, 1, 1, 0].forEach(function (v, i) { var x = v ? 848 : 752; head(mid, [800, -40, 800, 212, x, 212, x, 290], i * 1.5, 9, 80, 20, vc(v)); });
+
+// far: a single-cycle RISC-V datapath
+var fs = far.svg, r = '', i;
+[[64,430,44,90,'PC'], [176,400,130,150,'IMEM'], [466,376,150,196,'REGS'], [1000,150,124,58,'CONTROL'], [960,400,140,150,'DMEM'], [1340,262,110,76,'UART']].forEach(function (b) {
+  S('rect', { x: b[0], y: b[1], width: b[2], height: b[3], rx: 4, 'class': 'blk' }, fs);
+  tx(b[0] + b[2] / 2, b[1] + (b[3] > 80 ? 26 : b[3] / 2 + 5), b[4], 'bl', fs, 'middle');
+});
+for (i = 0; i < 12; i++) r += 'M478 ' + (410 + i * 13) + 'h126';
+S('path', { d: r, 'class': 'row' }, fs);
+S('path', { d: 'M790 390L870 430V520L790 560V495L806 475L790 455ZM166 246L206 264V304L166 322V292L174 284L166 276ZM700 466L726 478V542L700 554ZM1170 426L1196 438V512L1170 524Z', 'class': 'blk' }, fs);
+S('path', { d: 'M1124 179H1183V432M1000 179H713V472M830 179V410M1030 208V400', 'class': 'ctl' }, fs);
+S('path', { d: 'M1450 300H2040', 'class': 'bus' }, fs);
+tx(481, 418, 'x0', 't', fs); tx(603, 566, 'ZADZ', 't', fs, 'end'); tx(188, 289, '+4', 't', fs, 'middle'); tx(842, 480, 'ALU', 'bl', fs, 'middle');
+[[0,[108,475,176,475]], [0,[108,475,140,475,140,266,166,266]], [.4,[206,284,240,284,240,360,34,360,34,475,64,475]], [.6,[306,475,466,475]],
+ [.6,[306,475,400,475,400,120,1062,120,1062,150]], [1.1,[616,430,790,430]], [1.1,[616,510,700,510]],
+ [1.4,[726,510,790,510]], [1.75,[870,475,960,475]],
+ [1.75,[870,475,916,475,916,580,1140,580,1140,500,1170,500]], [2.15,[1100,450,1170,450]], [2.15,[1100,520,1300,520,1300,300,1340,300]],
+ [2.5,[1196,475,1256,475,1256,622,430,622,430,540,466,540]]].forEach(function (b) {
+  S('path', { d: pd(b[1]), 'class': 'bus' }, fs);
+  head(far, b[1], b[0], 3.2, 700, 26, 'var(--bus)');
+});
+
+// the waves: three turns of 1280; one scrolls by, and it starts again unseen
+var sv = S('svg', { width: 3840, height: 88 }, st(H('div', 'bs-wv', mid.d), { left: 164, top: 844, width: 1740, height: 88 })),
+    clk = [], pc = [], a0 = [], tl = [], fib = [1, 1], j, ch;
+['clk', 'pc', 'a0', 'tx'].forEach(function (n, k) { tx(150, 860 + 22 * k, n, '', mid.svg, 'end'); });
+S('path', { d: 'M158 846V930', 'class': 'ld' }, mid.svg);
+st(H('i', 'bs-ph', mid.d), { left: 1220, top: 840, height: 94 });
+function bits(lv, cw, y) {
+  var s = ['', ''], e = '';
+  lv.forEach(function (b, i) { s[b] += 'M' + i * cw + ' ' + (b ? y - 6 : y + 6) + 'h' + cw; if (i && b != lv[i - 1]) e += 'M' + i * cw + ' ' + (y - 6) + 'v12'; });
+  S('path', { d: s[1], 'class': 'w1' }, sv); S('path', { d: s[0], 'class': 'w0' }, sv); S('path', { d: e, 'class': 'we' }, sv);
+}
+function bus(vals, cw, y) {
+  var d = '';
+  vals.forEach(function (s, i) { var x = i * cw; d += 'M' + x + ' ' + y + 'l3-6H' + (x + cw - 3) + 'l3 6-3 6H' + (x + 3) + 'Z'; tx(x + cw / 2, y + 3.5, s, 's', sv, 'middle').style.fill = 'var(--bus)'; });
+  S('path', { d: d, 'class': 'wb' }, sv);
+}
+function hex(v, n) { return ('00' + v.toString(16).toUpperCase()).slice(-n); }
+for (i = 2; i < 16; i++) fib.push(fib[i - 1] + fib[i - 2]);
+for (i = 0; i < 192; i++) clk.push(1 - i % 2);
+for (i = 0; i < 96; i++) pc.push(hex(i % 8 * 4, 2));
+for (i = 0; i < 48; i++) {
+  a0.push(hex(fib[i % 16], 3));
+  ch = 'HAPPY SIMULATING'.charCodeAt(i % 16); tl.push(0); for (j = 0; j < 8; j++) tl.push(ch >> j & 1); tl.push(1);
+}
+bits(clk, 20, 12); bus(pc, 40, 34); bus(a0, 80, 56); bits(tl, 8, 78);
+
+// the progress: a 1 travelling a wire, a 7-bit register counting
+var $ = function (s) { return L.querySelector(s); }, fill = $('.bs-fill'), car = $('.bs-car'), pct = $('.bs-pct'), stat = $('.bs-status'), bar = $('.bs-prog'), cells = [], cur = 0, gone,
+    WORDS = [[0, 'powering up'], [.1, 'fetching the simulator'], [.4, 'placing the gates'], [.62, 'routing the wires'], [.8, 'settling the delta cycles'], [.9, 'starting at time 0'], [1, 'ready']];
+for (i = 0; i < 7; i++) cells.push($('.bs-reg').insertBefore(H('i', 'bs-bit'), pct));
+function setProgress(p) {
+  p = cur = Math.min(1, Math.max(cur, +p || 0));
+  var n = Math.round(p * 100), s;
+  fill.style.transform = 'scaleX(' + p + ')';
+  car.style.transform = 'translateX(' + p * 100 + '%)';
+  pct.textContent = n + '%';
+  cells.forEach(function (e, i) { e.className = 'bs-bit' + (n >> 6 - i & 1 ? ' on' : ''); });
+  WORDS.forEach(function (w) { if (p >= w[0]) s = w[1]; });
+  if (stat.textContent != s) stat.textContent = s;
+  bar.setAttribute('aria-valuenow', n); bar.setAttribute('aria-valuetext', n + '%, ' + s);
+}
+// the pin takes the 1, the layer fades to the ground and goes, nothing left running
+function finishLoading() {
+  if (gone) return; gone = 1;
+  L.classList.add('bs-full'); setProgress(1);
+  setTimeout(function () { L.classList.add('bs-done'); }, 120);
+  setTimeout(function () {
+    anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    timers.forEach(clearTimeout); anims = timers = [];
+    if (ro) ro.disconnect(); else removeEventListener('resize', fit);
+    if (L.parentNode) L.parentNode.removeChild(L);
+    // a no-op from outside this closure, so nothing the page keeps holds the detached layer alive
+    window.setProgress = window.finishLoading = window.stopLoading = Function.prototype;
+  }, 450);
+}
+// a load that failed: everything stops where it stands, under the page's alert
+function stopLoading() {
+  if (gone) return;
+  L.classList.add('bs-stop');
+  anims.forEach(function (a) { try { a.pause(); } catch (e) {} });
+  timers.forEach(clearTimeout); timers = [];
+}
+setProgress(0);
+window.setProgress = setProgress; window.finishLoading = finishLoading; window.stopLoading = stopLoading;
+})();
+    </script>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        // As text, never as markup: nothing a message says can become part of the page.
+        div.textContent = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var aspect = 960 / 600;
+      var footerHeight = 38;
+      var smallestWidth = Math.round(960 * 2 / 3);
+      var largestWidth = 1920;
+
+      // Whether the page is fullscreen, by its button below.
+      function pageIsFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement);
+      }
+
+      function fitToWindow() {
+        // Fullscreen, the page is the screen, and the canvas fills it: the footer is out of the way (style.css), and the
+        // code's box, laid over the canvas from the page, follows it there (browser-2).
+        if (pageIsFullscreen()) {
+          canvas.style.width = window.innerWidth + "px";
+          canvas.style.height = window.innerHeight + "px";
+          return;
+        }
+
+        var room = Math.min(window.innerWidth, (window.innerHeight - footerHeight) * aspect);
+        var width = Math.floor(Math.max(smallestWidth, Math.min(largestWidth, room)));
+
+        canvas.style.width = width + "px";
+        canvas.style.height = Math.floor(width / aspect) + "px";
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebGL.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/WebGL.data.unityweb",
+        frameworkUrl: buildUrl + "/WebGL.framework.js.unityweb",
+        codeUrl: buildUrl + "/WebGL.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "ZADZ",
+        productName: "BitSorter",
+        productVersion: "5.1.0",
+        showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
+      };
+
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // THE REASON THIS TEMPLATE EXISTS.
+      //
+      // Without this line, writes to Application.persistentDataPath land in an in-memory
+      // filesystem that is never flushed to IndexedDB, so everything BitSorter saves -- solved
+      // exercises, circuits, personal bests -- is silently discarded when the tab is closed.
+      // Nothing errors; BitSorter simply forgets. Unity's own comment below says the autosync is
+      // not on by default, which is exactly the trap.
+      config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
+      // The build kept in the browser, the code as well as the data (5.1). Unity's loader keeps the
+      // data file in IndexedDB and asks the host on the next visit whether it changed, but fetches
+      // everything else afresh with "no-store" -- the 7.5 MB wasm on every launch, 8.7 s of a return
+      // visit on a 10 Mbit/s line. Pages answers the question with a 304 and no body while the file is
+      // the same, so a return visit now downloads under a kilobyte, and a new release, whose files'
+      // ETags differ, is fetched whole (Docs/distribution.md, "A faster launch").
+      config.cacheControl = function (url) {
+        return /\.(data|wasm|framework\.js)/.test(url) ? "must-revalidate" : "no-store";
+      };
+
+      // The canvas renders at its CSS size times the screen's pixel ratio, and the canvas now grows
+      // with the window -- up to 1920 CSS pixels wide, which at a ratio of 2 is a 3840x2400 render
+      // every frame. 1.5 keeps text sharp on a high-density screen at
+      // just over half those pixels. On an ordinary screen the ratio is 1 and this changes nothing.
+      //
+      // A value in the config replaces Unity's own live read of the window's ratio, so it is kept
+      // current once the game has loaded -- see followPixelRatio below.
+      function cappedPixelRatio() {
+        return Math.min(window.devicePixelRatio || 1, 1.5);
+      }
+
+      config.devicePixelRatio = cappedPixelRatio();
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
+      } else {
+        // Desktop style: BitSorter at the largest size the window has room for.
+        //
+        // This was a fixed 960x600 canvas centred with left: 50% and a
+        // translate(-50%), Unity's stock layout -- and in a window narrower than the canvas the
+        // translate pushed its left edge off the page, where no scrollbar reaches. The left edge is
+        // where the parts list is, so a player in a narrow window could not pick up a gate at all.
+        //
+        // Now the canvas keeps its shape and fills the room left above the footer, recomputed when
+        // the window changes. The interface is laid out for 1920x1080 and scales with the canvas,
+        // so size is legibility: at the authored 960x600 its smallest print is
+        // already about 6 CSS pixels, and at two thirds of that even body text is. It shrinks no
+        // further than that and the page scrolls instead. The container is centred by auto margins
+        // (style.css), which fall to zero when it is larger than the window -- so what does not fit
+        // is always scrolled to, never cut off. It grows up to 1920 wide, where the interface is
+        // drawn at the size it was written for; past that a larger canvas only costs the GPU.
+        fitToWindow();
+        window.addEventListener("resize", fitToWindow);
+        document.addEventListener("fullscreenchange", fitToWindow);
+        document.addEventListener("webkitfullscreenchange", fitToWindow);
+      }
+
+      // The loading screen is told how far the download has got, and goes once BitSorter is running: it fades to the
+      // ground the first frame is drawn on, and takes itself out of the page with every animation, timer and listener
+      // it had. On a failure it stops where it stands, under the alert.
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          setProgress(progress);
+              }).then((unityInstance) => {
+                finishLoading();
+
+                // The cap above was read once, and it replaces Unity's own live read of the window's
+                // ratio -- so a page zoomed, or a window moved to a sharper screen, went on rendering
+                // at the ratio BitSorter loaded at. Unity reads Module.devicePixelRatio each time it
+                // sizes the canvas, so keeping that current is the whole fix. The media query
+                // matches the ratio in force and fires once when it stops matching, whether the
+                // cause was a zoom or a change of screen that left the window's size alone.
+                //
+                // Safari before 14 has no addEventListener on a media query, and a throw in here would
+                // reach the .catch below and put up an alert over the game. There, a resize -- which
+                // zooming raises -- keeps it current instead.
+                function followPixelRatio() {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+
+                  var query = window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)");
+
+                  if (query.addEventListener)
+                    query.addEventListener("change", followPixelRatio, { once: true });
+                }
+
+                followPixelRatio();
+                window.addEventListener("resize", function () {
+                  unityInstance.Module.devicePixelRatio = cappedPixelRatio();
+                });
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  // The page fullscreen, not the canvas alone (browser-2): a written block's code is a box the page lays
+                  // over the canvas -- CodeMirror, Part 12f -- and a fullscreen element shows nothing but itself, so with
+                  // the canvas fullscreen the code could be neither read nor typed. The canvas alone only where the page
+                  // cannot be.
+                  var page = document.documentElement;
+                  var full = page.requestFullscreen || page.webkitRequestFullscreen;
+                  if (full)
+                    full.call(page);
+                  else
+                    unityInstance.SetFullscreen(1);
+                };
+
+              }).catch((message) => {
+                stopLoading();
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>

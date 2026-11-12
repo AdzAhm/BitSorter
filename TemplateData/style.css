@@ -1,0 +1,19 @@
+html, body { height: 100%; background: #151515 }
+body { padding: 0; margin: 0; display: flex }
+#unity-container { position: absolute }
+#unity-container.unity-desktop { position: relative; margin: auto }
+#unity-container.unity-mobile { position: fixed; width: 100%; height: 100% }
+#bs-stage { position: relative }
+.unity-mobile #bs-stage { width: 100%; height: 100% }
+#unity-canvas { display: block; background: #151515 }
+.unity-mobile #unity-canvas { width: 100%; height: 100% }
+#unity-footer { position: relative; display: flex; align-items: center; box-sizing: border-box; height: 38px; padding: 0 6px 0 16px; border-top: 1px solid var(--edge) }
+:fullscreen #unity-footer { display: none }
+:-webkit-full-screen #unity-footer { display: none }
+.unity-mobile #unity-footer { display: none }
+#unity-build-title { display: flex; align-items: center; margin-right: auto }
+#bs-footer-mark { width: 91px; height: 11px; fill: var(--dim) }
+#unity-fullscreen-button { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; color: var(--muted); cursor: pointer }
+#unity-fullscreen-button:hover { color: var(--text); background: var(--chip) }
+/* Over the loading layer (z-index 10, index.html), so an error Unity reports while it loads is never hidden under it. */
+#unity-warning { position: absolute; left: 50%; top: 5%; transform: translate(-50%); background: white; padding: 10px; display: none; z-index: 11 }
