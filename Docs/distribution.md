@@ -4,15 +4,15 @@ How to publish BitSorter, and what each place needs from you.
 
 ## Where each version lives
 
-The current version is **5.0.0**, the SystemVerilog simulator. Its one source is
+The current version is **5.1.0**, the SystemVerilog simulator. Its one source is
 `bundleVersion` in `ProjectSettings/ProjectSettings.asset`: the start page's version line,
 the credits and the browser template's `productVersion` all read it, and a test holds the
 README and this file to it.
 
 | Version | Where |
 |---|---|
-| 5.0.0, in a browser | GitHub Pages, <https://adzahm.github.io/BitSorter/> |
-| 5.0.0, on Windows | A zip attached to its GitHub release |
+| 5.1.0, in a browser | GitHub Pages, <https://adzahm.github.io/BitSorter/> |
+| 5.1.0, on Windows | A zip attached to its GitHub release |
 | 4.0.0, the puzzle game | Unity Play, as it was released. It is not republished; its source is the `v4.0.0` tag |
 
 Two builds, both from menu items:
@@ -399,7 +399,7 @@ was about 20 MB, before the size settings above. 5.0's is in the table under
 ## GitHub Pages
 
 Live at <https://adzahm.github.io/BitSorter/>, served from the `gh-pages` branch. It
-serves the current version, 5.0.0.
+serves the current version, 5.1.0.
 
 **Publish with BitSorter → Publish WebGL to GitHub Pages**, or run
 `Tools/publish-pages.ps1` directly. Build first; the script warns if anything under
@@ -595,7 +595,7 @@ Zip `Build/Windows/` **inside a containing folder**, so unzipping produces one
 `BitSorter/` folder rather than 127 loose files (190 before 5.1 stripped the code) in someone's Downloads:
 
 ```text
-BitSorter-5.0.0-Windows.zip
+BitSorter-5.1.0-Windows.zip
 └── BitSorter/
     ├── BitSorter.exe
     ├── BitSorter_Data/
@@ -624,8 +624,8 @@ A release is three things bolted together: **a tag** naming one commit forever,
 **notes**, and **attached files**. The tag is the part that gets skipped.
 
 ```powershell
-git tag -a v5.0.0 -m "BitSorter 5.0.0: a SystemVerilog simulator for the course"
-git push origin v5.0.0
+git tag -a v5.1.0 -m "BitSorter 5.1.0: code on every circuit, values at any zoom, a lighter Windows build"
+git push origin v5.1.0
 ```
 
 `-a` makes it annotated, so it stores an author and a date as a real object; a bare

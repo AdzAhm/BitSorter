@@ -12,14 +12,22 @@ back out again. It runs in a browser and on Windows.
 
 https://github.com/user-attachments/assets/6a1562a4-2837-4ba8-ade4-51901979df2e
 
-Version 5.0.0.
+Version 5.1.0.
+
+**New in 5.1:** every circuit has a CODE switch, so a drawing can be edited as code and
+a new circuit written from scratch; code is coloured and folds, on Windows as in the
+browser; a bus's value reads on the waves without zooming in, whole in a tip where the
+pointer is; rows move by dragging their names; the RISC-V processors open on the signals
+that show them working; import from any folder on Windows; QUIT; and a Windows build a
+fifth smaller that spares the graphics card while nothing moves.
+[The release notes](https://github.com/AdzAhm/BitSorter/releases/tag/v5.1.0) have the lot.
 
 ## Where to run it
 
 | Version | Where |
 | --- | --- |
-| **BitSorter 5.0, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
-| **BitSorter 5.0, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. Faster than the browser, and for bigger designs. |
+| **BitSorter 5.1, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
+| **BitSorter 5.1, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. Faster than the browser, and for bigger designs. |
 
 **Want to help?** Bug reports, exercise ideas and code are all welcome.
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the project
@@ -38,8 +46,9 @@ and send a pull request.
   line. Drawn and written modules work together in one design.
 - **Run.** Each change travels its wire at the speed you choose. Play, pause, step
   from edge to edge or back, run to a moment, or break when a signal takes a value.
-- **Read the waves.** Binary, hex, or unsigned or signed decimal; two cursors and
-  the time between them; groups of signals; export to VCD or PNG.
+- **Read the waves.** Binary, hex, or unsigned or signed decimal, readable at any zoom;
+  two cursors and the time between them; rows in any order, and groups of signals;
+  export to VCD or PNG.
 - **Analyse.** TIMING finds the critical path and the minimum clock period. LOGIC
   gives the truth table, minimal expressions and K-maps. STATES draws the state
   diagram.
@@ -86,14 +95,11 @@ closes whatever is on top, one thing a press, and never leaves the workbench. `?
 every key and gesture.
 
 The samples are a reference circuit, a full adder, a counter, four half adders, an
-adder written as code, a traffic light, a two-bit ALU, a test for a prime, a sequence
-detector and a seven segment decoder. `S` steps through them, and on through the three
-RISC-V processors.
-
-adder written as code, a traffic light, a two-bit ALU, a check of whether a 4-bit
-number is prime (the one to open LOGIC on: its truth table, its K-map and its smallest
-sum of products), a sequence detector and a seven segment decoder. `S` steps through
-them, and on through the three RISC-V processors.
+adder written as code, a traffic light, a two-bit ALU, a check of whether a number is
+prime (for any width you set in its testbench; at four bits it is the one to open LOGIC
+on, for its truth table, its K-map and its smallest sum of products), a sequence detector
+and a seven segment decoder. `S` steps through them, and on through the three RISC-V
+processors.
 
 ![Drawing and wiring: a half adder drawn from XOR and AND gates, wired from pin to pin, then run, with the values travelling the wires.](Docs/gifs/draw-and-wire.gif)
 
@@ -131,6 +137,17 @@ beside the rows are the ones at the cursor. `Shift` and a click moves the playhe
 moment the circuit shows. The time between the two is written under the rows. The wheel
 zooms, and a range bar at the legend row's right end shows how much of the run is on
 screen. The waves only show the run: an input is set in INPUTS.
+
+A bus's value is written over its box wherever it fits; a box too narrow for all of it
+drops the leading zeros first, so an address reads `6C` rather than `0000006C`, and then
+shows as much as fits with `…`. Point at a box for a tip with the whole value, the
+signal's width and the time it holds. **VALUES +**, at the head of the values beside the
+names, or `W`, widens that column to show every value whole; **VALUES -** cuts them again.
+
+Drag a row by its name, up or down, to move it; a line shows where it will go, and `Esc`
+puts it back. A row in a group stays in its group, and a group's name carries the whole
+group. The order you make is kept while the circuit is open, through edits of the circuit
+too.
 
 **INPUTS,** beside WAVES, gives the inputs as a table you type in: a column per input,
 a bus one column in binary, hex or decimal, and a row per moment something changes.
@@ -292,9 +309,12 @@ The start page gives the RV32I single-cycle, multicycle and pipelined processors
 of their own, written from the RISC-V specification. Each runs any of three small
 programs, the sum of 1 to 10, the first ten Fibonacci numbers, or every instruction it
 runs once, checking itself, picked from the **PROGRAM** chip beside the run or straight
-from the start page. Open one to read its drawing, double-click a block to step inside,
-and compare how many clock cycles each takes: for the instruction test, 316, 1,204 and
-346. They are there to be run and read, not taught.
+from the start page. Each opens its waves on the signals the course reads a processor
+by: the PC, the instruction, the ALU's result, what is written to memory and whether, and
+what is written back to the registers, with the multicycle processor's state and the
+pipelined one's stall and flush. Open one to read its drawing, double-click a block to
+step inside, and compare how many clock cycles each takes: for the instruction test, 316,
+1,204 and 346. They are there to be run and read, not taught.
 
 ![PROGRAM: the multicycle processor opened, the PROGRAM chip switched from SUM to FIBONACCI, a block stepped into, the controller drawn as its state diagram.](Docs/gifs/program.gif)
 
@@ -341,10 +361,12 @@ browser's tab.
 default so the frame rate keeps to your screen's, and with it off a frame cap from 30 to
 240 frames a second, or none. FPS COUNTER, on Windows and in a browser, puts a small
 frame-rate counter in the top-right corner. A browser keeps fullscreen and the frame rate
-to itself, so the counter is the one display switch there. On Windows, while nothing on
-screen moves, BitSorter draws one frame in ten to spare the graphics card, and goes back to
-every frame the moment you move the mouse, press a key or play; the counter shows the
-frames drawn, so it drops when the window sits still.
+to itself, so the counter is the one display switch there. On Windows, a second after
+anything on screen last moved, BitSorter slows to twenty frames a second and draws one in
+four, to spare the graphics card (on a laptop whose screen hangs off its other graphics
+chip, every frame is copied across, drawn or not); it goes back to your own vertical sync
+and frame cap the moment you move the mouse, press a key or play. The counter shows the
+frames drawn, so it reads about five while the window sits still.
 
 **STYLE** chooses the look: **Schematic**, the default; **Schematic Light**, the same on
 paper, for a report's screenshots; **Neon Board**; and **Classic**. BitSorter loads again
