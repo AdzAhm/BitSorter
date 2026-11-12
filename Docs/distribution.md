@@ -609,7 +609,8 @@ BitSorter-5.1.0-Windows.zip
 at the archive root with no containing folder. Same project, two archives, opposite
 rule. Around 40 MB compressed, from 104 MB on disk (4.0.0). The 5.0.0 release candidate (v5 `72d5c43f`,
 2026-11-09) is 38,155,881 bytes zipped, from 99,282,083 on disk in 190 files; 5.0.0 as released, 38,156,003. 5.1
-strips the Windows build's code (above): 79,484,897 bytes on disk in 127 files.
+strips the Windows build's code (above): 79,484,897 bytes on disk in 127 files. 5.1.0 as released is 30,070,385
+bytes zipped, from 79,493,601 on disk in 127 files.
 
 `Build/` is gitignored, so the zip can sit next to the build without any risk of
 being committed.
