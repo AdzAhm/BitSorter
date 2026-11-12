@@ -14,13 +14,15 @@ longer matches the code, say so and correct it in the same change. Do not
 quietly work around a stale paragraph, and do not treat one as binding
 just because it is written down here.
 
-## 5.0 (released 2026-11-10)
+## 5.0 (released 2026-11-10) and 5.1 (released 2026-11-12)
 **5.0.0 is released** (tag `v5.0.0`): on GitHub Pages, and on Windows as a zip on its
 GitHub release. It was built on a branch of its own, `v5`, a PR a part, and `main`
 was fast-forwarded to it at the release, when `v5` and every merged branch were
-deleted. **What comes after 5.0.0 is built on `v5.1`** (Ahmad, 2026-11-11), made from `main`:
-fixes and additions each a PR into it, and `main` fast-forwarded to it when 5.1.0 is
-released. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
+deleted. **5.1.0 is released** (tag `v5.1.0`), the same two ways: sixteen fixes and
+additions from using 5.0.0 (Ahmad's list, 2026-11-11), each a PR into `v5.1`, made from
+`main`, and `v5.1` merged into `main` as one PR at the release
+(`Docs/release/5.1.0/notes.md` are its notes). What comes after is built the same way, on a
+branch made from `main` for it. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
 thirty levels kept as side *Exercises* (the brief's decisions, 2026-10-11).
 **`Docs/architecture-5.md` is the architecture, the data model and the parts --
 read it before any 5.0 work.** 5.0 was built beside the 4.x game, which Part 15
