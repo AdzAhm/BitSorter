@@ -40,6 +40,12 @@ namespace BitSorter.View
     /// from the 58 units the reference's names take up to 260, and a longer name is cut from its start,
     /// where a full path repeats what every row shares: the waves start further right by as much.
     ///
+    /// **A bus's value reads without zooming in** (5.1, Ahmad: a 64-bit value read only zoomed far in): a box too narrow
+    /// for the whole value shows as much of it as fits and an ellipsis (<see cref="ValueFit.Kept"/>), the pointer on a box
+    /// shows a tip with the whole of it (<see cref="ShowTip"/>), and VALUES + at the head of the values column -- or W --
+    /// widens it to the widest value any row can hold (<see cref="WholeValues"/>), the waves starting further right by as
+    /// much, as they do for the names.
+    ///
     /// **Its buttons are the dock's** (Part 11b): + SIGNAL, GROUP, NAMES, UNIT and EXPORT stood over it until the
     /// shell's dock took them into its header. **Its rows scroll in a window that clips them** (the dock's waves), so
     /// a point outside that window is over none of it, whatever is drawn there out of sight.
@@ -106,6 +112,30 @@ namespace BitSorter.View
         /// <summary>How much wider than the reference's the names column is: how far right the waves start.</summary>
         public float NamesExtra { get; }
 
+        /// <summary>How wide the values column is in the reference's layout, from <see cref="WorkbenchDrawing.ReadoutLeft"/>: each value cut to it.</summary>
+        public const float ValuesWidth = 60f;
+
+        /// <summary>The most room the values column takes with every value whole: a 64-bit value in binary, and a little more.</summary>
+        public const float MostValuesWidth = 480f;
+
+        /// <summary>Whether the values column shows every value whole (5.1), as wide as the widest a row can hold.</summary>
+        public bool WholeValues { get; }
+
+        /// <summary>How much wider than <see cref="ValuesWidth"/> the values column is: how much further right the waves start.</summary>
+        public float ValuesExtra { get; }
+
+        /// <summary>The left end of the names column, in the waveform's units: as far left of its rect as the two columns are widened.</summary>
+        private float ColumnsLeft => -(NamesExtra + ValuesExtra);
+
+        /// <summary>The words over the values column -- VALUES + or VALUES - -- that widen it and cut it again.</summary>
+        private readonly TextMeshProUGUI _valuesHead;
+
+        /// <summary>What the values column's head says while it cuts every value, and while it shows them whole.</summary>
+        public const string ValuesCutCaption = "VALUES +", ValuesWholeCaption = "VALUES -";
+
+        /// <summary>What the values column's head says now: what a test reads.</summary>
+        public string ValuesHeadText => _valuesHead.text;
+
         /// <summary>What row <paramref name="row"/>'s name says, as drawn.</summary>
         public string NameOf(int row) => _names[row].text;
 
@@ -119,7 +149,7 @@ namespace BitSorter.View
         /// </summary>
         public WaveformView(WorkbenchModel model, WorkbenchLayers layers, RectTransform parent, Vector2 at, float width,
             SchematicPalette palette, IReadOnlyList<string> names, WaveView view = null, IReadOnlyList<bool> headers = null,
-            RectTransform clip = null)
+            RectTransform clip = null, bool wholeValues = false)
         {
             _model = model;
             _clip = clip;
@@ -137,10 +167,29 @@ namespace BitSorter.View
 
             NamesExtra = Mathf.Clamp(longest + 8f, WorkbenchDrawing.NameRight, MostNamesWidth) - WorkbenchDrawing.NameRight;
             width -= NamesExtra;
+
+            // With every value whole, the values column as wide as the widest value any row can hold in its radix, its mark
+            // included -- worked out, never measured off the run, so it never moves while the run plays (ValueText.MaxChars).
+            WholeValues = wholeValues;
+            float values = ValuesWidth;
+            if (wholeValues)
+                for (int row = 0; row < rows; row++)
+                {
+                    int most = model.RowMostChars(row);
+                    if (most <= 0)
+                        continue;
+                    if (model.RowIsBus(row) && model.RowRadix(row) <= WaveRadix.Hex)
+                        most++;   // its b, o or h
+                    values = Mathf.Max(values, UiTheme.TextWidth(new string('8', most), UiType.Micro) + 8f);
+                }
+
+            ValuesExtra = Mathf.Clamp(Mathf.Min(values, MostValuesWidth, Mathf.Max(ValuesWidth, width * 0.45f)), ValuesWidth, MostValuesWidth)
+                - ValuesWidth;
+            width -= ValuesExtra;
             _width = width;
 
             Rect = UiTheme.Rect("waveform", parent);
-            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra, 0f), new Vector2(width, Height));
+            WorkbenchPanel.TopLeft(Rect, at + new Vector2(NamesExtra + ValuesExtra, 0f), new Vector2(width, Height));
 
             if (view == null || view.Width != Mathf.Max(1f, WorkbenchDrawing.AxisWidth(width)))
             {
@@ -157,11 +206,11 @@ namespace BitSorter.View
             _marks = new Image[rows];
             for (int row = 0; row < rows; row++)
             {
-                var top = new Vector2(-NamesExtra, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight);
+                var top = new Vector2(ColumnsLeft, WorkbenchDrawing.WaveTop + row * WorkbenchDrawing.RowHeight);
                 Image band = UiTheme.Panel_("band", Rect, palette.Selection);
                 band.sprite = null;
                 band.raycastTarget = false;
-                WorkbenchPanel.TopLeft(band.rectTransform, top, new Vector2(width + NamesExtra, WorkbenchDrawing.RowHeight));
+                WorkbenchPanel.TopLeft(band.rectTransform, top, new Vector2(width - ColumnsLeft, WorkbenchDrawing.RowHeight));
                 WorkbenchPanel.Show(band, false);
                 _bands[row] = band;
 
@@ -177,6 +226,8 @@ namespace BitSorter.View
 
             _readouts = new TextMeshProUGUI[rows];
             _busLabels = new List<TextMeshProUGUI>[rows];
+            _busLabelOf = new List<string>[rows];
+            _busLabelKept = new List<long>[rows];
             _readoutInk = new Color[rows];
             _inkWorkedOut = new Color[rows];     // clear, which no ground nor band is: every row is worked out the first time
             _underWorkedOut = new Color[rows];
@@ -189,13 +240,13 @@ namespace BitSorter.View
             {
                 float middle = WorkbenchDrawing.RowMiddle(row);
                 bool header = headers != null && row < headers.Count && headers[row];
-                _names[row] = WorkbenchPanel.StageLabel(Rect, shown[row], new Vector2(WorkbenchDrawing.NameRight - namesWidth, middle),
+                _names[row] = WorkbenchPanel.StageLabel(Rect, shown[row], new Vector2(WorkbenchDrawing.NameRight - ValuesExtra - namesWidth, middle),
                     UiType.Micro, header ? palette.Text : palette.TextDim, TextAlignmentOptions.MidlineRight, namesWidth);
                 if (header)
                     _names[row].fontStyle = FontStyles.Bold;
 
-                _readouts[row] = WorkbenchPanel.StageLabel(Rect, "", new Vector2(WorkbenchDrawing.ReadoutLeft, middle),
-                    UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, 60f);
+                _readouts[row] = WorkbenchPanel.StageLabel(Rect, "", new Vector2(WorkbenchDrawing.ReadoutLeft - ValuesExtra, middle),
+                    UiType.Micro, palette.Text, TextAlignmentOptions.MidlineLeft, ValuesWidth + ValuesExtra);
                 _readoutInk[row] = palette.Text;
 
                 // Cut to its room, never over the waves (Part 15g): a 64-bit value, FFFFFFFFFFFFFFFFh, ran on across them
@@ -204,7 +255,11 @@ namespace BitSorter.View
                 _readouts[row].overflowMode = TextOverflowModes.Ellipsis;
 
                 if (model.RowIsBus(row))
+                {
                     _busLabels[row] = new List<TextMeshProUGUI>();
+                    _busLabelOf[row] = new List<string>();
+                    _busLabelKept[row] = new List<long>();
+                }
             }
 
             _playheadLabel = WorkbenchPanel.StageLabel(Rect, "", new Vector2(0f, WorkbenchDrawing.WaveTop + 4f), UiType.Micro, palette.Accent,
@@ -215,6 +270,92 @@ namespace BitSorter.View
                 TextAlignmentOptions.Center, 90f);
             WorkbenchPanel.Show(_secondLabel, false);
             WorkbenchPanel.Show(_spanLabel, false);
+
+            // Over the values column, the words that widen it to every value whole and cut it again (5.1).
+            _valuesHead = WorkbenchPanel.StageLabel(Rect, wholeValues ? ValuesWholeCaption : ValuesCutCaption,
+                new Vector2(WorkbenchDrawing.ReadoutLeft - ValuesExtra, WorkbenchDrawing.WaveTop - 14f), UiType.Micro, palette.TextDim,
+                TextAlignmentOptions.MidlineLeft, ValuesWidth + ValuesExtra);
+
+            // Where a row dragged by its name would go (5.1): a line across the names and the waves, over everything else.
+            _drop = UiTheme.Panel_("drop line", Rect, palette.Accent);
+            _drop.sprite = null;
+            _drop.raycastTarget = false;
+            WorkbenchPanel.Show(_drop, false);
+
+            // The whole of a bus's value where the pointer is (5.1): over everything, the drop line included.
+            _tip = WorkbenchPanel.CanvasChip("value tip", Rect, palette);
+            _tip.raycastTarget = false;
+            _tipText = UiTheme.Label("text", _tip.transform, UiType.Micro, palette.Text, TextAlignmentOptions.TopLeft);
+            _tipText.textWrappingMode = TextWrappingModes.Normal;
+            UiTheme.Stretch(_tipText.rectTransform, TipPadding);
+            WorkbenchPanel.Show(_tip, false);
+
+            // An ellipsis in one character where the face has it, as a viewer writes one; three dots where it has not.
+            _ellipsis = _readouts.Length > 0 && _readouts[0].font != null && _readouts[0].font.HasCharacter('\u2026', false, false)
+                ? "\u2026" : "...";
+        }
+
+        // -----------------------------------------------------------------
+        // A row dragged by its name (5.1)
+        // -----------------------------------------------------------------
+
+        /// <summary>How thick the line is that shows where a dragged row would go.</summary>
+        public const float DropThickness = 2f;
+
+        private readonly Image _drop;
+        private int _dropGap = -1;
+
+        /// <summary>The gap the drop line stands in, or -1 while there is none: what a test reads.</summary>
+        public int DropShown => _dropGap;
+
+        /// <summary>Puts the line that shows where a dragged row would go in the gap <paramref name="gap"/> -- 0 over the first row -- or takes it down for -1.</summary>
+        public void ShowDrop(int gap)
+        {
+            if (gap > Rows)
+                gap = -1;
+            if (gap == _dropGap)
+                return;
+            _dropGap = gap;
+            WorkbenchPanel.Show(_drop, gap >= 0);
+            if (gap >= 0 && _tip != null && !_tip.gameObject.activeSelf)
+                InFront(_drop.transform);
+            if (gap >= 0)
+                WorkbenchPanel.TopLeft(_drop.rectTransform,
+                    new Vector2(ColumnsLeft, WorkbenchDrawing.WaveTop + gap * WorkbenchDrawing.RowHeight - DropThickness / 2f),
+                    new Vector2(_width - ColumnsLeft, DropThickness));
+        }
+
+        /// <summary>
+        /// The gap between rows nearest a point on the screen, at any height -- 0 over the first row, <see cref="Rows"/> under
+        /// the last -- where a row dragged there would go before <c>WaveList.DropGap</c> keeps it to its level.
+        /// </summary>
+        public int GapAt(Vector2 screenPoint)
+        {
+            if (Rect == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
+                return -1;
+            int gap = Mathf.RoundToInt((-local.y - WorkbenchDrawing.WaveTop) / WorkbenchDrawing.RowHeight);
+            return Mathf.Clamp(gap, 0, Rows);
+        }
+
+        /// <summary>How near the window's top or foot, in pixels on the screen, a dragged row scrolls the rows.</summary>
+        public const float ScrollEdgePixels = 16f;
+
+        private static readonly Vector3[] ClipCorners = new Vector3[4];
+
+        /// <summary>
+        /// Which way a row dragged to a point on the screen scrolls the rows: -1 at the window's top or above it, 1 at its foot
+        /// or below it, within <see cref="ScrollEdgePixels"/>, and 0 between.
+        /// </summary>
+        public int EdgeAt(Vector2 screenPoint)
+        {
+            if (_clip == null)
+                return 0;
+            _clip.GetWorldCorners(ClipCorners);   // the overlay's world is the screen's pixels
+            if (screenPoint.y >= ClipCorners[1].y - ScrollEdgePixels)
+                return -1;
+            if (screenPoint.y <= ClipCorners[0].y + ScrollEdgePixels)
+                return 1;
+            return 0;
         }
 
         /// <summary>How many rows it shows.</summary>
@@ -228,6 +369,9 @@ namespace BitSorter.View
 
         /// <summary>What row <paramref name="row"/>'s readout says now: what a test reads.</summary>
         public string ReadoutOf(int row) => _readouts[row].text;
+
+        /// <summary>Whether row <paramref name="row"/>'s readout fits its column whole, not cut by an ellipsis: what a test reads.</summary>
+        public bool ReadoutWhole(int row) => _readouts[row].preferredWidth <= _readouts[row].rectTransform.rect.width + 0.5f;
 
         /// <summary>The colour row <paramref name="row"/>'s readout is written in now: what a test measures.</summary>
         public Color ReadoutColourOf(int row) => _readouts[row].color;
@@ -308,7 +452,7 @@ namespace BitSorter.View
                 return false;
 
             float x = local.x, y = -local.y;
-            if (x < -NamesExtra || x > _width || y < WorkbenchDrawing.WaveTop - 20f || y > Height)
+            if (x < ColumnsLeft || x > _width || y < WorkbenchDrawing.WaveTop - 20f || y > Height)
                 return false;
 
             float rowsTop = WorkbenchDrawing.WaveTop, rowsBottom = WorkbenchDrawing.WaveTop + Rows * WorkbenchDrawing.RowHeight;
@@ -316,10 +460,13 @@ namespace BitSorter.View
                 row = (int)((y - rowsTop) / WorkbenchDrawing.RowHeight);
 
             time = View.TimeAt(x - WorkbenchDrawing.WaveLeft);
+            float valuesLeft = WorkbenchDrawing.ReadoutLeft - ValuesExtra - 4f;
             if (x >= WorkbenchDrawing.WaveLeft)
                 region = y < rowsTop ? WaveRegion.Axis : WaveRegion.Waves;
+            else if (y < rowsTop && x >= valuesLeft)
+                region = WaveRegion.ValuesHead;   // VALUES + or VALUES -, over the values column (5.1)
             else
-                region = x < WorkbenchDrawing.ReadoutLeft - 4f ? WaveRegion.Names : WaveRegion.Values;
+                region = x < valuesLeft ? WaveRegion.Names : WaveRegion.Values;
             return true;
         }
 
@@ -537,11 +684,27 @@ namespace BitSorter.View
         /// </summary>
         public static Color BusLabelColour(LogicVec value, SchematicPalette palette) => value.IsKnown ? palette.Text : palette.XBoxWord;
 
-        /// <summary>A bus row's values written over its boxes, up to the moment: a box too narrow for its value has none.</summary>
+        // Each bus label's text and which of it it shows -- where from and how much, and whether cut -- as last handed to it: a
+        // label is written again only when either changes, so a frame of playback lays out no text that has not changed.
+        private readonly List<string>[] _busLabelOf;
+        private readonly List<long>[] _busLabelKept;
+
+        // A cut value's characters and its ellipsis, handed to a label as characters, never a string a frame.
+        private char[] _cut = new char[64];
+        private readonly string _ellipsis;
+
+        /// <summary>
+        /// A bus row's values written over its boxes, up to the moment: whole where it fits; else, in binary, octal or hex,
+        /// without its leading zeros, and as much of what is left as fits and an ellipsis (<see cref="ValueFit.Fit"/>, 5.1); and
+        /// nothing in a box with room for fewer than three characters.
+        /// </summary>
         private void PlaceBusLabels(int row, float middle, SchematicPalette palette)
         {
             List<TextMeshProUGUI> labels = _busLabels[row];
+            List<string> labelOf = _busLabelOf[row];
+            List<long> labelKept = _busLabelKept[row];
             SignalTrack track = _model.RowTrack(row);
+            bool zeros = _model.RowRadix(row) <= WaveRadix.Hex;   // binary, octal and hex: a leading zero says nothing of the value
             int used = 0;
 
             WorkbenchDrawing.RowSpans(_model, View, row, View.Start, Math.Min(View.End, _model.Time), _spans);
@@ -556,22 +719,157 @@ namespace BitSorter.View
 
                 string text = _model.RowText(row, span.First);
                 float x0 = WorkbenchDrawing.WaveX(span.From, View), x1 = WorkbenchDrawing.WaveX(span.To, View);
-                if (x1 - x0 <= 22f + 7f * (text.Length - 1))
+                int kept = ValueFit.Fit(text, zeros, x1 - x0, _ellipsis.Length == 1 ? 1 : 2, out int start, out bool cut);
+                if (kept == 0)
                     continue;
 
                 if (used == labels.Count)
+                {
                     labels.Add(WorkbenchPanel.StageLabel(Rect, "", new Vector2(0f, middle), UiType.Micro, palette.Text,
                         TextAlignmentOptions.Center, 60f));
+                    labelOf.Add(null);
+                    labelKept.Add(-1);
+                }
 
-                TextMeshProUGUI label = labels[used++];
+                int at = used++;
+                TextMeshProUGUI label = labels[at];
                 WorkbenchPanel.Show(label, true);
-                WorkbenchPanel.SetText(label, text);
+                long shows = ((long)start << 32) | ((long)kept << 1) | (cut ? 1L : 0L);
+                if (!ReferenceEquals(labelOf[at], text) || labelKept[at] != shows)
+                {
+                    labelOf[at] = text;
+                    labelKept[at] = shows;
+                    if (start == 0 && !cut)
+                        label.text = text;
+                    else
+                        WritePart(label, text, start, kept, cut);
+                }
+
                 label.color = BusLabelColour(value, palette);
                 label.rectTransform.anchoredPosition = new Vector2((x0 + x1) * 0.5f, -middle);
             }
 
             for (int i = used; i < labels.Count; i++)
                 WorkbenchPanel.Show(labels[i], false);
+        }
+
+        /// <summary>
+        /// <paramref name="kept"/> characters of <paramref name="text"/> from <paramref name="start"/>, and the ellipsis where
+        /// <paramref name="cut"/>, handed to <paramref name="label"/> as characters.
+        /// </summary>
+        private void WritePart(TextMeshProUGUI label, string text, int start, int kept, bool cut)
+        {
+            int length = kept + (cut ? _ellipsis.Length : 0);
+            if (_cut.Length < length)
+                _cut = new char[length * 2];
+            text.CopyTo(start, _cut, 0, kept);
+            if (cut)
+                _ellipsis.CopyTo(0, _cut, kept, _ellipsis.Length);
+            label.SetCharArray(_cut, 0, length);
+        }
+
+        /// <summary>What the labels over a bus row's boxes say now, left to right: what a test reads.</summary>
+        public IEnumerable<string> BusLabelsOf(int row)
+        {
+            if (row < 0 || row >= _busLabels.Length || _busLabels[row] == null)
+                yield break;
+            foreach (TextMeshProUGUI label in _busLabels[row])
+                if (label.gameObject.activeSelf)
+                    yield return label.text;
+        }
+
+        // -----------------------------------------------------------------
+        // The tip: a bus's whole value where the pointer is (5.1)
+        // -----------------------------------------------------------------
+
+        /// <summary>How far in from the tip's edge its words start.</summary>
+        private const float TipPadding = 8f;
+
+        private readonly Image _tip;
+        private readonly TextMeshProUGUI _tipText;
+
+        /// <summary>What the tip says, or null while it is down: what a test reads.</summary>
+        public string TipText => _tip.gameObject.activeSelf ? _tipText.text : null;
+
+        /// <summary>
+        /// The box of a bus's value under a point on the screen, on the waves: its row, the change it shows -- its index in the
+        /// row's track -- and the stretch of time it holds, as drawn. False off the waves, on a one-bit row, and where the
+        /// changes come too close together to be drawn apart.
+        /// </summary>
+        public bool BusBoxAt(Vector2 screenPoint, out int row, out int change, out double from, out double to)
+        {
+            change = -1;
+            from = to = 0;
+            if (!RegionAt(screenPoint, out WaveRegion region, out row, out double time) || region != WaveRegion.Waves || row < 0
+                || !_model.RowIsBus(row) || _model.RowSignal(row) < 0)
+                return false;
+
+            WorkbenchDrawing.RowSpans(_model, View, row, View.Start, Math.Min(View.End, _model.Time), _spans);
+            foreach (WaveSpan span in _spans)
+            {
+                if (span.Busy || time < span.From || time >= span.To)
+                    continue;
+                change = span.First;
+                from = span.From;
+                to = span.To;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Puts up the tip saying <paramref name="text"/> by a point on the screen, below and right of it, kept inside the window
+        /// the waves are seen through -- above the point where there is no room below -- and as wide as its words, or the
+        /// window, a value too long for it wrapping to another line.
+        /// </summary>
+        public void ShowTip(Vector2 screenPoint, string text)
+        {
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, screenPoint, null, out Vector2 local))
+                return;
+
+            // The window, in the waveform's own units: what the tip stays inside.
+            Vector2 low = new Vector2(ColumnsLeft, -Height), high = new Vector2(_width, 0f);
+            if (_clip != null)
+            {
+                _clip.GetWorldCorners(ClipCorners);
+                Vector3 a = Rect.InverseTransformPoint(ClipCorners[0]), b = Rect.InverseTransformPoint(ClipCorners[2]);
+                low = new Vector2(Mathf.Max(low.x, a.x), Mathf.Max(low.y, a.y));
+                high = new Vector2(Mathf.Min(high.x, b.x), Mathf.Min(high.y, b.y));
+            }
+
+            if (!ReferenceEquals(_tipText.text, text))
+                _tipText.text = text;
+            float most = Mathf.Max(80f, high.x - low.x - 8f);
+            float width = Mathf.Min(_tipText.GetPreferredValues(text, most - 2f * TipPadding, 0f).x + 2f * TipPadding + 2f, most);
+            float height = _tipText.GetPreferredValues(text, width - 2f * TipPadding, 0f).y + 2f * TipPadding;
+
+            float x = Mathf.Clamp(local.x + 14f, low.x + 4f, Mathf.Max(low.x + 4f, high.x - width - 4f));
+            float top = local.y - 18f;
+            if (top - height < low.y + 4f)
+                top = local.y + height + 10f;   // no room below: above the pointer
+            top = Mathf.Min(top, high.y - 4f);
+
+            WorkbenchPanel.TopLeft(_tip.rectTransform, new Vector2(x, -top), new Vector2(width, height));
+            WorkbenchPanel.Show(_tip, true);
+            InFront(_tip.transform);
+        }
+
+        /// <summary>
+        /// Puts <paramref name="part"/> in front of everything else the waveform draws: the labels over the boxes and the
+        /// glitches' words are made as the waves are written, after it, and were drawn over the tip.
+        /// </summary>
+        private void InFront(Transform part)
+        {
+            if (part.GetSiblingIndex() != Rect.childCount - 1)
+                part.SetAsLastSibling();
+        }
+
+        /// <summary>Takes the tip down.</summary>
+        public void HideTip()
+        {
+            if (_tip.gameObject.activeSelf)
+                WorkbenchPanel.Show(_tip, false);
         }
 
         /// <summary>The time axis's numbers, one over each line of the grid (<see cref="WorkbenchDrawing.Grid"/>).</summary>
@@ -617,7 +915,7 @@ namespace BitSorter.View
         /// as ModelSim marks them -- and a value with no digit to read, x or z throughout, or one digit
         /// partly either, left as it is, as are decimals and an enum's names. Made when the value changes.
         /// </summary>
-        private static string Readout(string text, WaveRadix radix, bool bus)
+        internal static string Readout(string text, WaveRadix radix, bool bus)
         {
             if (!bus || !HasHexDigit(text))
                 return text;

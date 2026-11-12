@@ -119,6 +119,7 @@ namespace BitSorter.PlayMode.Tests
             // As PanelPlayTests explains: InputTestFixture turns on a read-value cache and its self-check, which the game
             // itself never runs with.
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
 
             InputSystem.AddDevice<Keyboard>();
             _mouse = InputSystem.AddDevice<Mouse>();
@@ -697,11 +698,12 @@ namespace BitSorter.PlayMode.Tests
             Begin("compare");
             yield return Beats(10);
 
-            // FILE, IMPORT A PROJECT FROM THE IMPORT FOLDER.
+            // FILE, IMPORT A PROJECT'S FOLDER: the folder the files were put in, answered for Windows' Open dialog.
             yield return PressShell(WorkbenchPanel.FileButton, 8);
             Assert.IsTrue(workbench.FileMenu.IsOpen, "sanity: the FILE menu is open");
             yield return Beats(10);
-            yield return PressShell(FileMenu.ActionItem + FileAction.ImportFolder, 8);
+            SaveGuard.AnswerTheNextChoice(FileImport.Folder);
+            yield return PressShell(FileMenu.ActionItem + FileAction.ImportPickedFolder, 8);
             Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench, "sanity: imported, run by its testbench");
             workbench.SetSpeed(7);   // 12.8 ns a second: its forty in three
             workbench.Restart();

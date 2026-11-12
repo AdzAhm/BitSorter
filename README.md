@@ -12,14 +12,22 @@ back out again. It runs in a browser and on Windows.
 
 https://github.com/user-attachments/assets/6a1562a4-2837-4ba8-ade4-51901979df2e
 
-Version 5.0.0.
+Version 5.1.0.
+
+**New in 5.1:** every circuit has a CODE switch, so a drawing can be edited as code and
+a new circuit written from scratch; code is coloured and folds, on Windows as in the
+browser; a bus's value reads on the waves without zooming in, whole in a tip where the
+pointer is; rows move by dragging their names; the RISC-V processors open on the signals
+that show them working; import from any folder on Windows; QUIT; and a Windows build a
+fifth smaller that spares the graphics card while nothing moves.
+[The release notes](https://github.com/AdzAhm/BitSorter/releases/tag/v5.1.0) have the lot.
 
 ## Where to run it
 
 | Version | Where |
 | --- | --- |
-| **BitSorter 5.0, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
-| **BitSorter 5.0, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. Faster than the browser, and for bigger designs. |
+| **BitSorter 5.1, in a browser** | [GitHub Pages](https://adzahm.github.io/BitSorter/). Nothing to install, no account. |
+| **BitSorter 5.1, on Windows** | [The latest release](https://github.com/AdzAhm/BitSorter/releases/latest), a zip. Faster than the browser, and for bigger designs. |
 
 **Want to help?** Bug reports, exercise ideas and code are all welcome.
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to open an issue, fork the project
@@ -38,8 +46,9 @@ and send a pull request.
   line. Drawn and written modules work together in one design.
 - **Run.** Each change travels its wire at the speed you choose. Play, pause, step
   from edge to edge or back, run to a moment, or break when a signal takes a value.
-- **Read the waves.** Binary, hex, or unsigned or signed decimal; two cursors and
-  the time between them; groups of signals; export to VCD or PNG.
+- **Read the waves.** Binary, hex, or unsigned or signed decimal, readable at any zoom;
+  two cursors and the time between them; rows in any order, and groups of signals;
+  export to VCD or PNG.
 - **Analyse.** TIMING finds the critical path and the minimum clock period. LOGIC
   gives the truth table, minimal expressions and K-maps. STATES draws the state
   diagram.
@@ -66,7 +75,9 @@ of parts notices; the browser says so, once, if it is ever slow to draw yours ag
 installed and nothing is written outside your own user folder. Windows will probably
 warn that it does not recognise the publisher: the build is unsigned, which is all
 that warning means. "More info", then "Run anyway". There is no build for macOS or
-Linux; use the browser version.
+Linux; use the browser version. **QUIT**, at the window's bottom right, closes it, even
+in fullscreen; it asks first, and everything is saved, code you typed and did not apply
+included, as a draft.
 
 The version you are running is at the foot of the start page, and in the credits. It is
 worth including if you report a bug.
@@ -84,14 +95,11 @@ closes whatever is on top, one thing a press, and never leaves the workbench. `?
 every key and gesture.
 
 The samples are a reference circuit, a full adder, a counter, four half adders, an
-adder written as code, a traffic light, a two-bit ALU, a test for a prime, a sequence
-detector and a seven segment decoder. `S` steps through them, and on through the three
-RISC-V processors.
-
-adder written as code, a traffic light, a two-bit ALU, a check of whether a 4-bit
-number is prime (the one to open LOGIC on: its truth table, its K-map and its smallest
-sum of products), a sequence detector and a seven segment decoder. `S` steps through
-them, and on through the three RISC-V processors.
+adder written as code, a traffic light, a two-bit ALU, a check of whether a number is
+prime (for any width you set in its testbench; at four bits it is the one to open LOGIC
+on, for its truth table, its K-map and its smallest sum of products), a sequence detector
+and a seven segment decoder. `S` steps through them, and on through the three RISC-V
+processors.
 
 ![Drawing and wiring: a half adder drawn from XOR and AND gates, wired from pin to pin, then run, with the values travelling the wires.](Docs/gifs/draw-and-wire.gif)
 
@@ -128,7 +136,18 @@ A click on the waves puts a cursor there and a drag moves it through the run; th
 beside the rows are the ones at the cursor. `Shift` and a click moves the playhead, the
 moment the circuit shows. The time between the two is written under the rows. The wheel
 zooms, and a range bar at the legend row's right end shows how much of the run is on
-screen. Double-click an input's wave to set it.
+screen. The waves only show the run: an input is set in INPUTS.
+
+A bus's value is written over its box wherever it fits; a box too narrow for all of it
+drops the leading zeros first, so an address reads `6C` rather than `0000006C`, and then
+shows as much as fits with `…`. Point at a box for a tip with the whole value, the
+signal's width and the time it holds. **VALUES +**, at the head of the values beside the
+names, or `W`, widens that column to show every value whole; **VALUES -** cuts them again.
+
+Drag a row by its name, up or down, to move it; a line shows where it will go, and `Esc`
+puts it back. A row in a group stays in its group, and a group's name carries the whole
+group. The order you make is kept while the circuit is open, through edits of the circuit
+too.
 
 **INPUTS,** beside WAVES, gives the inputs as a table you type in: a column per input,
 a bus one column in binary, hex or decimal, and a row per moment something changes.
@@ -166,11 +185,24 @@ The **CODE** tab in the dock prints a drawn circuit as the SystemVerilog it make
 only. The lines that the selected parts come from are marked and scrolled into view, and a
 click on a line selects the parts it makes.
 
+**CODE**, at the circuit's top right, is on every circuit. Over a drawing it shows the
+circuit as code, ready to type into, and changes nothing yet; **DRAWING** goes back. The
+first thing you type that applies makes the circuit code, and `Ctrl`+`Z` draws it again. A
+new circuit shows a starter module, so NEW CIRCUIT, then CODE, is a circuit written from
+scratch. Code that does not read is kept as a draft, marked, and the circuit stays drawn
+until it does.
+
+Code is coloured as SystemVerilog, in the editor and the CODE tab alike, on the desktop and
+in a browser: keywords, numbers and strings, comments, and system tasks and operators each
+in a colour of the look in use, every one readable against the background. A **-** in the
+margin folds a block -- a module, a `begin … end`, a port list, a comment -- to one line, and
+**+** opens it; `Ctrl`+`Shift`+`[` and `]` do the same where the caret is.
+
 ### The drawing of code
 
 A written module is shown as the drawing of its code, or as its code. It opens as its
-drawing, laid out in columns from the netlist the code builds; CODE and DRAWING, in the
-code's top strip, turn between the two. Every part of the drawing comes from a line of the code,
+drawing, laid out in columns from the netlist the code builds; CODE and DRAWING turn
+between the two. Every part of the drawing comes from a line of the code,
 which the inspector names, and says first what the code's comment on that line says.
 
 - **GATES** opens every operator and mux of four bits or fewer, and a sum or a difference of
@@ -249,9 +281,10 @@ many gates it took and how fast it settles, beside your best, and offers the nex
 
 ![CHECK: an Exercise opened, a half adder drawn, CHECK failing with a line in the TRANSCRIPT, a fix, CHECK passing and the solved card.](Docs/gifs/check.gif)
 
-**WRITE IT** answers an Exercise in SystemVerilog instead: your drawing becomes code,
-gate for gate, and you carry on typing. It is held to the same parts as a drawing and
-graded the same way. **DRAW IT** goes back to drawing, and draws your code as its gates.
+**CODE** answers an Exercise in SystemVerilog instead: your drawing shown as code, gate
+for gate, under a header with the goal and the parts it may use, and once what you type
+applies, the answer is code. It is held to the same parts as a drawing and graded the same
+way. DRAWING shows the drawing of your code.
 Some Exercises open on a circuit with something wrong in it, for you to find.
 
 New to it? **TUTORIAL**, on the start page and in HELP, walks you through the first
@@ -276,9 +309,12 @@ The start page gives the RV32I single-cycle, multicycle and pipelined processors
 of their own, written from the RISC-V specification. Each runs any of three small
 programs, the sum of 1 to 10, the first ten Fibonacci numbers, or every instruction it
 runs once, checking itself, picked from the **PROGRAM** chip beside the run or straight
-from the start page. Open one to read its drawing, double-click a block to step inside,
-and compare how many clock cycles each takes: for the instruction test, 316, 1,204 and
-346. They are there to be run and read, not taught.
+from the start page. Each opens its waves on the signals the course reads a processor
+by: the PC, the instruction, the ALU's result, what is written to memory and whether, and
+what is written back to the registers, with the multicycle processor's state and the
+pipelined one's stall and flush. Open one to read its drawing, double-click a block to
+step inside, and compare how many clock cycles each takes: for the instruction test, 316,
+1,204 and 346. They are there to be run and read, not taught.
 
 ![PROGRAM: the multicycle processor opened, the PROGRAM chip switched from SUM to FIBONACCI, a block stepped into, the controller drawn as its state diagram.](Docs/gifs/program.gif)
 
@@ -289,10 +325,10 @@ The **FILE** menu keeps your circuits and takes a project's files in and gives t
 - **Your circuits.** MY CIRCUIT is always there. NEW CIRCUIT makes another, named, and
   OPEN A CIRCUIT lists them all; RENAME and DELETE work on any but MY CIRCUIT, and DELETE
   asks first. Each is kept as you leave it, and each exports under its own name.
-- **Import.** On a desktop, put a project's files, its `.sv` files, any files they
-  `` `include ``, and the memory images `$readmemh` reads, in the Import folder (FILE,
-  OPEN THE IMPORT FOLDER), then IMPORT. In a browser, IMPORT picks the files or a folder.
-  The project opens as a circuit of its own, named after it, and nothing you already have
+- **Import.** FILE, IMPORT A PROJECT'S FOLDER, or IMPORT A PROJECT'S FILES, and pick them
+  wherever they are: a project's `.sv` files, any files they `` `include ``, and the memory
+  images `$readmemh` reads. On Windows the picker is Windows' own, and opens where you left
+  it last time. The project opens as a circuit of its own, named after it, and nothing you already have
   is replaced. A module made only of gates is drawn; any other module is kept as the code
   you wrote. Your testbench runs as written, `$display` and all. Anything the import could
   not read is listed in the TRANSCRIPT with its file and line. An import takes up to 200
@@ -303,8 +339,9 @@ The **FILE** menu keeps your circuits and takes a project's files in and gives t
 - **Export.** EXPORT PROJECT saves a zip of every file the project is, with a `run.do`:
   unzip it, and in ModelSim type `do run.do`.
 - **Compare with ModelSim.** The `run.do` also has ModelSim save every signal to
-  `modelsim.vcd`. Put that file in the Import folder (in a browser, pick it), and FILE,
-  COMPARE WITH MODELSIM'S RUN holds BitSorter's run to ModelSim's: it says they agree, or
+  `modelsim.vcd`. Put that file in BitSorter's Import folder (COMPARE opens it for you if
+  it finds none there; in a browser, you pick the file), and FILE, COMPARE WITH MODELSIM'S
+  RUN holds BitSorter's run to ModelSim's: it says they agree, or
   takes the waves to the first moment they differ and names the signal and both values
   in the TRANSCRIPT.
 - **Hand in.** Import a homework file that says `// Put your code here`, and its module
@@ -324,7 +361,12 @@ browser's tab.
 default so the frame rate keeps to your screen's, and with it off a frame cap from 30 to
 240 frames a second, or none. FPS COUNTER, on Windows and in a browser, puts a small
 frame-rate counter in the top-right corner. A browser keeps fullscreen and the frame rate
-to itself, so the counter is the one display switch there.
+to itself, so the counter is the one display switch there. On Windows, a second after
+anything on screen last moved, BitSorter slows to twenty frames a second and draws one in
+four, to spare the graphics card (on a laptop whose screen hangs off its other graphics
+chip, every frame is copied across, drawn or not); it goes back to your own vertical sync
+and frame cap the moment you move the mouse, press a key or play. The counter shows the
+frames drawn, so it reads about five while the window sits still.
 
 **STYLE** chooses the look: **Schematic**, the default; **Schematic Light**, the same on
 paper, for a report's screenshots; **Neon Board**; and **Classic**. BitSorter loads again

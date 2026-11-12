@@ -47,6 +47,7 @@ namespace BitSorter.PlayMode.Tests
         {
             base.Setup();
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
             _keyboard = InputSystem.AddDevice<Keyboard>();
             _mouse = InputSystem.AddDevice<Mouse>();
             _mouse.MakeCurrent();
@@ -601,7 +602,7 @@ namespace BitSorter.PlayMode.Tests
         /// <summary>
         /// The plan's exit for Part 10b: a half adder built from nothing with the fixture's own mouse -- two inputs, an
         /// XOR and an AND, two outputs, wired by dragging pin to pin, the AND's inputs dragged onto the XOR's wires as
-        /// taps -- then its inputs flipped by double-clicks on the waveform, and its sum and carry read there.
+        /// taps -- then its inputs flipped from the session (the waves change no input since 5.1), and its sum and carry read there.
         /// </summary>
         [UnityTest]
         public IEnumerator AHalfAdder_BuiltFromNothingWithTheMouse_AddsOnTheWaveform()
@@ -642,7 +643,8 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreEqual(6, Top(workbench).Wires.Count);
             Assert.IsEmpty(workbench.Session.Editor.Diagnostics.Where(d => d.IsError), "a half adder with no errors");
 
-            // Flipped on the waveform: a, then b, each a double-click on its row.
+            // Flipped: a, then b, each over the whole run -- as INPUTS sets them since 5.1, when a double-click on an input's
+            // wave stopped changing it.
             string nameA = Top(workbench).FindPart(a).Name, nameB = Top(workbench).FindPart(b).Name;
             string nameS = Top(workbench).FindPart(sum).Name, nameC = Top(workbench).FindPart(carry).Name;
             workbench.Session.Finish();
@@ -651,13 +653,13 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
             Assert.AreEqual(("0", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "0 + 0");
 
-            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameA)));
+            Assert.IsTrue(workbench.Session.InvertInput(nameA, 30).Done, "a could not be flipped");
             workbench.Session.Finish();
             yield return null;
             Assert.AreEqual("1", ValueOf(workbench, nameA, 50), "a flipped");
             Assert.AreEqual(("1", "0"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 0");
 
-            yield return DoubleClick(workbench.WaveScreenPointOf(30.0, Row(workbench, nameB)));
+            Assert.IsTrue(workbench.Session.InvertInput(nameB, 30).Done, "b could not be flipped");
             workbench.Session.Finish();
             yield return null;
             Assert.AreEqual(("0", "1"), (ValueOf(workbench, nameS, 50), ValueOf(workbench, nameC, 50)), "1 + 1: sum 0, carry 1");
@@ -2307,8 +2309,11 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
             yield return EveryWorkbenchKeyDoesNothing(workbench, "the code");
 
-            // And in a field of the shell's, RUN TO.
+            // And in a field of the shell's, RUN TO -- its own keyboard, asked of the shell: UiText.Typing is the code's as well,
+            // which the Enter above left selected (it reached the code as the event system's submit, there being no platform
+            // key for TextMesh Pro to take), so a click that never reached RUN TO passed every check until Escape (2026-11-11).
             yield return ClickAtScreen(ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField)));
+            Assert.IsTrue(ShellPanel.Typing, "sanity: the click gave RUN TO the keyboard");
             yield return EveryWorkbenchKeyDoesNothing(workbench, "RUN TO");
             Press(_keyboard.escapeKey);
             ShellPanel.SendKey(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField), KeyCode.Escape);
@@ -2332,6 +2337,26 @@ namespace BitSorter.PlayMode.Tests
             Release(_keyboard.leftCtrlKey);
             yield return null;
             Assert.AreEqual(2, Top(workbench).Parts.OfType<BlockPart>().Count(), "Ctrl+V on the circuit pastes the block copied");
+        }
+
+        /// <summary>
+        /// A click is taken with the editor behind another window, as the game's player takes one (Run In Background). On
+        /// 2026-11-11 a full run went red in the test above, "Escape let RUN TO go", and passed alone: the editor lost the focus
+        /// part-way through it, Unity told the event system so (<c>OnApplicationFocus</c>), and the Input System's UI module,
+        /// whose test runtime did not run in the background, dropped every click after it -- the one into RUN TO among them.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AClickOnTheShell_IsTaken_WithTheEditorBehindAnotherWindow()
+        {
+            yield return TestScene.Load();
+
+            // What Unity tells the event system as a window comes in front of the editor, mid-run.
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            events.SendMessage("OnApplicationFocus", false);
+            Assert.IsFalse(events.isFocused, "sanity: the event system has heard that the editor is behind another window");
+
+            yield return ClickAtScreen(ShellPanel.ScreenPointOf(ShellPanel.Find<UnityEngine.UIElements.TextField>(WorkbenchPanel.RunToField)));
+            Assert.IsTrue(ShellPanel.Typing, "the click gave RUN TO the keyboard");
         }
 
         /// <summary>
@@ -2397,6 +2422,148 @@ namespace BitSorter.PlayMode.Tests
             Release(_keyboard.leftCtrlKey);
             yield return null;
             Assert.AreEqual(code.Field.text, AdderText(workbench), "Ctrl+S applied the code");
+        }
+
+        /// <summary>
+        /// The margin's numbers stand in one column, a line with a fold's marker and a line without alike (Ahmad, 2026-11-11: "the
+        /// minus and plus move the numbers to the left"). The margin is right-aligned, and a line with no marker was padded with
+        /// two spaces, which TextMesh Pro leaves out when it aligns: "8  " stood as "8", "7 -" two characters to its left.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheMarginsNumbers_StandInOneColumn_WithAFoldsMarkerOrWithout()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("column");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string source = "module " + module + " (\n    input logic a, b,\n    output logic s, c\n);\n    always_comb begin\n" +
+                "        s = a ^ b;\n        c = a & b;\n    end\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(source, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+            TMP_Text margin = workbench.CodeView.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "numbers");
+            margin.ForceMeshUpdate();
+            StringAssert.StartsWith("1 -", margin.text, "sanity: line 1 starts a block, its marker beside its number");
+
+            // Where each line's number ends: where the pen stands after its last digit, as the margin lays it out -- the advance,
+            // which every digit of the code's monospaced face shares, not the ink's edge, which differs by a fraction of a pixel
+            // from a 1 to a 3.
+            var ends = new System.Collections.Generic.List<float>();
+            TMP_TextInfo info = margin.textInfo;
+            for (int line = 0; line < info.lineCount; line++)
+            {
+                TMP_LineInfo row = info.lineInfo[line];
+                float end = float.NaN;
+                for (int i = row.firstCharacterIndex; i <= row.lastCharacterIndex && i < info.characterCount; i++)
+                    if (char.IsDigit(info.characterInfo[i].character))
+                        end = info.characterInfo[i].xAdvance;
+                if (!float.IsNaN(end))
+                    ends.Add(end);
+            }
+
+            Assert.GreaterOrEqual(ends.Count, 9, "sanity: every line of the module has its number");
+            for (int line = 1; line < ends.Count; line++)
+                Assert.AreEqual(ends[0], ends[line], 0.5f,
+                    $"line {line + 1}'s number ends at {ends[line]:F1}, line 1's at {ends[0]:F1}: the numbers are not in one column");
+        }
+
+        /// <summary>
+        /// Code folds (5.1, Ahmad: "the +/- thing in code that expands and unexpands things"): a click on the margin's - on line
+        /// 1 folds the module to one line, the margin's numbers passing over what it hides; text typed on the folded line lands
+        /// in the code where it shows, nothing hidden lost; + opens it whole again; Ctrl+Shift+[ folds the block the caret is
+        /// in and Ctrl+Shift+] opens it; and a place sent to inside a fold opens it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Code_Folds_FromTheMargin_AndWhatIsTypedOnAFoldedLineLandsInPlace()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("folding");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string source = "module " + module + " (\n    input logic a, b,\n    output logic s, c\n);\n    always_comb begin\n" +
+                "        s = a ^ b;\n        c = a & b;\n    end\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(source, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+            CodeEditorView code = workbench.CodeView;
+            TMP_Text margin = code.GetComponentsInChildren<TMP_Text>(true).First(t => t.name == "numbers");
+            StringAssert.StartsWith("1 -", margin.text, "line 1 starts a block: its marker, open");
+
+            // A click on line 1's marker, through the event system, at the line as the margin lays it out.
+            IEnumerator ClickMarginLine(int shownLine)
+            {
+                margin.ForceMeshUpdate();
+                TMP_LineInfo row = margin.textInfo.lineInfo[shownLine];
+                Vector3 local = new Vector3(row.lineExtents.max.x - 4f, (row.ascender + row.descender) * 0.5f, 0f);
+                Vector2 screen = margin.rectTransform.TransformPoint(local);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(margin.gameObject,
+                    new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = screen },
+                    UnityEngine.EventSystems.ExecuteEvents.pointerClickHandler);
+                yield return null;
+                yield return null;
+            }
+
+            yield return ClickMarginLine(0);
+            Assert.IsTrue(code.Folding.IsFolded(0), "the module folded");
+            Assert.AreEqual(code.Folding.Shown, code.Field.text, "the field shows it folded");
+            StringAssert.StartsWith("module " + module + " (", code.Field.text);
+            StringAssert.EndsWith("endmodule\n", code.Field.text, "on one line: its first, the mark, its last");
+            Assert.AreEqual(2, code.Field.text.Split('\n').Length, "one line, and the empty one after it");
+            StringAssert.StartsWith("1 +\n10", margin.text, "the margin's numbers pass over what it hides, its marker folded");
+            Assert.AreEqual(source, code.Code.Text, "the code itself untouched");
+
+            // Typed on the folded line: in the code where it shows.
+            code.Field.text = code.Field.text.Replace("module " + module + " (", "module " + module + " /* mine */ (");
+            yield return null;
+            string typed = source.Replace("module " + module + " (", "module " + module + " /* mine */ (");
+            Assert.AreEqual(typed, code.Code.Text, "typed where it shows, nothing it hides lost");
+            Assert.IsTrue(code.Folding.IsFolded(0), "and the fold kept");
+
+            yield return ClickMarginLine(0);
+            Assert.AreEqual(typed, code.Field.text, "+ opened it whole");
+
+            // Ctrl+Shift+[ in the always's body folds the begin; Ctrl+Shift+] opens it.
+            int bodyLine = typed.Substring(0, typed.IndexOf("c = a & b")).Count(ch => ch == '\n') + 1;
+            code.GoTo(bodyLine, 9);
+            yield return null;
+            Assert.IsTrue(code.Field.isFocused, "sanity: the code has the keyboard");
+            Press(_keyboard.leftCtrlKey);
+            yield return null;   // a frame between: two keys pressed in one frame, the test's keyboard keeps only the second
+            Press(_keyboard.leftShiftKey);
+            yield return null;
+            yield return Tap(_keyboard.leftBracketKey);
+            Release(_keyboard.leftShiftKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            int begin = typed.Substring(0, typed.IndexOf("always_comb")).Count(ch => ch == '\n');
+            Assert.IsTrue(code.Folding.IsFolded(begin), "Ctrl+Shift+[ folded the block the caret was in");
+            Assert.AreEqual(typed, code.Code.Text, "and typed no bracket");
+
+            Press(_keyboard.leftCtrlKey);
+            yield return null;
+            Press(_keyboard.leftShiftKey);
+            yield return null;
+            yield return Tap(_keyboard.rightBracketKey);
+            Release(_keyboard.leftShiftKey);
+            Release(_keyboard.leftCtrlKey);
+            yield return null;
+            Assert.IsFalse(code.Folding.IsFolded(begin), "Ctrl+Shift+] opened it");
+
+            // A place sent to inside a fold -- a fault's line clicked -- opens it.
+            code.ToggleFold(begin);
+            yield return null;
+            Assert.IsTrue(code.Folding.IsFolded(begin), "sanity: folded again");
+            code.GoTo(bodyLine, 9);
+            yield return null;
+            Assert.IsFalse(code.Folding.IsFolded(begin), "going inside opened it");
         }
 
         /// <summary>+ CODE (Part 12d) asks for a name, makes the module from its template, and puts a block of it in hand to place.</summary>
@@ -2960,7 +3127,10 @@ namespace BitSorter.PlayMode.Tests
             "    end\n" +
             "endmodule\n";
 
-        /// <summary>The files of a project put in the Import folder -- redirected while a test runs -- which is emptied first.</summary>
+        /// <summary>
+        /// The files of a project put in the Import folder -- redirected while a test runs -- which is emptied first: the folder a
+        /// test's import chooses, as the player chooses any folder in Windows' Open dialog (5.1), and where COMPARE finds a dump.
+        /// </summary>
         private static void PutInTheImportFolder(params (string Name, string Text)[] files)
         {
             Assert.IsNotNull(FileImport.Redirected, "sanity: the Import folder is the test's scratch one, never the player's");
@@ -2976,9 +3146,9 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// FILE, IMPORT reads the Import folder as a circuit of its own, named after its project (Part 13d, 15a): the testbench
-        /// runs the design as written, what the import said is in the TRANSCRIPT with its file and line, and a file that does
-        /// not read is named there.
+        /// FILE, IMPORT A PROJECT'S FOLDER reads the folder chosen as a circuit of its own, named after its project (Part 13d,
+        /// 15a; any folder on a desktop since 5.1): the testbench runs the design as written, what the import said is in the
+        /// TRANSCRIPT with its file and line, and a file that does not read is named there.
         /// </summary>
         [UnityTest]
         public IEnumerator FileImport_BringsTheProjectInAsACircuit_RunByItsTestbench()
@@ -2990,7 +3160,11 @@ namespace BitSorter.PlayMode.Tests
             yield return null;
 
             yield return Click(WorkbenchPanel.FileButton);
-            yield return Click(FileMenu.ActionItem + FileAction.ImportFolder);
+            Assert.IsTrue(workbench.FileMenu.Offers(FileAction.ImportPickedFolder) && workbench.FileMenu.Offers(FileAction.ImportFiles),
+                "a desktop offers the folder and the files, chosen in Windows' Open dialog, as a browser does");
+            SaveGuard.AnswerTheNextChoice(FileImport.Folder);
+            yield return Click(FileMenu.ActionItem + FileAction.ImportPickedFolder);
+            Assert.AreEqual(true, SaveGuard.AskedForAFolder, "the dialog was asked for a folder");
             Assert.IsFalse(workbench.Ask.IsOpen, "an import asks nothing: it touches no circuit already there");
             yield return null;
             workbench.Pause();
@@ -3014,6 +3188,253 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Session.SetUnit("ns").Done);
             yield return null;
             Assert.IsFalse(workbench.Transcript.Lines.Any(l => l.Text.StartsWith("broken.sv:")), "what the import said goes with the first edit");
+        }
+
+        /// <summary>
+        /// FILE, IMPORT A PROJECT'S FILES (5.1 on a desktop): the files chosen in Windows' Open dialog, from a folder anywhere,
+        /// come in as a project, each by its name.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FilesChosen_ComeInAsAProject_EachByItsName()
+        {
+            PutInTheImportFolder(("deep/inside/mux2.sv", ImportedMux), ("deep/inside/mux2_tb.sv", ImportedMuxBench));
+            string inside = System.IO.Path.Combine(FileImport.Folder, "deep", "inside");
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            yield return Click(WorkbenchPanel.FileButton);
+            SaveGuard.AnswerTheNextChoice(System.IO.Path.Combine(inside, "mux2.sv"), System.IO.Path.Combine(inside, "mux2_tb.sv"));
+            yield return Click(FileMenu.ActionItem + FileAction.ImportFiles);
+            Assert.AreEqual(false, SaveGuard.AskedForAFolder, "the dialog was asked for files");
+            yield return null;
+
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey, "a circuit of its own, named after its project");
+            Assert.AreEqual("mux2_tb", workbench.Session.Project.Bench, "run by its testbench");
+            Assert.AreEqual("mux2", workbench.Session.Project.Top);
+        }
+
+        /// <summary>
+        /// An import whose dialog is cancelled -- the folder's or the files' -- changes nothing: the circuit open stays open, as it
+        /// was, and nothing is said. The two tests above are its pair: the same clicks, answered, do import.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AnImportCancelled_ChangesNothing()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Session.Finish();   // the run settled, so the chip says one thing until something is said
+            yield return null;
+            string key = workbench.DocumentKey;
+            Project before = workbench.Session.Project;
+            string chip = workbench.ChipText;
+
+            foreach (FileAction action in new[] { FileAction.ImportPickedFolder, FileAction.ImportFiles })
+            {
+                yield return Click(WorkbenchPanel.FileButton);
+                yield return Click(FileMenu.ActionItem + action);   // the guard cancels every import a test does not answer
+                yield return null;
+                Assert.AreEqual(action == FileAction.ImportPickedFolder, SaveGuard.AskedForAFolder, $"{action}: the dialog was asked");
+                Assert.AreEqual(key, workbench.DocumentKey, $"{action}: the circuit open stays open");
+                Assert.AreSame(before, workbench.Session.Project, $"{action}: as it was");
+                Assert.AreEqual(chip, workbench.ChipText, $"{action}: and nothing is said");
+            }
+        }
+
+        /// <summary>
+        /// A folder chosen that cannot make a project is refused, saying why: one with nothing in it, and one with more files
+        /// than an import takes -- a folder chosen a level too high, Documents or a drive, whose walk stops as soon as it is
+        /// past the limit.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AFolderChosenEmpty_OrALevelTooHigh_IsRefused_SayingWhy()
+        {
+            var many = new System.Collections.Generic.List<(string, string)>();
+            for (int i = 0; i < ProjectImporter.MaxFiles + 40; i++)
+                many.Add(($"project{i % 7}/file{i}.sv", "// nothing\n"));
+            PutInTheImportFolder(many.ToArray());
+            string empty = System.IO.Path.Combine(FileImport.Folder, "empty");
+            System.IO.Directory.CreateDirectory(empty);
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            string key = workbench.DocumentKey;
+
+            workbench.ImportFrom(empty);
+            yield return null;
+            Assert.AreEqual(key, workbench.DocumentKey, "nothing imported from an empty folder");
+            StringAssert.StartsWith("empty is empty", workbench.ChipText);
+
+            workbench.ImportFrom(FileImport.Folder);
+            yield return null;
+            Assert.AreEqual(key, workbench.DocumentKey, "nothing imported from a folder of too many files");
+            StringAssert.Contains($"holds more than {ProjectImporter.MaxFiles} files", workbench.ChipText);
+            StringAssert.Contains("choose the folder that holds just the project", workbench.ChipText);
+        }
+
+        /// <summary>The start page's IMPORT A PROJECT asks Windows' Open dialog for a folder on a desktop, and imports it.</summary>
+        [UnityTest]
+        public IEnumerator TheStartPagesImport_AsksForAFolder_AndBringsItIn()
+        {
+            PutInTheImportFolder(("mux2.sv", ImportedMux), ("mux2_tb.sv", ImportedMuxBench));
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            Assert.IsTrue(workbench.StartPageShowing, "sanity: BitSorter opens on its start page");
+
+            SaveGuard.AnswerTheNextChoice(FileImport.Folder);
+            yield return Click(WorkbenchPanel.StartImportItem);
+            yield return null;
+            Assert.AreEqual(true, SaveGuard.AskedForAFolder, "a folder was asked for");
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey, "and the project came in");
+            Assert.IsFalse(workbench.StartPageShowing, "opened, over the start page");
+        }
+
+        /// <summary>
+        /// A design imported without its testbench is said to have inputs nothing drives, and the notice names the ways to drive
+        /// them that there are: INPUTS, or the testbench -- never a double-click on the waves, which since 5.1 changes no input.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADesignImportedAlone_SaysHowToDriveItsInputs_AndOnlyWaysThereAre()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+
+            workbench.Import(new[] { new SourceFile("mux2.sv", ImportedMux) });
+            yield return null;
+            Assert.AreEqual("mux2", workbench.Session.Project.Top, "sanity: imported, with no testbench");
+            Assert.IsNull(workbench.Session.Project.Bench, "sanity: nothing drives its inputs");
+
+            StringAssert.Contains("Nothing drives a, b, s yet", workbench.ChipText, "the inputs nothing drives, named");
+            StringAssert.Contains("give them values in INPUTS", workbench.ChipText);
+            StringAssert.Contains("import the testbench too", workbench.ChipText);
+            StringAssert.DoesNotContain("double-click", workbench.ChipText, "the waves change no input since 5.1");
+        }
+
+        /// <summary>
+        /// A new circuit written in code (5.1, Ahmad: "I open a new circuit and I want to code instead of putting blocks"): NEW
+        /// CIRCUIT, then CODE at the circuit's top right shows the starter + CODE gives a block, nothing changed; what is typed and
+        /// applied makes it written without a part placed; DRAWING shows the drawing of it, and Ctrl+Z gives the blank back.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ANewCircuit_IsWrittenInCode_FromTheCodeSwitch()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("adder in code");
+            yield return null;
+            Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("adder in code"), workbench.DocumentKey, "sanity: the new circuit open");
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "a drawn circuit, even a blank one, has the switch");
+            Project blank = workbench.Session.Project;
+            string module = blank.Top;
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            Assert.IsTrue(workbench.Session.ShowsCode, "CODE: its code");
+            CodeDocument code = workbench.Session.Code;
+            Assert.AreEqual(WrittenModules.Template(module), code.Text, "the starter, to type over");
+            Assert.AreSame(blank, workbench.Session.Project, "nothing changed yet");
+
+            string typed = "module " + module + " (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            code.Type(typed, Time.timeAsDouble * 1000.0);
+            EditResult applied = code.Apply();   // Ctrl+Enter
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            yield return null;
+            Assert.IsTrue(Top(workbench).IsWritten, "written: a circuit made without a part placed");
+            Assert.AreEqual(typed, Top(workbench).Source);
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            Assert.IsTrue(workbench.Session.ShowsDrawingOfCode, "DRAWING: the drawing of the code");
+
+            Assert.IsTrue(workbench.Session.Undo());
+            yield return null;
+            Assert.AreSame(blank.TopModule, Top(workbench), "Ctrl+Z: the blank circuit back");
+        }
+
+        /// <summary>
+        /// Code is written in its colours (5.1, Ahmad: "all the text is white"), in the editor and in the CODE tab's listing:
+        /// a keyword in the keyword's ink, a comment in the comment's, a name in the text's -- in the mesh drawn, not only in
+        /// what the view says, and with every letter where it was, rich text left off.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Code_IsWrittenInItsColours_InTheEditorAndTheCodeTab()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.NewCircuit("coloured");
+            yield return null;
+            string module = workbench.Session.Project.Top;
+            string code = "// a half adder, coloured\nmodule " + module + " (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor #1 g1 (sum, a, b);\n    and #1 g2 (carry, a, b);\nendmodule\n";
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            workbench.Session.Code.Type(code, Time.timeAsDouble * 1000.0);
+            Assert.IsTrue(workbench.Session.Code.Apply().Done, "sanity: the code applies");
+            yield return null;
+            yield return null;
+
+            SchematicPalette palette = SchematicPalette.Current;
+            TMP_Text text = workbench.CodeView.Field.textComponent;
+            Assert.IsFalse(text.richText, "rich text off: every caret and column the text's own");
+            StringAssert.StartsWith(code, text.text, "sanity: the editor shows the code (the field adds a zero-width space after it)");
+            void Holds(TMP_Text shown, CodeInkView ink, string word, BitSorter.ViewModel.CodeKind kind, string where)
+            {
+                int index = shown.text.IndexOf(word, System.StringComparison.Ordinal);
+                Color32 expected = palette.CodeInk(kind);
+                Assert.AreEqual(expected, ink.InkAt(index), $"{where}: '{word}' is {kind}");
+                TMP_CharacterInfo letter = System.Array.Find(shown.textInfo.characterInfo, l => l.index == index && l.isVisible);
+                Color32 drawn = shown.textInfo.meshInfo[letter.materialReferenceIndex].colors32[letter.vertexIndex];
+                Assert.AreEqual((expected.r, expected.g, expected.b), (drawn.r, drawn.g, drawn.b), $"{where}: and drawn so");
+            }
+            Holds(text, workbench.CodeView.Ink, "module", BitSorter.ViewModel.CodeKind.Keyword, "the editor");
+            Holds(text, workbench.CodeView.Ink, "// a half", BitSorter.ViewModel.CodeKind.Comment, "the editor");
+            Holds(text, workbench.CodeView.Ink, "g1", BitSorter.ViewModel.CodeKind.Plain, "the editor");
+            Holds(text, workbench.CodeView.Ink, "#1", BitSorter.ViewModel.CodeKind.Plain, "the editor");
+
+            workbench.ShowCode();
+            yield return null;
+            yield return null;
+            TMP_Text listing = workbench.ListingView.Field.textComponent;
+            Holds(listing, workbench.ListingView.Ink, "module", BitSorter.ViewModel.CodeKind.Keyword, "the CODE tab");
+            Holds(listing, workbench.ListingView.Ink, "endmodule", BitSorter.ViewModel.CodeKind.Keyword, "the CODE tab");
+        }
+
+        /// <summary>
+        /// A project imported that is gates only comes in drawn (Ahmad's, 2026-11-11: a half adder exported and imported again,
+        /// with no way to edit its code): CODE is at its top right, its code shown and, the import locked, what is typed refused
+        /// saying how to unlock it; unlocked, it applies and the circuit is written.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADrawnImport_HasItsCode_ReadOnlyWhileLocked_TheStudentsOnceUnlocked()
+        {
+            yield return TestScene.Load();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            yield return null;
+            workbench.Import(new[] { new SourceFile("ha.sv", "module ha (input logic a, input logic b, output logic sum, output logic carry);\n" +
+                "    xor g1 (sum, a, b);\n    and g2 (carry, a, b);\nendmodule\n") });
+            yield return null;
+            Assert.IsFalse(Top(workbench).IsWritten, "sanity: gates only, so it is drawn");
+            Assert.IsTrue(workbench.Session.Locked, "sanity: an import opens locked");
+            Assert.IsTrue(workbench.DrawingSwitch.gameObject.activeSelf, "CODE at its top right, where only TIDY, the padlock and FIT were");
+
+            yield return Click(WorkbenchPanel.DrawingSwitchName);
+            CodeDocument code = workbench.Session.Code;
+            Assert.IsNotNull(code, "its code shown");
+            StringAssert.Contains("module ha", code.Text);
+            code.Type("// the half adder, mine now\n" + code.Text, Time.timeAsDouble * 1000.0);
+            EditResult refused = code.Apply();
+            Assert.IsFalse(refused.Done, "locked");
+            Assert.AreEqual(WorkbenchSession.LockedRefusal, refused.Refusal, "refused saying how to unlock it");
+            Assert.IsFalse(Top(workbench).IsWritten);
+
+            workbench.Session.Locked = false;   // the padlock pressed
+            EditResult applied = code.Apply();
+            Assert.IsTrue(applied.Done, applied.Refusal);
+            yield return null;
+            Assert.IsTrue(Top(workbench).IsWritten, "unlocked, its code is the student's to change");
         }
 
         /// <summary>
@@ -3130,7 +3551,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.AreEqual("slow", workbench.Session.Project.Top, "sanity: imported, the design its top");
             workbench.Pause();
@@ -3169,12 +3590,12 @@ namespace BitSorter.PlayMode.Tests
             yield return Place(workbench, "and", new BoardPoint(4, 0), new System.Collections.Generic.List<int>());
             Project mine = workbench.Session.Project;
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.AreEqual("mux2", workbench.Session.Project.Top, "sanity: imported");
             Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2"), workbench.DocumentKey);
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.IsFalse(workbench.Ask.IsOpen, "nothing to ask");
             Assert.AreEqual(BitSorter.ViewModel.Documents.KeyOf("mux2 2"), workbench.DocumentKey, "the same project again, numbered");
@@ -3425,9 +3846,9 @@ namespace BitSorter.PlayMode.Tests
             workbench.OpenExercise("half-adder");
             yield return null;
             workbench.ExerciseCard.Close();   // its brief opens over the circuit
-            yield return Click(WorkbenchPanel.CodeButton);   // WRITE IT
+            yield return Click(WorkbenchPanel.DrawingSwitchName);   // CODE, where WRITE IT was before 5.1
             WorkbenchSession session = workbench.Session;
-            Assert.IsTrue(session.ShowsCode, "sanity: WRITE IT shows the answer's code");
+            Assert.IsTrue(session.ShowsCode, "sanity: CODE shows the answer's code");
             CodeDocument code = session.Code;
             code.Type(code.Text + "// typed, and not applied\n", Time.timeAsDouble * 1000.0);   // on the editor's clock: inside its pause
             Assert.IsTrue(code.Pending, "sanity: typed and not applied");
@@ -3507,7 +3928,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.ShowInputs();
@@ -3573,7 +3994,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.ShowInputs();
@@ -3603,7 +4024,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.Session.Finish();
@@ -3634,35 +4055,6 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// A double-click on the wave of a written design's input, which its testbench drives, says the testbench drives it and
-        /// how to change it -- never that it is no input of the design, which a 64-bit ALU imported with its testbench was told
-        /// (Ahmad, 2026-10-28): a written top's inputs are its header's, and none is drawn.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator AWrittenDesignsInput_DrivenByItsTestbench_IsSaidToBe()
-        {
-            PutInTheImportFolder(("mux2.sv", "module mux2 (input logic a, input logic b, input logic s, output logic y);\n" +
-                "    always_comb y = s ? b : a;\nendmodule\n"), ("mux2_tb.sv", ImportedMuxBench));
-            yield return TestScene.Load();
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            yield return null;
-            workbench.ImportFromFolder();
-            yield return null;
-            workbench.Pause();
-            workbench.Session.Finish();
-            Assert.IsTrue(workbench.Session.Project.TopModule.IsWritten, "sanity: the design is written code");
-
-            int row = workbench.List.Lines.ToList().FindIndex(line => workbench.List.LabelOf(line) == "a");
-            Assert.GreaterOrEqual(row, 0, "sanity: a has a row");
-            workbench.EditInputAt(row, 5, new Vector2(Screen.width * 0.5f, Screen.height * 0.3f));
-            yield return null;
-
-            StringAssert.DoesNotContain("not an input", workbench.ChipText);
-            StringAssert.Contains("testbench", workbench.ChipText, "the testbench drives it");
-            StringAssert.Contains("CONVERT", workbench.ChipText, "and how to change it");
-        }
-
-        /// <summary>
         /// An imported project opens locked (Part 15h-4d, asked 2026-10-29): the padlock shut over it, its code read only, an
         /// edit refused saying how to unlock it; the padlock pressed, the code takes typing again.
         /// </summary>
@@ -3674,7 +4066,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             Assert.IsTrue(workbench.Session.Locked, "an import opens locked");
             workbench.Session.DrawCode(false);   // its code, which opens as its drawing (Part 15h-4d)
@@ -3849,7 +4241,7 @@ namespace BitSorter.PlayMode.Tests
             workbench.FileMenu.Close();
             yield return null;
 
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
             workbench.Pause();
             workbench.Session.Finish();
@@ -3904,7 +4296,7 @@ namespace BitSorter.PlayMode.Tests
             yield return TestScene.Load();
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
             yield return null;
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return null;
 
             yield return Click(WorkbenchPanel.FileButton);
@@ -4269,6 +4661,197 @@ namespace BitSorter.PlayMode.Tests
             var saved = new ProgressStore(ProgressStore.DefaultPath);
             saved.Load();
             Assert.AreEqual("SUM", saved.SamplePrograms("Pipelined RISC-V")["PROGRAM"], "written to the save, for the next launch");
+        }
+
+        /// <summary>
+        /// Every processor opens on the rows that show it working, after clk and rst (5.1, Ahmad: every program showed only
+        /// those two), each found in its run; and another sample opens on its ports alone, as before.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AProcessor_OpensOnTheRowsThatShowItWorking()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            foreach (string name in new[] { "Single-cycle RISC-V", "Multicycle RISC-V", "Pipelined RISC-V" })
+            {
+                workbench.ShowSample(SampleIndex(name) + 1);
+                yield return null;
+                yield return null;
+                string[] keys = workbench.List.AllSignals.Select(s => s.Key).ToArray();
+                CollectionAssert.AreEqual(new[] { "clk", "rst" }.Concat(WorkbenchSamples.StartingRows(name)).ToArray(), keys,
+                    $"{name}: clk and rst, then the rows it names");
+                Assert.IsTrue(workbench.List.AllSignals.All(s => s.Signal >= 0), $"{name}: every row found in its run");
+            }
+
+            workbench.ShowSample(SampleIndex("Full adder") + 1);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, workbench.List.AllSignals.Select(s => s.Key).ToArray(),
+                "the full adder on its ports alone");
+        }
+
+        /// <summary>
+        /// A row dragged by its name moves (5.1, asked by Ahmad, 2026-11-11, "make sure there is no bug of this"): the full
+        /// adder's cout, held by its name and dragged above a, goes on top, a line showing where while it is held; Escape
+        /// while a row is held puts it back; and an edit of the circuit afterwards -- which put every port's row back in the
+        /// layout's order (Part 10e) -- keeps the order made by hand.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ARowDraggedByItsName_Moves_EscapePutsItBack_AndAnEditKeepsTheOrder()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleIndex("Full adder") + 1);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            yield return null;
+            string[] Keys() => workbench.List.AllSignals.Select(s => s.Key).ToArray();
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, Keys(), "sanity: the full adder's rows");
+
+            // Over a name, the status line says a name is a handle.
+            Move(_mouse.position, workbench.RowNameOnScreen(4));
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.Names), workbench.StatusText);
+
+            // cout pressed by its name: moved two pixels it is still a click.
+            Vector2 from = workbench.RowNameOnScreen(4);
+            Press(_mouse.leftButton);
+            yield return null;
+            Move(_mouse.position, from + new Vector2(0f, 2f));
+            yield return null;
+            Assert.IsFalse(workbench.DraggingARow, "two pixels: a click so far");
+
+            // Dragged up over a, a little above its middle: the line stands over a, and nothing has moved yet.
+            Vector2 rowStep = workbench.RowNameOnScreen(0) - workbench.RowNameOnScreen(1);
+            Vector2 aboveA = workbench.RowNameOnScreen(0) + rowStep * 0.4f;
+            for (int step = 1; step <= 4; step++)
+            {
+                Move(_mouse.position, Vector2.Lerp(from, aboveA, step / 4f));
+                yield return null;
+            }
+
+            Assert.IsTrue(workbench.DraggingARow, "past four pixels, a drag of the row");
+            Assert.AreEqual(0, workbench.RowDropShown, "the line over a, where it would go");
+            CollectionAssert.AreEqual(new[] { "a", "b", "cin", "s", "cout" }, Keys(), "nothing moved while it is held");
+
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "let go over a: cout on top");
+            Assert.AreEqual(-1, workbench.RowDropShown, "and the line gone");
+            Assert.IsTrue(workbench.List.Lines[0].Selected, "the row moved, selected");
+
+            // a dragged to the foot, and Escape while it is held: back where it was.
+            Vector2 a = workbench.RowNameOnScreen(1);
+            Move(_mouse.position, a);
+            yield return null;
+            Press(_mouse.leftButton);
+            yield return null;
+            for (int step = 1; step <= 4; step++)
+            {
+                Move(_mouse.position, Vector2.Lerp(a, workbench.RowNameOnScreen(4) - rowStep * 0.4f, step / 4f));
+                yield return null;
+            }
+
+            Assert.AreEqual(5, workbench.RowDropShown, "sanity: the line under the last row");
+            Press(_keyboard.escapeKey);
+            yield return null;
+            Release(_keyboard.escapeKey);
+            yield return null;
+            Assert.IsFalse(workbench.DraggingARow, "Escape let it go");
+            Assert.AreEqual(-1, workbench.RowDropShown, "the line gone with it");
+            Release(_mouse.leftButton);
+            yield return null;
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "and put down nowhere");
+            Assert.IsTrue(workbench.IsOpen, "Escape took the drag, and nothing else");
+
+            // An edit of the circuit: the order made by hand stays.
+            Assert.IsTrue(workbench.Session.CanTidy, "sanity: an edit to make");
+            Assert.IsTrue(workbench.Session.Tidy().Done);
+            yield return UntilReplayed(workbench);
+            yield return null;
+            CollectionAssert.AreEqual(new[] { "cout", "a", "b", "cin", "s" }, Keys(), "an edit keeps the order made by hand");
+        }
+
+        /// <summary>
+        /// A bus's value reads without zooming in (5.1, Ahmad: a 64-bit value read only zoomed far in): over the single-cycle
+        /// processor's run, whole, a box too narrow for its value shows as much of it as fits and an ellipsis; the pointer on a
+        /// box puts up a tip with the whole value, the row's width and its time, and on a one-bit row none; and VALUES + over
+        /// the values column -- or W -- shows every value whole there, VALUES - cutting them again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ABusValue_IsCutToItsBox_WholeInATip_AndTheValuesColumnWidens()
+        {
+            yield return TestScene.LoadSimulator();
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.ShowSample(SampleIndex("Single-cycle RISC-V") + 1);
+            yield return null;
+            yield return null;
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(workbench.Session.Run.Model.End);
+            yield return null;
+            yield return null;
+            int pc = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "pc");
+            int clk = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "clk");
+            Assert.GreaterOrEqual(pc, 0, "sanity: the processor opens on pc");
+
+            // A box too narrow for the whole value leaves out its leading zeros: pc's addresses whole without them.
+            string[] labels = workbench.BusLabelsOf(pc).ToArray();
+            Assert.IsTrue(labels.Any(l => l.Length < 8 && !l.EndsWith("\u2026") && !l.EndsWith("...")),
+                "an address whole without its leading zeros where it fits: " + string.Join(" | ", labels.Take(8)));
+
+            // Still too long, cut: an instruction's first characters and an ellipsis, two characters at the least.
+            int instr = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "instr");
+            labels = workbench.BusLabelsOf(instr).ToArray();
+            string[] cut = labels.Where(l => l.EndsWith("\u2026") || l.EndsWith("...")).ToArray();
+            Assert.IsNotEmpty(cut, "boxes too narrow for an instruction show part of it: " + string.Join(" | ", labels.Take(8)));
+            foreach (string label in cut)
+            {
+                string kept = label.TrimEnd('.', '\u2026');
+                Assert.GreaterOrEqual(kept.Length, 1, "at least a character of the value");
+                StringAssert.IsMatch("^[0-9A-FXZ]+$", kept, "the value's first characters, in hex");
+                Assert.IsFalse(kept.Length > 1 && kept[0] == '0', "its leading zeros left out before it is cut: " + label);
+            }
+
+            // A tip with the whole value where the pointer is, on a box.
+            Vector2 onPc = workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.5, pc);
+            Move(_mouse.position, onPc);
+            yield return null;
+            yield return null;
+            string tip = workbench.ValueTip;
+            Assert.IsNotNull(tip, "a tip on pc's box");
+            StringAssert.StartsWith("pc[31:0], 32 bits\n", tip);
+            string[] lines = tip.Split('\n');
+            StringAssert.IsMatch("^[0-9A-F]{8}h$", lines[1], "the whole value, eight hex digits and its h: " + lines[1]);
+            StringAssert.Contains(" to ", lines[2], "the time it holds");
+
+            Move(_mouse.position, workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.5, clk));
+            yield return null;
+            yield return null;
+            Assert.IsNull(workbench.ValueTip, "no tip on a one-bit row");
+
+            // The values column: cut to begin with, whole at a click on its head, cut again with W.
+            Assert.IsFalse(workbench.WholeValues);
+            Assert.AreEqual(WaveformView.ValuesCutCaption, workbench.ValuesHeadText);
+            Assert.IsFalse(workbench.ReadoutWhole(pc), "sanity: a 32-bit value cut to the column");
+            Move(_mouse.position, workbench.ValuesHeadOnScreen);
+            yield return null;
+            Assert.AreEqual(KeyMap.StatusFor(PointerArea.ValuesHead), workbench.StatusText, "the status line says what its head does");
+            yield return ClickAtScreen(workbench.ValuesHeadOnScreen);
+            Assert.IsTrue(workbench.WholeValues, "a click on its head");
+            Assert.AreEqual(WaveformView.ValuesWholeCaption, workbench.ValuesHeadText);
+            for (int row = 0; row < workbench.List.Lines.Count; row++)
+                Assert.IsTrue(workbench.ReadoutWhole(row), $"row {row}'s value whole");
+            CollectionAssert.AreEqual(new[] { "clk", "rst" }.Concat(WorkbenchSamples.StartingRows("Single-cycle RISC-V")).ToArray(),
+                workbench.List.AllSignals.Select(s => s.Key).ToArray(), "the rows as they were");
+
+            yield return Tap(_keyboard.wKey);
+            Assert.IsFalse(workbench.WholeValues, "W cuts them again");
+            Assert.IsFalse(workbench.ReadoutWhole(pc));
         }
 
         /// <summary>BitSorter launched onto a sample opens it on the program the save kept for it.</summary>

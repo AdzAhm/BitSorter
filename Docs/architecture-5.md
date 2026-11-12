@@ -2259,7 +2259,8 @@ template is imported, then exported filled.
 
 - **The FILE menu brings a project in** (`FileImport`). On a desktop and in the editor, IMPORT reads every file in the
   Import folder beside the save -- the folders in it too, each file by its path inside it -- and OPEN THE IMPORT FOLDER
-  makes it and opens it in the system's file browser. In a browser, IMPORT A PROJECT'S FILES and IMPORT A PROJECT'S
+  makes it and opens it in the system's file browser (*since 5.1 a desktop picks any folder or files in Windows' Open
+  dialog, and both items are gone*: see "As built in 5.1"). In a browser, IMPORT A PROJECT'S FILES and IMPORT A PROJECT'S
   FOLDER open the page's own file picker (`BitSorterFiles.jslib`), which reads what is picked as text and keeps it
   until the game takes it a frame or so later -- the pull the code editor's bridge uses, so nothing in the page calls
   into the game. Tests read a scratch folder (`FileImport.Redirected`, set by `SaveGuard`), never the player's.
@@ -4157,8 +4158,8 @@ diagram and a control table over a case-as-one-table box, splitting the controll
   the code's own and not checked. The tests hold every corpus, exercise and sample reading to it
   (`ControllerEngine`). Read: the three processors' controllers (11 states and the ALU decoder; two tables each), the
   traffic light (its counter left to the drawing), the multiplier's Mealy control, the sequence detector and the
-  samples' traffic lights -- and, as one-column tables that open on their drawings, "Is it prime?" and the seven
-  segments.
+  samples' traffic lights -- and, as a one-column table that opens on its drawing, the seven segments ("Is it prime?"
+  was another until 5.1 worked it out by a loop).
 - **On the workbench** (`WorkbenchSession.Controller`, `ShowsController`, `DrawController`, `ControllerNow`): DIAGRAM
   (TABLE for tables alone) or DRAWING left of CODE, the choice kept for each module; before any choice a module opens on
   its reading where the reading is whole and a state machine or a table of several signals (`OpensAsController`); GATES
@@ -5303,6 +5304,250 @@ exercises, each fixed with a test that failed first.
   look-ahead every part given is a block, counted whole, so the gates kept as the best are always 0: the card read "It took 4
   FA, settling in 9 ns. Your best: 0 gates, settling in 9 ns." Where every part given is a block, the best says only how fast
   it settled.
+
+**As built in 5.1: the waves never change an input** (Ahmad, 2026-11-11: "I don't want clicking on the wave form of an
+input changing the input"). A double-click on an input's wave flipped a one-bit input over the stretch it was in, and asked
+a bus or an x its value in SET (Part 9b-3, `WaveGesture.EditInput`). It went, and SET with it: the waves only read the run,
+a double-click on them is two clicks that place the cursor, and an input is set in INPUTS (Part 15g), which does all the
+gesture did and more. `BoardEditor.InvertInput` and `WorkbenchSession.InvertInput`, the document's commands, stay, with
+their tests. The legend line, the keyboard map and the README no longer name the gesture. The notice after a design is
+imported without its testbench still offered it, until a test caught it (red, then the fix).
+
+**As built in 5.1: an import reads any folder on Windows** (Ahmad, 2026-11-11: "why can't I import from any folder?").
+A desktop read only the Import folder beside the save (Part 13d), since Unity gives a built game no file dialog. FILE now
+offers what a browser does, IMPORT A PROJECT'S FOLDER and IMPORT A PROJECT'S FILES, and on Windows each opens Windows' own
+Open dialog (`WindowsFileDialog`, the Common Item Dialog through COM interop, which the Windows build's Mono runs; held
+outside Unity first by a console program driven with keystrokes). The start page's IMPORT A PROJECT asks for a folder.
+- **Chosen and imported as the dialog closes** (`FileImport.Choose`): it is modal, so the call returns with the folder or
+  the files, or null on Cancel, which changes nothing. It opens in Documents the first time and where it was left after
+  that, which Windows keeps for the program itself (`SetDefaultFolder`); the plan's preference for it was not needed.
+- **A folder chosen a level too high is not walked to its end** (`FileImport.ReadFolder`): the walk goes folder by
+  folder, passes over hidden names, links and folders it may not list, and stops at the first file past what an import
+  takes, which the workbench refuses saying to choose the folder that holds just the project. Files chosen come in each
+  by its name (`ReadFiles`), under the same limits.
+- **COMPARE WITH MODELSIM'S RUN still reads the Import folder** (Ahmad's choice): with OPEN THE IMPORT FOLDER gone from
+  the menu, COMPARE opens the folder itself when it finds no dump there, beside the notice saying where it is.
+- **No test opens the dialog.** It waits for a person, so `SaveGuard` sets `FileImport.Chooser` to one that cancels, and
+  a test that imports answers the next choice itself (`SaveGuard.AnswerTheNextChoice`), an answer that never outlives the
+  import it was for. While a test runs `FileImport.OpenFolder` makes the folder and opens no window.
+
+**As built in 5.1: one CODE / DRAWING switch on every circuit** (Ahmad, 2026-11-11: "there should be just a button to
+switch to the code and edit it ... I saw it but not everywhere"; and "I open a new circuit and I want to code instead of
+putting blocks"). It stood only over a written module, so a drawn circuit -- his half adder exported and imported again,
+gates only and so drawn -- had no way to its code but the CODE tab's, read only, and an exercise had its own WRITE IT and
+DRAW IT on the controls' row.
+- **Over a drawn circuit, CODE shows it as code and changes nothing** (`WorkbenchSession.DrawnAsCode`). The editor's
+  document holds the module as it prints (`TextOf`: the CODE tab's text from its `module` line, `BoardPrinter.ModuleText`),
+  a blank module + CODE's template, and an exercise's top the exercise's header over it (the session's `writtenAs`, given
+  as it opens). DRAWING before anything applies goes back with no step, the drawing as it was.
+- **The first text that applies makes it written** (`SetSourceOf`: `ReplaceModule` with the module as that text makes it,
+  its name, comment and id count kept): one step, which Ctrl+Z takes back to the drawing, layout and all. Text that does not
+  apply is a draft as any written module's -- kept, saved, set aside by an edit of the drawing, whose printed text moves
+  under it (`CodeDocument.Behind`). Until it applies the drawing takes no edit (`CodeShownRefusal`): a key pressed with
+  the code up would otherwise change what it hides.
+- **Exercises** take the switch in place of WRITE IT and DRAW IT (Ahmad's choice). CODE shows the answer under its header,
+  as WRITE IT wrote it, and what a written answer is held to is said the first time one becomes code
+  (`WorkbenchSession.DrawnWritten`). DRAW IT's drawing of the code back into gates went with it, `Exercise.Drawn` and its
+  tests too, being used nowhere else: the drawing of a written answer is DRAWING, and the drawn answer itself is Ctrl+Z.
+  An exercise answered by drawing alone shows no CODE over a drawn module (`CodeAllowed`; every exercise allows code today).
+- **Its place**: the switch at the top right over every circuit, FIT, the padlock and TIDY stepping left of it as they
+  did over code. The keyboard map lists it among the circuit's gestures.
+
+**As built in 5.1: SystemVerilog in its colours on the desktop** (Ahmad, 2026-11-11: "all the text is white"). The
+browser's editor had coloured code since Part 12f, by CodeMirror's Verilog mode; the desktop's -- a TextMesh Pro field --
+and the CODE tab's listing on both builds wrote it all in the text's colour.
+- **What each character is** (`CodeColouring`, the view-model's, one pass): the browser mode's reading token for token --
+  comments to the line's end or to `*/`, strings with their escapes, `$` names and operators the mode's "meta", back-tick
+  names and delays plain, sized and based literals one number -- with the simulator's own keyword table (`Keywords`), and
+  code half typed never thrown off.
+- **Its colours** (`SchematicPalette.CodeInk`): the browser's mapping, each made `Legible` on the ground at 4.5:1, since a
+  1's colour is held to a wire's 3:1 and the code's colours had been held only to 3:1 on the selection; the browser now
+  takes these inks too (`theme.js`'s `codeWords`), so the two builds agree to the colour.
+- **On the desktop the vertices are coloured** (`CodeInkView`, on the editor's text and the listing's): in TextMesh Pro's
+  `OnPreRenderText`, before the mesh is handed over, with rich text left off -- marked-up text would have moved every
+  caret and column the input field counts. A still text is read once; bold and italic would need markup, so a comment
+  is grey on the desktop where the browser's is italic too.
+
+**As built in 5.1: the radixes said in full** (Ahmad, 2026-11-11, at the row's menu: "should there be also decimal?"). Both
+decimals were there, as UNSIGNED and SIGNED; they are UNSIGNED DECIMAL and SIGNED DECIMAL now (`WaveRowMenu.Caption`), the
+menu's items widened to hold them, and a test measures that every radix's caption fits its item.
+
+**As built in 5.1: code folding** (Ahmad, 2026-11-11, pointing at Notepad++'s margin: "the +/- thing in code that expands
+and unexpands things").
+- **Where code folds** (`CodeFolds`, the view-model's): every block of more than one line -- a keyword's, from its opening
+  word to the one that ends it, an ending meeting the nearest opening of its kind; a bracket's; a `/* */`, and a run of
+  two or more `//` lines -- comments and strings passed over by `CodeColouring`'s reading, one fold to a line, the one
+  reaching furthest. The browser's editor folds by `Tools/codemirror/src/folds.js`, the same rules written again for
+  CodeMirror's `foldService`; `test/folds.fixture.json` is read by both builds' tests, so the two cannot drift apart unseen.
+- **Folded, a block is one line**: its first, a mark, and its last line's text, as CodeMirror shows it. Folds are a view:
+  no step, nothing saved, and an edit keeps every fold it does not touch.
+- **On the desktop the field shows a folded view** (`FoldedView`) and the document never sees a fold: an edit of what
+  shows is taken back to the code -- the change between the two shown texts mapped through the folds -- and the whole code
+  handed to `CodeDocument`, so drafts, apply, undo and REVERT are as they were. The mark is one thing: a deletion that
+  takes any of it takes the block it hides, text typed inside it goes after the block. A place sent to inside a fold --
+  a fault clicked, `GoTo` -- opens it; Tab and Ctrl+/ open every fold first, editing whole lines. The margin is drawn from
+  the view: the code's own numbers, a folded block's passed over, and a - or + in plain letters, which the code's face has.
+  A line with neither ends in a - drawn clear (`<color=#00000000>`), never in two spaces: the margin is right-aligned, and
+  TextMesh Pro leaves trailing spaces out when it aligns, so every number on a line a block starts on stood two letters left
+  of the rest (Ahmad: "the minus and plus move the numbers to the left"). A Play Mode test holds every number's last digit
+  to one x, marked or not.
+
+**As built in 5.1: an edited testbench is run to its new `$stop`** (found widening "Is it prime?" to six bits in its own
+testbench, where the run still ended at 160 ps, where four bits stop). A written testbench's run was measured to where it
+stops as it was imported, and again as its PROGRAM was chosen (Part 15h-6c), but not as code was applied, so a testbench
+lengthened in the editor was cut off where its old text stopped, and one shortened ran on past its own `$stop`. Applying a
+written module's text under a written testbench now measures the run again in the same step
+(`BoardEditor.StoppingWhereItStops`, as the import does, `ProjectImporter.RunEnd`) -- the testbench's own text, or the code
+it tests, which can move the stop just as well -- and the CODE switch's writing of a drawn module as code with it. An undo
+puts the end back with the text. A testbench that never stops costs what its import did, about half a second, each time it
+is applied; the import has already said to end it with `$stop`. `WrittenBenchRunTests` (red, then the fix).
+
+**As built in 5.1: "Is it prime?" for any width** (Ahmad, 2026-11-11, widening its input in the code: it answered 0 for
+every number from 16 up, without a word). The sample was `prime4`, a `case` listing the primes up to 13. It is now `prime`,
+written from scratch with a width parameter `N`: more than 1, and no `i` from 2 up dividing `n`, tried in an `always_comb`
+`for` loop run a fixed number of times -- every `i` below `2 ** ((N + 1) / 2)`, at least the square root of the largest
+`n` -- with `i * i <= n` in the test inside it, since hardware has no loop that runs while an input says so. Written the
+way synthesis wants a loop's bound (`i < constant`): `i * i < 2 ** N`, the first form, ran the same in BitSorter, Icarus
+and ModelSim, but Icarus warned that it would not synthesize. Its testbench counts `n` through all `2 ** N` values and
+says to change `N` there; at four bits LOGIC still finds its truth table, its K-map and its smallest sum of products, and
+the drawing of its code is drawn. It has no controller reading now, so it no longer has a TABLE. `SampleTests` holds it to
+the primes at four bits and to a sieve widened to six through its testbench -- which found the run cut off where four
+bits stop (the note above) -- and the oracle corpus runs the same module at six bits (`behavioural/prime.sv`), held
+word for word to the sample.
+
+**As built in 5.1: QUIT** (Ahmad, 2026-11-11: "I couldn't exit the simulator unless I exited full screen"; then, of the
+grey button, "make it red"). A desktop build had no way out in fullscreen but Alt+F4. QUIT stands at the status line's
+right end (`ShellLayout.QuitIn`, the text kept clear of it on both sides by `StatusTextIn`, so it stays in the middle), in
+a desktop build and the editor alone (`WorkbenchPanel.Quits`): a browser's tab is the browser's to close.
+- **Over every page.** The start page and the other pages cover the status line, and BitSorter so often opens on the
+  start page, so QUIT brings itself in front each frame they have come over it -- never in front of a popup, which would
+  cover its own question.
+- **It asks first, above itself** (`AskMenu.AskAbove`, `WaveMenu.ShowAbove`): a question put up at the button's corner
+  would have opened under the pointer, where a double-click's second press answers it.
+- **Red, as RESET PROGRESS is**: the button and its answer outlined and captioned in the colour every error is written in,
+  the caption `Legible` at 4.5:1 -- which every look's x already reads at (4.67 to 6.11), so the reset's button is pixel
+  for pixel as it was, its style moved into `ShellTheme.Destructive` for both to share.
+- **The answer keeps before it quits** what `OnApplicationQuit` keeps -- the circuit at its last edit, and code typed and
+  not applied as its draft -- so they are kept whatever quits (`WorkbenchPanel.Quitter`, which `SaveGuard` makes quit
+  nothing for every test). `WorkbenchQuitPlayTests` holds its place, both reds, the question above it, CANCEL, Escape and
+  a double-click quitting nothing, the answer quitting, QUIT over the start page, and the keeping, in the frame of an
+  edit so that only the answer can have written it; reference shot 78 is the question up.
+
+**As built in 5.1: drawing only when something changes** (Ahmad, 2026-11-11: "we need a good optimization for that", with
+Task Manager showing the Windows build at about 56% of the GPU sitting still). The desktop build drew every frame at the
+screen's rate whatever happened. Now, while nothing happens, it draws one frame in ten (`IdleRendering.IdleInterval`)
+through Unity's `OnDemandRendering`, which keeps running the frames -- input, the clock, a slice of work -- and skips only
+the drawing.
+- **What counts as something happening** is gathered by the view each frame (`WorkbenchPanel.Idle.cs`) into `IdleFacts`,
+  and the rule is the view-model's (`IdleRendering`, held under dotnet): input -- the pointer moved, a mouse button or a
+  key down, the wheel (`UiText.AnyKeyDown`, so the keyboard is still read in one place) -- the window resized, the run
+  playing or still being made, LOGIC, STATES or TIMING still working a slice a frame, a panel fading or the credits
+  rising, or the drawing drawn again (`Redraw`). Every frame is drawn while any of them holds and for a second after the
+  last (`Linger`), which covers a toast, a gate's flash and a stage made again once a window stands still. The one ambient
+  animation, a field's caret, still blinks at a tenth of the rate.
+- **A desktop build's alone, never the editor's**, as the frame cap is: the tests and the reference shots draw every frame,
+  every shot identical. `WorkbenchIdlePlayTests` turns it on: a still second gives one frame in ten, a key every frame at
+  once, PLAY every frame for as long as it plays, and off every frame however still. Not in a browser yet, where it has not
+  been tried.
+- **The frame-rate counter counts the frames drawn** (`OnDemandRendering.willCurrentFrameRender`), so it says what reaches
+  the screen and drops when the window sits still.
+- Measured by Ahmad in Task Manager on the Windows build: 56% of the GPU still before.
+- **And fewer frames run** (item 16, measured first). Sitting still afterwards, with one frame in ten drawn, a recorder of
+  the GPU engines' counters by process found the 3D engine at about 6% but the copy engine at 20 to 30%: Ahmad's laptop
+  drives its display from the integrated chip, so every frame the discrete one hands to the screen is copied across, and
+  `OnDemandRendering` skips the drawing of a frame but still runs and presents it. Playing -- every frame drawn -- the copy
+  engine went no higher; with VSYNC off and the cap at 240 it was 20%, at 30 it was 2.7% and the 3D engine 1.5%. So the
+  copies follow the frames run. While idle the loop is now held to twenty a second with vertical sync off
+  (`FrameRate.SetIdle`, `IdleRate`), one in four of them drawn (`IdleRendering.IdleInterval`, five a second, which still
+  shows a caret blinking), and the player's own settings are put back the frame anything happens -- input is read every
+  frame, so that frame is at most a twentieth of a second late. A desktop build's alone, as before: `FrameRate.Applies`
+  is false in the editor and a browser, where `Idle` is still told and the tests read it.
+- **Measured on the build with it** (Ahmad's laptop, his own settings, VSYNC off and a 240 cap, 2026-11-11): still, the
+  CPU at 0.2%, the 3D engine about 2% and the copy engine 4.8% (medians of 91 still seconds), where they were 1 to 3%, 6%
+  and 20 to 30%; the frame-rate counter read 4 to 6. Moving the mouse put every frame back at once, at his 240.
+
+**As built in 5.1: the Windows build ships only the code it runs** (Ahmad, 2026-11-11: "never ship things/code/libraries
+that are never used (make sure of that)"). Managed stripping was off for Windows, which shipped 150 managed libraries --
+Vehicles, Cloth, AR, `System.Net.Http`, the AI assistant's runtime modules -- while the browser build had stripped at
+Medium since 5.0. Windows strips at Medium now: 87 libraries, 99.3 MB on disk down to 79.5 MB, the zip 37.2 MB down to
+30.2 MB, with DirectX 12 kept at Ahmad's choice. Windows' Open dialog is kept whole by a `link.xml` (COM calls by slot,
+so a stripped method would shift the rest), the linker's debug symbols are deleted by the build script, and
+`StrippingTests` holds both builds at Medium and the `link.xml` to the dialog's COM types. Every library still shipped is
+accounted for in `Docs/distribution.md`, "What the Windows build ships".
+
+**As built in 5.1: a return visit to the browser build downloads under a kilobyte** (Ahmad's item 6, "a faster first
+launch", measured first). Three builds differing only in compression were timed against a stand-in for Pages, cold and
+returning, at full speed, 30 and 10 Mbit/s: Brotli stays -- uncompressed, which Pages would gzip and the browser compile
+as it downloads, wins only on a fast line and loses at 10 Mbit/s, and gzip loses both ways. The finding was that Unity's
+loader fetched the 7.5 MB wasm afresh on every launch (`no-store`); the template's `config.cacheControl` now keeps the
+wasm and the framework, as the data already was, revalidated against Pages, which answers `304` while a file is the same.
+A return visit at 10 Mbit/s went from 8.7 s to about 3 s. `Docs/distribution.md`, "A faster launch", has the numbers;
+`BrowserLaunchTests` holds the rule.
+
+**As built in 5.1: a processor opens on the rows that show it working** (Ahmad, 2026-11-11: every RISC-V processor showed
+"only these in the wave form in all programs", `clk` and `rst`). A circuit opens on a row for each port of its top, and a
+processor's top has only those two, its memories being inside it. A sample may now name rows it opens on after its ports
+(`WorkbenchSamples.StartingRows`, by the keys `SignalIndex` gives them; `WaveList.OfPorts(model, extra)` passes over any the
+design lacks), and each processor names what the course reads one by ("the most important ones", Ahmad), ten rows with
+`clk` and `rst` where it can, which a dock shows without scrolling:
+- **single-cycle:** the textbook's eight -- `pc`, `instr`, `data_addr` (the ALU's result, the data memory's address),
+  `write_data`, `mem_we`, `read_data`, `rf_we` and `datapath.wb`, the value written back;
+- **multicycle:** the same but `read_data`, with its controller's `state` and the instruction register `datapath.ir`;
+- **pipelined:** `pc`, the decode stage's `id_instr`, `stall`, `redirect` (a flush), the execute stage's `ex_result`, the
+  write-back's `wb_rf_we`, `wb_rd` and `wb_value`, then `mem_we` -- last, since a dock shows ten rows and the value written
+  back is the one to see.
+
+They are the same in every program, since PROGRAM changes only what is run, and nothing new is saved. `StartingRowsTests`
+holds every key to its design, so a rename in a processor's code cannot drop a row without a test going red.
+
+**As built in 5.1: a row dragged by its name moves** (Ahmad, 2026-11-11: rows put in another order by dragging them up or
+down by their names, "make sure there is no bug of this").
+- **The gesture** (`WavePointer`, the view-model's): a plain press on a name selects the row as before; moved more than
+  four pixels up or down it is a drag of the row, and the release puts it down in the gap it was last over. Shift and Ctrl
+  still select, and a value is never a handle. A group's header opens or shuts on the release of a click on its name rather
+  than its press, so the same press can carry the group. Escape lets a dragged row go where it was.
+- **Where it may go** (`WaveList.DropGap`, `MoveTo`): a row keeps its level, as `WaveList.Move` always did -- a signal in a
+  group goes between its group's own signals, a header carries its whole group among the top-level rows, and a top-level
+  row never goes into a group. The gap nearest the pointer that it may go to is the one shown, by a line in the accent
+  across the names and the waves; one where it is already shows none.
+- **Past the window's top or foot the rows scroll** a row every tenth of a second of the game's clock, so a row can be taken
+  anywhere in a long list.
+- **The bug it would have had**: after any edit of the circuit, `WaveList.FollowPorts` put every port's row back in the
+  layout's order (Part 10e, so the rows read as they will when the circuit is opened again). A row dragged would have
+  jumped back at the next edit. Once a row has been moved by hand the list keeps its own order (`OrderedByHand`): a port
+  placed goes at the end, one taken away goes, and nothing is sorted. The order lasts while the circuit is open, as
+  renames and groups do; the rows are not saved.
+- The status line over a name says so, and the keyboard map lists DRAG A NAME. `CursorTests` and `SignalListTests` hold
+  the gesture and the levels, and a Play Mode test drags the full adder's cout over a, cancels a drag with Escape, and
+  tidies the circuit after; shot 79 is a row held over another, its line showing.
+
+**As built in 5.1: a bus's value reads without zooming in** (Ahmad, 2026-11-11, at a 64-bit value: "I have to zoom in a lot
+to see the value"; he chose cutting and a tip both, and then asked for "something to expand and unexpand" the values
+column).
+- **Over a box, as much of its value as fits** (`ValueFit.Kept`). A box had a label only where the whole value fitted -- 22
+  units and 7 a character after the first, since Part 9b -- so a 32-bit value wanted 85 units in hex and 239 in binary, and
+  a narrower box was blank. Now one too narrow first leaves out the value's leading zeros, in binary, octal and hex -- cut
+  from its first character, a 32-bit address read 000... in every box, which says nothing, where 6C is the value -- and
+  still too long, shows its first characters and an ellipsis, read from its start as a viewer writes one, where at least
+  three characters fit; fewer say nothing a reader could use, and the box stays blank. A box with room writes the value
+  whole, zeros and all, as every other place does.
+  The ellipsis is one character where the waves' face has it, three dots where it has not. A cut label is handed to its
+  text as characters, and only when its value or its cut changes, so a frame of playback makes no string and lays out no
+  text that has not changed.
+- **The pointer on a box shows the whole of it** (`ValueFit.Tip`, `WaveformView.ShowTip`): the row's name and width, the
+  value in its radix with its mark, never cut, and the time it holds -- "to now" for the box the playhead is in, which
+  holds on as the run plays. It is kept inside the waves' window, above the pointer where there is no room below, as wide
+  as its words or the window, a value wider wrapping. It is up while nothing is held, no popup is open and no row is
+  dragged; a one-bit row has none. Its words are made only when the pointer moves to another box.
+- **The values column shows every value whole at a click** on VALUES + at its head, or W (`WorkbenchCommand.Values`), and
+  VALUES - cuts them again. Whole, it is as wide as the widest value any row can hold in its radix -- `ValueText.MaxChars`,
+  written for this in Part 9b and never used until now -- its mark included, up to 480 units and never more than 45% of the
+  waveform, so it never moves while the run plays; the waves start further right by as much, as they do for a long name.
+  The choice is the student's while BitSorter runs, every circuit alike, and is not saved.
+- `ValueFitTests` holds the cut and the tip's words, and a Play Mode test the single-cycle processor's run: its pc cut to
+  its boxes, the tip on a box and none on clk, the column widened at a click on its head and cut again with W. Shot 80 is
+  the processor with every value whole and the tip up; every waves shot with a box too narrow for its value gains its cut
+  label.
 
 ---
 

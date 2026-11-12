@@ -8,8 +8,10 @@ using UnityEngine;
 namespace BitSorter.View
 {
     /// <summary>
-    /// What an import reads (Part 13d): on a desktop and in the editor, every file in the Import folder beside the save,
-    /// made the first time it is asked for; in a browser, the files the player picks, or a folder's.
+    /// What an import reads (Part 13d): the files the player picks, or a folder's -- in a browser through the page's own
+    /// picker, and since 5.1 on a desktop and in the editor through Windows' own Open dialog (<see cref="Choose"/>), where it
+    /// read only the Import folder beside the save. That folder is still where COMPARE WITH MODELSIM'S RUN finds ModelSim's
+    /// dump (<see cref="NewestDump"/>).
     /// </summary>
     /// <remarks>
     /// **A browser build cannot read the player's disk**, only what the player hands the page. So the page opens its own
@@ -17,17 +19,47 @@ namespace BitSorter.View
     /// takes it (<see cref="TryTake"/>), a frame or a few later -- the pull the code editor's bridge uses (Part 12f), so
     /// nothing in the page calls into the game.
     ///
-    /// **Tests send the folder elsewhere** (<see cref="Redirected"/>), as <c>SaveGuard</c> sends the save and the exports.
+    /// **Tests send the folder elsewhere** (<see cref="Redirected"/>), as <c>SaveGuard</c> sends the save and the exports,
+    /// **and never open the dialog** (<see cref="Chooser"/>): it waits for a person, and would hold the run up for ever.
     /// </remarks>
     public static class FileImport
     {
-        /// <summary>The folder an import reads instead of the player's, while a test runs; null otherwise.</summary>
+        /// <summary>The Import folder's stand-in while a test runs; null otherwise.</summary>
         public static string Redirected { get; set; }
 
-        /// <summary>Where a desktop or the editor reads an import from.</summary>
+        /// <summary>The Import folder beside the save: where a desktop or the editor finds ModelSim's dump.</summary>
         public static string Folder => Redirected ?? Path.Combine(Application.persistentDataPath, "Import");
 
-        /// <summary>Whether the player picks the files in the page -- a browser -- rather than putting them in the folder.</summary>
+        /// <summary>
+        /// What <see cref="Choose"/> asks in place of Windows' dialog while it is set, and null otherwise: <c>SaveGuard</c> sets
+        /// one that cancels, so no test can open a dialog that waits for a person, and a test that imports sets one that answers.
+        /// </summary>
+        public static Func<bool, string[]> Chooser { get; set; }
+
+        /// <summary>The Open dialog's titles, for a folder and for files.</summary>
+        public const string FolderTitle = "Import a project's folder", FilesTitle = "Import a project's files";
+
+        /// <summary>
+        /// A desktop's import asks for a <paramref name="folder"/> or for files, in Windows' own Open dialog (since 5.1):
+        /// the folder or the files chosen, or null when it was cancelled. Modal, so it returns once the dialog closes. It opens
+        /// in Documents the first time and where it was left after that, which Windows keeps for the program itself.
+        /// </summary>
+        public static string[] Choose(bool folder)
+        {
+            if (Chooser != null)
+                return Chooser(folder);
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            string start = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (!folder)
+                return WindowsFileDialog.PickFiles(FilesTitle, start, "SystemVerilog and memory files", "*.sv;*.svh;*.v;*.vh;*.hex;*.mem;*.txt");
+            string chosen = WindowsFileDialog.PickFolder(FolderTitle, start);
+            return chosen == null ? null : new[] { chosen };
+#else
+            return folder ? new[] { Folder } : null;   // no dialog to be had: the Import folder, as before 5.1
+#endif
+        }
+
+        /// <summary>Whether the player picks the files in the page -- a browser -- rather than in Windows' Open dialog (<see cref="Choose"/>).</summary>
         public static bool Picks
         {
             get
@@ -41,23 +73,101 @@ namespace BitSorter.View
         }
 
         /// <summary>
-        /// Every file in the folder and the folders in it, each by its path inside it, in order; the folder made if it is not
-        /// there. Sizes are looked at before anything is read (Part 13f): a file past <see cref="ProjectImporter.MaxFileSize"/>
-        /// is left <see cref="SourceFile.Unread"/>, and so is every file when there are more, or more in all, than an import
-        /// takes (<see cref="ProjectImporter.Reads"/>) -- the import says why. A file that cannot be read is left unread too.
+        /// Every file in <paramref name="folder"/> and the folders in it, each by its path inside it, in order. Sizes are
+        /// looked at before anything is read (Part 13f): a file past <see cref="ProjectImporter.MaxFileSize"/> is left
+        /// <see cref="SourceFile.Unread"/>, and so is every file when there are more, or more in all, than an import takes
+        /// (<see cref="ProjectImporter.Reads"/>) -- the import says why. A file that cannot be read is left unread too.
+        /// A hidden file or folder is passed over (<see cref="IsHidden"/>), and so is a folder inside that is only a link to
+        /// another, or that cannot be listed; the folder itself not listing throws.
+        ///
+        /// **It stops looking once it has found more files than an import takes** (5.1): a folder chosen by mistake --
+        /// Documents, a whole drive -- would otherwise be walked to its last file, with nothing on screen moving.
         /// </summary>
-        public static List<SourceFile> ReadFolder()
+        public static List<SourceFile> ReadFolder(string folder)
         {
-            string folder = Folder;
-            Directory.CreateDirectory(folder);
             var found = new List<(string Relative, string Path, long Size)>();
-            foreach (string path in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+            var folders = new Queue<string>();
+            folders.Enqueue(folder);
+            while (folders.Count > 0 && found.Count <= ProjectImporter.MaxFiles)
             {
-                string relative = Path.GetRelativePath(folder, path).Replace('\\', '/');
-                if (!IsHidden(relative))
-                    found.Add((relative, path, new FileInfo(path).Length));
+                string at = folders.Dequeue();
+                string[] files, inside;
+                try
+                {
+                    files = Directory.GetFiles(at);
+                    inside = Directory.GetDirectories(at);
+                }
+                catch (Exception e) when ((e is IOException || e is UnauthorizedAccessException) && at != folder)
+                {
+                    continue;   // a folder inside that is not the player's to list
+                }
+
+                Array.Sort(files, StringComparer.Ordinal);   // the same files found first every time, where it stops
+                foreach (string path in files)
+                {
+                    string relative = Path.GetRelativePath(folder, path).Replace('\\', '/');
+                    if (IsHidden(relative))
+                        continue;
+                    found.Add((relative, path, SizeOf(path)));
+                    if (found.Count > ProjectImporter.MaxFiles)
+                        break;
+                }
+
+                Array.Sort(inside, StringComparer.Ordinal);
+                foreach (string next in inside)
+                    if (!IsHidden(Path.GetFileName(next)) && !IsLink(next))
+                        folders.Enqueue(next);
             }
 
+            return Read(found);
+        }
+
+        /// <summary>
+        /// The files at <paramref name="paths"/> -- chosen together, from one folder -- each by its name, read as
+        /// <see cref="ReadFolder"/> reads a folder's; a hidden one passed over.
+        /// </summary>
+        public static List<SourceFile> ReadFiles(IReadOnlyList<string> paths)
+        {
+            var found = new List<(string Relative, string Path, long Size)>();
+            foreach (string path in paths ?? Array.Empty<string>())
+            {
+                string name = Path.GetFileName(path ?? "");
+                if (name.Length > 0 && !IsHidden(name))
+                    found.Add((name, path, SizeOf(path)));
+            }
+
+            return Read(found);
+        }
+
+        /// <summary>A file's size, or 0 where it cannot be asked: reading it then fails too, and leaves it unread.</summary>
+        private static long SizeOf(string path)
+        {
+            try
+            {
+                return new FileInfo(path).Length;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>Whether a folder is only a link to another -- a junction or a symbolic link -- which could lead back round.</summary>
+        private static bool IsLink(string folder)
+        {
+            try
+            {
+                return (File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                return true;   // not to be gone into
+            }
+        }
+
+        /// <summary>The files found, in order, read where an import takes them and left unread where it does not.</summary>
+        private static List<SourceFile> Read(List<(string Relative, string Path, long Size)> found)
+        {
             found.Sort((a, b) => string.CompareOrdinal(a.Relative, b.Relative));
             long total = 0;
             foreach (var (_, _, size) in found)
@@ -99,16 +209,21 @@ namespace BitSorter.View
             return false;
         }
 
-        /// <summary>Opens the folder in the system's file browser, making it first if it is not there.</summary>
+        /// <summary>
+        /// Opens the Import folder in the system's file browser, making it first if it is not there -- where COMPARE finds no
+        /// dump in it. While a test runs (<see cref="Redirected"/>) it only makes it: a test opens no window on the screen of
+        /// whoever runs it.
+        /// </summary>
         public static void OpenFolder()
         {
             Directory.CreateDirectory(Folder);
-            Application.OpenURL("file:///" + Folder.Replace('\\', '/').TrimStart('/'));
+            if (Redirected == null)
+                Application.OpenURL("file:///" + Folder.Replace('\\', '/').TrimStart('/'));
         }
 
         /// <summary>
         /// Asks the page for files -- several, or a <paramref name="folder"/>'s -- which <see cref="TryTake"/> has once they are
-        /// read. The page is handed the import's limits, so it reads what the folder would (<see cref="ReadFolder"/>).
+        /// read. The page is handed the import's limits, so it reads what a desktop would (<see cref="ReadFolder"/>).
         /// </summary>
         public static void Pick(bool folder)
         {

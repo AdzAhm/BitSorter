@@ -34,7 +34,7 @@ namespace BitSorter.ViewModel
     }
 
     /// <summary>Where the pointer is, as the status line names its gestures.</summary>
-    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold }
+    public enum PointerArea { Elsewhere, Circuit, Waves, Blocks, Pin, Handle, Fold, Unfold, Names, ValuesHead }
 
     /// <summary>
     /// The keyboard map (Part 11d), Unity-free: every key the workbench answers, from <see cref="WorkbenchKeys"/> alone, under
@@ -60,6 +60,7 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("MIDDLE-DRAG", "pan; or SPACE and drag"),
             new KeyMapEntry("WHEEL", "zoom about the pointer"),
             new KeyMapEntry("ALT-CLICK", "a wire to add its signal to the waveform"),
+            new KeyMapEntry("CLICK CODE", "at the top right: the circuit as code, to type into; DRAWING back"),
         };
 
         /// <summary>
@@ -78,8 +79,10 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("SHIFT-CLICK", "the playhead there, hiding the waves after it; drag it to scrub"),
             new KeyMapEntry("WHEEL", "zoom time about the pointer; SHIFT and the wheel moves through it"),
             new KeyMapEntry("RIGHT-CLICK", "a row's menu, or a moment's"),
-            new KeyMapEntry("DOUBLE-CLICK", "an input's wave to set its value"),
             new KeyMapEntry("CLICK A NAME", "select its row; SHIFT or CTRL for more"),
+            new KeyMapEntry("DRAG A NAME", "up or down to move its row; ESC puts it back"),
+            new KeyMapEntry("CLICK VALUES +", "over the values: every value whole; VALUES - cuts them again"),
+            new KeyMapEntry("POINT AT A BOX", "a bus's whole value, its width and its time"),
         };
 
         /// <summary>
@@ -95,6 +98,9 @@ namespace BitSorter.ViewModel
             new KeyMapEntry("CTRL Z", "undo the typing; CTRL Y or CTRL SHIFT Z redoes it"),
             new KeyMapEntry("TAB", "indent the lines by four spaces; SHIFT TAB outdents"),
             new KeyMapEntry("CTRL /", "comment the lines out, or back in"),
+            new KeyMapEntry("CLICK - OR +", "in the margin: fold a block to one line, or open it"),
+            new KeyMapEntry("CTRL SHIFT [", "fold the block the caret is in; CTRL SHIFT ] opens it"),
+            new KeyMapEntry("CTRL ALT [", "fold every block; CTRL ALT ] opens them all"),
             new KeyMapEntry("ALT UP", "move the lines up, ALT DOWN down: in a browser"),
             new KeyMapEntry("CTRL F", "find and replace: in a browser"),
             new KeyMapEntry("CTRL D", "select the next match: in a browser"),
@@ -142,6 +148,7 @@ namespace BitSorter.ViewModel
                 case WorkbenchCommand.Group:
                 case WorkbenchCommand.Radix:
                 case WorkbenchCommand.Names:
+                case WorkbenchCommand.Values:
                 case WorkbenchCommand.ClearCursor:
                 case WorkbenchCommand.PageUp:
                 case WorkbenchCommand.PageDown:
@@ -204,6 +211,11 @@ namespace BitSorter.ViewModel
                     return "panel:  click to show it  ·  H hides or shows them all  ·  ? every key";
                 case PointerArea.Circuit:
                     return "circuit:  drag from a pin to wire  ·  double-click to inspect  ·  right-click for its menu  ·  wheel to zoom  ·  ? every key";
+                case PointerArea.Names:
+                    // A row's name is its handle (5.1): the one gesture there nothing else on screen says.
+                    return "rows:  click to select  ·  drag a name up or down to move its row  ·  right-click for its menu  ·  ? every key";
+                case PointerArea.ValuesHead:
+                    return "values:  click to show every value whole, or cut them to the column  ·  W does it too  ·  ? every key";
                 case PointerArea.Waves:
                     return "waves:  click for a cursor  ·  shift-click to move the playhead  ·  wheel to zoom time  ·  right-click for a menu  ·  ? every key";
                 case PointerArea.Blocks:

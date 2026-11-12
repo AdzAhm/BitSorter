@@ -125,7 +125,7 @@ namespace BitSorter.ViewModel.Tests
             pointer.Press(press, commands);
             foreach (double t in moves)
                 pointer.Move(t, commands);
-            pointer.Release();
+            pointer.Release(commands);
             foreach (double t in moves)
                 pointer.Move(t, commands);   // after the release, nothing
             return string.Join(", ", commands.Select(c => c.Gesture + (c.Gesture == WaveGesture.Seek || c.Gesture == WaveGesture.PlaceSecond || c.Gesture == WaveGesture.MoveSecond
@@ -170,6 +170,87 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("SelectRow 3", Run(pointer, On(WaveRegion.Names, row: 3), 5, 6), "and a press on a row never scrubs");
         }
 
+        /// <summary>A press on a row's name, moved up or down to <paramref name="ys"/> over the gaps <paramref name="gaps"/>, then let go.</summary>
+        private static string DragName(WavePointer pointer, WavePress press, float[] ys, int[] gaps, bool cancel = false)
+        {
+            var commands = new List<WaveCommand>();
+            pointer.Press(press, commands);
+            for (int i = 0; i < ys.Length; i++)
+                pointer.MoveRow(ys[i], gaps[i], commands);
+            if (cancel)
+                Assert.IsTrue(pointer.Cancel(), "a drag to cancel");
+            pointer.Release(commands);
+            Assert.IsFalse(pointer.HoldsRow, "let go");
+            return string.Join(", ", commands.Select(c => c.Gesture + " " + c.Row + (c.Extend ? "+" : "") + (c.Toggle ? "^" : "")
+                + (c.To >= 0 ? ">" + c.To : "")));
+        }
+
+        private static WavePress Name(int row, float y, bool header = false, bool shift = false, bool ctrl = false) =>
+            new WavePress { Region = WaveRegion.Names, Row = row, Y = y, OnGroupMark = header, Shift = shift, Ctrl = ctrl };
+
+        /// <summary>
+        /// A row's name pressed and moved more than four pixels up or down drags the row, saying each new gap it is over, and
+        /// the release puts it down in the last (5.1, asked by Ahmad, 2026-11-11). Moved less, it is a click: it selects.
+        /// </summary>
+        [Test]
+        public void ARowsNameDraggedUpOrDown_MovesTheRow_AndAClickOnlySelectsIt()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("SelectRow 3", DragName(pointer, Name(3, 100f), new[] { 102f, 96f }, new[] { 3, 3 }),
+                "four pixels or fewer either way: a click");
+            Assert.AreEqual("SelectRow 3, DragRow 3>4, DragRow 3>5, DropRow 3>5",
+                DragName(pointer, Name(3, 100f), new[] { 102f, 110f, 120f, 124f, 130f }, new[] { 3, 4, 5, 5, 5 }),
+                "past four pixels a drag, each new gap said once, put down in the last");
+            Assert.AreEqual("SelectRow 3, DragRow 3>0, DropRow 3>0", DragName(pointer, Name(3, 100f), new[] { 40f }, new[] { 0 }), "and up");
+            Assert.IsFalse(pointer.Dragging, "a row's drag is never one through time");
+        }
+
+        /// <summary>Escape lets a dragged row go where it was; and only a plain press on a name drags.</summary>
+        [Test]
+        public void EscapeCancelsARowsDrag_AndOnlyAPlainPressOnANameDrags()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("SelectRow 3, DragRow 3>5", DragName(pointer, Name(3, 100f), new[] { 130f }, new[] { 5 }, cancel: true),
+                "cancelled: nothing put down");
+            Assert.IsFalse(pointer.Cancel(), "nothing left to cancel");
+
+            Assert.AreEqual("SelectRow 3+", DragName(pointer, Name(3, 100f, shift: true), new[] { 130f }, new[] { 5 }), "Shift selects to it");
+            Assert.AreEqual("SelectRow 3^", DragName(pointer, Name(3, 100f, ctrl: true), new[] { 130f }, new[] { 5 }), "Ctrl selects in or out");
+
+            var values = new WavePress { Region = WaveRegion.Values, Row = 3, Y = 100f };
+            Assert.AreEqual("SelectRow 3", DragName(pointer, values, new[] { 130f }, new[] { 5 }), "a value is never a handle");
+        }
+
+        /// <summary>
+        /// A group's header opens or shuts on the release of a click on its name, and a drag of its name carries the group
+        /// instead, opening or shutting nothing; a click on its value opens or shuts it as it is pressed, as before.
+        /// </summary>
+        [Test]
+        public void AGroupsHeader_OpensOrShutsOnTheClicksRelease_AndADragCarriesItInstead()
+        {
+            var pointer = new WavePointer();
+            var commands = new List<WaveCommand>();
+            pointer.Press(Name(0, 100f, header: true), commands);
+            Assert.IsEmpty(commands, "nothing on the press");
+            pointer.Release(commands);
+            Assert.AreEqual(WaveGesture.ToggleGroup, commands.Single().Gesture, "opened or shut on the release");
+
+            Assert.AreEqual("DragRow 0>6, DropRow 0>6", DragName(pointer, Name(0, 100f, header: true), new[] { 160f }, new[] { 6 }),
+                "a drag carries it, opening or shutting nothing");
+
+            var value = new WavePress { Region = WaveRegion.Values, Row = 0, Y = 100f, OnGroupMark = true };
+            Assert.AreEqual("ToggleGroup 0", Run(pointer, value), "its value, as before");
+        }
+
+        /// <summary>A click on the head of the values column shows every value whole, or cuts them again (5.1); the right button nothing.</summary>
+        [Test]
+        public void AClickOnTheValuesHead_ShowsEveryValueWhole_OrCutsThemAgain()
+        {
+            var pointer = new WavePointer();
+            Assert.AreEqual("ToggleValues", Run(pointer, On(WaveRegion.ValuesHead)));
+            Assert.AreEqual("", Run(pointer, On(WaveRegion.ValuesHead, button: 1)));
+        }
+
         [Test]
         public void AltAndAPressOnTheCircuit_AddsTheWiresSignal_AndWithoutAltItIsTheCircuits()
         {
@@ -186,16 +267,20 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual("", Run(pointer, On(WaveRegion.None, 4), 5));
         }
 
+        /// <summary>
+        /// A double-click on a row's wave is two clicks, never an edit of the row's input: the waves only read the run, and
+        /// INPUTS sets the inputs (5.1; a double-click there once flipped the input, or asked its value).
+        /// </summary>
         [Test]
-        public void ADoubleClickOnARowsWave_AsksToEditItsInput_AndScrubsNothing()
+        public void ADoubleClickOnARowsWave_IsTwoClicks_AndAsksNoEdit()
         {
             var pointer = new WavePointer();
             Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2)), "the first click places the cursor, as any does");
-            Assert.AreEqual("EditInput 2", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6), "the second asks to edit row 2, and its drag scrubs nothing");
-            Assert.IsFalse(pointer.Dragging);
+            Assert.AreEqual("PlaceSecond 4, MoveSecond 5, MoveSecond 6", Run(pointer, On(WaveRegion.Waves, 4, row: 2, clicks: 2), 5, 6),
+                "the second places it again, and its drag moves it, as a single click's does");
 
-            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows there is no input to edit");
-            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "nor on the axis");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Waves, 4, clicks: 2)), "below the rows, the same");
+            Assert.AreEqual("PlaceSecond 4", Run(pointer, On(WaveRegion.Axis, 4, row: 2, clicks: 2)), "and on the axis");
             Assert.AreEqual("Seek 4", Run(pointer, On(WaveRegion.Waves, 4, row: 2, shift: true, clicks: 2), 5).Split(',')[0], "Shift seeks however quick");
         }
 

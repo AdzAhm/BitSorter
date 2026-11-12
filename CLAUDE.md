@@ -14,11 +14,15 @@ longer matches the code, say so and correct it in the same change. Do not
 quietly work around a stale paragraph, and do not treat one as binding
 just because it is written down here.
 
-## 5.0 (released 2026-11-10)
+## 5.0 (released 2026-11-10) and 5.1 (released 2026-11-12)
 **5.0.0 is released** (tag `v5.0.0`): on GitHub Pages, and on Windows as a zip on its
 GitHub release. It was built on a branch of its own, `v5`, a PR a part, and `main`
 was fast-forwarded to it at the release, when `v5` and every merged branch were
-deleted; work since is a PR on `main`. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
+deleted. **5.1.0 is released** (tag `v5.1.0`), the same two ways: sixteen fixes and
+additions from using 5.0.0 (Ahmad's list, 2026-11-11), each a PR into `v5.1`, made from
+`main`, and `v5.1` merged into `main` as one PR at the release
+(`Docs/release/5.1.0/notes.md` are its notes). What comes after is built the same way, on a
+branch made from `main` for it. BitSorter was re-founded as a SystemVerilog simulator for the course, with the
 thirty levels kept as side *Exercises* (the brief's decisions, 2026-10-11).
 **`Docs/architecture-5.md` is the architecture, the data model and the parts --
 read it before any 5.0 work.** 5.0 was built beside the 4.x game, which Part 15
@@ -298,7 +302,11 @@ stretch that way.
   **They would also touch the player's own files.** `SaveGuard.Redirect` points
   the save, the PlayerPrefs settings, the workbench's exports (`FileSaver`, Part
   9b-4) and its Import folder (`FileImport`, Part 13d) at scratch copies before the
-  scene loads (see "Never move the player's save" below), and every fixture then
+  scene loads (see "Never move the player's save" below), and has every import's
+  Windows Open dialog cancelled unless the test answers it (`FileImport.Chooser`,
+  `SaveGuard.AnswerTheNextChoice`; 5.1) -- the dialog is modal and waits for a person,
+  so one opened by a test would hold the run up for ever -- and QUIT's answer quitting
+  nothing (`WorkbenchPanel.Quitter`; 5.1) -- and every fixture then
   turns analytics off -- `GameAnalytics.Boot` runs on AfterSceneLoad, and an
   exercise opened or solved would otherwise post real events from a test run,
   into the one measurement the game collects.
@@ -357,6 +365,18 @@ stretch that way.
   rather than returning quietly. And a helper that waits only for something to
   stop moving must say no more than that: one that waits for the very thing a test
   is about to assert makes every such assertion pass by construction.
+
+  **Nor may a run mind the focus going.** Unity tells the event system when the
+  editor goes behind another window (`OnApplicationFocus`), and the Input System's
+  UI module drops every click and key after it unless input runs in the
+  background -- which the player does (Run In Background) and `InputTestFixture`'s
+  test runtime did not. So every fixture with a simulated keyboard and mouse sets
+  `InputSystem.runInBackground` after `base.Setup()` (`PlayModeFixtureRulesTests`).
+  On 2026-11-11 a window put in front of the editor mid-run dropped a test's click
+  into RUN TO; the code field it was to take the keyboard from kept it, and the
+  test went red at an Escape some 170 frames on. A check that a field has the
+  keyboard asks for that field (`ShellPanel.Typing`), not `UiText.Typing`, which
+  any field selected answers.
 
   **Run them from the PlayMode tab, never the Player tab.** The Player tab is a
   different thing wearing the same name: it builds a player for the active target
@@ -488,7 +508,12 @@ stretch that way.
   `StateDiagramView`, and the next-state table beside them; with nothing to show,
   LOGIC and STATES say why across their body, never only in the header's dim line --
   a 64-bit ALU's empty tabs looked broken, Part 15h), and a one-line status that
-  names the gestures where the pointer is. **The drawings stay uGUI** -- the
+  names the gestures where the pointer is. **QUIT stands at the status line's right end**
+  (5.1, Ahmad: "I couldn't exit the simulator unless I exited full screen"; `WorkbenchPanel.Quit.cs`),
+  in a desktop build and the editor alone, red as RESET PROGRESS is (`ShellTheme.Destructive`),
+  and over the start page and every other page too, which cover the status line: it asks
+  first, above itself so a double-click cannot answer, and its answer keeps the circuit and
+  the code typed and not applied before it quits. **The drawings stay uGUI** -- the
   circuit, the waves, the legend, the minimap -- each placed under the panel
   that frames it, at its own size, **the waves on whole screen pixels** at any
   dock height, their window, scroll and every line's level (Part 15h-4d: off a
@@ -537,7 +562,13 @@ stretch that way.
   named for sources and sinks would make two looks share colours by accident.
   Schematic's is the reference's, as Ahmad chose it; Schematic Light is the same
   on paper, for a report's screenshots; Neon Board's and Classic's are made from
-  their own boards' colours. **The workbench's own buttons, chips and slider take
+  their own boards' colours. **Code is written in the palette's code inks** (`SchematicPalette.CodeInk`, 5.1; Ahmad: "all the text is white"):
+  a keyword in the accent, a number or a string in a 1's colour, a comment in the muted grey, a system name or an
+  operator in the cursor's -- as the browser's CodeMirror coloured code since Part 12f -- each `Legible` on the ground at
+  4.5:1, and the browser given the same inks. The desktop's editor and the CODE tab colour their TextMesh Pro vertices
+  as the text is drawn (`CodeInkView`, `CodeColouring` reading each character as CodeMirror's Verilog mode does, with
+  the simulator's own keywords), never marked-up text, so every caret and column stays the text's own.
+  **The workbench's own buttons, chips and slider take
   the canvas's colours too**: Neon Board's bordered panels darken a body whatever
   colour it is given, and on paper every button came out a dark slab. Faint
   colours go through `SchematicPalette.Over`, because the project blends in linear
@@ -589,7 +620,7 @@ stretch that way.
   start.** A caret blinks and a hint breathes on `ViewTime.Now`, so the reference
   shots can pin it; a change on a wire marks a moment and counts from it.
 - **Visual changes are checked against the reference shots.**
-  `BitSorter/Capture Reference Shots` captures fifty-two states of the simulator: the
+  `BitSorter/Capture Reference Shots` captures fifty-six states of the simulator: the
   workbench preview with two changes on their way, whole, zoomed in, with a wire
   pointed at, with two rows in other radixes and two breakpoints, with a block's
   inside grouped under full names, the add list, MY CIRCUIT being edited, wired
@@ -602,7 +633,7 @@ stretch that way.
   the INPUTS, LOGIC and STATES tabs, ABOUT BITSORTER, operator parts and a turned
   block, the drawing of code with and without GATES, locked code, the waves
   zoomed, the three RISC-V processors and their controllers, the drawing and
-  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away -- and Settings asking whether to reset, and
+  code linked, the PROGRAM chooser, a block resized by its handles, the panels folded away, code folded (77, 5.1), QUIT asking (78, 5.1), a row dragged by its name (79, 5.1), every value whole and a value's tip (80, 5.1) -- and Settings asking whether to reset, and
   the credits part-way up -- every other shot taken with the hints seen, as an
   Explicit Play Mode fixture, so it runs under `SaveGuard`. Shots 1 to 26 but 17
   and 18 were the 4.x game's and went with it; the rest keep their numbers.
@@ -669,10 +700,9 @@ stretch that way.
   the run by `RunComparison` -- the first moment and signal they differ at, at the
   TRANSCRIPT's head and the run taken there, a difference from t = 0 that ends said apart, and only as far as the
   dump goes), the question asked before a
-  testbench is converted or a circuit or a module is deleted (`AskMenu`, Parts 13d, 14g
-  and 15a), the add list and the three fields -- RENAME,
-  BREAK ON VALUE, and SET, which a double-click on a bus or an x asks an input's
-  value in -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
+  testbench is converted or a circuit or a module is deleted, or BitSorter quit (`AskMenu`, Parts 13d, 14g,
+  15a and 5.1), the add list and the two fields -- RENAME and
+  BREAK ON VALUE -- each hold Escape (`IHoldsEscape`), as an exercise's card does (Part 15d),
   and with nothing holding it Escape takes down the EXERCISES page, then the start
   page, or puts a part in hand down, and never closes the workbench: BitSorter opens
   on it, and nothing is behind it (Part 15a). HOME, FILE, EXERCISES, HELP and
@@ -696,7 +726,9 @@ stretch that way.
   either up is `PageShowing`. **The start page gives the three RISC-V processors a section
   of their own** (Part 15h-6c, Ahmad, 2026-11-02): RISC-V PROCESSORS under EXERCISES, a card each
   with its name, a line on what it shows, and SUM, FIBONACCI and ISA, each opening it on that
-  program; they are not rows of SAMPLES, though the S chip still steps through them. **A
+  program; they are not rows of SAMPLES, though the S chip still steps through them. Each opens
+  its waves on the rows that show it working after clk and rst, the only ports of its top
+  (`WorkbenchSamples.StartingRows`, 5.1). **A
   testbench with a parameter of an enum type has a PROGRAM chip** (Part 15h-6c) at the controls'
   row's right end -- PROGRAM: FIBONACCI -- its menu the enum's members, choosing one step of the
   document and the run made again, measured again to where that choice stops it -- and shown to
@@ -713,10 +745,10 @@ stretch that way.
   code works the value out. **An exercise open puts GOAL and CHECK at the
   controls' row's right end** in its place, the chip beside them made room for: GOAL its brief,
   the hint behind SHOW THE HINT, and CHECK the grade, every failed check a
-  TRANSCRIPT line at its moment -- and WRITE IT (Part 15e), which turns the answer
-  into code held to the library and the stock as a drawing is, and DRAW IT back,
-  asking first, which draws the code as its gates (Part 15g; it put back the
-  exercise as it starts) and says why where it cannot. **The circuit's window is the canvas's** (Part 10a):
+  TRANSCRIPT line at its moment. An answer is written as code through the CODE switch every circuit
+  has (5.1), under the exercise's header (`Exercise.Written`), held to the library and the stock as a
+  drawing is; WRITE IT and DRAW IT stood beside GOAL and CHECK until then (Parts 15e, 15g), and went
+  at Ahmad's choice (2026-11-11), DRAW IT's code drawn back into gates with them. **The circuit's window is the canvas's** (Part 10a):
   its presses go to `CanvasPointer`, never to `WavePointer` -- a left drag moves
   the selection or draws a box, the middle button or Space with a drag pans, so
   **Space plays and pauses on its release**, and Alt held while dragging or
@@ -753,13 +785,19 @@ stretch that way.
   it back. **An operator part**
   (`OperatorPart`, Part 15h-3) is one of the language's operators as a box with its
   symbol, compiling to one `assign`; not in PARTS yet, for the drawing of code (Part
-  15h-4) to place. **A written module is shown as the drawing of its code, or as its
+  15h-4) to place. **Every circuit has the CODE / DRAWING switch at its window's top right** (5.1,
+  Ahmad: "just a button to switch to the code and edit it", everywhere): over a drawn circuit CODE shows
+  it as it prints, to type into, and changes nothing (`WorkbenchSession.DrawnAsCode`, `TextOf`; a blank
+  circuit shows + CODE's template, an exercise's answer its header), DRAWING going back as it was; the
+  first text that applies makes it a written module, one step that Ctrl+Z takes back, and until then
+  its drawing takes no edit (`CodeShownRefusal`); an exercise answered by drawing alone shows none
+  (`CodeAllowed`). **A written module is shown as the drawing of its code, or as its
   code** (Part 15h-4): **it opens as its drawing** (15h-4d: a double-click on a written
   block showed its code, and Ahmad wanted the drawing first) -- unless CODE was chosen
   for it, which is kept for each module, or its code cannot be drawn; + CODE,
-  WRITE IT, an imported course template and an exercise answered in code open on the
+  an imported course template and an exercise answered in code open on the
   code, to be typed into (`WorkbenchSession.ShowCodeOf`), and text typed and not yet
-  applied -- into any written module, on screen, behind its drawing or stepped out
+  applied -- into any module, a drawn one's typed as code included, on screen, behind its drawing or stepped out
   of, each a draft the save keeps -- is what EXPORT, the hand-in, the lock and
   CHECK apply first, or are refused by, saying whose it is
   (`WorkbenchSession.ApplyTyping`, `WhyTypingStops`; the 16d sweep: it was the
@@ -864,7 +902,7 @@ stretch that way.
   drag or + and - move it, FIT fits it. DIAGRAM (TABLE for one with no states) or
   DRAWING beside CODE turns between it and the drawing, kept for each module; a module
   the reading is the whole of opens on it where it is a state machine or a table of
-  several signals -- a one-output case, the prime and seven-segment samples, stays its
+  several signals -- a one-output case, the seven-segment sample, stays its
   drawing -- and on it every edit is refused saying to press DRAWING. **Every reading
   is held to the engine before it is shown** (`ControllerCheck`): for every state and
   every value of each input of eight bits or fewer, the others random -- and, for a state
@@ -917,6 +955,23 @@ stretch that way.
   takes Escape before the workbench does. **The parts are a panel of the shell**
   (Part 11b), and **the splitter over the dock is a shell control**, so a drag on
   it is never the circuit's; the wheel over the waves' names scrolls their rows.
+  **A row's name dragged up or down moves the row** (5.1, asked 2026-11-11; `WavePointer`,
+  `WaveList.DropGap` and `MoveTo`): past four pixels a press on a name is a drag, a line
+  shows where it would go, kept to the row's level -- a signal in a group within its
+  group, a header carrying its group among the top-level rows, never into a group -- the
+  rows scroll at the window's ends, and Escape puts it back; a header opens or shuts on
+  the release of a click on its name, so the same press can carry it. **Once a row is
+  moved by hand the list keeps its order** (`WaveList.OrderedByHand`): an edit of the
+  circuit adds a port's row at the end and takes one away, and no longer puts every
+  port's row back in the layout's order (Part 10e), which would have undone the drag.
+  **A bus's value reads without zooming in** (5.1, Ahmad chose both, 2026-11-11, and then
+  asked for the values column to expand): a box too narrow for its whole value leaves out
+  its leading zeros first, then shows as much as fits and an ellipsis where three characters
+  fit (`ValueFit.Fit`; it was blank, and cut from its first character an address read 000...);
+  the pointer on a box puts up a tip with the row's name and width, the whole value and its
+  time; and VALUES + at the head of the values column, or W, widens it to the widest value
+  any row can hold in its radix (`ValueText.MaxChars`, so it never moves while the run
+  plays), VALUES - cutting them again -- the waves starting further right by as much.
   **A right-click on a BLOCKS row in PARTS deletes its module** (Part 14g), after a
   question -- Ctrl+Z still brings it back -- and is refused, saying where, while a
   block of it is placed or other code makes one. Deleting a block leaves its module,
@@ -946,7 +1001,15 @@ stretch that way.
   as Ctrl+Enter does. TextMesh Pro's field had only Ctrl+A, C, V and X -- Tab typed a
   tab and Ctrl+Z did nothing -- and the browser's CodeMirror had the rest but find;
   it takes `@codemirror/search` now (Ctrl+F, Ctrl+D), and the keyboard map lists the
-  lot under IN THE CODE. CodeMirror's undo starts from the block's code
+  lot under IN THE CODE. **Code folds, in both builds alike** (5.1, Ahmad: "the +/- thing in code that expands and
+  unexpands things"): a - or + in the margin by each line a block starts on -- a keyword's, `module` to `endmodule` and
+  `begin` to `end` among them, a bracket's of more than one line, a `/* */` or a run of `//` lines (`CodeFolds`; the
+  browser's `folds.js` held to the same answer by a fixture both builds' tests read) -- Ctrl+Shift+[ and ] folding and
+  opening the block round the caret and Ctrl+Alt+[ and ] every block. A folded block shows on one line, `module ha ( …
+  endmodule`. On the desktop the field shows a folded view of the code (`FoldedView`) and every edit is taken back to the
+  code itself, so the document, its drafts and its undo never see a fold: text typed on a folded line lands where it
+  shows, a deletion that takes a fold's mark takes the block it hides, a place sent to inside a fold opens it, and the
+  margin keeps the code's own line numbers. CodeMirror's undo starts from the block's code
   (`CodeMirrorBridge.Load`): put in as a change, it was a step of that undo, and Ctrl+Z
   after the first thing typed left the editor empty (the 14g browser smoke test). **In a browser the page's code editor
   counts as typing too** (`CodeMirrorBridge.Focused`, asked once a frame) -- its box,
@@ -1181,6 +1244,23 @@ a cap would hold every Play Mode test to it. Nothing in the game runs better or
 worse for the frame rate: the simulation keeps its own clock and every
 animation counts time.
 
+**While nothing happens, a desktop build runs twenty frames a second and draws one in
+four** (5.1, Ahmad: "we need a good optimization for that", at about 56% of the GPU sitting
+still; `IdleRendering`, the view-model's, and `WorkbenchPanel.Idle.cs`, through Unity's
+`OnDemandRendering` and `FrameRate.SetIdle`, vertical sync off; the player's own VSYNC and
+FRAME CAP back the frame anything happens). Drawing less alone was not enough: every frame
+run was still handed to the screen, and a hybrid laptop copies each to its display chip --
+measured on Ahmad's, still, the copy engine at about 20% at a 240 cap and 2.7% at 30. Every frame is drawn while the student does anything -- the
+pointer moved, a button or a key down, the wheel -- the window is resized, the run
+plays or is still being made, LOGIC, STATES or TIMING is still working a slice a
+frame, a panel fades or the credits rise, or the drawing was drawn again, and for a
+second after the last of them; input is read every frame either way, so the first
+frame of anything is drawn at once. **Never in the editor**, as the frame cap is,
+so every test and reference shot is drawn every frame, unless a test turns it on
+(`WorkbenchPanel.ThrottlesWhenIdle`, `WorkbenchIdlePlayTests`); and not in a
+browser yet, where it has not been tried. The keys are read for it through
+`UiText.AnyKeyDown`, which answers no key.
+
 **FPS COUNTER puts a frame-rate counter in the top-right corner** (`FrameRateCounter`),
 off until asked for, so what the cap does can be seen -- asked for with it,
 "like the one Steam puts on games". **It is the one DISPLAY switch a browser
@@ -1191,7 +1271,8 @@ control keeps, so it is above BACK rather than on it at any window size, and ove
 every panel on a canvas of its own sorted above the interface's; it takes no
 clicks. It writes in the workbench's text colour (`SchematicPalette.Current.Text`),
 since the workbench is what it is over -- the interface's near-white could not be
-seen on Schematic Light's paper (1.01:1). It counts half a second of real time, and hands TextMeshPro its digits in
+seen on Schematic Light's paper (1.01:1). It counts the frames drawn over half a second of real time -- not those
+run, which are four for every one drawn while nothing happens (5.1) -- and hands TextMeshPro its digits in
 a reused buffer (`SetCharArray`) rather than formatting a string, because it
 redraws by design. `FrameRateCounterPlayTests` holds the counting frames to no
 allocation and a redraw to two: in the editor, and only there, `SetCharArray` also

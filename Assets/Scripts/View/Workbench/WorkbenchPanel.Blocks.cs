@@ -56,7 +56,7 @@ namespace BitSorter.View
         private void RefreshPartsPanel()
         {
             if (_session == null || (ReferenceEquals(_partsProject, _session.Project) && _session.ShowsDrawingOfCode == _partsDrawing
-                    && _session.ShowsController == _partsController))
+                    && _session.ShowsController == _partsController && _session.ShowsCode == _partsShowCode))
                 return;
             _partsProject = _session.Project;
             if (ModulesOf(_partsProject) != _partsModules || !ReferenceEquals(_partsProject.Settings?.Library, _partsLibrary)

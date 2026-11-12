@@ -68,7 +68,7 @@ namespace BitSorter.ViewModel.Tests
             Assert.IsTrue(KeyMap.Groups.Any(g => g.Title == "IN PARTS" && g.Entries.Count > 0), "how a module is deleted (Part 14g)");
             Assert.IsTrue(KeyMap.Groups.Any(g => g.Title == "IN THE CODE" && g.Entries.Count > 0), "the code editor's keys (Part 14g)");
 
-            foreach (PointerArea area in new[] { PointerArea.Elsewhere, PointerArea.Circuit, PointerArea.Waves, PointerArea.Blocks })
+            foreach (PointerArea area in new[] { PointerArea.Elsewhere, PointerArea.Circuit, PointerArea.Waves, PointerArea.Blocks, PointerArea.Names, PointerArea.ValuesHead })
             {
                 string line = KeyMap.StatusFor(area);
                 StringAssert.Contains("?", line, "every status says how to see every key");
@@ -77,6 +77,10 @@ namespace BitSorter.ViewModel.Tests
 
             StringAssert.StartsWith("circuit:", KeyMap.StatusFor(PointerArea.Circuit));
             StringAssert.StartsWith("waves:", KeyMap.StatusFor(PointerArea.Waves));
+            StringAssert.Contains("drag a name up or down to move its row", KeyMap.StatusFor(PointerArea.Names), "a row's handle (5.1)");
+            Assert.IsTrue(KeyMap.WavesGestures.Any(g => g.Cap == "DRAG A NAME"), "and the map lists it");
+            StringAssert.Contains("every value whole", KeyMap.StatusFor(PointerArea.ValuesHead), "the values column's head (5.1)");
+            Assert.AreEqual("WAVES", KeyMap.GroupOf(WorkbenchCommand.Values), "and W with the waves' keys");
             StringAssert.StartsWith("blocks:", KeyMap.StatusFor(PointerArea.Blocks));
             StringAssert.Contains("right-click to delete its module", KeyMap.StatusFor(PointerArea.Blocks));
         }

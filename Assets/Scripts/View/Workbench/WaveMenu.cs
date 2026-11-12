@@ -33,6 +33,9 @@ namespace BitSorter.View
         /// <summary>Whether it is up.</summary>
         public bool IsOpen => _popup != null && _popup.IsOpen;
 
+        /// <summary>The colours it is drawn in.</summary>
+        protected SchematicPalette Palette => _palette;
+
         /// <inheritdoc/>
         public bool HoldsEscapeNow => IsOpen || (_popup != null && _popup.ClosedFrame == Time.frameCount);
 
@@ -91,6 +94,26 @@ namespace BitSorter.View
         /// <summary>Puts the menu up with its corner at <paramref name="screenPoint"/>, the items offered laid out and the whole kept on the screen.</summary>
         protected void Show(Vector2 screenPoint)
         {
+            _popup.Open(screenPoint, LayOut());
+            UiEscape.Opened(this);
+        }
+
+        /// <summary>
+        /// Puts the menu up over <paramref name="anchor"/> (screen pixels, y up), its foot a gap above the anchor's top and its
+        /// right edge at the anchor's, kept on the screen: for a control at the window's foot -- QUIT (5.1) -- whose question
+        /// must not open under the pointer, where the second click of a double-click would answer it.
+        /// </summary>
+        protected void ShowAbove(Rect anchor)
+        {
+            Vector2 size = LayOut();
+            float scale = _popup.Layer.panel != null ? _popup.Layer.panel.scaledPixelsPerPoint : 1f;
+            _popup.Open(new Vector2(anchor.xMax - size.x * scale, anchor.yMax + (Gap + size.y) * scale), size);
+            UiEscape.Opened(this);
+        }
+
+        /// <summary>The notes and the items offered laid out down the panel; the panel's size.</summary>
+        private Vector2 LayOut()
+        {
             float y = Pad;
             foreach (Label note in _notes)
             {
@@ -118,8 +141,7 @@ namespace BitSorter.View
                 first = false;
             }
 
-            _popup.Open(screenPoint, new Vector2(_itemWidth + 2f * Pad, y - Gap + Pad));
-            UiEscape.Opened(this);
+            return new Vector2(_itemWidth + 2f * Pad, y - Gap + Pad);
         }
 
         /// <summary>Shuts it.</summary>

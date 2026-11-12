@@ -135,6 +135,30 @@ namespace BitSorter.ViewModel
         }
 
         private static Rect2 Around(float x, float y, float width, float height) => new Rect2(x - 0.5f * width, y - 0.5f * height, width, height);
+
+        /// <summary>QUIT's button (5.1): as wide and as tall as it stands in the status line's row.</summary>
+        public const float QuitWidth = 72f, QuitHeight = 26f;
+
+        /// <summary>
+        /// Where QUIT stands in <paramref name="status"/>, the status line's row (5.1, a desktop build's alone; Ahmad: "I couldn't
+        /// exit the simulator unless I exited full screen"): at its right end, in its middle -- the window's bottom right, where
+        /// the start page and every other page leave the row's corner free.
+        /// </summary>
+        public static Rect2 QuitIn(Rect2 status) =>
+            new Rect2(Arith.Max(status.x, status.xMax - QuitWidth), status.y + 0.5f * (status.height - QuitHeight), Arith.Min(QuitWidth, status.width), QuitHeight);
+
+        /// <summary>
+        /// The status line's text in <paramref name="status"/>: the whole row, or, with QUIT in it (<paramref name="quit"/>),
+        /// clear of QUIT by a gap on both sides, so the text stays in the window's middle.
+        /// </summary>
+        public static Rect2 StatusTextIn(Rect2 status, bool quit)
+        {
+            if (!quit)
+                return status;
+            float room = QuitWidth + Gap;
+            float width = Arith.Max(0f, status.width - 2f * room);
+            return new Rect2(status.x + 0.5f * (status.width - width), status.y, width, status.height);
+        }
     }
 
     /// <summary>The workbench's three panels that fold away (<see cref="ShellFolds"/>).</summary>

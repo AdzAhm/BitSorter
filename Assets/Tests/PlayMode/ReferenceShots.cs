@@ -124,6 +124,7 @@ namespace BitSorter.PlayMode.Tests
             // As PanelPlayTests explains: InputTestFixture turns on a read-value cache and its
             // self-check, which the game itself never runs with.
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
 
             InputSystem.AddDevice<Keyboard>();
             Mouse mouse = InputSystem.AddDevice<Mouse>();
@@ -920,7 +921,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return Frames(2);
             workbench.Pause();
             workbench.Session.Finish();
@@ -955,7 +956,7 @@ namespace BitSorter.PlayMode.Tests
             yield return Frames(2);
 
             WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.ImportFromFolder();
+            workbench.ImportFrom(FileImport.Folder);
             yield return Frames(2);
             workbench.Pause();
             workbench.Session.Finish();
@@ -1725,6 +1726,141 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.Folds.All, "sanity: all three folded");
             Assert.IsTrue(workbench.IsFitted, "sanity: the circuit fitted to its window");
             yield return Capture("76-workbench-panels-folded");
+
+            // Opened again: the folds are kept between launches, so a shot after this one would find them folded.
+            workbench.TogglePanels();
+            yield return Frames(2);
+            Assert.IsFalse(workbench.Folds.All, "the panels open again for the shots after");
+        }
+
+        /// <summary>
+        /// 5.1: code folded -- the written adder's port list folded to one line from the margin's marker, the margin's numbers
+        /// passing over what it hides and its marker a +, and the code in its colours.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot77_WorkbenchCodeFolded()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int written = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Written adder")
+                    written = i;
+            workbench.ShowSample(written);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            int add = workbench.Session.Project.TopModule.Parts.First(p => p is BitSorter.Board.BlockPart).Id;
+            Assert.IsTrue(workbench.StepInto(add));
+            workbench.Session.DrawCode(false);
+            yield return Frames(2);
+
+            string source = WorkbenchSamples.AdderSource;
+            int ports = source.Substring(0, source.IndexOf(") (", System.StringComparison.Ordinal)).Count(c => c == '\n');
+            workbench.CodeView.ToggleFold(ports);   // the port list's ( on the line that closes the parameters
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.CodeView.Folding.IsFolded(ports), "sanity: the port list folded");
+            yield return Capture("77-workbench-code-folded");
+        }
+
+        /// <summary>
+        /// 5.1: QUIT at the window's bottom right, at the status line's right end, asking first -- its question above it, never
+        /// under the pointer, so a double-click cannot answer it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot78_WorkbenchQuitAsking()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            yield return Frames(2);
+            workbench.AskToQuit();
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.Ask.IsOpen, "sanity: QUIT asking");
+            Assert.AreEqual(WorkbenchPanel.QuitQuestion, workbench.Ask.Question);
+            yield return Capture("78-workbench-quit-asking");
+        }
+
+        /// <summary>
+        /// 5.1: a row dragged by its name -- the reference's last row held over its second, the line showing where it would
+        /// go, and the row selected as the press selected it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot79_WorkbenchRowDragged()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            workbench.Pause();
+            workbench.Seek(13.5);
+            yield return Frames(2);
+
+            int last = workbench.List.Lines.Count - 1;
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Vector2 from = workbench.RowNameOnScreen(last);
+            Vector2 up = workbench.RowNameOnScreen(0) - workbench.RowNameOnScreen(1);
+            Vector2 to = workbench.RowNameOnScreen(1) + up * 0.4f;   // just over the second row
+            Set(mouse.position, from);
+            yield return Frames(2);
+            Press(mouse.leftButton);
+            yield return Frames(2);
+            for (int step = 1; step <= 4; step++)
+            {
+                Set(mouse.position, Vector2.Lerp(from, to, step / 4f));
+                yield return Frames(1);
+            }
+
+            yield return Frames(30);
+            Assert.IsTrue(workbench.DraggingARow, "sanity: a row held by its name");
+            Assert.AreEqual(1, workbench.RowDropShown, "sanity: the line over the second row");
+            yield return Capture("79-workbench-row-dragged");
+
+            Release(mouse.leftButton);
+            yield return Frames(2);
+        }
+
+        /// <summary>
+        /// 5.1: a bus's value read without zooming in -- the single-cycle processor's run whole, its 32-bit values cut to their
+        /// boxes, the values column showing every value whole (VALUES -), and the tip over a box of pc with the whole of it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Shot80_WorkbenchValuesWholeAndTip()
+        {
+            yield return LoadTheGame();
+            yield return Frames(2);
+
+            WorkbenchPanel workbench = Find<WorkbenchPanel>();
+            int single = -1;
+            for (int i = 0; i < WorkbenchSamples.Chip.Count; i++)
+                if (WorkbenchSamples.Chip[i].Name == "Single-cycle RISC-V")
+                    single = i;
+            workbench.ShowSample(single);
+            yield return Frames(2);
+            workbench.Pause();
+            workbench.Session.Finish();
+            workbench.Seek(workbench.Session.Run.Model.End);
+            yield return Frames(2);
+            workbench.ToggleValues();
+            yield return Frames(2);
+
+            int pc = workbench.List.Lines.ToList().FindIndex(l => l.Signal?.Key == "pc");
+            Mouse mouse = InputSystem.GetDevice<Mouse>();
+            mouse.MakeCurrent();
+            Set(mouse.position, workbench.WaveScreenPointOf(workbench.Session.Run.Model.End * 0.3, pc));
+            yield return Frames(30);
+
+            Assert.IsTrue(workbench.WholeValues, "sanity: every value whole");
+            Assert.IsNotNull(workbench.ValueTip, "sanity: the tip over pc");
+            yield return Capture("80-workbench-values-whole-and-tip");
         }
 
         private const string DrawnAlu =

@@ -161,7 +161,7 @@ namespace BitSorter.View
         private static readonly Vector2 WavesAt = new Vector2(5f, 4f);
 
         /// <summary>The legend's names for the four values, and what the rings and crosses mean.</summary>
-        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way. Double-click an input to change it.";
+        public const string LegendText = "A digit on a wire is a change travelling along it; a cross is one swallowed on the way.";
 
         private static readonly string[] LegendNames = { "0", "1", "x", "z" };
 
@@ -254,12 +254,6 @@ namespace BitSorter.View
         private WaveSignalPicker _picker;
         private WaveRenameField _rename, _breakField;
 
-        /// <summary>The input SET is asking a value for, how wide it is, and the stretch the value is for (Part 9b-3).</summary>
-        private string _setPort;
-        private int _setWidth;
-        private long _setFrom, _setUntil;
-        private WaveRenameField _setField;
-
         /// <summary>
         /// A double-click: a second left press this soon after the first and this near it. Counted on the
         /// game's clock, which a test drives, so a test's double-click is one whatever the machine's load.
@@ -340,9 +334,6 @@ namespace BitSorter.View
         /// <summary>The document shown and its runs; null until the panel has first opened.</summary>
         public WorkbenchSession Session => _session;
 
-        /// <summary>The field a double-click on a bus, or on an x, asks the input's value in; null until the panel has first opened.</summary>
-        public WaveRenameField SetValueField => _setField;
-
         /// <summary>The run being shown; null until the panel has first opened.</summary>
         public WorkbenchModel Model => _model;
 
@@ -405,7 +396,13 @@ namespace BitSorter.View
 
         /// <summary>Where a row's name is on the screen: somewhere to click it.</summary>
         public Vector2 RowNameOnScreen(int row) =>
-            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(WorkbenchDrawing.NameRight - 20f, -WorkbenchDrawing.RowMiddle(row), 0f)));
+            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(
+                new Vector3(WorkbenchDrawing.NameRight - _wave.ValuesExtra - 20f, -WorkbenchDrawing.RowMiddle(row), 0f)));
+
+        /// <summary>Where the head of the values column is on the screen -- VALUES + or VALUES - -- somewhere to click it.</summary>
+        public Vector2 ValuesHeadOnScreen =>
+            RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(
+                new Vector3(WorkbenchDrawing.ReadoutLeft - _wave.ValuesExtra + 12f, -(WorkbenchDrawing.WaveTop - 10f), 0f)));
 
         /// <summary>Where a moment is on the screen, over row <paramref name="row"/>'s wave.</summary>
         public Vector2 WaveScreenPointOf(double time, int row) => _wave.ScreenPointOf(time, row);
@@ -454,6 +451,7 @@ namespace BitSorter.View
                 _tracker.ProgressReset -= ProgressWasReset;
             if (_launchWatch > 0)
                 Preferences.SetInt(OpeningKey, 0);   // unloaded, not stopped: a look changed, a test done (Part 16b)
+            StopIdling();
         }
 
         /// <summary>Opens the workbench, building it the first time, and plays the run from the start.</summary>
@@ -601,6 +599,7 @@ namespace BitSorter.View
                 case WorkbenchCommand.AddSignal: OpenPicker(); break;
                 case WorkbenchCommand.Group: GroupRows(); break;
                 case WorkbenchCommand.Names: ToggleNames(); break;
+                case WorkbenchCommand.Values: ToggleValues(); break;
                 case WorkbenchCommand.Unit: NextUnit(); break;
                 case WorkbenchCommand.Undo: UndoEdit(); break;
                 case WorkbenchCommand.Redo: RedoEdit(); break;
@@ -751,7 +750,7 @@ namespace BitSorter.View
                     _pressedWhere = pointer;
                 }
 
-                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1, Clicks = left ? _clicks : 1 };
+                var press = new WavePress { Button = left ? 0 : 1, Shift = shift, Ctrl = ctrl, Alt = alt, Row = -1, Clicks = left ? _clicks : 1, Y = pointer.y };
                 if (overControl)
                     press.Region = WaveRegion.Control;
                 else if (InView(pointer, out _))
@@ -785,9 +784,16 @@ namespace BitSorter.View
                     _pointer.Move(time, _commands);
                 }
             }
+            else if (_pointer.HoldsRow && mouse.leftButton.isPressed)
+            {
+                // A row's name held: past a few pixels up or down, a drag of the row, the rows scrolling at the window's ends (5.1).
+                if (_pointer.MovingRow)
+                    ScrollWhileARowIsDragged(pointer);
+                _pointer.MoveRow(pointer.y, _wave.GapAt(pointer), _commands);
+            }
 
             if (!mouse.leftButton.isPressed && !left)
-                _pointer.Release();
+                _pointer.Release(_commands);
 
             for (int i = 0; i < _commands.Count; i++)
             {
@@ -797,7 +803,125 @@ namespace BitSorter.View
             }
 
             _commands.Clear();
+
+            // The line where a dragged row would go, kept to its level, every frame it is dragged: the rows may scroll under it,
+            // or be built again, without the pointer moving to another gap.
+            if (_wave != null)
+                _wave.ShowDrop(_pointer.MovingRow ? _list.DropGap(_pointer.RowDragged, _rowDraggedTo) : -1);
         }
+
+        // The gap a row dragged by its name was last over, and how long it has been held at the window's top or foot.
+        private int _rowDraggedTo = -1;
+        private float _rowScrollHeld;
+
+        /// <summary>How often a row held at the window's top or foot scrolls the rows a row, in seconds of the game's clock.</summary>
+        public const float RowDragScrollSeconds = 0.1f;
+
+        /// <summary>A row dragged to the window's top or foot scrolls the rows a row every <see cref="RowDragScrollSeconds"/> it is held there.</summary>
+        private void ScrollWhileARowIsDragged(Vector2 pointer)
+        {
+            int edge = _wave.EdgeAt(pointer);
+            if (edge == 0)
+            {
+                _rowScrollHeld = 0f;
+                return;
+            }
+
+            _rowScrollHeld += UnityEngine.Time.deltaTime;
+            if (_rowScrollHeld < RowDragScrollSeconds)
+                return;
+            _rowScrollHeld = 0f;
+            ScrollWavesBy(edge * WorkbenchDrawing.RowHeight);
+        }
+
+        // Whether the values column shows every value whole (5.1): the student's choice while BitSorter runs, every circuit alike.
+        private bool _wholeValues;
+
+        /// <summary>Whether the values column shows every value whole.</summary>
+        public bool WholeValues => _wholeValues;
+
+        /// <summary>Whether row <paramref name="row"/>'s value fits the values column whole.</summary>
+        public bool ReadoutWhole(int row) => _wave.ReadoutWhole(row);
+
+        /// <summary>What the head of the values column says: VALUES + or VALUES -.</summary>
+        public string ValuesHeadText => _wave.ValuesHeadText;
+
+        /// <summary>What the labels over a bus row's boxes say now, left to right.</summary>
+        public IEnumerable<string> BusLabelsOf(int row) => _wave.BusLabelsOf(row);
+
+        /// <summary>Every value in the values column whole, as wide as the widest a row can hold, or cut to the column again (5.1).</summary>
+        public void ToggleValues()
+        {
+            _wholeValues = !_wholeValues;
+            if (_stage != null)
+                RebuildStage(keepViews: true);
+        }
+
+        // What the tip was last made for -- the row, the change it shows, its radix, the list's version (its names) and whether
+        // the value still holds at the playhead -- so it is written again only when the pointer moves to another box, and a
+        // frame of playback under it makes no string: -1 for none.
+        private int _tipFor = -1, _tipChange = -1, _tipListVersion = -1;
+        private WaveRadix _tipRadix;
+        private bool _tipToNow;
+        private string _tipSays;
+        private readonly char[] _tipTime = new char[TimeText.MaxLength(TimeText.MaxDecimals, "ms")];
+
+        /// <summary>What the tip over a bus's box says, or null while it is down: what a test reads.</summary>
+        public string ValueTip => _wave?.TipText;
+
+        /// <summary>
+        /// The tip over a bus's box under the pointer (5.1): its row's name and width, the whole value in its radix, and the time
+        /// it holds -- up while the pointer is on a box and nothing is held, a popup is open or a row is dragged.
+        /// </summary>
+        private void TipOver(Mouse mouse, Vector2 pointer, bool overControl)
+        {
+            bool held = mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed;
+            if (held || overControl || ShellPopup.AnyOpen || _pointer.HoldsRow
+                || !_wave.BusBoxAt(pointer, out int row, out int change, out double from, out double to))
+            {
+                _wave.HideTip();
+                return;
+            }
+
+            WaveRadix radix = _model.RowRadix(row);
+            bool toNow = to >= _model.Time - 1e-9;   // the box the playhead is in: it holds on as the run plays
+            if (row != _tipFor || change != _tipChange || radix != _tipRadix || _list.Version != _tipListVersion || toNow != _tipToNow)
+            {
+                _tipFor = row;
+                _tipChange = change;
+                _tipRadix = radix;
+                _tipListVersion = _list.Version;
+                _tipToNow = toNow;
+                string value = WaveformView.Readout(_model.RowText(row, change), radix, true);
+                _tipSays = toNow
+                    ? ValueFit.Tip(_list.LabelOf(_list.Lines[row]), _model.RowBits(row), value, TimeWords(from, _model.Unit), "now")
+                    : ValueFit.Tip(_list.LabelOf(_list.Lines[row]), _model.RowBits(row), value, TimeWords(from, null), TimeWords(to, _model.Unit));
+            }
+
+            _wave.ShowTip(pointer, _tipSays);
+        }
+
+        /// <summary>A time as the waves write one, to a tenth where it is not whole, with <paramref name="unit"/> after it where there is one.</summary>
+        private string TimeWords(double time, string unit)
+        {
+            int decimals = Math.Abs(time - Math.Round(time)) < 1e-9 ? 0 : 1;
+            return new string(_tipTime, 0, TimeText.Write(time, decimals, unit, _tipTime));
+        }
+
+        /// <summary>Lets go of a row being dragged by its name without moving it -- Escape -- and says whether one was.</summary>
+        private bool CancelRowDrag()
+        {
+            if (!_pointer.Cancel())
+                return false;
+            _wave?.ShowDrop(-1);
+            return true;
+        }
+
+        /// <summary>Whether a row is being dragged by its name: what a test waits on.</summary>
+        public bool DraggingARow => _pointer.MovingRow;
+
+        /// <summary>The gap the line showing where a dragged row would go stands in, or -1.</summary>
+        public int RowDropShown => _wave != null ? _wave.DropShown : -1;
 
         /// <summary>A moment as a click there means it: on an edge of the row under the pointer within 8 px, else a whole unit, within the run.</summary>
         private double Snapped(double time, int row)
@@ -840,10 +964,6 @@ namespace BitSorter.View
                     _timeMenu.Open(pointer, Moment(_menuTime), _playback.Breakpoints.HasAt(_menuTime), _playback.Breakpoints.Count > 0);
                     break;
 
-                case WaveGesture.EditInput:
-                    EditInputAt(command.Row, _wave.TimeAtScreen(pointer), pointer);
-                    break;
-
                 case WaveGesture.ToggleGroup:
                     _list.Toggle(_list.Lines[command.Row].Group);
                     RowsChanged();
@@ -851,6 +971,22 @@ namespace BitSorter.View
 
                 case WaveGesture.AddWireSignal:
                     AddWire();
+                    break;
+
+                case WaveGesture.DragRow:
+                    _rowDraggedTo = command.To;
+                    break;
+
+                case WaveGesture.ToggleValues:
+                    ToggleValues();
+                    break;
+
+                case WaveGesture.DropRow:
+                    _wave.ShowDrop(-1);
+                    _rowDraggedTo = -1;
+                    int dropAt = _list.DropGap(command.Row, command.To);
+                    if (dropAt >= 0 && _list.MoveTo(command.Row, dropAt))
+                        RowsChanged();
                     break;
             }
         }
@@ -980,79 +1116,9 @@ namespace BitSorter.View
         }
 
         // -----------------------------------------------------------------
-        // Editing the document: an input, the unit, undo (Part 9b-3)
+        // Editing the document: the unit, undo (Part 9b-3). An input is set in INPUTS (Part 15g): the waves only read
+        // the run, since 5.1, where a double-click on an input's wave once flipped it or asked its value.
         // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Changes the input row <paramref name="row"/> shows, at <paramref name="time"/>, as a double-click
-        /// on its wave does: a one-bit input that is 0 or 1 there is flipped over the stretch the moment is
-        /// in, and any other -- a bus, an x -- is asked for a value for that stretch. What is not an input
-        /// of the design, and a clock, are refused, and the chip says why. The run is replayed beside the
-        /// one shown, and takes over once it reaches the moment shown.
-        /// </summary>
-        public void EditInputAt(int row, double time, Vector2 screenPoint)
-        {
-            if (_session == null || !RowSignalAt(row, out int signal))
-                return;
-
-            string port = InputOf(signal);
-            if (port == null)
-            {
-                Notice(_list.LabelOf(_list.Lines[row]) + " is not an input of the design, and only an input can be changed");
-                return;
-            }
-
-            // A testbench of the project's own drives every input, and no value is asked for that would only be refused.
-            if (_session.Project.Bench != null)
-            {
-                Notice(BitSorter.Board.BoardRules.BenchDrivesTheInputs(_session.Project));
-                return;
-            }
-
-            // The waves zoom out past the run's end (Part 15h), and there is nothing there to change.
-            if (time > _model.End)
-            {
-                Notice("Past the end of the run there is nothing to change: double-click an input's wave inside the run.");
-                return;
-            }
-
-            BitSorter.Board.Stimulus stimulus = _session.Project.Stimulus;
-            long at = Math.Max(0L, (long)Math.Floor(time + 1e-9));
-            LogicVec? value = BitSorter.Board.StimulusEdits.ValueAt(stimulus, port, at);
-            int width = _model.Session.Design.Signals[signal].Width;
-
-            if (IsClock(stimulus, port) || (width == 1 && value.HasValue && value.Value.IsKnown))
-            {
-                Said(_session.InvertInput(port, at));
-                return;
-            }
-
-            (long from, long until) = BitSorter.Board.StimulusEdits.StretchAt(stimulus, port, at);
-            _setPort = port;
-            _setWidth = width;
-            _setFrom = from;
-            _setUntil = until;
-            _setField.Open("", screenPoint, "SET " + port + " FROM " + Moment(from) + (until == long.MaxValue ? " ON" : " TO " + Moment(until)));
-        }
-
-        /// <summary>
-        /// Gives the input SET was opened for the value typed, over its stretch: a SystemVerilog literal
-        /// fitted to the input, as BREAK ON VALUE reads one. One that does not read is refused, and the
-        /// chip says why.
-        /// </summary>
-        public void SetInputValue(string text)
-        {
-            if (_session == null || _setPort == null)
-                return;
-
-            if (!Breakpoints.TryParseValue(text, _setWidth, out LogicVec value, out string error))
-            {
-                Notice(error);
-                return;
-            }
-
-            Said(_session.SetInput(_setPort, _setFrom, _setUntil, value));
-        }
 
         /// <summary>Counts time in the next unit, s to fs and round, as UNIT does: everything relabelled once the replay takes over, nothing rescaled.</summary>
         public void NextUnit()
@@ -1179,48 +1245,6 @@ namespace BitSorter.View
             Redraw();
         }
 
-        /// <summary>
-        /// The design's input <paramref name="signal"/> is, by its name, or null: the port inside the design,
-        /// or the testbench's signal of the same name that drives it.
-        /// </summary>
-        private string InputOf(int signal)
-        {
-            string name = _model.Session.Design.Signals[signal].Name;
-            string design = _model.Layout.DesignPath;
-            int dot = design == null ? -1 : design.LastIndexOf('.');
-            string bench = dot > 0 ? design.Substring(0, dot) : null;
-
-            foreach (PortLayout port in _model.Layout.Ports)
-            {
-                if (port.Output)
-                    continue;
-                string own = port.Signal.Substring(port.Signal.LastIndexOf('.') + 1);
-                if (name == port.Signal || (bench != null && name == bench + "." + own))
-                    return own;
-            }
-
-            // A written top's inputs are its header's, drawn nowhere (Part 15g): a double-click on one said it was no input
-            // of the design, where the testbench driving it is what stops it being changed, and the refusal says so.
-            BitSorter.Board.Module top = _session?.Project.TopModule;
-            if (top != null && top.IsWritten)
-                foreach (BitSorter.Board.ModulePort port in BitSorter.Board.WrittenModules.PortsOf(_session.Project, top))
-                    if (port.Direction == BitSorter.SystemVerilog.Syntax.PortDirection.Input
-                        && (name == (string.IsNullOrEmpty(design) ? port.Name : design + "." + port.Name) || (bench != null && name == bench + "." + port.Name)))
-                        return port.Name;
-
-            return null;
-        }
-
-        private static bool IsClock(BitSorter.Board.Stimulus stimulus, string port)
-        {
-            if (stimulus == null)
-                return false;
-            foreach (BitSorter.Board.ClockTrack clock in stimulus.Clocks)
-                if (clock.Port == port)
-                    return true;
-            return false;
-        }
-
         /// <summary>Gives the row the menu was opened on the name typed, from the rename field.</summary>
         private void RenameRow(string name)
         {
@@ -1251,7 +1275,7 @@ namespace BitSorter.View
         /// <summary>Opens the + SIGNAL list over the waveform's toolbar.</summary>
         public void OpenPicker()
         {
-            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(-_wave.NamesExtra, 0f, 0f)));
+            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, _wave.Rect.TransformPoint(new Vector3(-_wave.NamesExtra - _wave.ValuesExtra, 0f, 0f)));
             _picker.Open(_model.Signals, at);
         }
 
@@ -1474,11 +1498,13 @@ namespace BitSorter.View
         private void Update()
         {
             WatchTheLaunch();
+            TickIdle();   // how often the window is drawn, asked first whatever is up (5.1)
             if (!IsShowing || _model == null)
                 return;
 
             Fit();
             _shell.Opacity = Root.TryGetComponent(out CanvasGroup fading) ? fading.alpha : 1f;
+            TickQuit();   // over the pages too, which return below (5.1)
 
             WatchTheSave();   // held: said, and the question to reload asked, as it is found
             OpenPendingGoal();   // an exercise's brief, once GOAL has its place (Part 15d)
@@ -1499,7 +1525,7 @@ namespace BitSorter.View
                     HideExercises();
                 else if (StartPageShowing)
                     LeaveHome();
-                else
+                else if (!CancelRowDrag())   // a row dragged by its name goes back where it was (5.1)
                     LetGoOnCanvas();
                 return;
             }
@@ -1559,6 +1585,7 @@ namespace BitSorter.View
                     return;
                 _dragging = _canvasPointer.Dragging;
                 Hover(pointer);
+                TipOver(mouse, pointer, overControl);
             }
 
             Light();
@@ -1587,6 +1614,7 @@ namespace BitSorter.View
             RefreshHierarchy();
             RefreshPartsPanel();
             TickCode();
+            TickAnsweredInCode();
             TickDrawingSwitch();
             TickController();
             RefreshProgramChip();
@@ -1709,8 +1737,6 @@ namespace BitSorter.View
             _rename = WaveRenameField.Build(_shell, transform, palette, RenameRow);
             _breakField = WaveRenameField.Build(_shell, transform, palette, BreakOnValue, WaveRenameField.BreakValueName, "BREAK ON VALUE",
                 "1, 4'b1010, 'hA or x");
-            _setField = WaveRenameField.Build(_shell, transform, palette, SetInputValue, WaveRenameField.SetValueName, "SET",
-                "1, 4'b1010, 'hA or x");
             _canvasMenu = CanvasMenu.Build(_shell, transform, palette, CanvasMenuDo);
             _blockName = WaveRenameField.Build(_shell, transform, palette, MakeBlockNamed, WaveRenameField.BlockNameName, "NAME THE NEW BLOCK",
                 "a module's name, half_adder");
@@ -1743,8 +1769,9 @@ namespace BitSorter.View
             ShowRunTo("");
             MakeTexts();
 
-            // Its rows start as the layout's, one per port, each in its own radix, and no second cursor.
-            _list = WaveList.OfPorts(_model);
+            // Its rows start as the layout's, one per port, each in its own radix, and no second cursor -- a sample's then the
+            // rows it names, a processor's top having only clk and rst (5.1).
+            _list = WaveList.OfPorts(_model, _sample > 0 ? WorkbenchSamples.StartingRows(WorkbenchSamples.Chip[_sample].Name) : null);
             _cursors.Clear();
             _appliedNames = new string[0];
             _appliedHeaders = new bool[0];
@@ -1947,7 +1974,6 @@ namespace BitSorter.View
             _rename.Close();
             _blockName.Close();
             _breakField.Close();
-            _setField.Close();
         }
 
         /// <summary>
@@ -2054,7 +2080,8 @@ namespace BitSorter.View
             TopLeft(_wavesContent, Vector2.zero, new Vector2(waves.width, WavesAt.y + WorkbenchDrawing.WaveHeight(_model.RowCount)));
             _wavesWidth = waves.width;
             _wave = new WaveformView(_model, _layers, _wavesContent, WavesAt, waves.width - 2f * WavesAt.x, palette, _appliedNames, keepWave,
-                _appliedHeaders, clip: _wavesClip);
+                _appliedHeaders, clip: _wavesClip, wholeValues: _wholeValues);
+            _tipFor = -1;
 
             // Where waves that scroll are: a thin bar down the window's right, there only when they do.
             _wavesThumb = UiTheme.Panel_("scroll", _stage, palette.Muted);
@@ -2313,6 +2340,7 @@ namespace BitSorter.View
         {
             if (_model == null || Root == null)
                 return;
+            _redrawnFrame = UnityEngine.Time.frameCount;   // drawn again: every frame is, for a while (WorkbenchPanel.Idle)
 
             // A zoomed waveform pages on after the playhead before anything is drawn for the moment.
             _wave.Follow(_model.Time);

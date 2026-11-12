@@ -30,6 +30,10 @@ namespace BitSorter.ViewModel
         ClearCursor,
         RemoveRows,
         Unit,
+
+        /// <summary>Every value in the waves' values column whole, or cut to the column again (5.1).</summary>
+        Values,
+
         Undo,
         Redo,
         Export,
@@ -151,6 +155,7 @@ namespace BitSorter.ViewModel
             new KeyBinding("G", WorkbenchCommand.Group, "G", "group the selected rows"),
             new KeyBinding("X", WorkbenchCommand.Radix, "X", "the selected rows in the next radix"),
             new KeyBinding("L", WorkbenchCommand.Names, "L", "short or full names"),
+            new KeyBinding("W", WorkbenchCommand.Values, "W", "every value whole, or cut to the values column"),
             new KeyBinding("C", WorkbenchCommand.ClearCursor, "C", "take the second cursor away"),
             new KeyBinding("Delete", WorkbenchCommand.RemoveRows, "DEL", "take away what is selected: parts on the circuit, or rows"),
             new KeyBinding("Backspace", WorkbenchCommand.RemoveRows, "DEL", "take away what is selected: parts on the circuit, or rows"),

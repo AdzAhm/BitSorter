@@ -276,5 +276,39 @@ namespace BitSorter.ViewModel.Tests
             Assert.AreEqual(zoom, view.Zoom, "the zoom is the student's");
             Assert.AreEqual(corner, view.Offset, "and what was at the window's corner is still there");
         }
+
+        /// <summary>
+        /// QUIT (5.1) stands at the status line's right end, inside its row and in its middle, and the status text keeps clear
+        /// of it on both sides, so the text is still in the window's middle; without QUIT, a browser's, the text has the row.
+        /// </summary>
+        [Test]
+        public void Quit_StandsAtTheStatusLinesRightEnd_AndTheTextKeepsClear_StillCentred()
+        {
+            foreach (Vec2 window in new[] { Full, Browser, new Vec2(1681f, 1261f) })
+            {
+                Rect2 status = ShellLayout.Of(window, Toolbar, ShellLayout.DefaultDock).Status;
+                Rect2 quit = ShellLayout.QuitIn(status), text = ShellLayout.StatusTextIn(status, quit: true);
+
+                Assert.AreEqual(status.xMax, quit.xMax, 1e-3f, "at the row's right end, the window's margin from its edge");
+                Assert.AreEqual(ShellLayout.QuitWidth, quit.width, 1e-3f);
+                Assert.AreEqual(status.center.y, quit.center.y, 1e-3f, "in the row's middle");
+                Assert.IsTrue(quit.yMin >= status.yMin && quit.yMax <= status.yMax, "inside the row");
+
+                Assert.LessOrEqual(text.xMax, quit.xMin - ShellLayout.Gap + 1e-3f, "the text keeps a gap from QUIT");
+                Assert.AreEqual(status.center.x, text.center.x, 1e-3f, "and stays in the middle");
+                Assert.AreEqual(status, ShellLayout.StatusTextIn(status, quit: false), "with no QUIT the text has the row");
+            }
+        }
+
+        /// <summary>In a window too narrow for both, QUIT keeps to the row and the text gives up its room rather than go under 0.</summary>
+        [Test]
+        public void InATinyWindow_QuitKeepsToTheRow_AndTheTextHasNoLessThanNothing()
+        {
+            var status = new Rect2(16f, 500f, 100f, ShellLayout.StatusHeight);
+            Rect2 quit = ShellLayout.QuitIn(status), text = ShellLayout.StatusTextIn(status, quit: true);
+            Assert.GreaterOrEqual(quit.xMin, status.xMin - 1e-3f);
+            Assert.LessOrEqual(quit.xMax, status.xMax + 1e-3f);
+            Assert.AreEqual(0f, text.width, 1e-3f);
+        }
     }
 }

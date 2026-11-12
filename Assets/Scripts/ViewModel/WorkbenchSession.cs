@@ -67,21 +67,22 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// <paramref name="project"/>, compiled and its first slice run, each slice timed by
         /// <paramref name="nowMilliseconds"/>. Throws when the document does not compile. <paramref name="drafts"/> is the
-        /// text typed into its written modules and not applied, by module, as the save kept it (<see cref="Drafts"/>): each
-        /// module with one opens on its code, the draft in its editor.
+        /// text typed into its modules and not applied, by module, as the save kept it (<see cref="Drafts"/>): each module with
+        /// one opens on its code, the draft in its editor. <paramref name="writtenAs"/> is how a drawn module reads as code where
+        /// that is not as it prints (<see cref="TextOf"/>): an exercise's answer under the exercise's header.
         /// </summary>
         public WorkbenchSession(Project project, Func<double> nowMilliseconds,
             int chunkEvents = RunSlicer.ChunkEvents, double budgetMilliseconds = RunSlicer.BudgetMilliseconds,
-            IReadOnlyDictionary<string, string> drafts = null)
+            IReadOnlyDictionary<string, string> drafts = null, Func<Project, string, string> writtenAs = null)
         {
             _now = nowMilliseconds ?? throw new ArgumentNullException(nameof(nowMilliseconds));
             _chunkEvents = chunkEvents;
             _budgetMilliseconds = budgetMilliseconds;
+            _writtenAs = writtenAs;
             Editor = new BoardEditor(project);
             if (drafts != null)
                 foreach (KeyValuePair<string, string> draft in drafts)
-                    if (draft.Key != null && draft.Value != null && project.Find(draft.Key) is Module written && written.IsWritten
-                        && written.Source != draft.Value)
+                    if (draft.Key != null && draft.Value != null && project.Find(draft.Key) != null && TextOf(draft.Key) != draft.Value)
                     {
                         _codes[draft.Key] = new CodeDocument(this, draft.Key, draft.Value);
                         _codeChosen.Add(draft.Key);   // to be seen: its code, not its drawing
@@ -96,12 +97,12 @@ namespace BitSorter.ViewModel
         /// workbench's Start on every launch that opened it; this says why instead, in the rules' own words where they have any.
         /// </summary>
         public static WorkbenchSession TryOpen(Project project, Func<double> nowMilliseconds, out string why,
-            IReadOnlyDictionary<string, string> drafts = null)
+            IReadOnlyDictionary<string, string> drafts = null, Func<Project, string, string> writtenAs = null)
         {
             why = null;
             try
             {
-                return new WorkbenchSession(project, nowMilliseconds, drafts: drafts);
+                return new WorkbenchSession(project, nowMilliseconds, drafts: drafts, writtenAs: writtenAs);
             }
             catch (Exception e) when (!(e is OutOfMemoryException))
             {
@@ -610,10 +611,13 @@ namespace BitSorter.ViewModel
             }
         }
 
-        /// <summary><paramref name="code"/> if its module is written and it has text typed and not applied, the document followed first; else null.</summary>
+        /// <summary>
+        /// <paramref name="code"/> if its module is still there and it has text typed and not applied -- a written module's, or
+        /// a drawn one's typed as code (5.1) -- the document followed first; else null.
+        /// </summary>
         private CodeDocument Typed(CodeDocument code)
         {
-            if (code == null || Project.Find(code.Module)?.IsWritten != true)
+            if (code == null || Project.Find(code.Module) == null)
                 return null;
             code.Follow();
             return code.Pending ? code : null;
@@ -670,8 +674,85 @@ namespace BitSorter.ViewModel
                   + applied.Refusal;
         }
 
-        /// <summary>Whether the module shown is written and its text is shown: CODE chosen for it, or no drawing of it could be made.</summary>
-        public bool ShowsCode => ShowsWritten && !ShowsDrawingOfCode;
+        /// <summary>
+        /// Whether the module shown is shown as code: a written one, CODE chosen for it or no drawing of it could be made; or,
+        /// since 5.1, a drawn one CODE was chosen for (<see cref="DrawnAsCode"/>), typed into as it prints.
+        /// </summary>
+        public bool ShowsCode => ShowsWritten ? !ShowsDrawingOfCode : DrawnAsCode;
+
+        /// <summary>
+        /// Whether the module shown is drawn and shown as its code (5.1): CODE pressed over a drawn circuit. Nothing changes
+        /// until what is typed applies, which makes it a written module -- one step, which Ctrl+Z takes back -- and DRAWING
+        /// before then goes back to the drawing as it was. Its circuit takes no edit meanwhile (<see cref="CodeShownRefusal"/>).
+        /// </summary>
+        public bool DrawnAsCode => !ShowsWritten && _codeChosen.Contains(Module) && CanShowCode;
+
+        /// <summary>
+        /// Whether the module shown can be shown as code -- the CODE / DRAWING switch's to show (5.1): any module, written or
+        /// drawn, but a drawn one where code is not allowed (<see cref="CodeAllowed"/>).
+        /// </summary>
+        public bool CanShowCode => Project.Find(Module) is Module shown && (shown.IsWritten || CodeAllowed);
+
+        /// <summary>
+        /// Whether a drawn module may be typed as code (5.1): true but in an exercise that may not be answered in code, where
+        /// the workbench sets it false and its drawn modules show no CODE.
+        /// </summary>
+        public bool CodeAllowed { get; set; } = true;
+
+        /// <summary>What an edit of a drawn circuit shown as its code is told (5.1).</summary>
+        public const string CodeShownRefusal = "The circuit is shown as its code: type there, or press DRAWING to edit the drawing.";
+
+        /// <summary>How a drawn module reads as code where that is not as it prints, or null: an exercise's answer, under its header.</summary>
+        private readonly Func<Project, string, string> _writtenAs;
+
+        // A drawn module's text as code, worked out once for each document (TextOf).
+        private Project _textsOf;
+        private readonly Dictionary<string, string> _texts = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// The text <paramref name="module"/> is typed into as: a written module's own; a drawn one's (5.1) as the session's
+        /// written-as function gives it -- an exercise's answer under its header -- or as it prints, the text the CODE tab shows,
+        /// without the comment that says it was drawn, or a new written module's template where nothing is drawn in it yet.
+        /// Worked out once for each document, so asking it every frame costs nothing between edits. Null for no such module.
+        /// </summary>
+        public string TextOf(string module)
+        {
+            Module found = module != null ? Project.Find(module) : null;
+            if (found == null)
+                return null;
+            if (found.IsWritten)
+                return found.Source;
+            if (!ReferenceEquals(_textsOf, Project))
+            {
+                _textsOf = Project;
+                _texts.Clear();
+            }
+            if (_texts.TryGetValue(module, out string kept))
+                return kept;
+
+            string text = _writtenAs?.Invoke(Project, module);
+            if (text == null && found.Parts.Count == 0)
+                text = WrittenModules.Template(module);
+            if (text == null)
+            {
+                CodeListing listing = Listing;
+                int file = listing.FileOf(module);
+                text = file >= 0 ? BoardPrinter.ModuleText(listing.Files[file].Text, module) : null;
+            }
+            text ??= WrittenModules.Template(module);
+            _texts[module] = text;
+            return text;
+        }
+
+        /// <summary><paramref name="module"/> as the written module <paramref name="source"/> makes it: its name, comment and id count kept.</summary>
+        internal static Module AsWritten(Module module, string source) =>
+            new Module { Name = module.Name, Comment = module.Comment, Source = source, NextId = module.NextId };
+
+        /// <summary>
+        /// How many times a drawn module has become code since the session opened (5.1): text typed into it applied. The
+        /// workbench says once, in an exercise, what a written answer is held to.
+        /// </summary>
+        public int DrawnWritten { get; private set; }
 
         /// <summary>Whether the module shown is written, as its code or as the drawing of its code (Part 15h-4).</summary>
         public bool ShowsWritten => Project.Find(Module)?.IsWritten == true;
@@ -685,7 +766,8 @@ namespace BitSorter.ViewModel
         public bool ShowsDrawingOfCode => _shownDrawing != null && _shownDrawing.Module.Name == Module && !_codeChosen.Contains(Module)
             && ShowsWritten;
 
-        // The written modules CODE was chosen for: their text shown rather than their drawing.
+        // The modules CODE was chosen for: their text shown rather than their drawing -- a written module's, or a drawn one's
+        // as it prints (5.1).
         private readonly HashSet<string> _codeChosen = new HashSet<string>(StringComparer.Ordinal);
 
         /// <summary>
@@ -697,8 +779,8 @@ namespace BitSorter.ViewModel
         public CodeDocument PendingCode => _codes.TryGetValue(Module, out CodeDocument code) ? Typed(code) : null;
 
         /// <summary>
-        /// The written module <paramref name="module"/> shown as its code from now on -- what + CODE and WRITE IT ask, since the
-        /// student is about to type -- and drawn afresh if it is the one shown.
+        /// The written module <paramref name="module"/> shown as its code from now on -- what + CODE and an imported course
+        /// template ask, since the student is about to type -- and drawn afresh if it is the one shown.
         /// </summary>
         public void ShowCodeOf(string module)
         {
@@ -824,7 +906,7 @@ namespace BitSorter.ViewModel
         /// <summary>
         /// Whether a module opens as the controller it is: the reading is the whole of it, and it is a state machine or sets
         /// several signals a row -- a control table. A one-output case is a function, which its drawing and the LOGIC tab show
-        /// better: the "Is it prime?" and seven-segment samples stay drawings (the review of 15h-6e). The traffic light, whose
+        /// better: the seven-segment sample stays a drawing (the review of 15h-6e). The traffic light, whose
         /// counter the diagram leaves out, opens on its drawing too; DIAGRAM shows it.
         /// </summary>
         public static bool OpensAsController(ControllerReading reading)
@@ -903,10 +985,14 @@ namespace BitSorter.ViewModel
                 _litSubjects[t] = design.TryFind(_drawnPath + "." + reading.Tables[t].Subject, out SignalId subject) ? subject : (SignalId?)null;
         }
 
-        /// <summary>Shows the written module shown as the drawing of its code, or as its code again.</summary>
+        /// <summary>
+        /// Shows the module shown as a drawing, or as its code: a written module as the drawing of its code or its text, and
+        /// since 5.1 a drawn one as its drawing or as the code it prints as, to type into (<see cref="DrawnAsCode"/>) -- the
+        /// CODE / DRAWING switch. No step: only what is shown changes.
+        /// </summary>
         public void DrawCode(bool drawn)
         {
-            if (!ShowsWritten)
+            if (!CanShowCode)
                 return;
             if (drawn ? !_codeChosen.Remove(Module) : !_codeChosen.Add(Module))
                 return;
@@ -1110,13 +1196,14 @@ namespace BitSorter.ViewModel
         private EditResult? Unchangeable => _locked ? EditResult.Refused(LockedRefusal) : (EditResult?)null;
 
         /// <summary>Why the circuit shown takes no edit on the canvas: locked, or shown as the controller it is (Part 15h-6e); null where it does.</summary>
-        private EditResult? Untouchable => Unchangeable ?? (ShowsController ? EditResult.Refused(ControllerRefusal) : (EditResult?)null);
+        private EditResult? Untouchable => Unchangeable ?? (ShowsController ? EditResult.Refused(ControllerRefusal)
+            : DrawnAsCode ? EditResult.Refused(CodeShownRefusal) : (EditResult?)null);
 
         /// <summary>
         /// Why the circuit shown takes no edit -- the drawing of code's or the lock's reason -- or null: asked before a name
         /// is asked for, so MAKE BLOCK refuses at once rather than after the name (the review of the lock).
         /// </summary>
-        public string WhyNotChange => Unchangeable?.Refusal ?? (ShowsDrawingOfCode ? DrawingRefusal : null);
+        public string WhyNotChange => Unchangeable?.Refusal ?? (ShowsDrawingOfCode ? DrawingRefusal : DrawnAsCode ? CodeShownRefusal : null);
 
         /// <summary>Why no code can be added or changed -- the lock -- or null: asked before + CODE asks a name.</summary>
         public string WhyNotChangeCode => Unchangeable?.Refusal;
@@ -1323,7 +1410,22 @@ namespace BitSorter.ViewModel
         public EditResult SetSource(string source) => SetSourceOf(Module, source);
 
         /// <summary>The written module <paramref name="module"/>, shown or not, given <paramref name="source"/>: its editor's text applied.</summary>
-        internal EditResult SetSourceOf(string module, string source) => Unchangeable ?? Edited(Editor.SetSource(module, source));
+        internal EditResult SetSourceOf(string module, string source)
+        {
+            if (Unchangeable is EditResult locked)
+                return locked;
+            Module found = Project.Find(module);
+            if (found == null || found.IsWritten)
+                return Edited(Editor.SetSource(module, source));
+
+            // A drawn module typed as code (5.1): the text applied makes it written, one step that Ctrl+Z takes back.
+            if (!CodeAllowed)
+                return EditResult.Refused($"{module} is drawn, and this exercise is answered by drawing it.");
+            EditResult written = Edited(Editor.ReplaceModule(AsWritten(found, source)));
+            if (written.Done)
+                DrawnWritten++;
+            return written;
+        }
 
         /// <summary>
         /// A new written module called <paramref name="name"/>, from the template (<see cref="BoardEditor.AddWrittenModule"/>):
@@ -1519,7 +1621,7 @@ namespace BitSorter.ViewModel
             {
                 if (ShowsDrawingOfCode)
                     return !ShowsGatesOfCode && ArrangedByHand(ShownDrawing);
-                if (ShowsWritten)
+                if (ShowsWritten || DrawnAsCode)
                     return false;
                 if (!ReferenceEquals(_tidyAskedOf, Project) || _tidyAskedFor != Module)
                 {

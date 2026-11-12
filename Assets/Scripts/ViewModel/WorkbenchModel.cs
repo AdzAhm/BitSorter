@@ -748,6 +748,22 @@ namespace BitSorter.ViewModel
         /// <summary>Whether a row is a bus.</summary>
         public bool RowIsBus(int row) => _rowSignals[row] >= 0 && Session.Design.Signals[_rowSignals[row]].Width > 1;
 
+        /// <summary>How many bits a row's signal has; 0 for a group's header.</summary>
+        public int RowBits(int row) => _rowSignals[row] >= 0 ? Session.Design.Signals[_rowSignals[row]].Width : 0;
+
+        /// <summary>
+        /// The most characters a row's value is written in, in its radix (<see cref="ValueText.MaxChars"/>), its enum's names
+        /// included; 0 for a group's header. What the values column is made wide enough for when every value is shown whole
+        /// (5.1), so that it never moves while the run plays.
+        /// </summary>
+        public int RowMostChars(int row)
+        {
+            int signal = _rowSignals[row];
+            if (signal < 0)
+                return 0;
+            return ValueText.MaxChars(Session.Design.Signals[signal].Width, _rowRadix[row], Session.Design.Signals[signal].Enum);
+        }
+
         /// <summary>A row's waveform up to now, oldest first.</summary>
         public void RowSegments(int row, List<WaveSegment> into) => RowSegments(row, into, Time);
 

@@ -113,6 +113,18 @@ namespace BitSorter.View
             return button;
         }
 
+        /// <summary>
+        /// A button that destroys something or ends the session -- RESET PROGRESS and its answer, QUIT (5.1, Ahmad: "make it
+        /// red") -- outlined and captioned in the colour the waves draw an x in, as every error is written; the caption taken
+        /// toward the text as far as it must to read at 4.5:1 on the ground (<see cref="SchematicPalette.Legible"/>), which
+        /// every look's x already does, so it is that colour itself today.
+        /// </summary>
+        public static void Destructive(Button button, SchematicPalette palette)
+        {
+            Outline(button, palette.Unknown, palette.Ground);
+            button.style.color = palette.Legible(palette.Unknown, palette.Ground);
+        }
+
         /// <summary>The name of the bar under a control chosen of several (<see cref="MarkChosen"/>).</summary>
         public const string ChosenMarkName = "chosen";
 

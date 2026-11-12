@@ -43,7 +43,7 @@ namespace BitSorter.View
         /// <inheritdoc cref="RootName"/>
         public const string RemoveItem = ActionItem + nameof(WaveRowAction.Remove);
 
-        private const float ItemWidth = 190f;
+        private const float ItemWidth = 220f;   // room for UNSIGNED DECIMAL (5.1)
 
         private static readonly WaveRadix[] Radixes =
             { WaveRadix.Binary, WaveRadix.Octal, WaveRadix.Hex, WaveRadix.Unsigned, WaveRadix.Signed, WaveRadix.Symbolic };
@@ -85,8 +85,9 @@ namespace BitSorter.View
                 case WaveRadix.Binary: return "BINARY";
                 case WaveRadix.Octal: return "OCTAL";
                 case WaveRadix.Hex: return "HEX";
-                case WaveRadix.Unsigned: return "UNSIGNED";
-                case WaveRadix.Signed: return "SIGNED";
+                // Said in full (5.1, Ahmad: "should there be also decimal?"): both are decimal, one read as signed.
+                case WaveRadix.Unsigned: return "UNSIGNED DECIMAL";
+                case WaveRadix.Signed: return "SIGNED DECIMAL";
                 default: return "NAMES";
             }
         }

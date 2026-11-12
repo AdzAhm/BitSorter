@@ -30,6 +30,10 @@ namespace BitSorter.View
 
         private RectTransform _root, _gutterView, _gutterText, _marks;
         private TMP_InputField _field;
+        private CodeInkView _ink;
+
+        /// <summary>What colours its code (5.1).</summary>
+        public CodeInkView Ink => _ink;
         private TextMeshProUGUI _gutter;
         private int _letGoFrame = -1, _shownLines = -1, _shownBody = -1;
         private Color _markColour;
@@ -97,6 +101,7 @@ namespace BitSorter.View
                 text.font = CodeFont.Asset;
                 _gutter.font = CodeFont.Asset;
             }
+            _ink = CodeInkView.On(text, palette);   // written in its colours, as the editor is (5.1)
 
             _field = box.gameObject.AddComponent<TMP_InputField>();
             _field.textViewport = area;

@@ -407,6 +407,32 @@ namespace BitSorter.View
         /// <summary>What WCAG 2 asks of a word against what it is written on: 4.5 to 1.</summary>
         public const float WordContrast = 4.5f;
 
+        /// <summary>
+        /// The colour code of <paramref name="kind"/> is written in (5.1), in both builds' editors and the CODE tab: as the
+        /// browser's editor wrote it before -- a keyword in the accent, a number or a string in a 1's colour, a comment in the
+        /// muted grey, a system name or an operator in the cursor's, the rest in the text's -- but each <see cref="Legible"/> on
+        /// the ground, a word's 4.5:1, where a 1's colour is held to a wire's 3:1 and no more. Worked out once: a palette is
+        /// never changed in place.
+        /// </summary>
+        public Color CodeInk(BitSorter.ViewModel.CodeKind kind)
+        {
+            if (_codeInks == null)
+            {
+                var inks = new Color[7];
+                inks[(int)BitSorter.ViewModel.CodeKind.Plain] = Text;
+                inks[(int)BitSorter.ViewModel.CodeKind.Keyword] = Legible(Accent, Ground);
+                inks[(int)BitSorter.ViewModel.CodeKind.Number] = Legible(One, Ground);
+                inks[(int)BitSorter.ViewModel.CodeKind.String] = Legible(One, Ground);
+                inks[(int)BitSorter.ViewModel.CodeKind.Comment] = Legible(Muted, Ground);
+                inks[(int)BitSorter.ViewModel.CodeKind.System] = Legible(Cursor, Ground);
+                inks[(int)BitSorter.ViewModel.CodeKind.Operator] = Legible(Cursor, Ground);
+                _codeInks = inks;
+            }
+            return _codeInks[(int)kind];
+        }
+
+        private Color[] _codeInks;
+
         /// <summary>How finely <see cref="Legible"/> steps a colour toward the text's.</summary>
         private const int LegibleSteps = 32;
 

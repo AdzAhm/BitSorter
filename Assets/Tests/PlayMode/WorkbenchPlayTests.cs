@@ -46,6 +46,7 @@ namespace BitSorter.PlayMode.Tests
 
             // As PanelPlayTests explains: the game never runs with read-value caching.
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", false);
+            InputSystem.runInBackground = true;   // as the player runs (Run In Background): a click is still taken with the editor behind another window
 
             _keyboard = InputSystem.AddDevice<Keyboard>();
             InputSystem.AddDevice<Mouse>();
@@ -801,6 +802,18 @@ namespace BitSorter.PlayMode.Tests
             Assert.IsTrue(workbench.RowMenuOpen, "a right-click on a row's name opens its menu");
             Assert.IsTrue(workbench.List.Lines[s].Selected, "and selects the row");
 
+            // Each radix said in full (5.1): both decimals say they are, and every caption fits its item.
+            Assert.AreEqual("UNSIGNED DECIMAL", WaveRowMenu.Caption(WaveRadix.Unsigned));
+            Assert.AreEqual("SIGNED DECIMAL", WaveRowMenu.Caption(WaveRadix.Signed));
+            yield return null;
+            foreach (WaveRadix radix in new[] { WaveRadix.Binary, WaveRadix.Octal, WaveRadix.Hex, WaveRadix.Unsigned, WaveRadix.Signed })
+            {
+                UnityEngine.UIElements.Button item = ShellPanel.Find<UnityEngine.UIElements.Button>(WaveRowMenu.RadixItem + radix);
+                Vector2 needs = item.MeasureTextSize(item.text, 0f, UnityEngine.UIElements.VisualElement.MeasureMode.Undefined, 0f,
+                    UnityEngine.UIElements.VisualElement.MeasureMode.Undefined);
+                Assert.LessOrEqual(needs.x, item.contentRect.width, $"{item.text} fits its item");
+            }
+
             yield return Click(WaveRowMenu.RadixItem + WaveRadix.Unsigned);
             Assert.IsFalse(workbench.RowMenuOpen, "choosing closes it");
             Assert.AreEqual(WaveRadix.Unsigned, workbench.Model.RowRadix(s));
@@ -1346,29 +1359,6 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>What row <paramref name="row"/> shows at <paramref name="time"/>, in binary, as the model shown has it.</summary>
-        /// <summary>
-        /// A double-click past the run's end -- the waves zoom out past it since Part 15h -- changes nothing and says so. The
-        /// 15h review found it would have put a step there and run the testbench on to it.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator ADoubleClickPastTheRunsEnd_ChangesNothing()
-        {
-            yield return TestScene.Load();
-
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.Pause();
-            workbench.Session.Finish();
-            int a = RowLabelled(workbench, "a");
-            for (int i = 0; i < 40 && workbench.TakeWaveWheel(workbench.WaveScreenPointOf(1.0), new Vector2(0f, -120f), false); i++)
-                yield return null;
-            Assert.AreEqual(WaveView.MinZoom, workbench.Wave.Zoom, 1e-9, "sanity: zoomed out past the run");
-
-            BitSorter.Board.Project before = workbench.Session.Project;
-            yield return DoubleClickAt(workbench.WaveScreenPointOf(workbench.Model.End * 2.0, a));
-            Assert.AreSame(before, workbench.Session.Project, "nothing changed");
-            StringAssert.Contains("Past the end of the run", workbench.ChipText ?? "", "and it says why");
-        }
-
         private static string ValueAt(WorkbenchPanel workbench, int row, double time)
         {
             SignalTrack track = workbench.Model.RowTrack(row);
@@ -1384,11 +1374,12 @@ namespace BitSorter.PlayMode.Tests
         }
 
         /// <summary>
-        /// A double-click on a one-bit input's wave flips it over the stretch it is in; the run is played
-        /// again beside the one shown, takes over without losing the rows, and shows the input flipped.
+        /// A double-click on an input's wave, a bit's or a bus's, changes no input and asks for no value: the waves only read
+        /// the run since 5.1, and INPUTS sets the inputs (Ahmad, 2026-11-11; it flipped a bit and asked a bus its value). The
+        /// same double-click puts the cursor where it landed, which is what proves the clicks reached the waves at all.
         /// </summary>
         [UnityTest]
-        public IEnumerator ADoubleClickOnABitInput_FlipsIt_AndTheRunIsPlayedAgain()
+        public IEnumerator ADoubleClickOnAnInputsWave_ChangesNoInput_AndPutsTheCursorThere()
         {
             yield return TestScene.Load();
 
@@ -1397,20 +1388,20 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             int a = RowLabelled(workbench, "a");
             int s = RowLabelled(workbench, "s[3:0]");
-            workbench.SetRadix(s, WaveRadix.Unsigned);
-            WorkbenchModel before = workbench.Model;
+            BitSorter.Board.Project before = workbench.Session.Project;
             Assert.AreEqual("1", ValueAt(workbench, a, 10.0), "sanity: a rises at 6 and stays up");
 
             yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, a));
-            Assert.IsTrue(workbench.Session.Replaying || workbench.Model != before, "the double-click edited nothing");
-            yield return UntilReplayed(workbench);
+            Assert.IsNotNull(workbench.Cursors.Second, "the double-click never reached the waves: no cursor was placed");
+            Assert.AreEqual(10.3, workbench.Cursors.Second.Value, 1.0, "the cursor is where the double-click landed");
+            Assert.AreSame(before, workbench.Session.Project, "a double-click on a bit input's wave changed the circuit");
+            Assert.IsFalse(workbench.Session.Replaying, "and set a run going again");
+            Assert.AreEqual("1", ValueAt(workbench, a, 10.0), "a is as it was");
 
-            Assert.AreNotSame(before, workbench.Model, "the run shown is the one played again");
-            Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "a is 0 over the stretch the double-click was in");
-            Assert.AreEqual("0", ValueAt(workbench, a, 3.0), "and was before it, as it always was");
-            Assert.AreEqual(RowLabelled(workbench, "s[3:0]"), s, "the rows are the ones shown before");
-            Assert.AreEqual(WaveRadix.Unsigned, workbench.List.Lines[s].Signal.Radix, "in the radix they were in");
-            StringAssert.DoesNotContain("not an input", workbench.ChipText ?? "", "and nothing was refused");
+            yield return DoubleClickAt(workbench.WaveScreenPointOf(12.4, s));
+            Assert.AreEqual(12.4, workbench.Cursors.Second.Value, 1.0, "the cursor follows the second double-click");
+            Assert.AreSame(before, workbench.Session.Project, "a double-click on a bus's wave changed the circuit");
+            Assert.IsFalse(UiText.Typing, "or opened a field asking the bus's value");
         }
 
         /// <summary>
@@ -1438,61 +1429,6 @@ namespace BitSorter.PlayMode.Tests
             Assert.AreNotSame(before, workbench.Session.Run.Model, "sanity: the replay took over in the session");
             Assert.AreSame(workbench.Session.Run.Model, workbench.Model, "the panel still shows the run from before the edit");
             Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "and a is 0 where the edit put it");
-        }
-
-        /// <summary>
-        /// A double-click on a bus asks for its value over the stretch, in a field that says which; Enter
-        /// sets it, and the run played again shows it there and what it had after.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator ADoubleClickOnABus_AsksForItsValue_AndSetsItOverTheStretch()
-        {
-            yield return TestScene.Load();
-
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.Pause();
-            workbench.Session.Finish();
-            int s = RowLabelled(workbench, "s[3:0]");
-            string after = ValueAt(workbench, s, 20.0);
-
-            yield return DoubleClickAt(workbench.WaveScreenPointOf(12.4, s));
-            WaveRenameField field = workbench.SetValueField;
-            Assert.IsTrue(field.IsOpen, "a double-click on a bus did not ask for its value");
-            Assert.IsTrue(UiText.Typing, "and the field has the keyboard");
-            StringAssert.Contains("SET s FROM 10 ps TO 19 ps",
-                UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.Label>(ShellPanel.Find<UnityEngine.UIElements.VisualElement>(WaveRenameField.SetValueName), "title").text);
-
-            field.Field.value = "4'b1111";
-            yield return KeyToField(field.Field, _keyboard.enterKey, KeyCode.Return);
-            yield return null;
-            Assert.IsFalse(field.IsOpen);
-            yield return UntilReplayed(workbench);
-
-            Assert.AreEqual("1111", ValueAt(workbench, s, 12.0), "s is 1111 over the stretch");
-            Assert.AreEqual(after, ValueAt(workbench, s, 20.0), "and what it was from 19 on");
-        }
-
-        /// <summary>A double-click on an output, or on a clock, changes nothing, and the chip says why.</summary>
-        [UnityTest]
-        public IEnumerator ADoubleClickOnAnOutputOrAClock_IsRefused_AndTheChipSaysWhy()
-        {
-            yield return TestScene.Load();
-
-            WorkbenchPanel workbench = Find<WorkbenchPanel>();
-            workbench.Pause();
-            workbench.Session.Finish();
-
-            yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, RowLabelled(workbench, "y")));
-            Assert.IsFalse(workbench.Session.Replaying, "an output was edited");
-            StringAssert.Contains("y is not an input", workbench.ChipText);
-
-            workbench.ShowSample(WorkbenchSamples.Chip.ToList().FindIndex(sample => sample.Name.Contains("ounter")));
-            workbench.Pause();
-            workbench.Session.Finish();
-            yield return null;
-            yield return DoubleClickAt(workbench.WaveScreenPointOf(12.3, RowLabelled(workbench, "clk")));
-            Assert.IsFalse(workbench.Session.Replaying, "a clock was edited");
-            StringAssert.Contains("clk is a clock", workbench.ChipText);
         }
 
         /// <summary>
@@ -1536,7 +1472,8 @@ namespace BitSorter.PlayMode.Tests
             workbench.Session.Finish();
             int a = RowLabelled(workbench, "a");
 
-            yield return DoubleClickAt(workbench.WaveScreenPointOf(10.3, a));
+            // An edit to undo: a flipped over the stretch 10 is in, as INPUTS would (the waves stopped editing inputs in 5.1).
+            Assert.IsTrue(workbench.Session.InvertInput("a", 10).Done, "sanity: a could be flipped");
             yield return UntilReplayed(workbench);
             Assert.AreEqual("0", ValueAt(workbench, a, 10.0), "sanity: flipped");
 

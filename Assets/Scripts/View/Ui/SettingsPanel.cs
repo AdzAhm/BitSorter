@@ -437,12 +437,8 @@ namespace BitSorter.View
             return button;
         }
 
-        /// <summary>A button that destroys something, in the colour the waves draw an x in.</summary>
-        private void Destructive(ShellButton button)
-        {
-            ShellTheme.Outline(button, _palette.Unknown, _palette.Ground);
-            button.style.color = _palette.Unknown;
-        }
+        /// <summary>A button that destroys something, in the colour the waves draw an x in (<see cref="ShellTheme.Destructive"/>).</summary>
+        private void Destructive(ShellButton button) => ShellTheme.Destructive(button, _palette);
 
         /// <summary>
         /// A slider row: its caption, the slider, and what it is set to ("60 FPS"). Applied at every step of a drag, and

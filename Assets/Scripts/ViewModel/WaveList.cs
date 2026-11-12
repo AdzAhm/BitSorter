@@ -110,7 +110,15 @@ namespace BitSorter.ViewModel
         /// ports -- 1.5 MB, inside every import limit -- built some 300,000 of them in one frame (browser-5); + SIGNAL adds any
         /// of the rest.
         /// </summary>
-        public static WaveList OfPorts(WorkbenchModel model)
+        public static WaveList OfPorts(WorkbenchModel model) => OfPorts(model, null);
+
+        /// <summary>
+        /// A model's rows as a circuit opens, as <see cref="OfPorts(WorkbenchModel)"/>, then the signals <paramref name="extra"/>
+        /// names by their keys, in its order -- the rows a sample shows itself working on beyond its top's ports
+        /// (<see cref="WorkbenchSamples.StartingRows"/>, 5.1: a processor's top has only <c>clk</c> and <c>rst</c>). A key the
+        /// design does not have is passed over, never a row showing nothing.
+        /// </summary>
+        public static WaveList OfPorts(WorkbenchModel model, IReadOnlyList<string> extra)
         {
             var keys = new List<string>();
             foreach (WaveRow row in model.Layout.Rows)
@@ -120,6 +128,11 @@ namespace BitSorter.ViewModel
                 if (model.Session.Design.TryFind(row.Signal, out BitSorter.Sim.SignalId id))
                     keys.Add(model.Signals.KeyOf(id.Index));
             }
+
+            if (extra != null)
+                for (int i = 0; i < extra.Count && keys.Count < MostRowsOpened; i++)
+                    if (extra[i] != null && model.Signals.TryFind(extra[i], out _))
+                        keys.Add(extra[i]);
             return new WaveList(model.Signals, keys);
         }
 
@@ -265,6 +278,9 @@ namespace BitSorter.ViewModel
         /// makes its rows from the layout alone. Rows the student added stay where they are, and so does a port's row
         /// in a group. A port placed used to keep the place at the end, and a half adder built a, b, then y and z read
         /// a, b, y, z, and a, y, b, z after a reload (the Part 10 browser smoke test).
+        ///
+        /// **Once a row has been moved by hand the list keeps its own order** (<see cref="OrderedByHand"/>, 5.1): a port placed
+        /// still goes at the end and one taken away still goes, but nothing is put back in the layout's order.
         /// </remarks>
         public bool FollowPorts(IReadOnlyCollection<string> was, IReadOnlyCollection<string> now)
         {
@@ -296,7 +312,15 @@ namespace BitSorter.ViewModel
                 changed = true;
             }
 
-            // The ports' rows put in the layout's order, in the places they hold.
+            // The ports' rows put in the layout's order, in the places they hold -- unless a row has been moved by hand, whose
+            // order is the student's (5.1).
+            if (OrderedByHand)
+            {
+                if (changed)
+                    Changed();
+                return changed;
+            }
+
             var order = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (string key in now ?? Array.Empty<string>())
                 if (!order.ContainsKey(key))
@@ -537,7 +561,101 @@ namespace BitSorter.ViewModel
                 _items.Insert(to > line ? index + 1 : index, item);
             }
 
+            OrderedByHand = true;
             Changed();
+        }
+
+        /// <summary>
+        /// Whether a row has been moved by hand (<see cref="MoveTo"/>, 5.1): from then on <see cref="FollowPorts"/> keeps the
+        /// list's order, a port placed going at the end and one taken away going, and puts no row back in the layout's order.
+        /// </summary>
+        /// <remarks>
+        /// Without it, the first edit of the circuit after a row was dragged would put it back where the layout has its port
+        /// (Part 10e's rule), which is what "make sure there is no bug of this" (Ahmad, 2026-11-11) was about.
+        /// </remarks>
+        public bool OrderedByHand { get; private set; }
+
+        /// <summary>
+        /// Where line <paramref name="line"/> may be put down nearest the gap <paramref name="gap"/> -- a gap is a place
+        /// between lines, 0 over the first and <c>Lines.Count</c> under the last -- or -1 where the nearest is where it is
+        /// already, and moving it there would change nothing.
+        /// </summary>
+        /// <remarks>
+        /// **A line keeps its level** (as <see cref="Move"/>): a signal in a group goes between its group's own signals, at
+        /// either end of them included; a group's header, which carries its group, and a signal in none go between the list's
+        /// top-level rows -- never inside a group. Of two gaps as near, the one above.
+        /// </remarks>
+        public int DropGap(int line, int gap)
+        {
+            IReadOnlyList<WaveLine> lines = Lines;
+            if (line < 0 || line >= lines.Count)
+                return -1;
+
+            int best = -1;
+            for (int g = 0; g <= lines.Count; g++)
+                if (MayDropAt(line, g) && (best < 0 || Math.Abs(g - gap) < Math.Abs(best - gap)))
+                    best = g;
+            return best < 0 || best == line || best == line + Span(line) ? -1 : best;
+        }
+
+        /// <summary>
+        /// Moves line <paramref name="line"/> -- a group's header with its group -- into the gap <paramref name="gap"/>, as
+        /// <see cref="DropGap"/> gives it, and keeps the list's order from then on (<see cref="OrderedByHand"/>). False, and
+        /// nothing changed, for a gap it may not go to or where it is already. What was selected stays selected.
+        /// </summary>
+        public bool MoveTo(int line, int gap)
+        {
+            IReadOnlyList<WaveLine> lines = Lines;
+            if (line < 0 || line >= lines.Count || !MayDropAt(line, gap) || gap == line || gap == line + Span(line))
+                return false;
+
+            WaveLine from = lines[line];
+            WaveGroup within = from.IsHeader ? null : from.Group;
+            if (within != null)
+            {
+                WaveSignal before = gap < lines.Count && lines[gap].Group == within && !lines[gap].IsHeader ? lines[gap].Signal : null;
+                within._signals.Remove(from.Signal);
+                within._signals.Insert(before == null ? within._signals.Count : within._signals.IndexOf(before), from.Signal);
+            }
+            else
+            {
+                object item = from.IsHeader ? (object)from.Group : from.Signal;
+                object before = gap < lines.Count ? (lines[gap].IsHeader ? (object)lines[gap].Group : lines[gap].Signal) : null;
+                _items.Remove(item);
+                _items.Insert(before == null ? _items.Count : _items.IndexOf(before), item);
+            }
+
+            OrderedByHand = true;
+            Changed();
+            return true;
+        }
+
+        /// <summary>Whether line <paramref name="line"/> may go into the gap <paramref name="gap"/> by its level (<see cref="DropGap"/>).</summary>
+        private bool MayDropAt(int line, int gap)
+        {
+            IReadOnlyList<WaveLine> lines = Lines;
+            if (gap < 0 || gap > lines.Count)
+                return false;
+            WaveLine from = lines[line];
+
+            if (!from.IsHeader && from.Group != null)
+            {
+                // Between its group's own signals: from just under its header to just under its last.
+                int header = line;
+                while (header > 0 && !lines[header].IsHeader)
+                    header--;
+                return gap > header && gap <= header + from.Group._signals.Count + 1;
+            }
+
+            // Among the top-level rows: above one of them, or under the last line.
+            return gap == lines.Count || lines[gap].IsHeader || lines[gap].Group == null;
+        }
+
+        /// <summary>How many lines line <paramref name="line"/> takes: a header its open group's signals as well.</summary>
+        private int Span(int line)
+        {
+            WaveLine shown = Lines[line];
+            return shown.IsHeader && shown.Group.Expanded ? 1 + shown.Group._signals.Count : 1;
         }
 
         // -----------------------------------------------------------------

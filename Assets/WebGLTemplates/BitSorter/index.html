@@ -550,6 +550,16 @@ window.setProgress = setProgress; window.finishLoading = finishLoading; window.s
       // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
       // expected to change.
 
+      // The build kept in the browser, the code as well as the data (5.1). Unity's loader keeps the
+      // data file in IndexedDB and asks the host on the next visit whether it changed, but fetches
+      // everything else afresh with "no-store" -- the 7.5 MB wasm on every launch, 8.7 s of a return
+      // visit on a 10 Mbit/s line. Pages answers the question with a 304 and no body while the file is
+      // the same, so a return visit now downloads under a kilobyte, and a new release, whose files'
+      // ETags differ, is fetched whole (Docs/distribution.md, "A faster launch").
+      config.cacheControl = function (url) {
+        return /\.(data|wasm|framework\.js)/.test(url) ? "must-revalidate" : "no-store";
+      };
+
       // The canvas renders at its CSS size times the screen's pixel ratio, and the canvas now grows
       // with the window -- up to 1920 CSS pixels wide, which at a ratio of 2 is a 3840x2400 render
       // every frame. 1.5 keeps text sharp on a high-density screen at

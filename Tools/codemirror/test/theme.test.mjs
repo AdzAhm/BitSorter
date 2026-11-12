@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Compartment, EditorState } from "@codemirror/state";
-import { lookIn, restyled, themeOf } from "../src/theme.js";
+import { codeWords, lookIn, restyled, themeOf } from "../src/theme.js";
 
 const colours = {
   text: "#e0e0e0", ground: "#101418", muted: "#808890", selection: "#334455",
@@ -49,4 +49,14 @@ test("the editor made again takes the new look's colours, never the first look's
   const rules = rulesOf(compartment.get(state));
   assert.ok(rules.some((r) => r.includes("background-color: " + light.ground)), "the new look's ground");
   assert.ok(!rules.some((r) => r.includes(colours.ground)), "and nothing left of the first look's");
+});
+
+test("code is written in the game's own inks for it, the desktop's, and in the look's colours where none are given (5.1)", () => {
+  const inks = { ...colours, keyword: "#123456", number: "#234567", comment: "#345678", system: "#456789" };
+  const css = codeWords(inks).module.getRules();
+  for (const ink of [inks.keyword, inks.number, inks.comment, inks.system])
+    assert.ok(css.includes(ink), "written in " + ink);
+  const fallback = codeWords(colours).module.getRules();
+  for (const ink of [colours.accent, colours.one, colours.muted, colours.warning])
+    assert.ok(fallback.includes(ink), "the look's " + ink + " where no ink is given");
 });

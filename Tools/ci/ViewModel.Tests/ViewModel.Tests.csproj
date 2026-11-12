@@ -24,6 +24,8 @@
   <ItemGroup>
     <!-- The boards the oracle runs (Part 14c): the step tests measured here are the runs Icarus is held to. -->
     <Compile Include="../Shared/Allocations.cs" Link="Shared/Allocations.cs" />
+    <!-- The folds both builds' editors are held to (5.1): a fixture in Tools/codemirror/test, found from the repository's root. -->
+    <Compile Include="../Shared/RepoRoot.cs" Link="Shared/RepoRoot.cs" />
     <Compile Include="../Board.Tests/SampleBoards.cs" Link="Shared/SampleBoards.cs" />
     <!-- The exercises as the game ships them (Part 15d): the run the EXERCISES page lists. -->
     <Compile Include="../Board.Tests/ExerciseFiles.cs" Link="Shared/ExerciseFiles.cs" />

@@ -37,7 +37,7 @@ namespace BitSorter.View
         /// <summary>Room left along the top for the breadcrumb, which the shell draws over the window's top-left corner.</summary>
         private const float TopStrip = 46f;
 
-        private const float GutterWidth = 64f, Pad = 10f, ProblemHeight = 26f, RevertWidth = 110f, ButtonHeight = 32f;
+        private const float GutterWidth = 84f, Pad = 10f, ProblemHeight = 26f, RevertWidth = 110f, ButtonHeight = 32f;
 
         /// <summary>
         /// The room kept at the top strip's right end for the panel's DRAWING switch (Part 15h-4): over the strip, not the code,
@@ -72,7 +72,28 @@ namespace BitSorter.View
 
         private RectTransform _root, _body, _gutterView, _gutterText, _problems;
         private TMP_InputField _field;
+        private CodeInkView _ink;
+
+        // The code as the field shows it, its folded blocks each one line (5.1), and what the margin was last drawn for: for
+        // each of its lines, the line of the code it starts. The mark a folded block shows in place of what it hides.
+        private FoldedView _view = FoldedView.Of("", null);
+        private FoldedView _drawnView;
+        private int[] _gutterLines = System.Array.Empty<int>();
+        private string _mark = " ... ";
+
+        /// <summary>The code as the field shows it, folded blocks and all (5.1), for the tests.</summary>
+        public FoldedView Folding => _view;
+
+        /// <summary>What colours its code (5.1).</summary>
+        public CodeInkView Ink => _ink;
         private TextMeshProUGUI _gutter, _status;
+
+        /// <summary>
+        /// What ends a margin line with no fold's marker: a marker drawn clear, as wide as " -" in the code's face, so every
+        /// number ends against the same edge (5.1). Not spaces, which a right-aligned TextMesh Pro line does not count; and
+        /// a colour tag, not alpha's, which has no closing tag and would be written out as text.
+        /// </summary>
+        private const string UnmarkedLine = "<color=#00000000> -</color>";
         private Button _revert;
         private readonly List<TextMeshProUGUI> _problemLabels = new List<TextMeshProUGUI>();
         private readonly List<CodeMark> _listed = new List<CodeMark>();
@@ -190,7 +211,8 @@ namespace BitSorter.View
             _gutterView = UiTheme.Rect("gutter", _body);
             _gutterView.gameObject.AddComponent<RectMask2D>();
             _gutter = UiTheme.Label("numbers", _gutterView, UiType.Body, palette.Muted, TextAlignmentOptions.TopRight);
-            _gutter.raycastTarget = false;
+            _gutter.raycastTarget = true;   // a click on a fold's marker folds or opens it (5.1)
+            _gutter.gameObject.AddComponent<GutterClicks>().View = this;
             _gutter.richText = true;
             _gutter.textWrappingMode = TextWrappingModes.NoWrap;
             _gutter.overflowMode = TextOverflowModes.Overflow;
@@ -211,6 +233,10 @@ namespace BitSorter.View
                 text.font = CodeFont.Asset;
                 _gutter.font = CodeFont.Asset;
             }
+            _ink = CodeInkView.On(text, palette);   // SystemVerilog in its colours, as the browser's editor writes it (5.1)
+            // A folded block's mark, in a character the code's face has: one from another face could push its line out of
+            // step with the code's, as the margin's marks are kept to letters for (DrawMarks).
+            _mark = CodeFont.Asset == null || CodeFont.Asset.HasCharacter('\u2026', false, true) ? " \u2026 " : " ... ";
 
             _field = box.gameObject.AddComponent<TMP_InputField>();
             _field.textViewport = area;
@@ -225,7 +251,7 @@ namespace BitSorter.View
             _field.customCaretColor = true;
             _field.caretWidth = 2;
             _field.selectionColor = palette.CodeSelection;   // seen, opaque, as the browser's (Part 16d)
-            _field.onValueChanged.AddListener(typed => _code?.Type(typed, Now));
+            _field.onValueChanged.AddListener(Typed);
             _field.onValidateInput = Validate;
             _field.onEndEdit.AddListener(_ =>
             {
@@ -283,6 +309,11 @@ namespace BitSorter.View
                 return '\0';
             }
 
+            // The fold keys' brackets (5.1): Ctrl with Shift or Alt and [ or ] folds, and types nothing.
+            if (Command(keys) && (keys.shiftKey.isPressed || keys.altKey.isPressed) && (keys.leftBracketKey.isPressed || keys.rightBracketKey.isPressed)
+                && (added == '[' || added == ']' || added == '{' || added == '}'))
+                return '\0';
+
             // Alt with Ctrl is AltGr on many keyboards, which types characters: those are typed.
             if (Command(keys) && !keys.altKey.isPressed
                 && (keys.zKey.isPressed || keys.yKey.isPressed || keys.sKey.isPressed || keys.slashKey.isPressed))
@@ -303,6 +334,8 @@ namespace BitSorter.View
             if (_readOnly)
                 return;   // locked: these keys type too -- a comment, a step of the typing (the review of the lock)
             UnityEngine.InputSystem.Keyboard keys = UiText.FieldKeys;
+            if (keys != null && TakeFoldKeys(keys))
+                return;
             if (keys != null && Command(keys) && !keys.altKey.isPressed)
             {
                 bool shift = keys.shiftKey.isPressed;
@@ -322,6 +355,115 @@ namespace BitSorter.View
                 EditLines(CodeEdits.Outdent);
         }
 
+        /// <summary>
+        /// The field's text changed by typing (5.1): what it shows taken back to the code through the folds -- text typed on a
+        /// folded line lands where it shows, and a deletion that takes a fold's mark takes the block it hides -- and the code,
+        /// whole, handed to the document, which never sees a fold.
+        /// </summary>
+        private void Typed(string shown)
+        {
+            if (_code == null)
+                return;
+            if (_view.Folded.Count == 0)
+            {
+                _code.Type(shown, Now);
+                _view = FoldedView.Of(shown, null, _mark);
+                return;
+            }
+
+            (string real, int caret, FoldedView after) = _view.Edit(shown);
+            _view = after;
+            _code.Type(real, Now);
+            if (after.Shown != shown)
+            {
+                _field.SetTextWithoutNotify(after.Shown);
+                _field.stringPosition = after.ShownOf(caret);
+            }
+        }
+
+        /// <summary>The code shown as <paramref name="view"/> has it, the caret kept where it was in the code.</summary>
+        private void Show(FoldedView view)
+        {
+            int caret = _view.RealOf(_field.stringPosition);
+            _view = view;
+            _field.SetTextWithoutNotify(view.Shown);
+            int at = view.ShownOf(caret);
+            _field.stringPosition = at;
+            _field.selectionStringAnchorPosition = at;
+            _field.selectionStringFocusPosition = at;
+        }
+
+        /// <summary><paramref name="text"/> shown with nothing folded, the caret at <paramref name="caret"/>.</summary>
+        private void ShowUnfolded(string text, int caret)
+        {
+            _view = FoldedView.Of(text, null, _mark);
+            _field.SetTextWithoutNotify(text);
+            _field.stringPosition = Mathf.Clamp(caret, 0, text.Length);
+        }
+
+        /// <summary>A click on the margin (5.1): on a line that starts a block, the block folded or opened.</summary>
+        private void GutterClicked(Vector2 screen, Camera camera)
+        {
+            if (_code == null || _browser)
+                return;
+            int shown = TMP_TextUtilities.FindIntersectingLine(_gutter, screen, camera);
+            if (shown < 0 || shown >= _gutterLines.Length)
+                return;
+            ToggleFold(_gutterLines[shown]);
+        }
+
+        /// <summary>The block that starts on line <paramref name="line"/> of the code, from 0, folded or opened: the margin's marker.</summary>
+        public void ToggleFold(int line)
+        {
+            FoldedView toggled = _view.Toggled(line);
+            if (!ReferenceEquals(toggled, _view))
+                Show(toggled);
+        }
+
+        /// <summary>
+        /// The fold keys (5.1), CodeMirror's own in both builds: Ctrl+Shift+[ folds the block the caret is in, Ctrl+Shift+]
+        /// opens it, Ctrl+Alt+[ folds every block and Ctrl+Alt+] opens every one.
+        /// </summary>
+        private bool TakeFoldKeys(UnityEngine.InputSystem.Keyboard keys)
+        {
+            bool fold = keys.leftBracketKey.wasPressedThisFrame, open = keys.rightBracketKey.wasPressedThisFrame;
+            if (!(fold || open) || !Command(keys))
+                return false;
+            if (keys.altKey.isPressed)
+            {
+                Show(_view.All(fold));
+                return true;
+            }
+            if (!keys.shiftKey.isPressed)
+                return false;
+            int caret = _view.RealOf(_field.stringPosition);
+            if (fold)
+            {
+                CodeFold? around = _view.Around(caret);
+                if (around != null && !_view.IsFolded(around.Value.FirstLine))
+                    Show(_view.Toggled(around.Value.FirstLine));
+            }
+            else
+            {
+                FoldedView shown = _view;
+                foreach (CodeFold each in _view.Folds)
+                    if (_view.IsFolded(each.FirstLine) && caret >= each.From - 1 && caret <= each.To)
+                        shown = shown.Toggled(each.FirstLine);
+                if (!ReferenceEquals(shown, _view))
+                    Show(shown);
+            }
+            return true;
+        }
+
+        /// <summary>The margin's clicks, handed to the editor (5.1): the margin is a text, and takes the click itself.</summary>
+        private sealed class GutterClicks : MonoBehaviour, UnityEngine.EventSystems.IPointerClickHandler
+        {
+            public CodeEditorView View;
+
+            public void OnPointerClick(UnityEngine.EventSystems.PointerEventData eventData) =>
+                View?.GutterClicked(eventData.position, eventData.pressEventCamera);
+        }
+
         /// <summary>Ctrl, or Command on a Mac, where TextMesh Pro's own Ctrl+C and Ctrl+V are Command too.</summary>
         private static bool Command(UnityEngine.InputSystem.Keyboard keys) =>
             keys.ctrlKey.isPressed || (Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor)
@@ -332,22 +474,30 @@ namespace BitSorter.View
         {
             if (!stepped)
                 return;
-            string was = _field.text;
+            string was = _view.Real;
             int at = 0;
             while (at < was.Length && at < _code.Text.Length && was[at] == _code.Text[at])
                 at++;
-            _field.SetTextWithoutNotify(_code.Text);
-            _field.stringPosition = at;
+            ShowUnfolded(_code.Text, at);
         }
 
         /// <summary>The lines the selection touches edited by <paramref name="edit"/> -- one step of the typing -- the selection kept on them.</summary>
         private void EditLines(System.Func<string, int, int, CodeEdit> edit)
         {
+            if (_view.Folded.Count > 0)
+            {
+                // Tab and Ctrl+/ edit whole lines: every block opened first, the selection where it was in the code.
+                int realAnchor = _view.RealOf(_field.selectionStringAnchorPosition), realFocus = _view.RealOf(_field.selectionStringFocusPosition);
+                ShowUnfolded(_view.Real, realFocus);
+                _field.selectionStringAnchorPosition = realAnchor;
+                _field.selectionStringFocusPosition = realFocus;
+            }
             int anchor = _field.selectionStringAnchorPosition, focus = _field.selectionStringFocusPosition;
             CodeEdit edited = edit(_field.text, anchor, focus);
             if (edited.Text == _field.text)
                 return;
             _code.Edit(edited.Text, Now);
+            _view = FoldedView.Of(edited.Text, null, _mark);
             _field.SetTextWithoutNotify(edited.Text);
             _field.selectionStringAnchorPosition = edited.Start;
             _field.selectionStringFocusPosition = edited.End;
@@ -365,7 +515,10 @@ namespace BitSorter.View
                 UiTheme.Defocus();
             Show(_root, code != null);
             if (code != null)
+            {
+                _view = FoldedView.Of(code.Text, null, _mark);
                 _field.SetTextWithoutNotify(code.Text);
+            }
 
             if (_browser)
             {
@@ -428,7 +581,11 @@ namespace BitSorter.View
             bool dark = palette.Ground.r * 0.2126f + palette.Ground.g * 0.7152f + palette.Ground.b * 0.0722f < 0.5f;
             return "{\"ground\":\"" + Css(palette.Ground) + "\",\"text\":\"" + Css(palette.Text) + "\",\"muted\":\"" + Css(palette.Muted)
                 + "\",\"accent\":\"" + Css(palette.Accent) + "\",\"one\":\"" + Css(palette.One) + "\",\"selection\":\"" + Css(selection)
-                + "\",\"error\":\"" + Css(palette.Unknown) + "\",\"warning\":\"" + Css(palette.Cursor) + "\",\"dark\":" + (dark ? "true" : "false") + "}";
+                + "\",\"error\":\"" + Css(palette.Unknown) + "\",\"warning\":\"" + Css(palette.Cursor)
+                // The code's own inks (5.1), the desktop's: each legible on the ground, as every word is.
+                + "\",\"keyword\":\"" + Css(palette.CodeInk(CodeKind.Keyword)) + "\",\"number\":\"" + Css(palette.CodeInk(CodeKind.Number))
+                + "\",\"comment\":\"" + Css(palette.CodeInk(CodeKind.Comment)) + "\",\"system\":\"" + Css(palette.CodeInk(CodeKind.System))
+                + "\",\"dark\":" + (dark ? "true" : "false") + "}";
         }
 
         /// <summary>The marks as CodeMirror's: JSON, lines and columns from 1.</summary>
@@ -519,19 +676,18 @@ namespace BitSorter.View
                     _browserText = _code.Text;
                 }
             }
-            else if (_field.text != _code.Text)
+            else if (!ReferenceEquals(_view.Real, _code.Text) && _view.Real != _code.Text)
             {
-                // An undo, a redo or REVERT changed the text under the field.
-                int caret = Mathf.Min(_field.stringPosition, _code.Text.Length);
-                _field.SetTextWithoutNotify(_code.Text);
-                _field.stringPosition = caret;
+                // An undo, a redo or REVERT changed the text under the field: shown whole, its folds gone with the text.
+                ShowUnfolded(_code.Text, Mathf.Min(_view.RealOf(_field.stringPosition), _code.Text.Length));
             }
 
             int lines = LineCount(_code.Text);
-            if (_code.Version != _shownVersion || lines != _shownLines)
+            if (_code.Version != _shownVersion || lines != _shownLines || !ReferenceEquals(_drawnView, _view))
             {
                 _shownVersion = _code.Version;
                 _shownLines = lines;
+                _drawnView = _view;
                 DrawMarks(lines);
                 if (_browser)
                     CodeMirrorBridge.SetMarks(MarksOf(_code.Marks));
@@ -560,7 +716,11 @@ namespace BitSorter.View
             }
 
             UiTheme.Focus(_field);
-            int at = _code.OffsetOf(line, column);
+            int real = _code.OffsetOf(line, column);
+            FoldedView showing = _view.Showing(real);   // a block folded over the place opens (5.1)
+            if (!ReferenceEquals(showing, _view))
+                Show(showing);
+            int at = _view.ShownOf(real);
             _field.stringPosition = at;
             _field.selectionStringAnchorPosition = at;
             _field.selectionStringFocusPosition = at;
@@ -608,10 +768,15 @@ namespace BitSorter.View
 
             string error = ColorUtility.ToHtmlStringRGB(_palette.Unknown), warning = ColorUtility.ToHtmlStringRGB(_palette.Cursor);
             var numbers = new StringBuilder();
-            for (int line = 1; line <= lines; line++)
+            _gutterLines = _view.RealLines();
+            var starts = new HashSet<int>();
+            foreach (CodeFold fold in _view.Folds)
+                starts.Add(fold.FirstLine);
+            for (int shown = 0; shown < _gutterLines.Length; shown++)
             {
-                if (line > 1)
+                if (shown > 0)
                     numbers.Append('\n');
+                int line = _gutterLines[shown] + 1;   // the code's own number: a folded block's lines are passed over (5.1)
                 string number = line.ToString(CultureInfo.InvariantCulture);
                 // Marked by a letter as well as a colour, and a plain one: a glyph the face lacks would come from another
                 // face, whose height could push its line out of step with the code's.
@@ -621,6 +786,11 @@ namespace BitSorter.View
                     numbers.Append("<color=#").Append(warning).Append(">! ").Append(number).Append("</color>");
                 else
                     numbers.Append(number);
+
+                // A fold's marker: - while open, + while folded, in plain letters for the same reason. A line with none takes
+                // a marker no one sees, never two spaces: the margin is right-aligned, and TextMesh Pro leaves trailing spaces
+                // out when it aligns, so "8  " stood as "8", two characters right of "7 -" (Ahmad, 2026-11-11).
+                numbers.Append(starts.Contains(line - 1) ? (_view.IsFolded(line - 1) ? " +" : " -") : UnmarkedLine);
             }
 
             WorkbenchPanel.SetText(_gutter, numbers.ToString());

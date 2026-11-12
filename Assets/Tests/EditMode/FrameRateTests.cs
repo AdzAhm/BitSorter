@@ -41,6 +41,24 @@ namespace BitSorter.EditMode.Tests
         }
 
         /// <summary>
+        /// While the workbench is idle the loop is held to twenty frames a second with vertical sync off, whatever the
+        /// settings, and they are what they set the moment it is not (5.1: every frame run was copied to a laptop's display
+        /// chip, drawn or not -- about 20% of its copy engine at a 240 cap, 2.7% at 30).
+        /// </summary>
+        [Test]
+        public void WhileIdle_TheLoopIsHeldToTwentyFramesASecond_WhateverTheSettings()
+        {
+            Assert.AreEqual(20, FrameRate.IdleRate);
+            Assert.AreEqual((0, FrameRate.IdleRate), FrameRate.SettingsFor(true, 60, idle: true), "vertical sync on");
+            Assert.AreEqual((0, FrameRate.IdleRate), FrameRate.SettingsFor(false, 240, idle: true), "a cap of 240");
+            Assert.AreEqual((0, FrameRate.IdleRate), FrameRate.SettingsFor(false, FrameRate.NoCap, idle: true), "no cap");
+            Assert.AreEqual((0, FrameRate.IdleRate), FrameRate.SettingsFor(false, 30, idle: true), "a cap of 30");
+
+            Assert.AreEqual(FrameRate.SettingsFor(true, 60), FrameRate.SettingsFor(true, 60, idle: false), "not idle: the settings");
+            Assert.AreEqual(FrameRate.SettingsFor(false, 144), FrameRate.SettingsFor(false, 144, idle: false));
+        }
+
+        /// <summary>
         /// A machine with no settings gets exactly what a desktop build does without them: the
         /// vertical sync of the quality level it starts on.
         /// </summary>

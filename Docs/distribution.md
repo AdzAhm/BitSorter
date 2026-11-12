@@ -4,15 +4,15 @@ How to publish BitSorter, and what each place needs from you.
 
 ## Where each version lives
 
-The current version is **5.0.0**, the SystemVerilog simulator. Its one source is
+The current version is **5.1.0**, the SystemVerilog simulator. Its one source is
 `bundleVersion` in `ProjectSettings/ProjectSettings.asset`: the start page's version line,
 the credits and the browser template's `productVersion` all read it, and a test holds the
 README and this file to it.
 
 | Version | Where |
 |---|---|
-| 5.0.0, in a browser | GitHub Pages, <https://adzahm.github.io/BitSorter/> |
-| 5.0.0, on Windows | A zip attached to its GitHub release |
+| 5.1.0, in a browser | GitHub Pages, <https://adzahm.github.io/BitSorter/> |
+| 5.1.0, on Windows | A zip attached to its GitHub release |
 | 4.0.0, the puzzle game | Unity Play, as it was released. It is not republished; its source is the `v4.0.0` tag |
 
 Two builds, both from menu items:
@@ -110,13 +110,16 @@ generating the 4.x game's music sample by sample stalled the first frame
 BitSorter has had no sound since Part 16b, and the player ships with audio
 disabled.
 
-### Quit — gone
+### Quit — the desktop's alone
 
 `Application.Quit()` does nothing in a browser; a tab is closed by the browser,
 not by the page. The 4.x game's main menu had a Quit item, compiled out of WebGL
-builds; it went with that menu in Part 16a, and 5.0 has no Quit item and no
-`Application.Quit` call anywhere. The Windows build is closed by its window's own
-close button -- Escape closes what is on top and never the workbench.
+builds; it went with that menu in Part 16a, and 5.0 had no Quit item at all, so
+a fullscreen Windows window could be left only with Alt+F4. 5.1 put **QUIT** at
+the status line's right end (`WorkbenchPanel.Quit.cs`), in a desktop build and
+the editor alone (`WorkbenchPanel.Quits`): it asks first, keeps the circuit and
+the code typed and not applied, then calls `Application.Quit`. A browser build
+has no QUIT, and Escape still closes what is on top and never the workbench.
 
 The circuit open is kept half a second after its last edit, and at once as
 BitSorter loses the focus (`WorkbenchPanel.OnApplicationFocus`). The Windows
@@ -148,7 +151,7 @@ last clicked:
 |---|---|---|
 | Compression format | **Brotli** | Smallest download by a wide margin |
 | Decompression fallback | **On** | See below |
-| Data caching | **On** | Returning players do not re-download the data file |
+| Data caching | **On** | Returning players do not re-download the data file -- nor, since 5.1, the code: the template's `config.cacheControl` keeps the wasm and the framework too (below) |
 | Exception support | Explicitly thrown only | Full support costs size and speed; nothing here catches engine faults |
 | Code optimization | **Disk size, with LTO** | The wasm is half the download. Lives in `Library/`, per machine, which is why the script sets it |
 | IL2CPP code generation | Optimize size | Smaller wasm, at a small cost in speed BitSorter does not need |
@@ -182,6 +185,7 @@ is not compressed. 4.0.0's was 16,931,273 bytes; Part 16 records each cut it mak
 | After the `optimize-web` pass (2026-11-03) | 7,501,966 | 3,255,925 | 11,048,901 |
 | The 5.0.0 release candidate: the 16d sweep's fixes and the folding panels (v5 `72d5c43f`, 2026-11-09) | 7,548,635 | 3,257,449 | 11,098,056 |
 | **5.0.0 as released** (`v5.0.0`, `824a969d`, 2026-11-10) | 7,544,318 | 3,306,420 | 11,142,710 |
+| **5.1.0 as released** (`v5.1.0`, 2026-11-12) | 7,561,900 | 3,310,091 | 11,166,651 |
 
 Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. Part 16b then
 took the sound out, and the two menu recordings with it, about 3.6 MB of the data; its skills took a further
@@ -193,6 +197,9 @@ The framework is 172,878 bytes of that build and the loader 118,132. From 4.0.0'
 The release candidate is 49,155 bytes over that -- 46,669 on the wasm, the code of the sweep's 183 fixes and the
 folding panels, 1,524 on the data and 962 on the framework, the loader unchanged at 118,132 -- and 5,833,217 bytes
 under 4.0.0, 34.5%.
+
+5.1.0 as released is 11,166,651 bytes, 23,941 over 5.0.0 for all sixteen of its fixes and additions -- 17,582 on
+the wasm, 3,671 on the data and 2,688 on the framework, the loader unchanged -- and 5,764,622 under 4.0.0, 34.0%.
 
 5.0.0 as released is 11,142,710 bytes, 5,788,563 under 4.0.0, 34.2%. Its data file is 48,971 bytes over the candidate's
 with nothing added: inside it the assets are byte for byte the same and the IL2CPP metadata 16 bytes longer, but IL2CPP
@@ -237,6 +244,52 @@ place, so it is on.
 
 If you ever host somewhere you control the headers, turning the fallback off and
 serving `.br` with the right `Content-Encoding` gives a faster start.
+
+### A faster launch (5.1, measured)
+
+Ahmad's item 6 for 5.1 was a faster first launch in a browser, measured before anything was changed. On Pages the
+three big files reach the loader as Brotli it unpacks in JavaScript, and the wasm cannot be compiled until all of it
+has. Two things looked worth trying: another compression, and keeping more of the build in the browser.
+
+**How it was measured** (2026-11-11, v5.1 `05b41354`). Three builds that differ only in compression -- A Brotli as
+shipped, B gzip, C none -- served by a stand-in for Pages that sends what the live site and other github.io sites
+were read to send: `.unityweb` as `application/vnd.unity` with no `Content-Encoding`; HTML, JavaScript, `.wasm`
+(`application/wasm`) and `.data` (`application/octet-stream`) gzipped by the host (three.js's `.bin` and ammo.js's
+`.wasm` on github.io come back gzipped); ETags, and `304` to a conditional request, as Pages answers one. Every run
+on an origin of its own, so nothing was cached unless the run was a return visit; one line shared by every
+connection at 30 or 10 Mbit/s with 40 ms latency, or no limit; the time from opening the page to the loader handing
+over the instance, in the desktop app's browser pane, the variants interleaved. The pages blocked every request to
+another site, so no test load sent analytics.
+
+| First visit, to the first frame | No limit | 30 Mbit/s | 10 Mbit/s |
+|---|---|---|---|
+| A, Brotli (shipped) | 2.9 s (1.0 to 3.2) | 5.5 s (4.2 to 5.7) | 11.5 s |
+| B, gzip | 2.2 s | 6.0 s | -- |
+| C, none: Pages gzips, the browser unpacks and compiles as it downloads | **0.75 s** | 5.2 s | 13.2 s |
+
+| Downloaded | A | B | C |
+|---|---|---|---|
+| wasm + data + framework | 11.0 MB | 14.0 MB | 15.0 MB (Pages' gzip) |
+
+So **C wins only on a fast line**: its 4 MB more costs 3.2 s at 10 Mbit/s and saves at most about 2 s of unpacking.
+B loses to A wherever the line is slow and to C wherever it is fast. **Brotli stays.**
+
+**The return visit was the bigger finding.** Unity's loader keeps only the data file in IndexedDB; it fetches the
+wasm and the framework with `no-store`, so every launch downloaded the 7.5 MB wasm again -- 8.7 s of a return visit
+at 10 Mbit/s. The template now asks it to keep them too (`config.cacheControl`: `must-revalidate` for the wasm, the
+framework and the data). On the next visit the loader asks Pages whether each file changed, Pages answers `304` with
+no body while it has not, and a release's new files, whose ETags differ, are fetched whole.
+
+| Return visit (A) | 30 Mbit/s | 10 Mbit/s | Downloaded |
+|---|---|---|---|
+| Before (`no-store` on the code) | about 5.5 s | 8.7 s | 7.7 MB |
+| After (`must-revalidate`) | 3.1 s | 2.9 to 3.2 s | **900 bytes** |
+
+What is left of a return visit is the loader unpacking the Brotli it kept and the wasm being compiled, about three
+seconds whatever the line. C would skip the unpacking, but its framework fetches the wasm itself and bypasses Unity's
+cache, so it could keep the code only in the browser's own HTTP cache -- which the pane did not, for a file that size --
+and that was not chosen on a guess. `BrowserLaunchTests` (Repo.Tests) holds the template to the rule. It reaches Pages
+with the 5.1.0 release; nothing was published to measure it.
 
 ---
 
@@ -350,7 +403,7 @@ was about 20 MB, before the size settings above. 5.0's is in the table under
 ## GitHub Pages
 
 Live at <https://adzahm.github.io/BitSorter/>, served from the `gh-pages` branch. It
-serves the current version, 5.0.0.
+serves the current version, 5.1.0.
 
 **Publish with BitSorter → Publish WebGL to GitHub Pages**, or run
 `Tools/publish-pages.ps1` directly. Build first; the script warns if anything under
@@ -381,7 +434,7 @@ extension tells you which mode the build is in:
 | **On** (ours) | `.unityweb` | The loader, in JavaScript |
 | Off | `.br` | The server, via `Content-Encoding` |
 
-Ours are `.unityweb`. Pages serves them as `application/octet-stream` with no
+Ours are `.unityweb`. Pages serves them as `application/vnd.unity` (read from the live site, 2026-11-11) with no
 `Content-Encoding` header — it has no way to know the bytes are Brotli — and the
 loader recognises the stream and inflates it itself. Confirmed on the real files:
 they start `6b 8d 00 55`, so Brotli, since gzip would start `1f 8b`.
@@ -472,6 +525,64 @@ The build is **unsigned**, so Windows SmartScreen warns that the publisher is no
 recognised. That is expected for an unsigned binary and is mentioned in the
 README, but tell testers directly or they will assume it is broken.
 
+### What the Windows build ships (5.1)
+
+Ahmad, 2026-11-11: "never ship things/code/libraries that are never used (make sure of that)". The Windows build had
+**managed stripping off**, so it shipped every managed library it could be given -- 150 of them -- while the browser build
+had stripped at Medium since 5.0. Since 5.1 Windows strips at Medium too (`managedStrippingLevel: Standalone: 2`), and
+`StrippingTests` (Repo.Tests) holds both targets there.
+
+| v5.1 `b84b93f5`, built 2026-11-11 | Before (stripping off) | After (Medium) |
+|---|---|---|
+| On disk | 99,312,297 bytes, 190 files | 79,484,897 bytes, 127 files |
+| Zipped (Compress-Archive, Optimal) | 37,205,820 bytes | 30,225,367 bytes |
+| Managed libraries | 150 | 87 |
+
+**Gone: 63 libraries**, none of which BitSorter reaches:
+- **the AI assistant's runtime modules**, `Unity.AI.MCP.Runtime` and `Unity.AI.Tracing`: a package for working in the
+  editor, which the player never needs;
+- **engine modules for features BitSorter has no part of**: Vehicles, Cloth, Wind, TerrainPhysics, PhysX, Umbra
+  (occlusion), Substance, VirtualTexturing, VectorGraphics, AR, GameCenter, cluster rendering, DSPGraph, ScreenCapture,
+  Localization, Streaming, ContentLoad, HotReload, the AMD and NVIDIA plug-in modules, global illumination, crash and
+  performance reporting, and the web request modules for asset bundles, audio, textures and WWW;
+- **.NET libraries nothing calls**: `System.Net.Http`, `System.Transactions`, `System.EnterpriseServices`,
+  `System.Security`, `System.IO.Compression`, `System.ComponentModel.Composition`, `System.Memory`, `netstandard` and
+  others;
+- **the render pipeline's shader-library and config assemblies**, and four Unity Services core assemblies the analytics
+  never calls.
+
+**Kept: 87 libraries**, each cut down to what is reached from BitSorter's own code, the scene, or a library that is:
+- **BitSorter's five**: SystemVerilog, Sim, Board, ViewModel and View.
+- **The runtime**: `mscorlib`, `System`, `System.Core`, `Mono.Security`, `System.Configuration`, `System.Numerics`.
+- **What draws and reads input**: the core, UI Toolkit (the shell), uGUI and TextMesh Pro (the drawings), text and
+  fonts, the Input System, URP with its 2D renderer.
+- **The analytics**: Unity Services Analytics and the core pieces it calls, and `Newtonsoft.Json`, which it uses for its
+  events. `System.Xml`, `System.Data`, `System.Drawing` and `System.Runtime.Serialization` (2.2 MB together) are most
+  likely kept by Newtonsoft.Json, which refers to them for its XML and DataSet converters; nothing of BitSorter's own uses
+  them. The analytics is the one thing that sends data anywhere (README, "What it collects"), so it stays.
+- **Small engine modules a kept library refers to**: Terrain, VR, XR, Animation, Audio, Tilemap, Physics, Particle
+  System and the rest, most of them 10 to 30 KB once stripped -- a reference from URP or uGUI to one of their types keeps
+  the module, but only the types reached.
+- **Native files the managed code cannot change**: `UnityPlayer.dll` (34 MB), the Mono runtime (`MonoBleedingEdge`,
+  8.8 MB), Unity's default resources (5.6 MB) and **DirectX 12** (`D3D12`, 4.6 MB), kept at Ahmad's choice (2026-11-11:
+  "Keep directX 12 dont change for 11").
+
+**Two things a stripped build needs, both held:**
+- **Windows' Open dialog is kept whole** (`Assets/Scripts/View/Ui/link.xml`). It reaches the Common Item Dialog through
+  COM interop, and COM calls an interface's methods by their place in it: a method stripped as unused would shift every
+  one after it, and IMPORT would call the wrong one with nothing to say so. The file keeps every COM type and the struct
+  marshalled to it, and `StrippingTests` holds it to the types the code declares. The stripped `BitSorter.View.dll` was
+  compared with the unstripped one: all five types have the same members, in the same order.
+- **No debug symbols** (`WindowsBuild.TidyUp`). Stripping writes a `.pdb` beside every library it strips, 75 files and
+  4.2 MB, which only put line numbers in a stack trace in the player's log; the build deletes them, as it deletes
+  Unity's `_DoNotShip` folder, and ships none, as it did before stripping.
+
+The browser build's code is the same and has stripped at Medium in production since 5.0, so what every build shares
+was already proven stripped; what this changed is the Windows-only code -- the Open dialog, fullscreen, the Import
+folder, opening a folder in Explorer, QUIT -- which Ahmad smoke-tests on the build, since a Claude session never launches
+it on the real save.
+
+
 ---
 
 ## GitHub Releases
@@ -485,10 +596,10 @@ release exists and is marked latest.
 ### The zip
 
 Zip `Build/Windows/` **inside a containing folder**, so unzipping produces one
-`BitSorter/` folder rather than 185 loose files in someone's Downloads:
+`BitSorter/` folder rather than 127 loose files (190 before 5.1 stripped the code) in someone's Downloads:
 
 ```text
-BitSorter-5.0.0-Windows.zip
+BitSorter-5.1.0-Windows.zip
 └── BitSorter/
     ├── BitSorter.exe
     ├── BitSorter_Data/
@@ -501,7 +612,9 @@ BitSorter-5.0.0-Windows.zip
 **This is the opposite of what itch.io wants**, above, where `index.html` has to be
 at the archive root with no containing folder. Same project, two archives, opposite
 rule. Around 40 MB compressed, from 104 MB on disk (4.0.0). The 5.0.0 release candidate (v5 `72d5c43f`,
-2026-11-09) is 38,155,881 bytes zipped, from 99,282,083 on disk in 190 files; 5.0.0 as released, 38,156,003.
+2026-11-09) is 38,155,881 bytes zipped, from 99,282,083 on disk in 190 files; 5.0.0 as released, 38,156,003. 5.1
+strips the Windows build's code (above): 79,484,897 bytes on disk in 127 files. 5.1.0 as released is 30,070,385
+bytes zipped, from 79,493,601 on disk in 127 files.
 
 `Build/` is gitignored, so the zip can sit next to the build without any risk of
 being committed.
@@ -516,8 +629,8 @@ A release is three things bolted together: **a tag** naming one commit forever,
 **notes**, and **attached files**. The tag is the part that gets skipped.
 
 ```powershell
-git tag -a v5.0.0 -m "BitSorter 5.0.0: a SystemVerilog simulator for the course"
-git push origin v5.0.0
+git tag -a v5.1.0 -m "BitSorter 5.1.0: code on every circuit, values at any zoom, a lighter Windows build"
+git push origin v5.1.0
 ```
 
 `-a` makes it annotated, so it stores an author and a date as a real object; a bare
