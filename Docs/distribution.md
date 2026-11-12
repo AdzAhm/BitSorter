@@ -185,6 +185,7 @@ is not compressed. 4.0.0's was 16,931,273 bytes; Part 16 records each cut it mak
 | After the `optimize-web` pass (2026-11-03) | 7,501,966 | 3,255,925 | 11,048,901 |
 | The 5.0.0 release candidate: the 16d sweep's fixes and the folding panels (v5 `72d5c43f`, 2026-11-09) | 7,548,635 | 3,257,449 | 11,098,056 |
 | **5.0.0 as released** (`v5.0.0`, `824a969d`, 2026-11-10) | 7,544,318 | 3,306,420 | 11,142,710 |
+| **5.1.0 as released** (`v5.1.0`, 2026-11-12) | 7,561,900 | 3,310,091 | 11,166,651 |
 
 Deleting the game took 302,134 bytes off the wasm and 113,838 off the data, 2.7% of the download. Part 16b then
 took the sound out, and the two menu recordings with it, about 3.6 MB of the data; its skills took a further
@@ -196,6 +197,9 @@ The framework is 172,878 bytes of that build and the loader 118,132. From 4.0.0'
 The release candidate is 49,155 bytes over that -- 46,669 on the wasm, the code of the sweep's 183 fixes and the
 folding panels, 1,524 on the data and 962 on the framework, the loader unchanged at 118,132 -- and 5,833,217 bytes
 under 4.0.0, 34.5%.
+
+5.1.0 as released is 11,166,651 bytes, 23,941 over 5.0.0 for all sixteen of its fixes and additions -- 17,582 on
+the wasm, 3,671 on the data and 2,688 on the framework, the loader unchanged -- and 5,764,622 under 4.0.0, 34.0%.
 
 5.0.0 as released is 11,142,710 bytes, 5,788,563 under 4.0.0, 34.2%. Its data file is 48,971 bytes over the candidate's
 with nothing added: inside it the assets are byte for byte the same and the IL2CPP metadata 16 bytes longer, but IL2CPP

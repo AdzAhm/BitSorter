@@ -92,7 +92,7 @@ It runs **in a browser**, on GitHub Pages with nothing to install, and **on Wind
 ## Downloads
 | | Size |
 |---|---|
-| In a browser (GitHub Pages) | BROWSER_SIZE |
+| In a browser (GitHub Pages) | 11.2 MB on a first visit, as 5.0.0's 11.1; a return visit downloads under a kilobyte while nothing has changed |
 | Windows (the zip below) | 30.1 MB zipped, 79.5 MB unzipped; unzip it and run `BitSorter/BitSorter.exe` |
 
 Nothing about your circuits is ever sent anywhere. The one thing BitSorter reports is which Exercise is opened and
